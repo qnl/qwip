@@ -63,14 +63,22 @@ def test_get_set(nested_parameters):
     assert p['fridge/name'] == 'snowball'
     assert p['/fridge/location/'] == 'Campbell'
 
+    with pytest.raises(AttributeError):
+        p['num_readouts']
+
+    # Setters
     p['qubits/0/name'] = 'Q0'
     assert p['qubits'][0].name == 'Q0'
 
     p['qubits/1/pulses/0'] = 'Y'
-
     for actual, expected in zip(p['qubits/1/pulses'], ['Y', 'Y', 'Z']):
         assert actual == expected
-    
+
+    with pytest.raises(AttributeError):
+        p['fridge/location/shielded_room'] = True
+
+    with pytest.raises(TypeError):
+        p['num_qubits/nested/property'] = False
 
 def test_delete(nested_parameters):
     p = nested_parameters
