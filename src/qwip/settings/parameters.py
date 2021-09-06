@@ -66,6 +66,9 @@ class Parameters(MutableMapping, dict): # type:ignore
 
         subgroup = self
         for i, subkey in enumerate(keys[:-1]):
+            base = keys[i]
+            remainder = keys[i+1:]
+
             if isinstance(subgroup, list):
                 subgroup = subgroup[int(subkey)]
             elif isinstance(subgroup, Parameters):
@@ -74,23 +77,23 @@ class Parameters(MutableMapping, dict): # type:ignore
                 else:
                     break
             else:
-                remainder = keys[i:].join(self._delim)
                 raise TypeError(
-                    f'Cannot assign key {remainder} to base {subgroup} of type {type(subgroup).__name__}.'
+                    f'Cannot assign key {base + self._delim + remainder} to base {subgroup} of type {type(subgroup).__name__}.'
                 )
-        
-        remaining_keys = keys[i+1:]
-        base = remaining_keys[0]
-        key = self._delim.join(remaining_keys[1:])
-
-        if len(remaining_keys) == 1: # finished for loop
+        else: # Finished for loop
+            base = remainder[0]
             base = int(base) if isinstance(subgroup, list) else base
             if isinstance(subgroup, (list, Parameters)):
                 subgroup.__setitem__(base, val)
             else:
                 setattr(subgroup, base, val)
-        else: # need to create parameters
-            subgroup.__setitem__(base, Parameters({key: val}))
+
+            return
+        
+        # need to create parameters
+        base = remainder[0]
+        key = self._delim.join(remainder[1:])
+        subgroup.__setitem__(base, Parameters({key: val}))
 
     def __getitem__(self, key):
         key = key.strip(self._delim).split(self._delim)
