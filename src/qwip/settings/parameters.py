@@ -1,4 +1,6 @@
-from collections.abc import MutableMapping, KeysView, ValuesView, ItemsView
+from collections.abc import MutableMapping, Collection, KeysView, ValuesView, ItemsView
+from copy import deepcopy
+from contextlib import contextmanager
 
 class FlatKeysView(KeysView):
     def __iter__(self):
@@ -25,9 +27,8 @@ class FlatItemsView(ItemsView):
 
 class Parameters(MutableMapping, dict): # type:ignore
     """
-    A dictionary object that supports key chaining.
+    A dictionary object that supports key chaining and attribute access.
     """
-
     _delim: str = '/'
 
     def  __init__(self, *args, **kwargs):
@@ -35,37 +36,60 @@ class Parameters(MutableMapping, dict): # type:ignore
 
     def __setattr__(self, name, value):
         if isinstance(value, dict):
-            value = self.__class__(value)
+            new_value = self.__class__()
+            new_value.update(value)
+            value = new_value
 
         object.__setattr__(self, name, value)
 
     def __setitem__(self, key, val):
+        key = key.strip(self._delim)
         if isinstance(val, dict):
-            val = self.__class__(val)
+            new_val = self.__class__()
+            new_val.update(val)
+            val = new_val
         
         if isinstance(key, str) and self._delim in key:
             base, subkey = key.split(self._delim, maxsplit=1)
 
             if base not in self:
-                setattr(self, base, self.__class__({subkey:val}))
-            elif not isinstance(self.__getitem__(base), Parameters):
+                new_val = self.__class__()
+                new_val.update({subkey:val})
+                setattr(self, base, new_val)
+            elif isinstance(self.__getitem__(base), Parameters):
+                self.__getitem__(base).__setitem__(subkey, val)
+            elif isinstance(self.__getitem__(base), list):
+                subkey = subkey.split(self._delim, maxsplit=1)
+
+                if len(subkey) > 1:
+                    nextbase = self.__getitem__(base).__getitem__(int(subkey[0]))
+                    nextbase.__setitem__(subkey[1], val)
+                else:
+                    self.__getitem__(base).__setitem__(int(subkey[0]), val)
+            else:
                 baseval = self.__getitem__(base)
                 raise TypeError(
                     f'Cannot assign subkey {subkey} to base {base} of type {type(baseval)}.'
                 )
-            else:
-                self.__getitem__(base).__setitem__(subkey, val)
         elif isinstance(val, list):
-            val = [self.__class__(e) if isinstance(e, dict) else e for e in val]
+            new_val = []
+            for e in val:
+                new_val.append(self.__class__() if isinstance(e, dict) else e)
+                if hasattr(new_val[-1], 'update'):
+                    new_val[-1].update(e)
+            val = new_val
             setattr(self, key, val)
         else:
             setattr(self, key, val)
 
     def __getitem__(self, key):
-        key = key.split(self._delim) if isinstance(key, str) else [key]
+        key = key.strip(self._delim).split(self._delim)
         val = self
         for subkey in key:
-            val = getattr(val, subkey)
+            if isinstance(val, list):
+                val = val[int(subkey)]
+            else:
+                val = getattr(val, subkey)
         return val
 
     def __delitem__(self, key):
@@ -75,7 +99,7 @@ class Parameters(MutableMapping, dict): # type:ignore
         for subkey in key[:-1]:
             val = getattr(val, subkey)
         
-        delattr(self, val, key[-1])
+        delattr(val, key[-1])
 
     def __iter__(self):
         yield from self.__dict__.__iter__()
@@ -85,9 +109,18 @@ class Parameters(MutableMapping, dict): # type:ignore
 
     def __flatiter__(self, base=None):
         for k, v in self.items():
-            if isinstance(v, Parameters) and v:
+            if hasattr(v, '__flatiter__') and v:
                 next_base = k if base is None else  f'{base}{self._delim}{k}'
                 yield from v.__flatiter__(base=next_base)
+            elif isinstance(v, list) and v:
+                for i, next_v in enumerate(v):
+                    if hasattr(next_v, '__flatiter__') and next_v:
+                        next_base = f'{k}{self._delim}{i}'
+                        if base:
+                            next_base = base + self._delim + next_base
+                        yield from next_v.__flatiter__(base=next_base)
+                    else:
+                        yield f'{k}{self._delim}{i}' if base is None else f'{base}{self._delim}{k}{self._delim}{i}'
             else:
                 yield k if base is None else f'{base}{self._delim}{k}' 
 
@@ -147,3 +180,19 @@ class Parameters(MutableMapping, dict): # type:ignore
             dict: The flattened `Parameters`.
         """
         return {k: v for k, v in self.flatitems()}
+
+    def copy(self):
+        """Returns a deep copy of the parameters object"""
+        return deepcopy(self)
+    
+    @contextmanager
+    def context(self, settings=None, validate=True):
+        """Context manager for temporarily changing parameters.
+        """
+        orig = self.copy()
+        try:
+            if settings:
+                self.update(settings)
+            yield
+        finally:
+            self.update(orig)
