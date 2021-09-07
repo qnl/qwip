@@ -1,36 +1,14 @@
-from collections.abc import MutableMapping, Collection, KeysView, ValuesView, ItemsView
+"""A module for implementing a Parameters object."""
+
+from collections.abc import Mapping, MutableMapping, KeysView, ValuesView, ItemsView
 from copy import deepcopy
 from contextlib import contextmanager
-from typing import Mapping
 
-class FlatKeysView(KeysView):
-    def __iter__(self):
-        yield from type(self._mapping).__flatiter__(self._mapping)
-    
-    def __repr__(self):
-        return f'{self.__class__.__name__}({list(self.__iter__())}))'
-        
-class FlatValuesView(ValuesView):
-    def __iter__(self):
-        for key in self._mapping.flatkeys():
-            yield self._mapping[key]
-    
-    def __repr__(self):
-        return f'{self.__class__.__name__}({list(self.__iter__())})'
-        
-class FlatItemsView(ItemsView):
-    def __iter__(self):
-        for key in self._mapping.flatkeys():
-            yield (key, self._mapping[key])
+from qwip.settings.base import FlatMapping, FlatKeysView, FlatValuesView, FlatItemsView
 
-    def __repr__(self):
-        return f'{self.__class__.__name__}({list(self.__iter__())})'
-
-class Parameters(MutableMapping, dict): # type:ignore
+class Parameters(FlatMapping, MutableMapping, dict): # type:ignore
+    """A dictionary object that supports key chaining and attribute access.
     """
-    A dictionary object that supports key chaining and attribute access.
-    """
-    _delim: str = '/'
 
     def  __init__(self, *args, **kwargs):
         self.update(*args, **kwargs)
@@ -53,7 +31,7 @@ class Parameters(MutableMapping, dict): # type:ignore
 
         keys = key.strip(self._delim).split(self._delim)
 
-        if isinstance(val, Mapping) and not isinstance(val, Parameters):
+        if isinstance(val, Mapping) and not isinstance(val, FlatMapping):
             new_val = self.__class__()
             new_val.update(val)
             val = new_val
@@ -66,24 +44,23 @@ class Parameters(MutableMapping, dict): # type:ignore
 
         subgroup = self
         for i, subkey in enumerate(keys[:-1]):
-            base = keys[i]
             remainder = keys[i+1:]
+            base = remainder[0]
 
             if isinstance(subgroup, list):
                 subgroup = subgroup[int(subkey)]
-            elif isinstance(subgroup, Parameters):
+            elif isinstance(subgroup, FlatMapping):
                 if subkey in subgroup:
                     subgroup = getattr(subgroup, subkey)
                 else:
                     break
             else:
                 raise TypeError(
-                    f'Cannot assign key {base + self._delim + remainder} to base {subgroup} of type {type(subgroup).__name__}.'
+                    f'Cannot assign key {keys[i] + self._delim + remainder} to base {subgroup} of type {type(subgroup).__name__}.'
                 )
         else: # Finished for loop
-            base = remainder[0]
             base = int(base) if isinstance(subgroup, list) else base
-            if isinstance(subgroup, (list, Parameters)):
+            if isinstance(subgroup, (list, FlatMapping)):
                 subgroup.__setitem__(base, val)
             else:
                 setattr(subgroup, base, val)
@@ -91,19 +68,8 @@ class Parameters(MutableMapping, dict): # type:ignore
             return
         
         # need to create parameters
-        base = remainder[0]
         key = self._delim.join(remainder[1:])
         subgroup.__setitem__(base, Parameters({key: val}))
-
-    def __getitem__(self, key):
-        key = key.strip(self._delim).split(self._delim)
-        val = self
-        for subkey in key:
-            if isinstance(val, list):
-                val = val[int(subkey)]
-            else:
-                val = getattr(val, subkey)
-        return val
 
     def __delitem__(self, key):
         key = key.split(self._delim) if isinstance(key, str) else [key]
@@ -208,8 +174,7 @@ class Parameters(MutableMapping, dict): # type:ignore
     
     @contextmanager
     def context(self, settings=None, validate=True):
-        """Context manager for temporarily changing parameters.
-        """
+        """Context manager for temporarily changing parameters."""
         orig = self.copy()
         try:
             if settings:

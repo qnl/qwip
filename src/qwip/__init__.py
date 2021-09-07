@@ -2,7 +2,6 @@
 
 A python library for running experiments with superconducting quantum devices.
 """
-
 try:
     from importlib.metadata import version, PackageNotFoundError # type:ignore
 except ImportError:
