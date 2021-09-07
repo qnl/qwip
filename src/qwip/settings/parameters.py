@@ -86,72 +86,6 @@ class Parameters(FlatMapping, MutableMapping, dict): # type:ignore
     def __len__(self):
         return self.__dict__.__len__()
 
-    def __flatiter__(self, base=None):
-        def flat_enumerate(maybe_lst, index=()):
-            if isinstance(maybe_lst, list):
-                for i, next in enumerate(maybe_lst):
-                    yield from flat_enumerate(next, index=(*index, i))
-            else:
-                yield index, maybe_lst
-
-        for k, v in self.items():
-            if hasattr(v, '__flatiter__') and v:
-                next_base = k if base is None else  f'{base}{self._delim}{k}'
-                yield from v.__flatiter__(base=next_base)
-            elif isinstance(v, list) and v:
-                for idx, next_v in flat_enumerate(v):
-                    listkey = self._delim.join(str(i) for i in idx)
-                    if hasattr(next_v, '__flatiter__') and next_v:
-                        next_base = f'{k}{self._delim}{listkey}'
-                        if base:
-                            next_base = base + listkey + next_base
-                        yield from next_v.__flatiter__(base=next_base)
-                    else:
-                        yield f'{k}{self._delim}{listkey}' if base is None else f'{base}{self._delim}{k}{self._delim}{listkey}'
-            else:
-                yield k if base is None else f'{base}{self._delim}{k}' 
-
-    def _repr_html_(self):
-        return (
-            '<table style="min-width:200px">\n'
-            '<thead><th>Key</th><th>Value</thead>'
-            + '\n'.join([f'<tr><td>{k}</td><td>{v}</td></tr>' for k, v in self.flatitems()])
-            + '</table>'
-        )
-
-    def flatkeys(self):
-        """Returns a `View` of flattened keys.
-
-        Nested `Parameters` are flattened and keys joined with a `'.'`.
-
-        Returns:
-            FlatKeysView: An iterator that returns all flattened keys in the
-                `Parameters` object.
-        """
-        return FlatKeysView(self)
-    
-    def flatvalues(self):
-        """Returns a `View` of flattened values.
-
-        All `Parameters` objects contained within this object are iterated over
-
-        Returns:
-            FlatValuesView: An iterator that returns all values in the `Parameters`
-                object, including values in nested `Parameters`.
-        """
-        return FlatValuesView(self)
-    
-    def flatitems(self):
-        """Returns a `View` of flattened items.
-
-        Nested `Parameters` are flattened and keys joined with a `'.'`.
-
-        Returns:
-            FlatItemsView: An iterator that returns a tuple of `(flatkey, val)`
-                for all values in the `Parameters` object.
-        """
-        return FlatItemsView(self)
-    
     def todict(self):
         """Recursively converts the `Parameters` object to a dictionary.
 
@@ -167,10 +101,6 @@ class Parameters(FlatMapping, MutableMapping, dict): # type:ignore
             dict: The flattened `Parameters`.
         """
         return {k: v for k, v in self.flatitems()}
-
-    def copy(self):
-        """Returns a deep copy of the parameters object"""
-        return deepcopy(self)
     
     @contextmanager
     def context(self, settings=None, validate=True):
