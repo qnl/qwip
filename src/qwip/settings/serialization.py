@@ -15,16 +15,15 @@ from qwip.settings.parameters import Parameters
 
 @singledispatch
 def structure(field_type, field):
-    logger.warning(f'No registered structure method for {field.name},{field_type}')
+    logger.warning(
+        f'No registered structure method for {field.name} of type {type(field_type).__name__}')
     return None
 
 @structure.register(bool)
 @structure.register(str)
 @structure.register(Number)
 def _(field_type, field):
-    def _structure(literal):
-        return literal
-    return _structure
+    return None
 
 @structure.register
 def _(field_type: Enum, field):
@@ -33,28 +32,14 @@ def _(field_type: Enum, field):
     return _structure
 
 @structure.register
-def _(field_type: Date, field):
-    def _structure(maybe_str):
-        if isinstance(maybe_str, str):
-            return pendulum.parse(maybe_str).date()
-        else:
-            return maybe_str
-    return _structure
-
-@structure.register
 def _(field_type: list, field):
     element_type = get_args(field.type)[0]
     structure_element = structure(element_type, field)
     def _structure(lst):
         for i, element in enumerate(lst):
-            lst[i] = structure_element(element) # pylint: disable=not-callable
+            if structure_element:
+                lst[i] = structure_element(element) # pylint: disable=not-callable
         return lst
-    return _structure
-
-@structure.register
-def _(field_type: SettingsBase, field):
-    def _structure(maybe_dict):
-        return field_type(**maybe_dict)
     return _structure
 
 @structure.register
@@ -64,9 +49,27 @@ def _(field_type: Mapping, field):
     def _structure(d):
         if isinstance(d, Parameters):
             for k, v in d.items():
-                d[k] = structure_value(v) # pylint: disable=not-callable
+                if structure_value:
+                    d[k] = structure_value(v) # pylint: disable=not-callable
             return d
-        return Parameters({k: structure_value(v) for k, v in d.items()}) # pylint: disable=not-callable
+        return Parameters({
+            k: structure_value(v) if structure_value else v for k, v in d.items() # pylint: disable=not-callable
+        })
+    return _structure
+
+@structure.register
+def _(field_type: SettingsBase, field):
+    def _structure(maybe_dict):
+        return field_type(**maybe_dict)
+    return _structure
+
+@structure.register
+def _(field_type: Date, field):
+    def _structure(maybe_str):
+        if isinstance(maybe_str, str):
+            return pendulum.parse(maybe_str).date()
+        else:
+            return maybe_str
     return _structure
 
 def add_type_converters(cls, fields):
