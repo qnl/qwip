@@ -1,6 +1,8 @@
 import attr
 import pendulum
 
+import numpy as np
+
 from loguru import logger
 
 from pendulum import Date
@@ -70,6 +72,15 @@ def _(field_type: Date, field):
             return pendulum.parse(maybe_str).date()
         else:
             return maybe_str
+    return _structure
+
+@structure.register
+def _(field_type:np.ndarray, field):
+    def _structure(maybe_ndarray):
+        if isinstance(maybe_ndarray, np.ndarray):
+            return maybe_ndarray
+        else:
+            return np.array(maybe_ndarray)
     return _structure
 
 def add_type_converters(cls, fields):
