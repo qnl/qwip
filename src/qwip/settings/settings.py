@@ -29,6 +29,16 @@ qwip_attrs = functools.partial(
     on_setattr=attr.setters.validate
 )
 
+@contextmanager
+def disable_validation():
+    """Context manager for temporarily disabling validation on all attrs classes."""
+    try:
+        attr.set_run_validators(False)
+        yield
+    finally:
+        attr.set_run_validators(True)
+
+danger = disable_validation
 
 @qwip_attrs(auto_attribs=False) # pylint: disable=redundant-keyword-arg
 class Settings(SettingsBase):
@@ -86,6 +96,9 @@ class Settings(SettingsBase):
 
         for key, value in kwargs.items():
             _update(key, value)
+
+    def validate(self):
+        attr.validate(self)
     
     @contextmanager
     def context(self, settings=None, validate=True):
