@@ -43,9 +43,10 @@ class Parameters(FlatMapping, MutableMapping, dict): # type:ignore
             return
 
         subgroup = self
+        remainder = keys
         for i, subkey in enumerate(keys[:-1]):
-            remainder = keys[i+1:]
             base = remainder[0]
+            remainder = keys[i+1:]
 
             if isinstance(subgroup, list):
                 subgroup = subgroup[int(subkey)]
@@ -59,6 +60,7 @@ class Parameters(FlatMapping, MutableMapping, dict): # type:ignore
                     f'Cannot assign key {keys[i] + self._delim + remainder} to base {subgroup} of type {type(subgroup).__name__}.'
                 )
         else: # Finished for loop
+            base = remainder[0]
             base = int(base) if isinstance(subgroup, list) else base
             if isinstance(subgroup, (list, FlatMapping)):
                 subgroup.__setitem__(base, val)
@@ -68,7 +70,7 @@ class Parameters(FlatMapping, MutableMapping, dict): # type:ignore
             return
         
         # need to create parameters
-        key = self._delim.join(remainder[1:])
+        key = self._delim.join(remainder)
         subgroup.__setitem__(base, Parameters({key: val}))
 
     def __delitem__(self, key):

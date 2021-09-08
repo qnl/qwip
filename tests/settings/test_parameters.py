@@ -67,6 +67,12 @@ def test_get_set(nested_parameters):
         p['num_readouts']
 
     # Setters
+    p['new'] = 1
+    assert p['new'] == 1
+
+    p['nested/new'] = 2
+    assert p['nested/new'] == 2
+
     p['qubits/0/name'] = 'Q0'
     assert p['qubits'][0].name == 'Q0'
 

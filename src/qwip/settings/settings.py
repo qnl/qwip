@@ -50,9 +50,10 @@ class Settings(SettingsBase):
             setattr(self, keys[0], val)
         else:
             subgroup = self
+            remainder = keys
             for i, subkey in enumerate(keys[:-1]):
-                remainder = keys[i+1:]
                 base = remainder[0]
+                remainder = keys[i+1:]
 
                 if isinstance(subgroup, list):
                     subgroup = subgroup[int(subkey)]
@@ -62,6 +63,7 @@ class Settings(SettingsBase):
                     else:
                         break
             else:
+                base = remainder[0]
                 base = int(base) if isinstance(subgroup, list) else base
 
                 if isinstance(subgroup, (list, Settings, Parameters)):
@@ -71,7 +73,7 @@ class Settings(SettingsBase):
 
                 return
 
-            key = self._delim.join(remainder[1:])
+            key = self._delim.join(remainder)
             setattr(subgroup, base, Parameters({key: val}))
 
     def update(self, *args, **kwargs):
@@ -117,6 +119,9 @@ class Settings(SettingsBase):
 
     def toparameter(self):
         return Parameters(self.todict())
+
+    def get_keys(self, *args, keys=[]):
+        return Parameters(super().get_keys(*args, keys=keys))
 
     @classmethod
     def fromdict(cls, d):

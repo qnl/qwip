@@ -52,6 +52,14 @@ class FlatMapping(Mapping):
     def __len__(self):
         return self.__slots__.__len__()
 
+    def __contains__(self, key):
+        try:
+            self[key]
+        except (KeyError, AttributeError):
+            return False
+        else:
+            return True
+
     def __flatiter__(self, base=None):
         def flat_enumerate(maybe_lst, index=()):
             if isinstance(maybe_lst, list):
@@ -76,6 +84,9 @@ class FlatMapping(Mapping):
                         yield f'{k}{self._delim}{listkey}' if base is None else f'{base}{self._delim}{k}{self._delim}{listkey}'
             else:
                 yield k if base is None else f'{base}{self._delim}{k}'
+
+    def __repr__(self):
+        return '{' + ', '.join([f'{repr(k)}: {repr(v)}' for k, v in self.items()]) + '}' 
     
     def flatkeys(self):
         """Returns a `View` of flattened keys.
@@ -121,6 +132,13 @@ class FlatMapping(Mapping):
             + '\n'.join([f'<tr><td>{k}</td><td>{v}</td></tr>' for k, v in self.flatitems()])
             + '</table>'
         )
+
+    def get_keys(self, *args, keys=[]):
+        subset = {}
+        subset.update({key: self[key] for key in args})
+        subset.update({key: self[key] for key in keys})
+
+        return subset
 
 class SettingsBase(FlatMapping):
     __slots__ = tuple()
