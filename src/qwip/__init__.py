@@ -13,7 +13,7 @@ except PackageNotFoundError:
     __version__ = ''
 
 
-from qwip.qsettings import default_qsettings
+from qwip._qsettings import default_qsettings
 
 qsettings = default_qsettings()
 """The global QWiP Settings object"""
