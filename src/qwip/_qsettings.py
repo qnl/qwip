@@ -1,9 +1,9 @@
 from attr import attrib, attrs
 
 from qwip._defaults import qwip_defaults
-from qwip.settings.settings import Settings, qwip_attrs
+from qwip.settings.settings import Settings, qattrs
 
-@qwip_attrs
+@qattrs
 class DefaultSettings(Settings):
     def reset(self, *keys):
         """Resets the given parameters to their default values."""
@@ -15,14 +15,14 @@ class DefaultSettings(Settings):
         if len(keys) == 0:
             self.update(defaults)
 
-@qwip_attrs
+@qattrs
 class DataSettings(Settings):
     base_directory: str
     directory_rule: str
     directory_exist_ok: bool
     date_fmt: str
 
-@qwip_attrs
+@qattrs
 class QWiPSettings(DefaultSettings):
     """A settings class for global library settings."""
     data: DataSettings

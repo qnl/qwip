@@ -1,29 +1,29 @@
 from attr import attrib
 from attr.validators import instance_of, in_, deep_iterable, deep_mapping
 from enum import Enum
-from typing import Type, List, Dict
+from typing import Type, List, Dict, Any
 
 from pendulum import Date, DateTime, instance
 
 from qwip.settings.settings import (
-    Settings, qwip_attrs
+    Settings, qattrs
 )
 
 from qwip.settings.parameters import Parameters
 
-@qwip_attrs
+@qattrs
 class DataSettings(Settings):
     datadir : str = attrib(validator=instance_of(str))
     datetime_fmt : str = attrib(validator=instance_of(str))
 
-@qwip_attrs
+@qattrs
 class QWiPSettings(Settings):
     num : int = attrib(default=0, validator=instance_of(int))
     data : DataSettings = attrib(validator=instance_of(DataSettings))
 
-@qwip_attrs
+@qattrs
 class QNLSettings(Settings):
-    @qwip_attrs
+    @qattrs
     class Researcher(Settings):
         class Position(Enum):
             PI = "Principal Investigator"
@@ -35,14 +35,14 @@ class QNLSettings(Settings):
         position: Position = attrib()
         tenure: int = attrib()
     
-    @qwip_attrs
+    @qattrs
     class Fridge(Settings):
         name: str = attrib()
         install_date: Date = attrib()
 
-    @qwip_attrs
+    @qattrs
     class Science(Settings):
-        @qwip_attrs
+        @qattrs
         class ResearchArea(Settings):
             field: str = attrib()
             subfield: str = attrib()

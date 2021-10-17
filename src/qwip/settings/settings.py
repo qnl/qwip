@@ -20,7 +20,7 @@ def qwip_field_transform(cls, fields):
     fields = add_type_validators(cls, fields)
     return fields
 
-qwip_attrs = functools.partial(
+qattrs = functools.partial(
     attrs,
     auto_attribs=True,
     kw_only=True,
@@ -40,7 +40,7 @@ def disable_validation():
 
 danger = disable_validation
 
-@qwip_attrs(auto_attribs=False) # pylint: disable=redundant-keyword-arg
+@qattrs(auto_attribs=False) # pylint: disable=redundant-keyword-arg
 class Settings(SettingsBase):
 
     def __setitem__(self, key, val):
