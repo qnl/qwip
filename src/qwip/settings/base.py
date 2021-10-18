@@ -35,13 +35,16 @@ class FlatMapping(Mapping):
     _delim: str = '/'
 
     def __getitem__(self, key):
-        key = key.strip(self._delim).split(self._delim)
+        key = self.split(self.strip(key))
         val = self
         for subkey in key:
             if isinstance(val, list):
                 val = val[int(subkey)]
             else:
-                val = getattr(val, subkey)
+                try:
+                    val = getattr(val, subkey)
+                except AttributeError as e:
+                    raise KeyError(str(e).rsplit(' ', maxsplit=1)[-1].strip('\'')) from AttributeError
         return val
 
     def __iter__(self):
@@ -63,8 +66,8 @@ class FlatMapping(Mapping):
     def __flatiter__(self, base=None):
         def flat_enumerate(maybe_lst, index=()):
             if isinstance(maybe_lst, list):
-                for i, next in enumerate(maybe_lst):
-                    yield from flat_enumerate(next, index=(*index, i))
+                for i, nxt in enumerate(maybe_lst):
+                    yield from flat_enumerate(nxt, index=(*index, i))
             else:
                 yield index, maybe_lst
 
@@ -139,6 +142,15 @@ class FlatMapping(Mapping):
         subset.update({key: self[key] for key in keys})
 
         return subset
+
+    def strip(self, key):
+        return key.strip(self._delim)
+
+    def split(self, key):
+        return key.split(self._delim)
+
+    def rsplit(self, key, maxsplit=-1):
+        return key.rsplit(self._delim, maxsplit)
 
 class SettingsBase(FlatMapping):
     __slots__ = tuple()

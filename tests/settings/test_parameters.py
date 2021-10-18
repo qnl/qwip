@@ -63,7 +63,7 @@ def test_get_set(nested_parameters):
     assert p['fridge/name'] == 'snowball'
     assert p['/fridge/location/'] == 'Campbell'
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         p['num_readouts']
 
     # Setters
@@ -80,7 +80,10 @@ def test_get_set(nested_parameters):
     for actual, expected in zip(p['qubits/1/pulses'], ['Y', 'Y', 'Z']):
         assert actual == expected
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
+        p['fridge/location/shielded_room']
+
+    with pytest.raises(TypeError):
         p['fridge/location/shielded_room'] = True
 
     with pytest.raises(TypeError):
@@ -91,7 +94,7 @@ def test_delete(nested_parameters):
 
     del p['fridge']
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         p['fridge']
 
 def test_context(nested_parameters):
@@ -106,11 +109,11 @@ def test_context(nested_parameters):
     with p.context(settings={'fridge': {'temperature': 10}}):
         assert p['fridge/temperature'] == 10
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(KeyError):
             p['fridge/name']
 
     assert p['fridge/name'] == 'snowball'
-    with pytest.raises(AttributeError):
+    with pytest.raises(KeyError):
         p['fridge/temperature']
 
 def test_iter(nested_dict, nested_parameters, flattened_keys):

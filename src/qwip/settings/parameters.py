@@ -65,7 +65,12 @@ class Parameters(FlatMapping, MutableMapping, dict): # type:ignore
             if isinstance(subgroup, (list, FlatMapping)):
                 subgroup.__setitem__(base, val)
             else:
-                setattr(subgroup, base, val)
+                try:
+                    setattr(subgroup, base, val)
+                except AttributeError as e:
+                    raise TypeError(
+                        f'Cannot assign key {base} to base {repr(subgroup)} of type {type(subgroup).__name__}'
+                    ) from e
 
             return
         
