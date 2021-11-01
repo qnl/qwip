@@ -144,7 +144,7 @@ def _(field_type, field):
         if isinstance(maybe_ndarray, np.ndarray):
             return maybe_ndarray
         else:
-            return np.array(maybe_ndarray, dtype=field.metadata['dtype'])
+            return np.array(maybe_ndarray, dtype=field.metadata.get('dtype', None))
     return _structure
 
 def add_type_converters(cls, fields):
