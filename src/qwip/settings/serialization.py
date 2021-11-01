@@ -1,16 +1,16 @@
-import attr
-import pendulum
-
-import numpy as np
-
-from loguru import logger
+"""Serializers for settings."""
 
 from functools import singledispatch, update_wrapper
-
-from pendulum import Date
 from enum import Enum
 from collections.abc import Mapping
 from numbers import Number
+from typing import Union
+
+import attr
+import pendulum
+import numpy as np
+
+from loguru import logger
 
 from qwip.settings.base import SettingsBase
 from qwip.settings.typing import get_origin, get_args
@@ -110,8 +110,8 @@ def _(field_type, field):
         return field_type(**maybe_dict)
     return _structure
 
-@structure.register(Date)
-def _(field_type: type, field: Date):
+@structure.register(pendulum.Date)
+def _(field_type, field):
     logger.debug(
         f'Creating Date converter for field "{field.name}" of type {field_type.__name__}'
     )
@@ -120,6 +120,19 @@ def _(field_type: type, field: Date):
             return pendulum.parse(maybe_str).date()
         else:
             return maybe_str
+    return _structure
+
+@structure.register(pendulum.DateTime)
+def _(field_type, field):
+    logger.debug(
+        f'Creating Date converter for field "{field.name}" of type {field_type.__name__}'
+    )
+    def _structure(maybe_str):
+        if isinstance(maybe_str, str):
+            return pendulum.parse(maybe_str)
+        else:
+            return maybe_str
+    
     return _structure
 
 @structure.register(np.ndarray)
@@ -131,18 +144,33 @@ def _(field_type, field):
         if isinstance(maybe_ndarray, np.ndarray):
             return maybe_ndarray
         else:
-            return np.array(maybe_ndarray)
+            return np.array(maybe_ndarray, dtype=field.metadata['dtype'])
     return _structure
 
 def add_type_converters(cls, fields):
     new_fields = []
 
     for field in fields:
-        field_type = field.type
-        if get_origin(field.type) is not None:
-            field_type = get_origin(field.type)
+        optional = False
 
-        type_converter = structure(field_type, field)
+        type_origin = get_origin(field.type)
+        type_args = get_args(field.type)
+
+        if type_origin is Union:
+            field_types = list(type_args)
+            optional = type(None) in field_types
+            field_types.remove(type(None))
+
+        elif type_origin is not None:
+            field_types = [type_origin]
+        else:
+            field_types = [field.type]
+        
+        # Can't meaningfully convert union types
+        type_converter = structure(field_types[0], field) if len(field_types) == 1 else None
+
+        if optional and type_converter:
+            type_converter = attr.converters.optional(type_converter)
 
         if field.converter is not None:
             type_converter = attr.converters.pipe(field.converter, type_converter)
