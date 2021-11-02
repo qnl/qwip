@@ -1,6 +1,5 @@
 """Serializers for settings."""
 
-from functools import singledispatch, update_wrapper
 from enum import Enum
 from collections.abc import Mapping
 from numbers import Number
@@ -13,30 +12,8 @@ import numpy as np
 from loguru import logger
 
 from qwip.settings.base import SettingsBase
-from qwip.settings.typing import get_origin, get_args
+from qwip.settings.typing import get_origin, get_args, typedispatch
 from qwip.settings.parameters import Parameters
-
-def typedispatch(func):
-    """Type-dispatch generic function decorator.
-
-    This function modifies the singledispatch function from the functools module
-    to allow for single dispatch converters based on types. This allows converters
-    to be defined for different attributes when attrs classes are being created.
-    """
-
-    dispatcher = singledispatch(func)
-    
-    def wrapper(*args, **kwargs):
-        if not args:
-            raise TypeError(f'{funcname} requires at least '
-                            '1 positional argument')
-        return dispatcher.dispatch(args[0])(*args, **kwargs)
-    
-    funcname = getattr(func, '__name__', 'typedispatch function')
-    wrapper.register = dispatcher.register
-    wrapper.dispatcher = dispatcher
-    update_wrapper(wrapper, func)
-    return wrapper
 
 @typedispatch
 def structure(field_type, field):
