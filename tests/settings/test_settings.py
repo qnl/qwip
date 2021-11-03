@@ -29,7 +29,7 @@ class NestedSettings(SimpleSettings):
         positive_int_field: int = attrib(validator=positive)
 
     setting_field: ChildSetting
-    param_field: Dict[str, str]
+    param_field: Parameters[str, str]
     list_field: List[int]
     optional_str: Optional[str]
 @qattrs
@@ -64,7 +64,7 @@ def numpydict():
     }
 
 @pytest.fixture
-def pendulumdict(simpledict):
+def pendulumdict():
     return {
         'date_field': '2006-01-02',
         'datetime_field': '2006-01-02T15:04:05'
@@ -117,6 +117,8 @@ def test_pendulum_structure(pendulumdict):
     s = PendulumSettings(**pendulumdict)
     assert isinstance(s['date_field'], pendulum.Date)
     assert isinstance(s['datetime_field'], pendulum.DateTime)
+
+## Validation
 
 def test_type_validate(typefaildict):
     with pytest.raises(TypeError):

@@ -3,10 +3,14 @@
 from collections.abc import Mapping, MutableMapping, KeysView, ValuesView, ItemsView
 from copy import deepcopy
 from contextlib import contextmanager
+from typing import Generic, TypeVar
 
 from qwip.settings.base import FlatMapping, FlatKeysView, FlatValuesView, FlatItemsView
 
-class Parameters(FlatMapping, MutableMapping, dict): # type:ignore
+KT = TypeVar('KT')
+VT = TypeVar('VT')
+
+class Parameters(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignore
     """A dictionary object that supports key chaining and attribute access.
     """
 
