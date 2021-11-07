@@ -3,7 +3,7 @@
 from enum import Enum
 from collections.abc import Mapping
 from numbers import Number
-from typing import Union
+from typing import Type, TypeVar, Union
 
 import attr
 import pendulum
@@ -12,7 +12,7 @@ import numpy as np
 from loguru import logger
 
 from qwip.settings.base import SettingsBase
-from qwip.settings.typing import get_origin, get_args, typedispatch
+from qwip.settings.typing import get_class_from_type, get_args, typedispatch, is_optional
 from qwip.settings.parameters import Parameters
 
 @typedispatch
@@ -52,7 +52,7 @@ def _(field_type, field):
         f'Creating list converter for field "{field.name}" of type {field_type.__name__}'
     )
     element_type = get_args(field.type)[0]
-    structure_element = structure(element_type, field)
+    structure_element = structure(element_type, field) if not isinstance(element_type, TypeVar) else (lambda x: x)
     def _structure(lst):
         for i, element in enumerate(lst):
             if structure_element:
@@ -65,8 +65,9 @@ def _(field_type, field):
     logger.debug(
         f'Creating mapping converter for field "{field.name}" of type {field_type.__name__}'
     )
-    value_type = get_args(field.type)[1]
-    structure_value = structure(value_type, field)
+
+    kvtypes = get_args(field.type)
+    structure_value = structure(kvtypes[1], field) if kvtypes and not isinstance(kvtypes[1], TypeVar) else (lambda x: x)
     def _structure(d):
         if isinstance(d, Parameters):
             for k, v in d.items():
@@ -128,25 +129,11 @@ def add_type_converters(cls, fields):
     new_fields = []
 
     for field in fields:
-        optional = False
+        class_set = set(get_class_from_type(field.type).keys())
 
-        type_origin = get_origin(field.type)
-        type_args = get_args(field.type)
+        type_converter = structure(class_set.pop(), field) if len(class_set) == 1 else None
 
-        if type_origin is Union:
-            field_types = list(type_args)
-            optional = type(None) in field_types
-            field_types.remove(type(None))
-
-        elif type_origin is not None:
-            field_types = [type_origin]
-        else:
-            field_types = [field.type]
-        
-        # Can't meaningfully convert union types
-        type_converter = structure(field_types[0], field) if len(field_types) == 1 else None
-
-        if optional and type_converter:
+        if is_optional(field.type) and type_converter:
             type_converter = attr.converters.optional(type_converter)
 
         if field.converter is not None:
