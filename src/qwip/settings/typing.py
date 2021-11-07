@@ -3,6 +3,8 @@ import collections
 
 from functools import singledispatch, update_wrapper
 
+from loguru import logger
+
 try:
     # Python >=3.8
     from typing import get_args
@@ -30,8 +32,8 @@ except ImportError:
                 return res
             return ()
 
-def is_optional(field):
-    return get_origin(field) is typing.Union and type(None) in get_args(field)
+def is_optional(tp):
+    return get_origin(tp) is typing.Union and type(None) in get_args(tp)
 
 def typedispatch(func):
     """Type-dispatch generic function decorator.
@@ -54,3 +56,38 @@ def typedispatch(func):
     wrapper.dispatcher = dispatcher
     update_wrapper(wrapper, func)
     return wrapper
+
+clstypes = {
+    typing.Dict: dict,
+    typing.List: list,
+    typing.Mapping: collections.abc.Mapping,
+}
+
+def get_classtype(tp):
+    try:
+        return clstypes[tp]
+    except KeyError as e:
+        return tp
+
+def get_all_types(tp):
+    origin = get_origin(tp)
+
+    if isinstance(origin, typing._SpecialForm):
+        if origin == typing.Union:
+            all_tps = tuple(t for t in get_args(tp) if t != type(None))
+        else:
+            logger.warning('Got unimplemented origin {origin}}.')
+    else:
+        all_tps = (tp,)
+
+    return all_tps
+
+def get_class_from_type(tp):
+    all_tps = get_all_types(tp)
+
+    class_type_map = {}
+    for t in all_tps:
+        origin = get_origin(t)
+        class_type_map[get_classtype(origin) if origin else t] = t
+
+    return class_type_map
