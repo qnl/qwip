@@ -108,10 +108,13 @@ class Settings(SettingsBase):
         """
         orig = self.copy()
         try:
+            if not validate:
+                attr.set_run_validators(False)
             if settings:
                 self.update(settings)
             yield
         finally:
+            attr.set_run_validators(True)
             self.update(orig)
 
     def todict(self):
