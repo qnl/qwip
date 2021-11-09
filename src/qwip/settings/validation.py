@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Any
 from collections.abc import Mapping
 
 import attr
@@ -12,6 +12,10 @@ def add_type_validators(cls, fields):
     new_fields = []
     for field in fields:
         optional = False
+
+        if field.type == Any:
+            new_fields.append(field)
+            continue
 
         type_origin = get_origin(field.type)
         type_args = get_args(field.type)
@@ -40,7 +44,7 @@ def add_type_validators(cls, fields):
                     type_validator,
                     deep_mapping(instance_of(ktype), instance_of(vtype))
                 )
-            elif issubclass(field_type, list):
+            elif issubclass(field_type, list) and len(type_args) > 0:
                 etype = type_args[0]
                 type_validator = and_(
                     type_validator,
