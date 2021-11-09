@@ -13,7 +13,7 @@ from loguru import logger
 
 from qwip.settings.base import SettingsBase
 from qwip.settings.typing import get_class_from_type, get_args, typedispatch, is_optional
-from qwip.settings.parameters import Parameters
+from qwip.parameters import Parameters
 
 @typedispatch
 def structure(field_type, field):

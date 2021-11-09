@@ -1,7 +1,7 @@
 from typing import Type
 import pytest
 
-from qwip.settings.parameters import Parameters
+from qwip.parameters import Parameters
 
 @pytest.fixture
 def simple_dict():

@@ -13,7 +13,7 @@ from attr import attrib
 from loguru import logger
 
 from qwip.settings.settings import Settings, qattrs
-from qwip.settings.parameters import Parameters
+from qwip.parameters import Parameters
 from qwip.settings.schema import schema
 
 

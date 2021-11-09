@@ -8,9 +8,7 @@ from contextlib import contextmanager
 from attr import attrs
 
 from qwip.settings.base import SettingsBase
-from qwip.settings.parameters import (
-    Parameters, FlatKeysView, FlatValuesView, FlatItemsView
-)
+from qwip.parameters import Parameters
 from qwip.settings.validation import add_type_validators
 from qwip.settings.serialization import add_type_converters
 

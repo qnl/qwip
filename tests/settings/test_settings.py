@@ -11,7 +11,7 @@ import pendulum
 from numpy.typing import NDArray
 
 from qwip.settings.settings import Settings, qattrs
-from qwip.settings.parameters import Parameters
+from qwip.parameters import Parameters
 
 @qattrs
 class SimpleSettings(Settings):
