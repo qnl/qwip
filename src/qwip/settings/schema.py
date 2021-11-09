@@ -4,15 +4,7 @@ from collections.abc import Mapping
 from numbers import Number
 
 import attr
-import pendulum
 import numpy as np
-
-# from attr import attrib
-# from attr.validators import instance_of, in_, deep_iterable, deep_mapping
-# from enum import Enum
-# from typing import Type, List, Dict, Any
-
-# from pendulum import Date, DateTime, instance
 
 from loguru import logger
 
@@ -30,12 +22,17 @@ def schema(cls):
         'type': 'object',
         'properties': properties,
     }
+
+    if not cls_schema['description']:
+        cls_schema.pop('description')
     
     if required:
         cls_schema['required'] = required
     
     if definitions:
         cls_schema['definitions'] = definitions
+
+    cls_schema['additionalProperties'] = False
     
     return cls_schema
 
@@ -52,11 +49,11 @@ def collect_properties(cls, definitions=None):
         if get_origin(f.type):
             is_settings = is_optional(f.type) and issubclass(get_args(f.type)[0], Settings)
         else:
-            is_settings = issubclass(f.type, Settings)
+            is_settings = (f.type != typing.Any) and issubclass(f.type, Settings)
 
         if is_settings:
             base_type = get_args(f.type)[0] if is_optional(f.type) else f.type
-            properties[f.name] = {'$ref': f'#/definitions{base_type.__name__}'}
+            properties[f.name] = {'$ref': f'#/definitions/{base_type.__name__}'}
             if f.name not in definitions:
                 definitions[base_type.__name__] = fschema
         else:
@@ -74,6 +71,7 @@ def field_schema(field, definitions=None):
     
     add_description(fschema, field)
     process_types(fschema, field, definitions=definitions)
+    add_enum(fschema, field)
     
     if field.default != attr.NOTHING:
         fschema['default'] = field.default
@@ -85,7 +83,7 @@ def add_description(fschema, field):
     if get_origin(field.type):
         if is_optional(field.type):
             fieldtype = get_args(field.type)[0]
-    else:
+    elif field.type != typing.Any:
         fieldtype = field.type
 
     default = fieldtype.__doc__ if fieldtype and issubclass(fieldtype, Settings) else None
@@ -93,7 +91,29 @@ def add_description(fschema, field):
     if description:
         fschema['description'] = description
 
+def get_enum_validator(field):
+    validators = []
+    try:
+        validators = field.validator._validators
+    except AttributeError:
+        validators = [field.validator]
+
+    for v in validators:
+        if isinstance(v, attr.validators._InValidator):
+            return v
+
+    return None
+
+def add_enum(fschema, field):
+    enum_validator = get_enum_validator(field)
+
+    if enum_validator:
+        fschema['enum'] = enum_validator.options
+
 def process_types(fschema, field, definitions=None):
+    if field.type == typing.Any:
+        return
+
     class_type_map = get_class_from_type(field.type)
     json_types = set(get_json_type(cls) for cls in class_type_map)
 
@@ -101,7 +121,6 @@ def process_types(fschema, field, definitions=None):
 
     for cls, tp in class_type_map.items():
         add_type_specific_properties(cls, fschema, field, tp, definitions=definitions)
-
 
 @typedispatch
 def get_json_type(field_type):
@@ -136,23 +155,99 @@ def _(field_type):
 def add_type_specific_properties(clstype, fschema, field, tp, **kwargs):
     logger.warning(f'No properties to add for clstype {clstype}')
 
+
+def get_json_validation(validator):
+    if isinstance(validator, attr.validators._MatchesReValidator):
+        return {'pattern': validator.regex.pattern}
+    elif isinstance(validator, attr.validators._InValidator):
+        return {'enum': validator.options}
+    # elif isinstance(validator, attr.validators._NumberValidator):
+    #     op_text = {
+    #         '<': 'exclusiveMaximum',
+    #         '>': 'exclusiveMinimum',
+    #         '<=': 'maximum',
+    #         '>=': 'minimum'
+    #     }
+    #     return {op_text[validator.compare_op]: validator.bound}
+    
+    return {}
+
+def get_iterable_validators(field):
+    try:
+        validators = field.validator._validators
+    except AttributeError:
+        validators = [field.validator]
+
+    return [v for v in validators if isinstance(v, attr.validators._DeepIterable)]
+
+def get_mapping_validators(field):
+    try:
+        validators = field.validator._validators
+    except AttributeError:
+        validators = [field.validator]
+
+    return [v for v in validators if isinstance(v, attr.validators._DeepMapping)]
+
 @add_type_specific_properties.register(Mapping)
 def _(clstype, fschema, field, tp, definitions=None):
+    """
+    """
     ## Add value types
-    kt, vt = get_args(tp)
+    try:
+        kt, vt = get_args(tp)
+    except ValueError:
+        kt = None
+        vt = None
 
     json_types = set()
-    if not isinstance(vt, typing.TypeVar):
+    if vt is not None and vt != typing.Any:
         logger.debug(f'Adding types for {vt}')
         class_type_map = get_class_from_type(vt)
         
         for cls in class_type_map:
             json_types.add(get_json_type(cls))
-        
+
     if json_types:
-        fschema['additionalProperties'] = {
-            'type': list(json_types) if len(json_types) > 1 else json_types.pop()
-        }
+        json_types = list(json_types) if len(json_types) > 1 else json_types.pop()
+
+    iter_validators = get_iterable_validators(field)
+    pattern = None
+    enum = None
+    for v in iter_validators:
+        mv = v.member_validator
+        if isinstance(mv, attr.validators._InValidator):
+            enum = mv.options
+        elif isinstance(mv, attr.validators._MatchesReValidator):
+            pattern = mv.regex.pattern
+
+    if enum and json_types:
+        fschema['properties'] = {name: {'type': json_types} for name in enum}
+    elif pattern and json_types:
+        fschema['patternProperties'] = {pattern: {'type': json_types}}
+    elif pattern:
+        fschema['propertyNames'] = dict(pattern=pattern)
+    
+    pattern = None
+    value_properties = {}
+    map_validators = get_mapping_validators(field)
+    for v in map_validators:
+        kv = v.key_validator
+        vv = v.value_validator
+        if isinstance(kv, attr.validators._MatchesReValidator):
+            pattern = kv.regex.pattern
+            value_properties = get_json_validation(vv)
+
+    if json_types:
+        value_properties.update(dict(type=json_types))
+    
+    if pattern and value_properties:
+        pattern_properties = fschema.get('patternProperties', {})
+        pattern_properties.update({pattern: value_properties})
+        fschema['patternProperties'] = pattern_properties
+    elif pattern:
+        fschema['propertyNames'] = dict(pattern=pattern)
+    elif value_properties and 'patternProperties' not in fschema:
+        fschema['additionalProperties'] = value_properties
 
 @add_type_specific_properties.register(Settings)
 def _(clstype, fschema, field, tp, definitions=None):
@@ -167,19 +262,30 @@ def _(clstype, fschema, field, tp, definitions=None):
 
 @add_type_specific_properties.register(list)
 def _(clstype, fschema, field, tp, definitions=None):
-    vt = get_args(tp)[0]
+    try:
+        vt = get_args(tp)[0]
+    except IndexError:
+        vt = None
 
     json_types = set()
-    if not isinstance(vt, typing.TypeVar):
+    if vt is not None:
         class_type_map = get_class_from_type(vt)
 
         for cls in class_type_map:
             json_types.add(get_json_type(cls))
 
+    item_properties = {}
     if json_types:
-        fschema['items'] = {
-            'type': list(json_types) if len(json_types) > 1 else json_types.pop()
-        }
+        json_types = list(json_types) if len(json_types) > 1 else json_types.pop()
+        item_properties.update(dict(type=json_types))
+
+    iter_validators = get_iterable_validators(field)
+    for v in iter_validators:
+        mv = v.member_validator
+        item_properties.update(get_json_validation(mv))
+
+    if item_properties:
+        fschema['items'] = item_properties
 
 @add_type_specific_properties.register(Number)
 def _(clstype, fschema, field, tp, definitions=None):
@@ -200,7 +306,6 @@ def add_string_format(fschema, format_specifier):
         fschema['format'] = format_specifier
 
 def get_regex_validator(field):
-    validators = []
     try:
         validators = field.validator._validators
     except AttributeError:

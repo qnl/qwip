@@ -1,6 +1,7 @@
 import json
 
-from typing import Mapping, Optional, Dict, List, Union
+from typing import Any, Optional, Union
+from collections.abc import Mapping
 
 import pytest
 
@@ -41,7 +42,8 @@ def test_properties():
                 'title': 'bool_property', 'type': 'boolean', 'default': False
             },
         },
-        'required': ['number_property', 'string_property']
+        'required': ['number_property', 'string_property'],
+        'additionalProperties': False
     }
 
     assert schema(FlatSettings) == s
@@ -65,7 +67,7 @@ def test_union():
     @qattrs
     class UnionSettings(Settings):
         union_property: Union[str, int]
-        unrealistic_property: Union[bool, Dict[str, str]]
+        unrealistic_property: Union[bool, dict[str, str]]
 
     s = schema(UnionSettings)
     logger.debug(json.dumps(s, indent=4))
@@ -78,7 +80,7 @@ def test_mapping_properties():
     @qattrs
     class MappingSettings(Settings):
         """A settings class with mappings."""
-        dict_property: Dict[str, int]
+        dict_property: dict[str, int]
         mapping_property: Mapping
         parameters: Parameters[str, str]
 
@@ -130,14 +132,15 @@ def test_list_properties():
     @qattrs
     class ListSettings(Settings):
         """A settings class with a mapping."""
-        list_property: List
-        list_of_str: List[str]
+        list_property: list
+        list_of_str: list[str]
 
     s = schema(ListSettings)
     logger.debug(json.dumps(s, indent=4))
     assert (s['properties']['list_property']['type'] ==
             s['properties']['list_of_str']['type'] == 'array')
     assert s['properties']['list_of_str']['items']['type'] == 'string' 
+
 
 ### String specific properties
 
@@ -170,4 +173,71 @@ def test_regex():
     RegexSetting(email='abc@def.com')
 
     s = schema(RegexSetting)
+    logger.debug(json.dumps(s, indent=4))
+
+def test_in_validator():
+    @qattrs
+    class InSettings(Settings):
+        option_property: Any = attrib(
+            validator=attr.validators.in_([0, 'str', False])
+        )
+
+    s = schema(InSettings)
+    logger.debug(json.dumps(s, indent=4))
+
+
+def test_property_names():
+    @qattrs
+    class ConstrainedSettings(Settings):
+        names: Parameters[str, int] = attrib(
+            validator=attr.validators.deep_iterable(
+                member_validator=attr.validators.matches_re('[a-zA-Z][0-9]')
+            )
+        )
+
+    s = schema(ConstrainedSettings)
+
+    logger.debug(json.dumps(s, indent=4))
+
+def test_zurich():
+    @qattrs
+    class ZurichDACSettings(Settings):
+        """Configuration for the Zurich HDAWGs."""
+        @qattrs
+        class HardwareSettings(Settings):
+            ac_coupling: int
+            range: dict
+
+        @qattrs
+        class ReadoutSettings(Settings):
+            herald_delay: int
+            readout_delay: float
+            reset_delay: float
+        
+        disconnect: str = attrib(
+            validator=attr.validators.in_(['yes', 'no'])
+        )
+        experiment_setup: str = attrib(
+            validator=attr.validators.in_([
+                'multiqubitbasic',
+                'multiqubitdig',
+                'multiqubitfeedback',
+                'multiqubitnohandshake',
+                'blizzardpqsc'
+            ])
+        )
+        hardware_settings: HardwareSettings
+        hdawgs: list[str] = attrib(
+            validator=attr.validators.deep_iterable(attr.validators.matches_re('dev[0-9]{4}'))
+        )
+        readout: ReadoutSettings
+        replay: str = attrib(
+            validator=attr.validators.in_(['yes', 'no'])
+        )
+        software_modulation: str = attrib(
+            validator=attr.validators.in_(['yes', 'no'])
+        )
+
+    s = schema(ZurichDACSettings)
+
     logger.debug(json.dumps(s, indent=4))

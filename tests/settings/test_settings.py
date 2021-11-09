@@ -8,6 +8,8 @@ from attr import attrib, s
 import numpy as np
 import pendulum
 
+from numpy.typing import NDArray
+
 from qwip.settings.settings import Settings, qattrs
 from qwip.settings.parameters import Parameters
 
@@ -32,10 +34,11 @@ class NestedSettings(SimpleSettings):
     param_field: Parameters[str, str]
     list_field: List[int]
     optional_str: Optional[str]
+
 @qattrs
 class NumpySettings(Settings):
     # Numpy will set dtype = int32 for integer only arrays
-    float_field: np.ndarray = attrib(metadata={'dtype': np.float64})
+    float_field: NDArray[np.float64]
     int_field: np.ndarray
     numpy_field: np.ndarray
     matrix_field: np.ndarray
@@ -90,6 +93,13 @@ def typefaildict(nesteddict):
     nesteddict['param_field']['key2'] = 2
     nesteddict['optional_str'] = 1
     return nesteddict
+
+## Context
+
+def test_context(nesteddict):
+    pass
+
+## Structure
 
 def test_structure(simpledict):
     s = SimpleSettings(**simpledict)

@@ -3,7 +3,7 @@
 from enum import Enum
 from collections.abc import Mapping
 from numbers import Number
-from typing import Type, TypeVar, Union
+from typing import Type, TypeVar, Union, Any
 
 import attr
 import pendulum
@@ -51,8 +51,11 @@ def _(field_type, field):
     logger.debug(
         f'Creating list converter for field "{field.name}" of type {field_type.__name__}'
     )
-    element_type = get_args(field.type)[0]
-    structure_element = structure(element_type, field) if not isinstance(element_type, TypeVar) else (lambda x: x)
+    try:
+        element_type = get_args(field.type)[0]
+    except IndexError:
+        element_type = None
+    structure_element = structure(element_type, field) if element_type else (lambda x: x)
     def _structure(lst):
         for i, element in enumerate(lst):
             if structure_element:
@@ -118,17 +121,25 @@ def _(field_type, field):
     logger.debug(
         f'Creating ndarray converter for field "{field.name}" of type {field_type.__name__}'
     )
+    dtype = None
+    if args := get_args(field.type):
+        dtype = get_args(args[1])[0]
+
     def _structure(maybe_ndarray):
-        if isinstance(maybe_ndarray, np.ndarray):
+        if isinstance(maybe_ndarray, np.ndarray) and maybe_ndarray.dtype == dtype:
             return maybe_ndarray
         else:
-            return np.array(maybe_ndarray, dtype=field.metadata.get('dtype', None))
+            return np.array(maybe_ndarray, dtype=dtype)
     return _structure
 
 def add_type_converters(cls, fields):
     new_fields = []
 
     for field in fields:
+        if field.type == Any:
+            new_fields.append(field)
+            continue
+
         class_set = set(get_class_from_type(field.type).keys())
 
         type_converter = structure(class_set.pop(), field) if len(class_set) == 1 else None
