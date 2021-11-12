@@ -261,7 +261,7 @@ class Parameters(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ign
         return {k: v for k, v in self.flatitems()}
     
     @contextmanager
-    def context(self, settings=None, validate=True):
+    def context(self, settings=None):
         """Context manager for temporarily changing parameters."""
         orig = self.copy()
         try:
