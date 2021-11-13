@@ -11,6 +11,7 @@ from qwip.settings.base import SettingsBase
 from qwip.parameters import Parameters
 from qwip.settings.validation import add_type_validators
 from qwip.settings.serialization import add_type_converters
+from qwip.settings.schema import schema
 
 
 def qwip_field_transform(cls, fields):
@@ -40,6 +41,7 @@ danger = disable_validation
 
 @qattrs(auto_attribs=False) # pylint: disable=redundant-keyword-arg
 class Settings(SettingsBase):
+    """A validated dataclass object."""
 
     def __setitem__(self, key, val):
         keys = key.strip(self._delim).split(self._delim)
@@ -127,3 +129,7 @@ class Settings(SettingsBase):
     @classmethod
     def fromdict(cls, d):
         return cls(d)
+
+    @classmethod
+    def schema(cls):
+        return schema(cls)

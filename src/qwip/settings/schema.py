@@ -8,7 +8,8 @@ import numpy as np
 
 from loguru import logger
 
-from qwip.settings.settings import Settings
+# from qwip.settings.settings import Settings
+from qwip.settings.base import SettingsBase
 from qwip.parameters import Parameters
 from qwip.settings.typing import get_class_from_type, is_optional, typedispatch, get_origin, get_args
 
@@ -47,9 +48,9 @@ def collect_properties(cls, definitions=None):
 
         is_settings = False
         if get_origin(f.type):
-            is_settings = is_optional(f.type) and issubclass(get_args(f.type)[0], Settings)
+            is_settings = is_optional(f.type) and issubclass(get_args(f.type)[0], SettingsBase)
         else:
-            is_settings = (f.type != typing.Any) and issubclass(f.type, Settings)
+            is_settings = (f.type != typing.Any) and issubclass(f.type, SettingsBase)
 
         if is_settings:
             base_type = get_args(f.type)[0] if is_optional(f.type) else f.type
@@ -86,7 +87,7 @@ def add_description(fschema, field):
     elif field.type != typing.Any:
         fieldtype = field.type
 
-    default = fieldtype.__doc__ if fieldtype and issubclass(fieldtype, Settings) else None
+    default = fieldtype.__doc__ if fieldtype and issubclass(fieldtype, SettingsBase) else None
     description = field.metadata.get('description', default)
     if description:
         fschema['description'] = description
@@ -249,7 +250,7 @@ def _(clstype, fschema, field, tp, definitions=None):
     elif value_properties and 'patternProperties' not in fschema:
         fschema['additionalProperties'] = value_properties
 
-@add_type_specific_properties.register(Settings)
+@add_type_specific_properties.register(SettingsBase)
 def _(clstype, fschema, field, tp, definitions=None):
     properties, required, definitions = collect_properties(clstype, definitions)
     if properties:
