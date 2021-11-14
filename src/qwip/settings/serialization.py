@@ -16,12 +16,13 @@ from qwip.settings.typing import get_class_from_type, get_args, typedispatch, is
 from qwip.parameters import Parameters
 
 @typedispatch
-def structure(field_type, field):
+def structure(field_type: type, field: attr.Attribute):
     """Generic type based single dispatch converter for settings.
 
     Args:
         field_type (type): The field type.
-        field: The fie
+        field (Attribute): The `attr` attribute that the converter will be
+            added to.
     """
     logger.warning(
         f'No registered structure method for field "{field.name}" of type {field_type.__name__}'
@@ -88,7 +89,11 @@ def _(field_type, field):
         f'Creating Settings converter for field "{field.name}" of type {field_type.__name__}'
     )
     def _structure(maybe_dict):
+        if isinstance(maybe_dict, SettingsBase):
+            return maybe_dict
+        
         return field_type(**maybe_dict)
+
     return _structure
 
 @structure.register(pendulum.Date)
