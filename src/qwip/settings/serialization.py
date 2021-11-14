@@ -4,6 +4,7 @@ from enum import Enum
 from collections.abc import Mapping
 from numbers import Number
 from typing import Type, TypeVar, Union, Any
+from pathlib import Path
 
 import attr
 import pendulum
@@ -39,6 +40,7 @@ def _(field_type, field):
     return None
 
 @structure.register(Enum)
+@structure.register(Path)
 def _(field_type, field):
     logger.debug(
         f'Creating Enum converter for field "{field.name}" of type {field_type.__name__}'
