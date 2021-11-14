@@ -33,10 +33,28 @@ class FlatItemsView(ItemsView):
 
 
 class FlatMapping(Mapping):
+    """A base class for a mapping object that allows "flat" access.
+
+    Values can be accessed like `flatmap['one/two/three']` or
+    `flatmap.one.two.three` in lieu of `flatmap['one']['two']['three']`.
+
+    Attributes:
+        _delim (str): A class variable that specifies the character used to
+            separate nested mappings.
+    """
+
     __slots__ = tuple()
     _delim: str = '/'
 
     def __getitem__(self, key):
+        """Returns the item stored at `key`.
+        
+        Example:
+            ```
+            x.__getitem__(y) <==> x[y]
+            x['one/two/three'] <==> x['one']['two']['three']
+            ```
+        """
         key = self.split(self.strip(key))
         val = self
         for subkey in key:
@@ -96,51 +114,61 @@ class FlatMapping(Mapping):
     def flatkeys(self):
         """Returns a `View` of flattened keys.
 
-        Nested `Parameters` are flattened and keys joined with a `'.'`.
+        Nested `FlatMappings` are flattened and keys joined with a `'.'`.
 
         Returns:
             FlatKeysView: An iterator that returns all flattened keys in the
-                `Parameters` object.
+                `FlatMapping` object.
         """
         return FlatKeysView(self)
     
     def flatvalues(self):
         """Returns a `View` of flattened values.
 
-        All `Parameters` objects contained within this object are iterated over
+        All `FlatMapping` objects contained within this object are iterated over
 
         Returns:
-            FlatValuesView: An iterator that returns all values in the `Parameters`
-                object, including values in nested `Parameters`.
+            FlatValuesView: An iterator that returns all values in the 
+                `FlatMapping` object, including values in nested `FlatMappings`.
         """
         return FlatValuesView(self)
     
     def flatitems(self):
         """Returns a `View` of flattened items.
 
-        Nested `Parameters` are flattened and keys joined with a `'.'`.
+        Nested `FlatMappings` are flattened and keys joined with a `'.'`.
 
         Returns:
             FlatItemsView: An iterator that returns a tuple of `(flatkey, val)`
-                for all values in the `Parameters` object.
+                for all values in the `FlatMapping` object.
         """
         return FlatItemsView(self)
 
     def copy(self):
-        """Returns a deep copy of the parameters object"""
+        """Returns a deep copy of the `FlatMapping` object
+        
+        Returns:
+            (FlatMapping): A copy of the `FlatMapping` 
+        """
         return deepcopy(self)
 
     def _repr_html_(self):
-        return (
-            '<table style="min-width:200px">\n'
-            '<thead><th>Key</th><th>Value</thead>'
-            + '\n'.join([f'<tr><td>{k}</td><td>{v}</td></tr>' for k, v in self.flatitems()])
-            + '</table>'
-        )
+        """Returns a formatted HTML table with the flattened keys and values.
 
-    def get_keys(self, *args, keys=[]):
+        This allows function `display(flatmap)` to return a formatted view of
+        the `FlatMapping`.
+        """
+        return (
+                '<table style="min-width:200px">\n'
+                f'<thead><th>{type(self).__name__}</th></thead>'
+                '<thead><th>Key</th><th>Value</thead>'
+                + '\n'.join([f'<tr><td>{k}</td><td>{v}</td></tr>' for k, v in self.flatitems()])
+                + '</table>'
+            )
+
+    def get_keys(self, *keys) -> dict:
+        """Returns a subset of the `FlatMapping` with the specified keys."""
         subset = {}
-        subset.update({key: self[key] for key in args})
         subset.update({key: self[key] for key in keys})
 
         return subset
@@ -158,7 +186,14 @@ KT = TypeVar('KT')
 VT = TypeVar('VT')
 
 class Parameters(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignore
-    """A dictionary object that supports key chaining and attribute access.
+    """A mapping object that supports key chaining and attribute access.
+
+    Values can be accessed like `params['one/two/three']` or
+    `params.one.two.three` in lieu of `params['one']['two']['three']`.
+
+    Attributes:
+        _delim (str): A class variable that specifies the character used to
+            separate nested mappings.
     """
 
     def  __init__(self, *args, **kwargs):
@@ -244,7 +279,7 @@ class Parameters(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ign
     def __len__(self):
         return self.__dict__.__len__()
 
-    def todict(self):
+    def todict(self) -> dict:
         """Recursively converts the `Parameters` object to a dictionary.
 
         Returns:
@@ -252,7 +287,7 @@ class Parameters(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ign
         """
         return {k: v.todict() if isinstance(v, Parameters) else v for k, v in self.items()}
 
-    def toflatdict(self):
+    def toflatdict(self) -> dict:
         """Converts the flattenned `Parameters` object to a dictionary.
 
         Returns:
