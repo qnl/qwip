@@ -73,7 +73,10 @@ def _(field_type, field):
     )
 
     kvtypes = get_args(field.type)
-    structure_value = structure(kvtypes[1], field) if kvtypes and not isinstance(kvtypes[1], TypeVar) else (lambda x: x)
+
+    structure_value = None
+    if kvtypes and not (isinstance(kvtypes[1], TypeVar) or kvtypes[1] is Any):
+        structure_value = structure(kvtypes[1], field)
     def _structure(d):
         if isinstance(d, Parameters):
             for k, v in d.items():
