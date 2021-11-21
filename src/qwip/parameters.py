@@ -1,4 +1,5 @@
 """A module for implementing a Parameters object."""
+import html
 
 from collections.abc import Mapping, MutableMapping, KeysView, ValuesView, ItemsView
 from copy import deepcopy
@@ -159,10 +160,13 @@ class FlatMapping(Mapping):
         the `FlatMapping`.
         """
         return (
-                '<table style="min-width:200px">\n'
+                f'<table style="min-width:200px">\n'
                 f'<thead><th>{type(self).__name__}</th></thead>'
-                '<thead><th>Key</th><th>Value</thead>'
-                + '\n'.join([f'<tr><td>{k}</td><td>{v}</td></tr>' for k, v in self.flatitems()])
+                f'<thead><th>Key</th><th>Value</thead>'
+                + '\n'.join([
+                    f'<tr><td>{html.escape(str(k))}</td><td>{html.escape(str(v))}</td></tr>' 
+                        for k, v in self.flatitems()
+                ])
                 + '</table>'
             )
 
