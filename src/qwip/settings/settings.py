@@ -29,7 +29,7 @@ qattrs = functools.partial(
     kw_only=True,
     slots=True,
     field_transformer=qwip_field_transform,
-    on_setattr=attr.setters.validate
+    on_setattr=[attr.setters.convert, attr.setters.validate]
 )
 
 @contextmanager

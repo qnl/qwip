@@ -58,7 +58,7 @@ def add_type_validators(cls, fields):
                 )
             
         if field.validator is not None:
-            type_validator = attr.validators.and_(field.validator, type_validator)
+            type_validator = attr.validators.and_(type_validator, field.validator)
         
         field = field.evolve(validator=type_validator)
         new_fields.append(field)
