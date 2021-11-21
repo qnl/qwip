@@ -1,10 +1,13 @@
 import functools
-import attr, cattr
+import json
 
 from collections.abc import Mapping
-from copy import deepcopy
 from contextlib import contextmanager
+from typing import Optional
 
+import attr, cattr
+
+from ruamel.yaml import YAML
 from attr import attrs
 
 from qwip.settings.base import SettingsBase
@@ -13,6 +16,7 @@ from qwip.settings.validation import add_type_validators
 from qwip.settings.serialization import add_type_converters
 from qwip.settings.schema import schema
 
+yaml = YAML(typ='safe')
 
 def qwip_field_transform(cls, fields):
     fields = add_type_converters(cls, fields)
@@ -99,12 +103,19 @@ class Settings(SettingsBase):
         for key, value in kwargs.items():
             _update(key, value)
 
-    def validate(self):
+    def validate(self) -> None:
+        """Calls all validators attached to field attributes."""
         attr.validate(self)
     
     @contextmanager
-    def context(self, settings=None, validate=True):
+    def context(self, settings: Optional[dict] = None, validate: bool = True):
         """Context manager for temporarily changing parameters.
+
+        Args:
+            settings (dict): A dictionary with a subset of keys to temporarily
+                update the `Settings` object with.
+            validate (bool): Whether or not to validate assignments within the
+                context block.
         """
         orig = self.copy()
         try:
@@ -117,19 +128,39 @@ class Settings(SettingsBase):
             attr.set_run_validators(True)
             self.update(orig)
 
-    def todict(self):
+    def todict(self) -> dict:
         return cattr.unstructure(self)
 
-    def toparameter(self):
+    def toparameter(self) -> Parameters:
         return Parameters(self.todict())
 
-    def get_keys(self, *args, keys=[]):
-        return Parameters(super().get_keys(*args, keys=keys))
+    def get_keys(self, *keys):
+        return Parameters(super().get_keys(*keys))
 
     @classmethod
-    def fromdict(cls, d):
+    def fromdict(cls, d: dict):
         return cls(d)
 
     @classmethod
-    def schema(cls):
+    def schema(cls) -> dict:
+        """Returns a JSON schema in dictionary format for the `Settings` class.
+        """
         return schema(cls)
+
+    @classmethod
+    def load(cls, file: str, file_fmt: str = 'yaml'):
+        """Creates a `Settings` object from either a JSON or YAML file.
+
+        file:
+        """
+        if file_fmt == 'yaml':
+            with open(file, 'r') as f:
+                s = cls(**yaml.load(f))
+        elif file_fmt == 'json':
+            with open(file, 'r') as f:
+                s = cls(**json.load(f))
+
+        return s
+
+    def save(self, file, file_fmt='yaml'):
+        pass

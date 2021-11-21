@@ -23,7 +23,9 @@ def add_type_validators(cls, fields):
         if type_origin is Union:
             field_type = type_args
             optional = type(None) in field_type
-            field_type = tuple(t for t in field_type if t is not type(None))
+            field_type = tuple(
+                get_origin(t) or t for t in field_type if t is not type(None)
+            )
         elif type_origin is not None:
             field_type = type_origin
         else:
@@ -40,9 +42,13 @@ def add_type_validators(cls, fields):
         if not isinstance(field_type, tuple):
             if issubclass(field_type, Mapping) and len(type_args) > 0:
                 ktype, vtype = get_args(field.type)
+
+                key_validator = instance_of(ktype)
+                value_validator = lambda i, a, v: None if vtype == Any else instance_of(vtype) 
+
                 type_validator = and_(
                     type_validator,
-                    deep_mapping(instance_of(ktype), instance_of(vtype))
+                    deep_mapping(key_validator, value_validator)
                 )
             elif issubclass(field_type, list) and len(type_args) > 0:
                 etype = type_args[0]

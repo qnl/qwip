@@ -3,7 +3,7 @@
 from enum import Enum
 from collections.abc import Mapping
 from numbers import Number
-from typing import Type, TypeVar, Union, Any
+from typing import Container, Iterable, Type, TypeVar, Union, Any
 from pathlib import Path
 
 import attr
@@ -49,6 +49,15 @@ def _(field_type, field):
         return field_type(maybe_str)
     return _structure
 
+@structure.register(tuple)
+def _(field_type, field):
+    def _structure(maybe_iter):
+        if isinstance(maybe_iter, Iterable):
+            return tuple(maybe_iter)
+
+        return maybe_iter
+    return _structure
+
 @structure.register(list)
 def _(field_type, field):
     logger.debug(
@@ -76,7 +85,9 @@ def _(field_type, field):
 
     structure_value = None
     if kvtypes and not (isinstance(kvtypes[1], TypeVar) or kvtypes[1] is Any):
-        structure_value = structure(kvtypes[1], field)
+        class_set = set(get_class_from_type(kvtypes[1]).keys())
+        structure_value = structure(class_set.pop(), field) if len(class_set) == 1 else None
+
     def _structure(d):
         if isinstance(d, Parameters):
             for k, v in d.items():
@@ -136,10 +147,12 @@ def _(field_type, field):
         dtype = get_args(args[1])[0]
 
     def _structure(maybe_ndarray):
-        if isinstance(maybe_ndarray, np.ndarray) and maybe_ndarray.dtype == dtype:
-            return maybe_ndarray
-        else:
-            return np.array(maybe_ndarray, dtype=dtype)
+        if isinstance(maybe_ndarray, np.ndarray):
+            has_correct_dtype = dtype == Any or isinstance(dtype, TypeVar) or maybe_ndarray.dtype == dtype
+            if has_correct_dtype:
+                return maybe_ndarray
+        print(field.type, type(dtype))
+        return np.array(maybe_ndarray, dtype=None if dtype == Any else dtype)
     return _structure
 
 def add_type_converters(cls, fields):
@@ -157,10 +170,11 @@ def add_type_converters(cls, fields):
         if is_optional(field.type) and type_converter:
             type_converter = attr.converters.optional(type_converter)
 
-        if field.converter is not None:
+        if field.converter is not None and type_converter is not None:
             type_converter = attr.converters.pipe(field.converter, type_converter)
 
-        field = field.evolve(converter=type_converter)
+        if type_converter is not None:
+            field = field.evolve(converter=type_converter)
 
         new_fields.append(field)
 
