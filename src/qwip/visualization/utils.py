@@ -9,7 +9,8 @@ from matplotlib.colors import (
     Colormap,
     LinearSegmentedColormap,
     ListedColormap,
-    to_rgb
+    to_rgb,
+    to_hex
 )
 
 def get_colormap_with_dropout(
@@ -80,7 +81,10 @@ def get_alpha_colormap(
         (Colormap): A Colormap
     """
     color = to_rgb(color)
-    return ListedColormap([(*color, a) for a in np.linspace(lower, upper, 100)])
+    return ListedColormap(
+        [(*color, a) for a in np.linspace(lower, upper, 100)],
+        name=f'alpha_{to_hex(color).strip("#").upper()}'
+    )
 
 def get_berkeley_colormap() -> Colormap:
     """Returns a qualitative colormap with UC Berkeley colors.
