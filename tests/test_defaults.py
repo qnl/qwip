@@ -6,6 +6,7 @@ import attr
 
 from loguru import logger
 
+import qwip
 from qwip import qsettings
 from qwip.settings.settings import Settings, qattrs
 from qwip.defaults import QWiPDefault, dynamic_default
@@ -138,4 +139,17 @@ def test_default_repr(echo_function):
     assert repr(params['arg1'].default) == 'QWiPDefault(default_int=1)'
     assert repr(params['kwarg2'].default) == "QWiPDefault(default_str='parent')"
 
- 
+def test_qsettings():
+    @dynamic_default(arg1='version', kwarg2='data/directory_exist_ok', kwarg3='data/date_fmt')
+    def echo_qsettings(arg, /, arg1, kwarg1=None, kwarg2=None, *, kwarg3=None):
+        return arg, arg1, kwarg1, kwarg2, kwarg3
+
+    qsettings['data/date_fmt'] = 'YYYY'
+    qsettings['version'] = '0.0.1'
+    assert echo_qsettings(None) == (None, '0.0.1', None, True, 'YYYY')
+
+    qsettings.reset('version')
+    assert echo_qsettings(None) == (None, qwip.__version__, None, True, 'YYYY')
+
+    qsettings.reset()
+    assert echo_qsettings(None) == (None, qwip.__version__, None, True, 'YYYY-MM-DD')
