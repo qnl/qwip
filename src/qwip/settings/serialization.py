@@ -13,8 +13,8 @@ import numpy as np
 from loguru import logger
 
 from qwip.settings.base import SettingsBase
-from qwip.settings.typing import get_class_from_type, get_args, typedispatch, is_optional
-from qwip.parameters import Parameters
+from qwip.settings.typing import get_class_from_type, get_args, get_origin, typedispatch, is_optional
+from qwip.flatdict import FlatDict
 
 @typedispatch
 def structure(field_type: type, field: attr.Attribute):
@@ -88,13 +88,15 @@ def _(field_type, field):
         class_set = set(get_class_from_type(kvtypes[1]).keys())
         structure_value = structure(class_set.pop(), field) if len(class_set) == 1 else None
 
+    mapping_type = get_origin(field.type)
+
     def _structure(d):
-        if isinstance(d, Parameters):
+        if isinstance(d, mapping_type):
             for k, v in d.items():
                 if structure_value:
                     d[k] = structure_value(v) # pylint: disable=not-callable
             return d
-        return Parameters({
+        return mapping_type({
             k: structure_value(v) if structure_value else v for k, v in d.items() # pylint: disable=not-callable
         })
     return _structure

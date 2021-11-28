@@ -6,7 +6,7 @@ import numpy as np
 from attr import attrib
 from attr.validators import in_
 
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.settings.settings import qattrs
 from qwip.processing.process import Process
 
@@ -40,6 +40,26 @@ class FormatLegacyHeterodyne(Process):
         return output
 
 @qattrs
+class Rename(Process):
+    """A processing block to rename a data key.
+    
+    The renaming can be specified with a mapping that takes old keys to new keys
+    """
+    def _create_rename_func(maybe_mapping: Union[Callable, Mapping]):
+        if isinstance(maybe_mapping, Mapping):
+            return lambda x: maybe_mapping.get(x, x)
+        else:
+            return maybe_mapping
+
+    rename: Callable[[str], str] = attrib(converter=_create_rename_func)
+
+    def run(self, data, /):
+        """Renames the data passed to subsequent blocks."""
+
+        return {self.rename(k): v for k, v in data.items()} 
+
+
+@qattrs
 class FilterData(Process):
     """A processing block to filter data passed to subsequent blocks.
     
@@ -47,7 +67,7 @@ class FilterData(Process):
     callable that returns a boolean.
     """
 
-    def filter_func_from_condition(cond):
+    def _filter_func_from_condition(cond):
         if isinstance(cond, str):
             return lambda x: bool(re.fullmatch(cond, x))
         elif hasattr(cond, '__contains__'):
@@ -56,11 +76,11 @@ class FilterData(Process):
             return cond
 
     filter: Callable[..., bool] = attrib(
-        converter=filter_func_from_condition
+        converter=_filter_func_from_condition
     )
 
     def run(self, data, /):
-        """Filters the data passed to subsequent blocks"""
+        """Filters the data passed to subsequent blocks."""
 
         return {k: v for k, v in data.items() if self.filter(k)}
 
@@ -68,7 +88,7 @@ class FilterData(Process):
 class CollectData(Process):
     """A processing block to collect outputs from multiple input blocks.
     
-    The results are placed in a `Parameters` object where the key corresponds
+    The results are placed in a `FlatDict` object where the key corresponds
     to the name of the input process.
     """
     outer_key: str = attrib(default='process',
@@ -76,14 +96,14 @@ class CollectData(Process):
 
     def run(self, *data):
         if self.outer_key == 'process':
-            return Parameters({k: d for k, d in zip(self.settings.inputs, data)})
+            return FlatDict({k: d for k, d in zip(self.settings.inputs, data)})
         else:
-            output = Parameters()
+            output = FlatDict()
             for proc_key, proc_data in zip(self.settings.inputs, data):
                 if isinstance(proc_data, Mapping):
                     for label in proc_data:
                         if label not in output:
-                            output[label] = Parameters()
+                            output[label] = FlatDict()
 
                         output[label][proc_key] = proc_data[label]
 

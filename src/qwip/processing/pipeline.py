@@ -6,13 +6,13 @@ import attr
 from attr import attrib
 from loguru import logger
 
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.settings.settings import qattrs, Settings
 from qwip.processing.process import Process, ProcessSettings
 
 @qattrs
 class Pipeline:
-    processes: Parameters[str, Process] = attrib(factory=Parameters)
+    processes: FlatDict[str, Process] = attrib(factory=FlatDict)
     dependency_cache: dict[str, Any] = attrib(factory=dict)
 
     def reset(self):
@@ -68,7 +68,7 @@ class Pipeline:
     @classmethod
     def from_process_settings(cls, process_list: list[ProcessSettings]):
         return cls(
-            processes=Parameters((p.name, p.get_process()) for p in process_list)
+            processes=FlatDict((p.name, p.get_process()) for p in process_list)
         )
 
 @qattrs

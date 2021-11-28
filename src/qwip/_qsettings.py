@@ -1,14 +1,17 @@
 """QWiP Settings."""
+from enum import Enum
 from typing import Optional
 from copy import deepcopy
 from pathlib import Path
 
+import attr
 from attr import attrib
+from loguru import logger
 
-from qwip import __version__, __file__
+from qwip import __version__, __file__, yaml
 from qwip._repodata import get_repodata
 from qwip.settings.settings import Settings, qattrs
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 
 class DefaultSettings(Settings):
     """A settings class that saves default parameters.
@@ -34,14 +37,14 @@ class DefaultSettings(Settings):
         if len(keys) == 0:
             self.update(self._defaults)
 
-    def set_defaults(self) -> Parameters:
+    def set_defaults(self) -> FlatDict:
         """Sets the current state of the settings object as the default.
         
         This method recursively calls set_defaults on all DefaultSettings
         members. Note that set_defaults will change the defaults for all
         instances of DefaultSettings.
         """
-        self._defaults = Parameters()
+        self._defaults = FlatDict()
         
         for k, v in self.items():
             if isinstance(v, Settings) and hasattr(v, 'set_defaults'):
@@ -52,20 +55,13 @@ class DefaultSettings(Settings):
         return self._defaults
 
 @qattrs
-class DataSettings(DefaultSettings):
-    base_directory: str = '.'
-    directory_rule: str = 'date'
-    directory_exist_ok: bool = True
-    date_fmt: str = 'YYYY-MM-DD'
-
-@qattrs
 class SlackSettings(DefaultSettings):
     @qattrs
     class SlackChannel(DefaultSettings):
         webhook_url: str
 
     oauth_url: str = 'https://slack.com/oauth/v2/authorize?client_id=48620956720.2735463917265&scope=incoming-webhook&user_scope='
-    channels: Parameters[str, SlackChannel] = attrib(factory=Parameters)
+    channels: FlatDict[str, SlackChannel] = attrib(factory=FlatDict)
 
 @qattrs
 class SourceInfo(DefaultSettings):
@@ -75,24 +71,46 @@ class SourceInfo(DefaultSettings):
     branch: Optional[str] = None
 
 @qattrs
+class UnitSettings(DefaultSettings):
+    angle: str = attrib(default='degrees',
+                              validator=attr.validators.in_(('degrees', 'radians')))
+
+@qattrs
+class LogSettings(DefaultSettings):
+    directory: Path = attrib(default=Path('~/.qwip/logs/').expanduser())
+
+    @directory.validator
+    def _validate_log_directory(self, attribute, value):
+        if not value.exists():
+            value.mkdir(parents=True)
+            logger.info(f"Created logging directory at '{value}'")
+
+@qattrs
+class DataSettings(DefaultSettings):
+    base_directory: str = '.'
+    directory_rule: str = 'date'
+    directory_exist_ok: bool = True
+    date_fmt: str = 'YYYY-MM-DD'
+
+@qattrs
 class QWiPSettings(DefaultSettings):
     """A settings class for global library settings."""
     version: str = __version__
     src: SourceInfo = attrib(factory=SourceInfo)
     file_format: str = 'yaml'
-    notifiers: Parameters[str, SlackSettings] = attrib(factory=Parameters)
+    logging: LogSettings = attrib(factory=LogSettings)
+    notifiers: FlatDict[str, SlackSettings] = attrib(factory=FlatDict)
+    units: UnitSettings = attrib(factory=UnitSettings)
     data: DataSettings = attrib(factory=DataSettings)
 
 def process_qsettings_file():
-    from ruamel.yaml import YAML
-    yaml = YAML(typ='safe')
     paths = ['.', '~/.qwip/']
 
     for folder in paths:
         path = Path(folder).expanduser().resolve() / 'settings.qwip'
         
         if path.exists() and (p := yaml.load(path)):
-            return Parameters(p) #.toflatdict()
+            return FlatDict(p) #.toflatdict()
 
     return {}
     

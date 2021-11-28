@@ -7,7 +7,7 @@ import attr
 from attr import attrib
 from loguru import logger
 
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.settings.settings import qattrs, Settings
 
 def get_process_type(process_type: str) -> type:
@@ -53,7 +53,7 @@ class ProcessSettings(Settings):
     name: str
     process_type: type = attrib(converter=get_process_type)
     inputs: tuple[str, ...] = attrib(factory=tuple)
-    parameters: Parameters[str, Any] = attrib(factory=Parameters)
+    parameters: FlatDict[str, Any] = attrib(factory=FlatDict)
 
     @process_type.validator
     def validate_process_type(self, attribute, value):

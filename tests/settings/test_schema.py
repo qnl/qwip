@@ -13,7 +13,7 @@ from attr import attrib
 from loguru import logger
 
 from qwip.settings.settings import Settings, qattrs
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.settings.schema import schema
 
 
@@ -82,7 +82,7 @@ def test_mapping_properties():
         """A settings class with mappings."""
         dict_property: dict[str, int]
         mapping_property: Mapping
-        parameters: Parameters[str, str]
+        parameters: FlatDict[str, str]
 
     s = schema(MappingSettings)
     properties = {
@@ -189,7 +189,7 @@ def test_in_validator():
 def test_property_names():
     @qattrs
     class ConstrainedSettings(Settings):
-        names: Parameters[str, int] = attrib(
+        names: FlatDict[str, int] = attrib(
             validator=attr.validators.deep_iterable(
                 member_validator=attr.validators.matches_re('[a-zA-Z][0-9]')
             )

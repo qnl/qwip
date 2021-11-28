@@ -10,9 +10,9 @@ from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
 
 from qwip.defaults import dynamic_default
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.settings.settings import qattrs
-
+from qwip.calibration.readout import ReadoutCalibration
 from qwip.processing.process import Process
 
 @qattrs
@@ -22,6 +22,11 @@ class IQRotation(Process):
     This process expects a mapping (dict) of strings to ndarays as its input. The
     keys are typically of the form R(\\d+), but can be anything. Each ndarray is
     expected to have the shape `(..., IQ)`.
+
+    Attributes:
+        angle (dict): A dictionary of angles for each data key. The unit defaults
+            to `qsettings['units/angle']` but can be set as a keword argument
+            to `run()`.
 
     """
     angles: dict[str, float] = attrib(factory=dict)
@@ -72,20 +77,21 @@ class GMM(Process):
         the predictions.
         """
         output = {}
-
+        print(type(data))
         for key, IQ in data.items():
             if key not in self.means or key not in self.covariances:
                 logger.error(f"No '{key}'.")
                 raise KeyError(
                     f"Cannot classify IQ data for key '{key}' with no specified"
-                    f"GMMs."
+                    f" GMMs."
                 )
 
             elif key not in self.mixes:
                 self._validate_means_covariances()
-                self.generate_mixes()
+                self.mixes = self.generate_mixes()
 
             mix = self.mixes[key]
+            
 
             # These reshapes only create views of the data where memory is
             # still contiguous
@@ -101,21 +107,16 @@ class GMM(Process):
 
         mixes = dict()
 
-        for k, mu in self.means.items():
-            n_states = mu.shape[0]
-            mix = GaussianMixture(n_components=n_states, covariance_type='spherical') 
-            mix.means_ = mu
-            mix.covariances_ = self.covariances[k]
-            mix.precisions_cholesky_ = 0.01
-            mix.weights_ = np.ones(n_states) / n_states
-
-            mixes[k] = mix
+        for k in self.means.flatkeys():
+            mixes[k] = ReadoutCalibration.Result(
+                means=self.means[k], covariances=self.covariances[k]
+            ).gmm_model()
 
         return mixes
 
     def _validate_means_covariances(self):
-        ms = set(self.means.keys())
-        cs = set(self.covariances.keys())
+        ms = set(self.means.flatkeys())
+        cs = set(self.covariances.flatkeys())
 
         if no_covs := ms - cs:
             key_str = ', '.join(no_covs)

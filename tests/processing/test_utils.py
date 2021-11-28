@@ -8,7 +8,7 @@ from numpy.testing import assert_allclose, assert_array_equal
 
 from loguru import logger
 
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.processing.process import ProcessSettings
 
 logger.enable('qwip')
@@ -52,6 +52,38 @@ class TestFormatLegacyHeterodyne:
         assert_allclose(output['R0'][..., 1], meas['R0']['Heterodyne'][1])
         assert_allclose(output['R1'][..., 0], meas['R1']['Heterodyne'][0])
         assert_allclose(output['R1'][..., 1], meas['R1']['Heterodyne'][1])
+
+class TestRename:
+    @pytest.fixture
+    def data(self):
+        return {f'R{i}': np.ones(3) * i for i in range(10)}
+
+    @pytest.fixture
+    def psettings(self):
+        psettings = ProcessSettings(
+            name='rename', process_type='utils.Rename'
+        )
+
+        return psettings
+
+    @pytest.mark.parametrize('mapping,keys', [
+        ({'R0': 'new/R0'}, ['new/R0'] + [f'R{i}' for i in range(1, 10)])
+    ])
+    def test_rename_by_mapping(self, psettings, data, mapping, keys):
+        rename = psettings.get_process(rename=mapping)
+
+        output = rename(data)
+
+        assert list(output.keys()) == keys
+
+    def test_rename_by_callable(self, psettings, data):
+        rename = psettings.get_process(rename=lambda x: f'new/{x}')
+
+        output = rename(data)
+        assert list(output.keys()) == [
+            'new/R0', 'new/R1', 'new/R2', 'new/R3', 'new/R4',
+            'new/R5', 'new/R6', 'new/R7', 'new/R8', 'new/R9'
+        ]
 
 class TestFilterData:
     @pytest.fixture
@@ -118,7 +150,7 @@ class TestCollectData:
         
         output = collect({'R0': 0}, {'R0': 1}, {'R0': 2})
 
-        assert output == Parameters({'a': {'R0': 0}, 'b': {'R0': 1}, 'c': {'R0': 2}})
+        assert output == FlatDict({'a': {'R0': 0}, 'b': {'R0': 1}, 'c': {'R0': 2}})
 
     def test_label_outer(self, psettings):
         collect = psettings.get_process(outer_key='label')
@@ -126,4 +158,4 @@ class TestCollectData:
         psettings.inputs = ('a', 'b', 'c')
         output = collect({'R0': 0}, {'R0': 1}, {'R1': 2})
         
-        assert output == Parameters({'R0': {'a': 0, 'b': 1}, 'R1': {'c': 2}})
+        assert output == FlatDict({'R0': {'a': 0, 'b': 1}, 'R1': {'c': 2}})

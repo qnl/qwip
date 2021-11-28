@@ -1,4 +1,4 @@
-"""A module for implementing a Parameters object."""
+"""A module for implementing a FlatDict object."""
 import html
 
 from collections.abc import Mapping, MutableMapping, KeysView, ValuesView, ItemsView
@@ -189,7 +189,7 @@ class FlatMapping(Mapping):
 KT = TypeVar('KT')
 VT = TypeVar('VT')
 
-class Parameters(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignore
+class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignore
     """A mapping object that supports key chaining and attribute access.
 
     Values can be accessed like `params['one/two/three']` or
@@ -266,7 +266,7 @@ class Parameters(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ign
         
         # need to create parameters
         key = self._delim.join(remainder)
-        subgroup.__setitem__(base, Parameters({key: val}))
+        subgroup.__setitem__(base, type(self)({key: val}))
 
     def __delitem__(self, key):
         key = key.split(self._delim) if isinstance(key, str) else [key]
@@ -284,24 +284,24 @@ class Parameters(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ign
         return self.__dict__.__len__()
 
     def todict(self) -> dict:
-        """Recursively converts the `Parameters` object to a dictionary.
+        """Recursively converts the `FlatDict` object to a dictionary.
 
         Returns:
-            dict: The converted `Parameters`.
+            dict: The converted `FlatDict`.
         """
-        return {k: v.todict() if isinstance(v, Parameters) else v for k, v in self.items()}
+        return {k: v.todict() if isinstance(v, FlatDict) else v for k, v in self.items()}
 
     def toflatdict(self) -> dict:
-        """Converts the flattenned `Parameters` object to a dictionary.
+        """Converts the flattenned `FlatDict` object to a dictionary.
 
         Returns:
-            dict: The flattened `Parameters`.
+            dict: The flattened `FlatDict`.
         """
         return {k: v for k, v in self.flatitems()}
     
     @contextmanager
     def context(self, update=None):
-        """Context manager for temporarily changing parameters."""
+        """Context manager for temporarily changing values."""
         orig = self.copy()
         try:
             if update is not None:

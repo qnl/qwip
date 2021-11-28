@@ -7,16 +7,15 @@ from typing import Optional
 
 import attr, cattr
 
-from ruamel.yaml import YAML
+
 from attr import attrs
 
+from qwip import yaml
 from qwip.settings.base import SettingsBase
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.settings.validation import add_type_validators
 from qwip.settings.serialization import add_type_converters
 from qwip.settings.schema import schema
-
-yaml = YAML(typ='safe')
 
 def qwip_field_transform(cls, fields):
     fields = add_type_converters(cls, fields)
@@ -70,7 +69,7 @@ class Settings(SettingsBase):
                 base = remainder[0]
                 base = int(base) if isinstance(subgroup, list) else base
 
-                if isinstance(subgroup, (list, Settings, Parameters)):
+                if isinstance(subgroup, (list, Settings, FlatDict)):
                     subgroup.__setitem__(base, val)
                 else:
                     setattr(subgroup, base, val)
@@ -78,7 +77,7 @@ class Settings(SettingsBase):
                 return
 
             key = self._delim.join(remainder)
-            setattr(subgroup, base, Parameters({key: val}))
+            setattr(subgroup, base, FlatDict({key: val}))
 
     def update(self, *args, **kwargs):
         if len(args) > 1:
@@ -131,11 +130,11 @@ class Settings(SettingsBase):
     def todict(self) -> dict:
         return cattr.unstructure(self)
 
-    def toparameter(self) -> Parameters:
-        return Parameters(self.todict())
+    def toflatdict(self) -> FlatDict:
+        return FlatDict(self.todict())
 
     def get_keys(self, *keys):
-        return Parameters(super().get_keys(*keys))
+        return FlatDict(super().get_keys(*keys))
 
     @classmethod
     def fromdict(cls, d: dict):

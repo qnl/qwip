@@ -11,7 +11,7 @@ import pendulum
 from numpy.typing import NDArray
 
 from qwip.settings.settings import Settings, qattrs
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 
 @qattrs
 class SimpleSettings(Settings):
@@ -31,7 +31,7 @@ class NestedSettings(SimpleSettings):
         positive_int_field: int = attrib(validator=positive)
 
     setting_field: ChildSetting
-    param_field: Parameters[str, str]
+    param_field: FlatDict[str, str]
     list_field: List[int]
     optional_str: Optional[str]
 
@@ -83,7 +83,7 @@ def nesteddict():
         'setting_field': {
             'positive_int_field': 1
         },
-        'param_field': Parameters({'key1': 'value1', 'key2': 'value2'}),
+        'param_field': FlatDict({'key1': 'value1', 'key2': 'value2'}),
         'list_field': [1, 2, 3],
         'optional_str': None
     }

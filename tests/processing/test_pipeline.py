@@ -24,6 +24,11 @@ class TestPipeline:
             ProcessSettings(name='f', process_type=TagProcess, inputs=('c',))
         ]
 
+    def test_empty_pipeline(self):
+        pipeln = Pipeline.from_process_settings([])
+
+        assert bool(pipeln.processes) == False
+
     def test_create_from_process_settings(self, psettings):
         pipeln = Pipeline.from_process_settings(psettings)
 

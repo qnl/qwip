@@ -10,7 +10,7 @@ from loguru import logger
 
 # from qwip.settings.settings import Settings
 from qwip.settings.base import SettingsBase
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.settings.typing import get_class_from_type, is_optional, typedispatch, get_origin, get_args
 
 

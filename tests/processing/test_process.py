@@ -6,7 +6,7 @@ from attr import attrib
 
 import qwip.processing as qproc
 
-from qwip.parameters import Parameters
+from qwip.flatdict import FlatDict
 from qwip.settings.settings import qattrs
 from qwip.processing.process import (
     get_process_type, Process, ProcessSettings
@@ -45,7 +45,7 @@ class TestGetProcessType:
 
 @pytest.fixture
 def iq_rotation_settings():
-    return Parameters(
+    return FlatDict(
         name='rotate',
         process_type='classification.IQRotation',
         parameters=dict(angles={})
@@ -53,7 +53,7 @@ def iq_rotation_settings():
 
 @pytest.fixture
 def example_settings():
-    return Parameters(name='ex1', process_type=ExampleProcess)
+    return FlatDict(name='ex1', process_type=ExampleProcess)
 
 class TestProcessSettings:
     def test_initialize(self, iq_rotation_settings):
