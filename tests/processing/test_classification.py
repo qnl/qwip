@@ -10,6 +10,7 @@ from loguru import logger
 
 import qwip
 from qwip.processing.process import ProcessSettings
+from qwip.processing.classification import GMMData
 
 logger.enable('qwip')
 
@@ -153,12 +154,12 @@ class TestGMM:
 
         return IQ, states
 
-    def generate_data(self, rng, sizes, means, covariances):
+    def generate_data(self, rng, sizes, gmms):
         data = {}
         answer = {}
-        for i, k in enumerate(means):
+        for i, (k, gmm) in enumerate(gmms.items()):
             data[k], answer[k] = self.generate_IQ_data(
-                rng, sizes[i], means[k], covariances[k]
+                rng, sizes[i], gmm.means, gmm.covariances
             )
 
         return data, answer
@@ -172,49 +173,68 @@ class TestGMM:
 
     @pytest.fixture
     def process_three_state(self, psettings):
-        means = {
-            'R1': np.array([[94.0, 20.0], [72.0, -45.2], [-62.1, 55.0]])
-        }
-
-        covariances = {
-            'R1': np.array([30.0, 32.0, 31.0])
+        gmms = {
+            'R1': {
+                'means': np.array([30.0, 32.0, 31.0]),
+                'covariances': np.array([[94.0, 20.0], [72.0, -45.2], [-62.1, 55.0]])
+            }
         }
 
         psettings.parameters.update(
-            means=means, 
-            covariances=covariances
+            gmms=gmms
         )
 
         return psettings.get_process()
 
+    def test_init(self, psettings):
+        gmm = psettings.get_process(gmms={
+            'R1': {
+                'means': np.zeros((2, 2)),
+                'covariances': np.zeros(2)
+            }
+        })
+
+        assert isinstance(gmm.gmms['R1'], GMMData)
+        assert 'R1' in gmm.mixes
+
 
     CASES = [
         (   # Two state classification
-            dict(R1=np.array([[94.0, 20.0], [72.0, -45.2]])),
-            dict(R1=np.array([30.0, 32.0])),
+            dict(
+                R1=dict(
+                    means=np.array([[94.0, 20.0], [72.0, -45.2]]),
+                    covariances=np.array([30.0, 32.0])
+                )
+            ),
             [(512, 20, 1)]
         ),
         (   # Three state classification
-            dict(R2=np.array([[94.0, 20.0], [72.0, -45.2], [-62.1, 55.0]])),
-            dict(R2=np.array([30.0, 32.0, 31.0])),
+            dict(
+                R2=dict(
+                    means=np.array([[94.0, 20.0], [72.0, -45.2], [-62.1, 55.0]]),
+                    covariances=np.array([30.0, 32.0, 31.0])
+                )
+            ),
             [(5, 4, 3, 2)]
         ),
         (
             dict(
-                R1=np.array([[94.0, 20.0], [72.0, -45.2]]),
-                R2=np.array([[94.0, 20.0], [72.0, -45.2], [-62.1, 55.0]])
-            ),
-            dict(
-                R1=np.array([30.0, 32.0]),
-                R2=np.array([30.0, 32.0, 31.0])
+                R1=dict(
+                    means=np.array([[94.0, 20.0], [72.0, -45.2]]),
+                    covariances=np.array([30.0, 32.0])
+                ),
+                R2=dict(
+                    means=np.array([[94.0, 20.0], [72.0, -45.2], [-62.1, 55.0]]),
+                    covariances=np.array([30.0, 32.0, 31.0])
+                )
             ),
             [(2, 3, 4), (5, 4, 3, 2)]
         )
     ]
-    @pytest.mark.parametrize('means,covariances,sizes', CASES)
-    def test_classify_states(self, rng, psettings, means, covariances, sizes):
-        gmm = psettings.get_process(means=means, covariances=covariances)
-        IQ, states = self.generate_data(rng, sizes, gmm.means, gmm.covariances)
+    @pytest.mark.parametrize('gmms,sizes', CASES)
+    def test_classify_states(self, rng, psettings, gmms, sizes):
+        gmm = psettings.get_process(gmms=gmms)
+        IQ, states = self.generate_data(rng, sizes, gmm.gmms)
 
         output = gmm(IQ)
 
@@ -231,21 +251,17 @@ class TestGMM:
         with pytest.raises(TypeError):
             psettings.get_process(covariances=dict(R2=np.zeros(2)))
 
-    def test_validate_means_covariances(self, psettings):
-        psettings.parameters.update(
-            means=dict(R1=np.zeros((2, 2))),
-            covariances=dict(R1=np.zeros(3))
-        )
-        
-        with pytest.raises(ValueError):
-            psettings.get_process()
-
     def test_update_settings(self, psettings):
-        gmm = psettings.get_process(means=dict(), covariances=dict())
+        gmmdata = {
+            'R1': {
+                'means': np.zeros((2, 2)),
+                'covariances': np.ones(2)
+            }
+        }
+        gmm = psettings.get_process(gmms=gmmdata)
 
         assert psettings.parameters == {
-            'means': gmm.means,
-            'covariances': gmm.covariances
+            'gmms': gmmdata,
         }
 
 class TestStatePopulations:

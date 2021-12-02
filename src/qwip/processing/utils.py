@@ -51,7 +51,7 @@ class Rename(Process):
         else:
             return maybe_mapping
 
-    rename: Callable[[str], str] = attrib(converter=_create_rename_func)
+    rename: Callable[[str], str] = attrib(converter=_create_rename_func, metadata=dict(auto_convert=False))
 
     def run(self, data, /):
         """Renames the data passed to subsequent blocks."""
@@ -76,7 +76,8 @@ class FilterData(Process):
             return cond
 
     filter: Callable[..., bool] = attrib(
-        converter=_filter_func_from_condition
+        converter=_filter_func_from_condition,
+        metadata=dict(auto_convert=False)
     )
 
     def run(self, data, /):

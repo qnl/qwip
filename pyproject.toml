@@ -4,3 +4,7 @@ requires = [
     "wheel"
 ]
 build-backend="setuptools.build_meta"
+
+[pytest]
+log_cli = true
+log_cli_level = "DEBUG"

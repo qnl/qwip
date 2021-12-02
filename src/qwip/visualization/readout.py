@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 from matplotlib.colors import Colormap, ListedColormap, LogNorm
 from matplotlib.figure import Figure
+from qwip.processing.classification import GMMData
 
-from qwip.calibration.readout import ReadoutCalibration
 from qwip.visualization.utils import (
     get_alpha_colormap,
     get_colormap_with_dropout,
@@ -99,10 +99,10 @@ def _plot_readout_by_element(
 
 def plot_decision_boundary(
     fig: Figure,
-    gmm_data: dict[str, dict[str, np.ndarray]],
+    gmm_data: dict[str, GMMData],
     *,
     colors: Union[str, list] = get_berkeley_colormap().colors,
-    alpha: float = 0.3,
+    alpha: float = 0.2,
 ) -> Figure:
     """Plots GMM decision boundaries on an existing figure.
 
@@ -118,8 +118,8 @@ def plot_decision_boundary(
         (Figure): A matplotlib Figure.
     """
 
-    for ax, params in zip(fig.axes, gmm_data.values()):
-        gmm = ReadoutCalibration.get_gmm_model(params['means'], params['covariances'])
+    for ax, gmm_data in zip(fig.axes, gmm_data.values()):
+        gmm = gmm_data.gmm_model()
 
         N = gmm.n_components
         if isinstance(colors, str):

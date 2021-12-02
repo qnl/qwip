@@ -1,18 +1,17 @@
 """Processing blocks related to classification"""
 
-from typing import Optional, Union
+from typing import Mapping, Optional, Set, Union, Annotated
 
 import numpy as np
 
 from loguru import logger
 from attr import attrib
-from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
 
+from qwip.typing import NDArray
 from qwip.defaults import dynamic_default
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qattrs
-from qwip.calibration.readout import ReadoutCalibration
+from qwip.settings.settings import qattrs, Settings
 from qwip.processing.process import Process
 
 @qattrs
@@ -58,6 +57,23 @@ class IQRotation(Process):
         return output
 
 @qattrs
+class GMMData(Settings):
+    means: NDArray[np.float64]
+    covariances: NDArray[np.float64]
+    separations: FlatDict[str, float] = attrib(factory=FlatDict)
+
+    def gmm_model(self):
+        n_states = self.means.shape[0]
+
+        mix = GaussianMixture(n_components=n_states, covariance_type='spherical') 
+        mix.means_ = self.means
+        mix.covariances_ = self.covariances
+        mix.precisions_cholesky_ = 0.01
+        mix.weights_ = np.ones(n_states) / n_states
+
+        return mix
+
+@qattrs
 class GMM(Process):
     """A processing block for GMM classficiation of heterodyne data.
     
@@ -66,9 +82,8 @@ class GMM(Process):
     expected to have the shape `(..., IQ)`.
     """
 
-    means: dict[str, NDArray]
-    covariances: dict[str, NDArray]
-    mixes : dict[str, GaussianMixture] = attrib(metadata=dict(serialize=False))
+    gmms: FlatDict[str, GMMData]
+    mixes: FlatDict[str, GaussianMixture] = attrib(init=False, metadata=dict(serialize=False))
 
     def run(self, data, /):
         """Classifies the data using a Gaussian Mixture model.
@@ -77,9 +92,9 @@ class GMM(Process):
         the predictions.
         """
         output = {}
-        print(type(data))
+
         for key, IQ in data.items():
-            if key not in self.means or key not in self.covariances:
+            if key not in self.gmms:
                 logger.error(f"No '{key}'.")
                 raise KeyError(
                     f"Cannot classify IQ data for key '{key}' with no specified"
@@ -87,7 +102,6 @@ class GMM(Process):
                 )
 
             elif key not in self.mixes:
-                self._validate_means_covariances()
                 self.mixes = self.generate_mixes()
 
             mix = self.mixes[key]
@@ -103,40 +117,36 @@ class GMM(Process):
 
     @mixes.default
     def generate_mixes(self):
-        self._validate_means_covariances()
+        mixes = FlatDict()
 
-        mixes = dict()
-
-        for k in self.means.flatkeys():
-            mixes[k] = ReadoutCalibration.Result(
-                means=self.means[k], covariances=self.covariances[k]
-            ).gmm_model()
+        for k, result in self.gmms.items():
+            mixes[k] = result.gmm_model()
 
         return mixes
 
-    def _validate_means_covariances(self):
-        ms = set(self.means.flatkeys())
-        cs = set(self.covariances.flatkeys())
+    # def _validate_means_covariances(self):
+    #     ms = set(self.means.flatkeys())
+    #     cs = set(self.covariances.flatkeys())
 
-        if no_covs := ms - cs:
-            key_str = ', '.join(no_covs)
-            raise ValueError(
-                f'Mismatch between means and covariances! The following keys '
-                f'have no covariances: {key_str}')
+    #     if no_covs := ms - cs:
+    #         key_str = ', '.join(no_covs)
+    #         raise ValueError(
+    #             f'Mismatch between means and covariances! The following keys '
+    #             f'have no covariances: {key_str}')
 
-        if no_means := cs - ms:
-            key_str = ', '.join(no_means)
-            raise ValueError(
-                f'Mismatch between means and covariances! The following keys '
-                f'have no means: {key_str}')
+    #     if no_means := cs - ms:
+    #         key_str = ', '.join(no_means)
+    #         raise ValueError(
+    #             f'Mismatch between means and covariances! The following keys '
+    #             f'have no means: {key_str}')
 
-        for key in ms:
-            if self.means[key].shape[0] != self.covariances[key].shape[0]:
-                raise ValueError(
-                    f"Mismatch between means and covariances for '{key}'. Means"
-                    f" have shape {self.means[key].shape} but covariances have "
-                    f"shape {self.covariances[key].shape}"
-                )
+    #     for key in ms:
+    #         if self.means[key].shape[0] != self.covariances[key].shape[0]:
+    #             raise ValueError(
+    #                 f"Mismatch between means and covariances for '{key}'. Means"
+    #                 f" have shape {self.means[key].shape} but covariances have "
+    #                 f"shape {self.covariances[key].shape}"
+    #             )
 
 @qattrs
 class StatePopulations(Process):
@@ -147,7 +157,7 @@ class StatePopulations(Process):
     expected to have the shape `(n_shots, ...)`.
     """
 
-    states: Union[int, dict[str, int]] = 2
+    states: Union[int, dict[str, int]] = attrib(default=2, metadata=dict(auto_convert=False))
     axis: int = 0
 
     def run(self, data, /):

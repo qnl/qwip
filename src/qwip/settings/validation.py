@@ -1,10 +1,11 @@
-from typing import Union, Any
+from typing import Union, Any, get_origin, get_args
 from collections.abc import Mapping
 
 import attr
 from attr.validators import instance_of, deep_iterable, deep_mapping, and_
 
-from qwip.settings.typing import get_origin, get_args
+from qwip.typing import is_annotated
+# from qwip.settings.typing import get_origin, get_args
 
 from loguru import logger
 
@@ -16,9 +17,13 @@ def add_type_validators(cls, fields):
         if field.type == Any:
             new_fields.append(field)
             continue
+        
+        field_type = field.type
+        if is_annotated(field.type):
+            field_type = get_args(field.type)[0]
 
-        type_origin = get_origin(field.type)
-        type_args = get_args(field.type)
+        type_origin = get_origin(field_type)
+        type_args = get_args(field_type)
 
         if type_origin is Union:
             field_type = type_args

@@ -4,20 +4,53 @@ import html
 from collections.abc import Mapping, MutableMapping, KeysView, ValuesView, ItemsView
 from copy import deepcopy
 from contextlib import contextmanager
-from typing import Generic, TypeVar
+from typing import Any, Generic, TypeVar, Union, get_args, get_origin
+
+import attr
+from cattr.gen import make_mapping_structure_fn, make_mapping_unstructure_fn
+
+import qwip
+from qwip.typing import is_annotated, is_optional
 
 class FlatKeysView(KeysView):
     """A flattened key view."""
+    __slots__ = ('_levels',)
+    def __init__(self, mapping, levels=None):
+        self._levels = levels
+        super().__init__(mapping)
+
     def __iter__(self):
-        yield from type(self._mapping).__flatiter__(self._mapping)
+        flatkeys = type(self._mapping).__flatiter__(self._mapping, levels=self._levels)
+        if self._levels is not None and self._levels < 0:
+            keys = []
+            n = -self._levels
+            for k in flatkeys:
+                split = k.rsplit(self._mapping._delim, maxsplit=n)
+                shortened = split[0]
+                if not keys:
+                    keys.append(shortened)
+                elif keys[-1].startswith(shortened):
+                    keys[-1] = shortened
+                elif not shortened.startswith(keys[-1]):
+                    keys.append(shortened)
+
+            for k in keys:
+                yield k
+        else:
+            yield from flatkeys
     
     def __repr__(self):
         return f'{self.__class__.__name__}({list(self.__iter__())}))'
         
 class FlatValuesView(ValuesView):
     """A flattened values view."""
+    __slots__ = ('_levels',)
+    def __init__(self, mapping, levels=None):
+        self._levels = levels
+        super().__init__(mapping)
+
     def __iter__(self):
-        for key in self._mapping.flatkeys():
+        for key in self._mapping.flatkeys(levels=self._levels):
             yield self._mapping[key]
     
     def __repr__(self):
@@ -25,8 +58,13 @@ class FlatValuesView(ValuesView):
         
 class FlatItemsView(ItemsView):
     """A flattened items view."""
+    __slots__ = ('_levels',)
+    def __init__(self, mapping, levels=None):
+        self._levels = levels
+        super().__init__(mapping)
+
     def __iter__(self):
-        for key in self._mapping.flatkeys():
+        for key in self._mapping.flatkeys(levels=self._levels):
             yield (key, self._mapping[key])
 
     def __repr__(self):
@@ -84,25 +122,59 @@ class FlatMapping(Mapping):
         else:
             return True
 
-    def __flatiter__(self, base=None):
-        def flat_enumerate(maybe_lst, index=()):
-            if isinstance(maybe_lst, list):
-                for i, nxt in enumerate(maybe_lst):
-                    yield from flat_enumerate(nxt, index=(*index, i))
-            else:
-                yield index, maybe_lst
+    # def __flatiter__(self, base=None):
+    #     def flat_enumerate(maybe_lst, index=()):
+    #         if isinstance(maybe_lst, list):
+    #             for i, nxt in enumerate(maybe_lst):
+    #                 yield from flat_enumerate(nxt, index=(*index, i))
+    #         else:
+    #             yield index, maybe_lst
 
+    #     for k, v in self.items():
+    #         if hasattr(v, '__flatiter__') and v:
+    #             next_base = k if base is None else  f'{base}{self._delim}{k}'
+    #             yield from v.__flatiter__(base=next_base)
+    #         elif isinstance(v, list) and v:
+    #             for idx, next_v in flat_enumerate(v):
+    #                 listkey = self._delim.join(str(i) for i in idx)
+    #                 if hasattr(next_v, '__flatiter__') and next_v:
+    #                     next_base = f'{k}{self._delim}{listkey}'
+    #                     if base:
+    #                         next_base = f'{base}{self._delim}{next_base}'
+    #                     yield from next_v.__flatiter__(base=next_base)
+    #                 else:
+    #                     yield f'{k}{self._delim}{listkey}' if base is None else f'{base}{self._delim}{k}{self._delim}{listkey}'
+    #         else:
+    #             yield k if base is None else f'{base}{self._delim}{k}'
+
+    def __flatiter__(self, levels=None, base=None):
+        def flat_enumerate(maybe_lst, index=(), levels=None):
+            
+            next_levels = levels - 1 if levels is not None and levels > 0 else levels
+            if isinstance(maybe_lst, list) and (levels is None or levels != 0):
+                for i, nxt in enumerate(maybe_lst):
+                    yield from flat_enumerate(nxt, index=(*index, i), levels=next_levels)
+            else:
+                yield index, maybe_lst, next_levels
+
+        if levels == 0:
+            return
+        
+        next_levels = levels - 1 if levels is not None and levels > 0 else levels
         for k, v in self.items():
-            if hasattr(v, '__flatiter__') and v:
+            if hasattr(v, '__flatiter__') and v and (levels is None or levels < 0 or levels > 1):
                 next_base = k if base is None else  f'{base}{self._delim}{k}'
-                yield from v.__flatiter__(base=next_base)
-            elif isinstance(v, list) and v:
-                for idx, next_v in flat_enumerate(v):
+                
+                yield from v.__flatiter__(base=next_base, levels=next_levels)
+            elif isinstance(v, list) and v and (levels is None or levels < 0 or levels > 1):
+
+                for idx, next_v, levels in flat_enumerate(v, levels=next_levels):
                     listkey = self._delim.join(str(i) for i in idx)
-                    if hasattr(next_v, '__flatiter__') and next_v:
+
+                    if hasattr(next_v, '__flatiter__') and next_v and (levels is None or levels != 0):
                         next_base = f'{k}{self._delim}{listkey}'
                         if base:
-                            next_base = base + listkey + next_base
+                            next_base = f'{base}{self._delim}{next_base}'
                         yield from next_v.__flatiter__(base=next_base)
                     else:
                         yield f'{k}{self._delim}{listkey}' if base is None else f'{base}{self._delim}{k}{self._delim}{listkey}'
@@ -112,7 +184,7 @@ class FlatMapping(Mapping):
     def __repr__(self):
         return '{' + ', '.join([f'{repr(k)}: {repr(v)}' for k, v in self.items()]) + '}' 
     
-    def flatkeys(self):
+    def flatkeys(self, levels=None):
         """Returns a `View` of flattened keys.
 
         Nested `FlatMappings` are flattened and keys joined with a `'.'`.
@@ -121,9 +193,9 @@ class FlatMapping(Mapping):
             FlatKeysView: An iterator that returns all flattened keys in the
                 `FlatMapping` object.
         """
-        return FlatKeysView(self)
+        return FlatKeysView(self, levels=levels)
     
-    def flatvalues(self):
+    def flatvalues(self, levels=None):
         """Returns a `View` of flattened values.
 
         All `FlatMapping` objects contained within this object are iterated over
@@ -132,9 +204,9 @@ class FlatMapping(Mapping):
             FlatValuesView: An iterator that returns all values in the 
                 `FlatMapping` object, including values in nested `FlatMappings`.
         """
-        return FlatValuesView(self)
+        return FlatValuesView(self, levels=levels)
     
-    def flatitems(self):
+    def flatitems(self, levels=None):
         """Returns a `View` of flattened items.
 
         Nested `FlatMappings` are flattened and keys joined with a `'.'`.
@@ -143,7 +215,7 @@ class FlatMapping(Mapping):
             FlatItemsView: An iterator that returns a tuple of `(flatkey, val)`
                 for all values in the `FlatMapping` object.
         """
-        return FlatItemsView(self)
+        return FlatItemsView(self, levels=levels)
 
     def copy(self):
         """Returns a deep copy of the `FlatMapping` object
@@ -186,7 +258,7 @@ class FlatMapping(Mapping):
     def rsplit(self, key, maxsplit=-1):
         return key.rsplit(self._delim, maxsplit)
 
-KT = TypeVar('KT')
+KT = TypeVar('KT', bound=str)
 VT = TypeVar('VT')
 
 class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignore
@@ -291,13 +363,13 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
         """
         return {k: v.todict() if isinstance(v, FlatDict) else v for k, v in self.items()}
 
-    def toflatdict(self) -> dict:
+    def toflatdict(self, levels=None) -> dict:
         """Converts the flattenned `FlatDict` object to a dictionary.
 
         Returns:
             dict: The flattened `FlatDict`.
         """
-        return {k: v for k, v in self.flatitems()}
+        return {k: v for k, v in self.flatitems(levels=levels)}
     
     @contextmanager
     def context(self, update=None):
@@ -309,3 +381,40 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
             yield
         finally:
             self.update(orig)
+
+# Register structuring/unstructuring on qwip converter
+def make_flatdict_structure_fn(cls):
+    structure_fn = make_mapping_structure_fn(
+        cls, qwip.converter, structure_to=get_origin(cls) or cls
+    )
+
+    levels = None
+    _cls = cls
+
+    if args := get_args(_cls):
+        VT = get_origin(args[1]) or args[1]
+        if is_optional(args[1]) or is_annotated(args[1]):
+            VT = get_args(args[1])[0]
+            VT = get_origin(VT) or VT
+
+        if VT is Any:
+            levels = None
+        elif issubclass(VT, (Mapping, list)) or attr.has(VT):
+            levels = 1
+
+    _cls = get_origin(_cls) or _cls
+
+    def new_structure_fn(obj, cls):
+        override = get_args(cls)[1] if is_annotated(cls) else levels
+        # print('levels', override, levels, 'for', cls)
+
+        if isinstance(obj, Mapping):
+            obj = _cls(obj).toflatdict(levels=override)
+        return structure_fn(obj, cls)
+
+    return new_structure_fn
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: issubclass(get_origin(cls) or cls, FlatDict),
+    make_flatdict_structure_fn
+)

@@ -90,8 +90,8 @@ def nesteddict():
 
 @pytest.fixture
 def typefaildict(nesteddict):
-    nesteddict['param_field']['key2'] = 2
-    nesteddict['optional_str'] = 1
+    nesteddict['param_field']['key2'] = list()
+    nesteddict['optional_str'] = list()
     return nesteddict
 
 ## Context
@@ -133,7 +133,7 @@ def test_pendulum_structure(pendulumdict):
 def test_type_validate(typefaildict):
     with pytest.raises(TypeError):
         s = NestedSettings(**typefaildict)
-    typefaildict['param_field']['key2'] = 'value2'
+    typefaildict['param_field']['key2'] = ['value2']
 
     with pytest.raises(TypeError):
         s = NestedSettings(**typefaildict)
@@ -153,9 +153,9 @@ def test_disable_validate(typefaildict):
     with disable_validation():
         s = NestedSettings(**typefaildict)
 
-    assert s['param_field']['key2'] == 2
-    assert s['optional_str'] == 1
+    assert s['param_field']['key2'] == list()
+    assert s['optional_str'] == list()
 
     with danger():
-        s['optional_str'] = 1.2
-    assert s['optional_str'] == 1.2
+        s['optional_str'] = list()
+    assert s['optional_str'] == list()

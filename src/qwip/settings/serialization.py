@@ -12,6 +12,7 @@ import numpy as np
 
 from loguru import logger
 
+import qwip
 from qwip.settings.base import SettingsBase
 from qwip.settings.typing import get_class_from_type, get_args, get_origin, typedispatch, is_optional
 from qwip.flatdict import FlatDict
@@ -157,26 +158,40 @@ def _(field_type, field):
         return np.array(maybe_ndarray, dtype=None if dtype == Any else dtype)
     return _structure
 
+# def add_type_converters(cls, fields):
+#     new_fields = []
+
+#     for field in fields:
+#         if field.type == Any:
+#             new_fields.append(field)
+#             continue
+
+#         class_set = set(get_class_from_type(field.type).keys())
+
+#         type_converter = structure(class_set.pop(), field) if len(class_set) == 1 else None
+
+#         if is_optional(field.type) and type_converter:
+#             type_converter = attr.converters.optional(type_converter)
+
+#         if field.converter is not None and type_converter is not None:
+#             type_converter = attr.converters.pipe(field.converter, type_converter)
+
+#         if type_converter is not None:
+#             field = field.evolve(converter=type_converter)
+
+#         new_fields.append(field)
+
+#     return new_fields
+
 def add_type_converters(cls, fields):
     new_fields = []
 
     for field in fields:
-        if field.type == Any:
-            new_fields.append(field)
-            continue
+        def type_converter(cls):
+            return lambda v: qwip.converter.structure(v, cls)
 
-        class_set = set(get_class_from_type(field.type).keys())
-
-        type_converter = structure(class_set.pop(), field) if len(class_set) == 1 else None
-
-        if is_optional(field.type) and type_converter:
-            type_converter = attr.converters.optional(type_converter)
-
-        if field.converter is not None and type_converter is not None:
-            type_converter = attr.converters.pipe(field.converter, type_converter)
-
-        if type_converter is not None:
-            field = field.evolve(converter=type_converter)
+        if field.metadata.get('auto_convert', True) and field.init:
+            field = field.evolve(converter=type_converter(field.type))
 
         new_fields.append(field)
 

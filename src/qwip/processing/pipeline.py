@@ -71,6 +71,14 @@ class Pipeline:
             processes=FlatDict((p.name, p.get_process()) for p in process_list)
         )
 
+    def to_process_settings(self) -> list[ProcessSettings]:
+        psettings = []
+        for p in self.processes.values():
+            p.update_settings()
+            psettings.append(p.settings)
+
+        return psettings
+
 @qattrs
 class PipelineSettings(Settings):
     processes: list[ProcessSettings]

@@ -7,6 +7,7 @@ import attr
 from attr import attrib
 from loguru import logger
 
+import qwip
 from qwip.flatdict import FlatDict
 from qwip.settings.settings import qattrs, Settings
 
@@ -51,7 +52,7 @@ def get_process_type(process_type: str) -> type:
 @qattrs
 class ProcessSettings(Settings):
     name: str
-    process_type: type = attrib(converter=get_process_type)
+    process_type: type = attrib(converter=get_process_type, metadata=dict(auto_convert=False))
     inputs: tuple[str, ...] = attrib(factory=tuple)
     parameters: FlatDict[str, Any] = attrib(factory=FlatDict)
 
@@ -71,8 +72,8 @@ class ProcessSettings(Settings):
 
 @qattrs
 class Process:
-    settings: ProcessSettings
-    completed: bool = False
+    settings: ProcessSettings = attrib(metadata=dict(serialize=False))
+    completed: bool = attrib(default=False, metadata=dict(serialize=False))
 
     def run(self, *inputs):
         raise NotImplementedError('Process subclasses should implement processing logic.')
@@ -82,10 +83,14 @@ class Process:
         return self.run(*inputs, **kwargs)
 
     def update_settings(self):
-        to_update = {
-            f.name: getattr(self, f.name) for f in attr.fields(type(self)) 
-                if f.name not in ('settings', 'completed') and f.metadata.get('serialize', True)
-        }
+        to_update = {}
+
+        for f in attr.fields(type(self)):
+            if not f.metadata.get('serialize', True):
+                continue
+
+            param = getattr(self, f.name)
+            to_update[f.name] = qwip.converter.unstructure(param)
         
         self.settings.parameters.update(to_update)
 

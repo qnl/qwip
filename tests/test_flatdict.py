@@ -275,7 +275,71 @@ def test_flat_iteration(nested_flatdict, flatkeys):
     for key, expected_key in zip(p.flatkeys(), flatkeys):
         assert key == expected_key
 
-    # def nested_dict():
+@pytest.mark.parametrize(('d', 'expected'), [
+    ({'a': {'b': [0, '1', 2.0, {'c': True}]}}, ('a/b/0', 'a/b/1', 'a/b/2', 'a/b/3/c')),
+    ({'a': [[[[1, {'b': True}, {}]]]]}, ('a/0/0/0/0', 'a/0/0/0/1/b', 'a/0/0/0/2'))
+])
+def test_flat_keys(d, expected):
+    flatkeys = tuple(FlatDict(d).flatkeys())
+    
+    assert flatkeys == expected
+
+# @pytest.mark.parameterize(('d', 'levels', 'expected'), [
+#     ({'a1/a2/a3'})
+# ])
+def test_flatiter_levels():
+    # x = FlatDict({'a/b/c/d': 1, 'b': 2})
+    # x = FlatDict({'a': [[1], [[[3]]]]})
+    # x = FlatDict({
+    #     'a1': {
+    #         'b2': {
+    #             'c3': {
+    #                 'd4': 1
+    #             },
+    #             'f3': 2
+    #         },
+    #     },
+    #     'b1': {
+    #         'e2': {
+    #             'f3': 1
+    #         },
+    #         'd2': {
+    #             'e3': 2
+    #         }
+    #     },
+    #     'd1': 2
+    # })
+    x = FlatDict({
+        '1a/b2/c3': {'int': 1, 'str': 'a'},
+        '1a/b2/d3': {'int': 1, 'str': 'a'},
+        'b1/c2': {'int': 1, 'str': 'a'},
+        'random': 1
+    })
+
+    print(list(x.flatkeys()))
+    print(list(x.flatkeys(levels=-1)))
+    print(list(x.flatvalues(levels=-1)))
+
+    # print(flatkeys)
+
+    # keys = []
+    # n = 2
+    # for k in flatkeys:
+    #     shortened = k.rsplit('/', maxsplit=n)
+    #     print('split:', shortened)
+    #     if len(shortened) <= n:
+    #         continue
+    #     shortened = shortened[0]
+    #     if not keys:
+    #         keys.append(shortened)
+    #     elif keys[-1].startswith(shortened):
+    #         keys[-1] = shortened
+    #     elif not shortened.startswith(keys[-1]):
+    #         keys.append(shortened)
+
+    #     print(keys)
+    
+    # print('keys:', keys)
 
 ## Test Deep Copy
 
