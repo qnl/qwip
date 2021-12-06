@@ -7,6 +7,7 @@ from contextlib import contextmanager
 from typing import Any, Generic, TypeVar, Union, get_args, get_origin
 
 import attr
+import numpy as np
 from cattr.gen import make_mapping_structure_fn, make_mapping_unstructure_fn
 
 import qwip
@@ -392,14 +393,15 @@ def make_flatdict_structure_fn(cls):
     _cls = cls
 
     if args := get_args(_cls):
-        VT = get_origin(args[1]) or args[1]
-        if is_optional(args[1]) or is_annotated(args[1]):
-            VT = get_args(args[1])[0]
-            VT = get_origin(VT) or VT
+        VT = args[1]
+        while is_optional(VT) or is_annotated(VT):
+            VT = get_args(VT)[0]
+            
+        VT = get_origin(VT) or VT
 
         if VT is Any:
             levels = None
-        elif issubclass(VT, (Mapping, list)) or attr.has(VT):
+        elif issubclass(VT, (Mapping, list, np.ndarray)) or attr.has(VT):
             levels = 1
 
     _cls = get_origin(_cls) or _cls

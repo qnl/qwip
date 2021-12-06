@@ -82,7 +82,7 @@ class TestFlatDict:
     def test_round_trip(self, obj, cls):
         """
         Unstructured objects from a previously structured input should always
-        be structured the same way. This reverse does not hold.
+        be structured the same way. This reverse does not necessarily hold.
         """
         flatdict = qwip.converter.structure(obj, cls)
 
@@ -115,21 +115,34 @@ class TestFlatDict:
             a: int
             b: FlatDict[str, int] = field(factory=FlatDict)
         
-        struct = qwip.converter.structure(obj, FlatDict[str, Optional[A]])
-        print(struct)
+        struct = qwip.converter.structure(obj, FlatDict[str, A])
+        
+        for k, v in struct.items():
+            assert isinstance(v, A)
+            assert isinstance(v.b, FlatDict)
 
-    def test_annotated(self):
+    @pytest.mark.parametrize(('obj', 'cls', 'level'), [
+        ({'k1': {'a': 1}, 'k2/l1': {'a': 1}}, 'A', -1),
+        ({'k1': {'b': {'a': 1}}, 'k2': {'l1': {'b': {'a': 1}}}}, 'B', -2)
+    ])
+    def test_annotated_class(self, obj, cls, level):
         @define
         class A:
             a: int
 
+        @define
+        class B:
+            b: A
+
+        cls = eval(cls)
+
         struct = qwip.converter.structure(
-            {'a/b/c': {'a': 1}, 'b/c': {'a': 2}, 'b/d': {'a': 3}},
-            FlatDict[str, Annotated[FlatDict[str, A], -1]]
+            obj,
+            Annotated[FlatDict[str, cls], level]
         )
-        print('keys:', struct.flatkeys())
-        print('values', struct.flatvalues())
-        print(type(struct['a']))
+        
+        for v in struct.flatvalues():
+            assert isinstance(v, cls)
     
 class TestNumpy:
     DTYPES = [
@@ -219,18 +232,25 @@ class TestNumpy:
 
         assert_array_equal(arr, struct)
 
-    def test_numpy_dict(self):
-        obj = {}
-        struct = qwip.converter.structure(obj, dict[str, NDArray])
-
     def test_numpy_flatdict(self):
-        obj = FlatDict({'a': np.zeros(2), 'b': np.zeros((3, 3))})
-        struct = qwip.converter.structure(obj, FlatDict[str, NDArray[np.complex128]])
+        from functools import reduce
+        obj = FlatDict({'a': np.zeros(2), 'b': np.ones((3, 3))})
 
-        print(qwip.converter.unstructure(struct))
-        # print(struct)
-        # print(struct['a'] is obj['a'])
-        # print(struct['b/c'] is obj['b/c'])
+        unstruct = qwip.converter.unstructure(obj)
+        
+        for flatkey in obj.flatkeys():
+            arr = reduce(lambda d, k: d[k], flatkey.split('/'), unstruct)
+            assert isinstance(arr, list)
+
+        struct = qwip.converter.structure(unstruct, FlatDict[str, NDArray[np.int32]])
+
+        print(struct['a'] is obj['a'])
+        print(struct['b'] is obj['b'])
+        print(struct)
+        
+        for k, arr in struct.flatitems():
+            assert isinstance(arr, np.ndarray)
+            assert_array_equal(arr, obj[k])
 
 class TestAttrs:
     def test_null(self):
