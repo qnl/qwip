@@ -244,10 +244,6 @@ class TestNumpy:
 
         struct = qwip.converter.structure(unstruct, FlatDict[str, NDArray[np.int32]])
 
-        print(struct['a'] is obj['a'])
-        print(struct['b'] is obj['b'])
-        print(struct)
-        
         for k, arr in struct.flatitems():
             assert isinstance(arr, np.ndarray)
             assert_array_equal(arr, obj[k])

@@ -136,11 +136,8 @@ def make_attrs_structure_fn(cls):
     def structure_fn(v, cls):
         if isinstance(v, cls):
             return v
-        
-        try:
-            return structure_from_dict(v)
-        except Exception:
-            return _cls(**v)
+        else:
+            return structure_from_dict(v, cls)
     
     return structure_fn
 
