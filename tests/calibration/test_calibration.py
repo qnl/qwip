@@ -7,7 +7,7 @@ from qwip.calibration.calibration import Calibration, CalibrationLogger
 class TestCalibrationLogger:
     @pytest.fixture
     def param_logger(self):
-        return CalibrationLogger(parameter='param')
+        return CalibrationLogger(parameter=dict(name='param', value='value'))
 
     @pytest.fixture
     def now(self):

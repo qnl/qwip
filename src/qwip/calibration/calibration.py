@@ -30,18 +30,18 @@ class CalibrationLogger:
 
     @logpath.default
     def _from_qsettings(self):
-        return qwip.qsettings['logging/directory'] / f'calibration/{self.parameter}'
+        return qwip.qsettings['logging/directory'] / f'calibration/{self.parameter.name}'
 
     def get_filename(self, timestamp: DateTime = None) -> str:
         if timestamp is None:
             timestamp = pendulum.now()
 
         formatted_ts = timestamp.format(self.fmt)
-        return formatted_ts + '_' + self.parameter + self.extension
+        return formatted_ts + '_' + self.parameter.name + self.extension
 
     def update(self, results: FlatDict, filename: str = None):
         if filename is None:
-            filename = self.parameter + self.extension
+            filename = self.parameter.name + self.extension
 
         fullpath = self.logpath / filename
         if fullpath.exists():
@@ -63,7 +63,7 @@ class CalibrationLogger:
 
     def load(self, filename=None):
         if filename is None:
-            filename = self.logpath / (self.parameter + self.extension)
+            filename = self.logpath / (self.parameter.name + self.extension)
         
         with open(filename, 'r') as f:
             results = FlatDict(qwip.yaml.load(f))

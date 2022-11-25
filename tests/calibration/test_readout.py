@@ -11,7 +11,7 @@ class TestReadoutCalibration:
     
     def test_init(self):
         x = ReadoutCalibration(
-            process_settings=[
+            processing=[
                 ProcessSettings(name='heterodyne', process_type='utils.FormatLegacyHeterodyne'),
                 ProcessSettings(name='collect', process_type='utils.CollectData', inputs=('heterodyne',)),
             ]

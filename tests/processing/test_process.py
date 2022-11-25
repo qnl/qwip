@@ -19,9 +19,9 @@ class ExampleProcess(Process):
     a: dict[str, float]
     b: NDArray = np.zeros(5)
     c: int = 1
-    d: object = attrib(
+    d: float = attrib(
         metadata=dict(serialize=False),
-        factory=object
+        factory=float
     )
 
     def run(self, data, /, **kwargs):
@@ -96,5 +96,5 @@ class TestProcess:
 
         ex.update_settings()
 
-        assert ex.settings.parameters == {name: getattr(ex, name) for name in 'abc'}
-        assert ex.settings.parameters['b'] is ex.b
+        for name in 'abc':
+            assert np.array_equal(ex.settings.parameters[name], getattr(ex, name))

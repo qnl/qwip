@@ -159,7 +159,7 @@ def add_type_specific_properties(clstype, fschema, field, tp, **kwargs):
 
 def get_json_validation(validator):
     if isinstance(validator, attr.validators._MatchesReValidator):
-        return {'pattern': validator.regex.pattern}
+        return {'pattern': validator.pattern.pattern}
     elif isinstance(validator, attr.validators._InValidator):
         return {'enum': validator.options}
     # elif isinstance(validator, attr.validators._NumberValidator):
@@ -219,7 +219,7 @@ def _(clstype, fschema, field, tp, definitions=None):
         if isinstance(mv, attr.validators._InValidator):
             enum = mv.options
         elif isinstance(mv, attr.validators._MatchesReValidator):
-            pattern = mv.regex.pattern
+            pattern = mv.pattern.pattern
 
     if enum and json_types:
         fschema['properties'] = {name: {'type': json_types} for name in enum}
@@ -235,7 +235,7 @@ def _(clstype, fschema, field, tp, definitions=None):
         kv = v.key_validator
         vv = v.value_validator
         if isinstance(kv, attr.validators._MatchesReValidator):
-            pattern = kv.regex.pattern
+            pattern = kv.pattern.pattern
             value_properties = get_json_validation(vv)
 
     if json_types:
@@ -322,7 +322,7 @@ def get_regex_validator(field):
 def _(clstype, fschema, field, tp, definitions=None):
     regex_validator = get_regex_validator(field)
     if regex_validator:
-        fschema['regex'] = regex_validator.regex.pattern
+        fschema['regex'] = regex_validator.pattern.pattern
 
 @add_type_specific_properties.register(datetime.datetime)
 def _(clstype, fschema, field, tp, definitions=None):

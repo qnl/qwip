@@ -40,7 +40,6 @@ converter.register_structure_hook(
 )
 
 # ========== numpy types ========== #
-
 def isndarray(cls):
     return issubclass(get_origin(cls) or cls, np.ndarray)
 
@@ -62,7 +61,7 @@ def get_dtype(cls):
 
 def make_ndarray_structure_fn(cls):
     dtype = get_dtype(cls)
-    
+
     def ndarray_structure_fn(obj, cls):
         if isinstance(obj, np.ndarray):
             if obj.dtype == dtype:
@@ -93,9 +92,10 @@ converter.register_unstructure_hook_factory(
 
 # ========== pendulum types ========== #
 
+# Pendulum parse only accepts strings.
 converter.register_structure_hook(
     pendulum.DateTime,
-    lambda v, cls: pendulum.parse(v)
+    lambda v, cls: pendulum.parse(v) if isinstance(v, str) else v
 )
 
 converter.register_unstructure_hook(
@@ -130,7 +130,7 @@ def make_attrs_structure_fn(cls):
         converter,
         **to_structure
     )
-    
+
     _cls = cls
 
     def structure_fn(v, cls):
@@ -138,7 +138,7 @@ def make_attrs_structure_fn(cls):
             return v
         else:
             return structure_from_dict(v, cls)
-    
+
     return structure_fn
 
 def make_attrs_unstructure_fn(cls):

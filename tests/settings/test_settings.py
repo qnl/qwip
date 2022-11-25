@@ -37,7 +37,7 @@ class NestedSettings(SimpleSettings):
 
 @qattrs
 class NumpySettings(Settings):
-    # Numpy will set dtype = int32 for integer only arrays
+    # Numpy will set dtype = int64 for integer only arrays
     float_field: NDArray[np.float64]
     int_field: np.ndarray
     numpy_field: np.ndarray
@@ -116,7 +116,7 @@ def test_nested_structure(nesteddict):
 def test_numpy_structure(numpydict):
     s = NumpySettings(**numpydict)
     assert s['float_field'].dtype == np.float64
-    assert s['int_field'].dtype == np.int32
+    assert s['int_field'].dtype == np.int64
 
     assert id(s['numpy_field']) == id(numpydict['numpy_field'])
 

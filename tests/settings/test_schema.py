@@ -160,7 +160,7 @@ def test_format():
     assert dict(format='time') in s['properties']['date_or_time']['anyOf']
 
 def test_regex():
-    regex = '(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)'
+    regex = r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)'
     @qattrs
     class RegexSetting(Settings):
         email: str = attrib(
