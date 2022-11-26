@@ -1,8 +1,8 @@
 import attr
 
-from qwip.settings.settings import qattrs
+from qwip.settings.settings import qdefine
 from qwip.processing.process import Process, ProcessSettings
 
-@qattrs
+@qdefine
 class Measurement:
     pass

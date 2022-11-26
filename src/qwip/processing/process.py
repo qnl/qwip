@@ -9,7 +9,7 @@ from loguru import logger
 
 import qwip
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qattrs, Settings
+from qwip.settings.settings import qdefine, Settings
 
 def get_process_type(process_type: str) -> type:
     """Field converter to get process class from string.
@@ -49,7 +49,7 @@ def get_process_type(process_type: str) -> type:
 
     return cls
 
-@qattrs
+@qdefine
 class ProcessSettings(Settings):
     name: str
     process_type: type = attrib(converter=get_process_type, metadata=dict(auto_convert=False))
@@ -70,7 +70,7 @@ class ProcessSettings(Settings):
 
         return proc
 
-@qattrs
+@qdefine
 class Process:
     settings: ProcessSettings = attrib(metadata=dict(serialize=False))
     completed: bool = attrib(default=False, metadata=dict(serialize=False))

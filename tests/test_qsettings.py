@@ -6,15 +6,15 @@ import qwip
 
 from qwip import qsettings
 from qwip._qsettings import DefaultSettings
-from qwip.settings.settings import qattrs
+from qwip.settings.settings import qdefine
 
-@qattrs
+@qdefine
 class ExampleSettings(DefaultSettings):
     int_field: int = 1
     str_field: str = 'string'
     bool_field: bool = True
 
-@qattrs
+@qdefine
 class NestedSettings(DefaultSettings):
     float_field: float = 0.1
     child: ExampleSettings = attrib(factory=ExampleSettings)

@@ -9,9 +9,9 @@ from loguru import logger
 from attr import attrib
 
 from qwip import qsettings
-from qwip.settings.settings import qattrs, Settings
+from qwip.settings.settings import qdefine, Settings
 
-@qattrs(repr=False)
+@qdefine(repr=False)
 class QWiPDefault:
     """A class for representing dynamic default parameters.
 

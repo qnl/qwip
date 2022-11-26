@@ -11,10 +11,10 @@ from sklearn.mixture import GaussianMixture
 from qwip.typing import NDArray
 from qwip.defaults import dynamic_default
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qattrs, Settings
+from qwip.settings.settings import qdefine, Settings
 from qwip.processing.process import Process
 
-@qattrs
+@qdefine
 class IQRotation(Process):
     """A processing block for rotating heterodyne data in the IQ plane.
     
@@ -56,7 +56,7 @@ class IQRotation(Process):
 
         return output
 
-@qattrs
+@qdefine
 class GMMData(Settings):
     means: NDArray[np.float64]
     covariances: NDArray[np.float64]
@@ -73,7 +73,7 @@ class GMMData(Settings):
 
         return mix
 
-@qattrs
+@qdefine
 class GMM(Process):
     """A processing block for GMM classficiation of heterodyne data.
     
@@ -148,7 +148,7 @@ class GMM(Process):
     #                 f"shape {self.covariances[key].shape}"
     #             )
 
-@qattrs
+@qdefine
 class StatePopulations(Process):
     """A processing block for getting state populations from classified data.
 

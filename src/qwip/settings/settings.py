@@ -8,7 +8,7 @@ from typing import Optional
 import attr, cattr
 
 
-from attr import attrs
+from attrs import define
 
 from qwip import yaml
 from qwip.settings.base import SettingsBase
@@ -22,11 +22,10 @@ def qwip_field_transform(cls, fields):
     fields = add_type_validators(cls, fields)
     return fields
 
-qattrs = functools.partial(
-    attrs,
+qdefine = functools.partial(
+    define,
     auto_attribs=True,
     kw_only=True,
-    slots=True,
     field_transformer=qwip_field_transform,
     on_setattr=[attr.setters.convert, attr.setters.validate]
 )
@@ -42,7 +41,7 @@ def disable_validation():
 
 danger = disable_validation
 
-@qattrs(auto_attribs=False) # pylint: disable=redundant-keyword-arg
+@qdefine(auto_attribs=False) # pylint: disable=redundant-keyword-arg
 class Settings(SettingsBase):
     """A validated dataclass object."""
 

@@ -1,6 +1,6 @@
 from attr import attrib
 
-from qwip.settings.settings import qattrs, Settings
+from qwip.settings.settings import qdefine, Settings
 
 
 class TestTypeValidation:

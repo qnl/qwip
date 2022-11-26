@@ -10,7 +10,7 @@ from loguru import logger
 
 from qwip import __version__, __file__, yaml
 from qwip._repodata import get_repodata
-from qwip.settings.settings import Settings, qattrs
+from qwip.settings.settings import Settings, qdefine
 from qwip.flatdict import FlatDict
 
 class DefaultSettings(Settings):
@@ -54,28 +54,28 @@ class DefaultSettings(Settings):
 
         return self._defaults
 
-@qattrs
+@qdefine
 class SlackSettings(DefaultSettings):
-    @qattrs
+    @qdefine
     class SlackChannel(DefaultSettings):
         webhook_url: str
 
     oauth_url: str = 'https://slack.com/oauth/v2/authorize?client_id=48620956720.2735463917265&scope=incoming-webhook&user_scope='
     channels: FlatDict[str, SlackChannel] = attrib(factory=FlatDict)
 
-@qattrs
+@qdefine
 class SourceInfo(DefaultSettings):
     directory: Path = Path(__file__).parent
     repository: Optional[Path] = None
     commit: Optional[str] = None
     branch: Optional[str] = None
 
-@qattrs
+@qdefine
 class UnitSettings(DefaultSettings):
     angle: str = attrib(default='degrees',
                               validator=attr.validators.in_(('degrees', 'radians')))
 
-@qattrs
+@qdefine
 class LogSettings(DefaultSettings):
     directory: Path = attrib(default=Path('~/.qwip/logs/').expanduser())
 
@@ -85,14 +85,14 @@ class LogSettings(DefaultSettings):
             value.mkdir(parents=True)
             logger.info(f"Created logging directory at '{value}'")
 
-@qattrs
+@qdefine
 class DataSettings(DefaultSettings):
     base_directory: str = '.'
     directory_rule: str = 'date'
     directory_exist_ok: bool = True
     date_fmt: str = 'YYYY-MM-DD'
 
-@qattrs
+@qdefine
 class QWiPSettings(DefaultSettings):
     """A settings class for global library settings."""
     version: str = __version__

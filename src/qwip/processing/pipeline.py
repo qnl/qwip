@@ -7,10 +7,10 @@ from attr import attrib
 from loguru import logger
 
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qattrs, Settings
+from qwip.settings.settings import qdefine, Settings
 from qwip.processing.process import Process, ProcessSettings
 
-@qattrs
+@qdefine
 class Pipeline:
     processes: FlatDict[str, Process] = attrib(factory=FlatDict)
     dependency_cache: dict[str, Any] = attrib(factory=dict)
@@ -79,6 +79,6 @@ class Pipeline:
 
         return psettings
 
-@qattrs
+@qdefine
 class PipelineSettings(Settings):
     processes: list[ProcessSettings]

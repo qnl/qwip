@@ -12,13 +12,13 @@ import pendulum
 from attr import attrib
 from loguru import logger
 
-from qwip.settings.settings import Settings, qattrs
+from qwip.settings.settings import Settings, qdefine
 from qwip.flatdict import FlatDict
 from qwip.settings.schema import schema
 
 
 def test_properties():
-    @qattrs
+    @qdefine
     class FlatSettings(Settings):
         """A simple settings class."""
 
@@ -49,7 +49,7 @@ def test_properties():
     assert schema(FlatSettings) == s
 
 def test_optional():
-    @qattrs
+    @qdefine
     class OptionalSettings(Settings):
         required_int: int
         optional_str: Optional[str]
@@ -64,7 +64,7 @@ def test_optional():
     assert 'default_bool' not in s['required']
 
 def test_union():
-    @qattrs
+    @qdefine
     class UnionSettings(Settings):
         union_property: Union[str, int]
         unrealistic_property: Union[bool, dict[str, str]]
@@ -77,7 +77,7 @@ def test_union():
     assert s['properties']['unrealistic_property']['additionalProperties']['type'] == 'string'
 
 def test_mapping_properties():
-    @qattrs
+    @qdefine
     class MappingSettings(Settings):
         """A settings class with mappings."""
         dict_property: dict[str, int]
@@ -102,16 +102,16 @@ def test_mapping_properties():
     assert s['properties'] == properties
 
 def test_settings_properties():
-    @qattrs
+    @qdefine
     class ChildA(Settings):
         """A child settings class"""
         string_property: str
 
-    @qattrs
+    @qdefine
     class ParentSettings(Settings):
         """A settings class with subsettings"""
 
-        @qattrs
+        @qdefine
         class ChildB(Settings):
             property_A: ChildA
         
@@ -129,7 +129,7 @@ def test_settings_properties():
             s['definitions']['ChildB']['additionalProperties'] == False)
 
 def test_list_properties():
-    @qattrs
+    @qdefine
     class ListSettings(Settings):
         """A settings class with a mapping."""
         list_property: list
@@ -145,7 +145,7 @@ def test_list_properties():
 ### String specific properties
 
 def test_format():
-    @qattrs
+    @qdefine
     class FormatSettings(Settings):
         datetime: Optional[pendulum.DateTime]
         date_or_time: Union[pendulum.Date, pendulum.Time]
@@ -161,7 +161,7 @@ def test_format():
 
 def test_regex():
     regex = r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)'
-    @qattrs
+    @qdefine
     class RegexSetting(Settings):
         email: str = attrib(
             validator=[
@@ -176,7 +176,7 @@ def test_regex():
     logger.debug(json.dumps(s, indent=4))
 
 def test_in_validator():
-    @qattrs
+    @qdefine
     class InSettings(Settings):
         option_property: Any = attrib(
             validator=attr.validators.in_([0, 'str', False])
@@ -187,7 +187,7 @@ def test_in_validator():
 
 
 def test_property_names():
-    @qattrs
+    @qdefine
     class ConstrainedSettings(Settings):
         names: FlatDict[str, int] = attrib(
             validator=attr.validators.deep_iterable(
@@ -200,15 +200,15 @@ def test_property_names():
     logger.debug(json.dumps(s, indent=4))
 
 def test_zurich():
-    @qattrs
+    @qdefine
     class ZurichDACSettings(Settings):
         """Configuration for the Zurich HDAWGs."""
-        @qattrs
+        @qdefine
         class HardwareSettings(Settings):
             ac_coupling: int
             range: dict
 
-        @qattrs
+        @qdefine
         class ReadoutSettings(Settings):
             herald_delay: int
             readout_delay: float

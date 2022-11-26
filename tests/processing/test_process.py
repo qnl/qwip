@@ -7,14 +7,14 @@ from attr import attrib
 import qwip.processing as qproc
 
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qattrs
+from qwip.settings.settings import qdefine
 from qwip.processing.process import (
     get_process_type, Process, ProcessSettings
 )
 
 logger.enable('qwip')
 
-@qattrs
+@qdefine
 class ExampleProcess(Process):
     a: dict[str, float]
     b: NDArray = np.zeros(5)

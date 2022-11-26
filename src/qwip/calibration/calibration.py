@@ -10,18 +10,18 @@ from qtrl.amiable_sequencer import AM_Sequence
 
 import qwip
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qattrs
+from qwip.settings.settings import qdefine
 from qwip.processing.process import ProcessSettings
 from qwip.processing.pipeline import Pipeline
 
-@qattrs
+@qdefine
 class Parameter:
     name: str
     value: Any
     timestamp: DateTime = attrib(factory=pendulum.now)
     metadata: FlatDict = attrib(factory=FlatDict)
 
-@qattrs
+@qdefine
 class CalibrationLogger:
     parameter: Parameter
     logpath: Path = attrib()
@@ -70,9 +70,9 @@ class CalibrationLogger:
 
         return results
 
-@qattrs
+@qdefine
 class Calibration:
-    @qattrs
+    @qdefine
     class Result:
         timestamp: DateTime = attrib(factory=pendulum.now)
 

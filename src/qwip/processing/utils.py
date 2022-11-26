@@ -7,10 +7,10 @@ from attr import attrib
 from attr.validators import in_
 
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qattrs
+from qwip.settings.settings import qdefine
 from qwip.processing.process import Process
 
-@qattrs
+@qdefine
 class FormatLegacyHeterodyne(Process):
     """A processing block to reformat a legacy QTRL `meas` dictionary.
 
@@ -39,7 +39,7 @@ class FormatLegacyHeterodyne(Process):
         
         return output
 
-@qattrs
+@qdefine
 class Rename(Process):
     """A processing block to rename a data key.
     
@@ -59,7 +59,7 @@ class Rename(Process):
         return {self.rename(k): v for k, v in data.items()} 
 
 
-@qattrs
+@qdefine
 class FilterData(Process):
     """A processing block to filter data passed to subsequent blocks.
     
@@ -85,7 +85,7 @@ class FilterData(Process):
 
         return {k: v for k, v in data.items() if self.filter(k)}
 
-@qattrs
+@qdefine
 class CollectData(Process):
     """A processing block to collect outputs from multiple input blocks.
     

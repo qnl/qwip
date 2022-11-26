@@ -10,15 +10,15 @@ from sklearn.mixture import GaussianMixture
 from qtrl.amiable_sequencer import AM_Sequence
 from qtrl.am_seq_utils.am_sequences import add_basic_readout
 
-from qwip.settings.settings import qattrs
+from qwip.settings.settings import qdefine
 from qwip.flatdict import FlatDict
 from qwip.calibration.calibration import Calibration, CalibrationLogger, Parameter
 from qwip.processing.classification import GMMData
 from qwip.visualization.readout import plot_decision_boundary, plot_readout_histogram
 
-@qattrs
+@qdefine
 class ReadoutCalibration(Calibration):
-    @qattrs
+    @qdefine
     class Result(Calibration.Result):
         means: NDArray[np.float_]
         covariances: NDArray[np.float_]

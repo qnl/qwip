@@ -8,17 +8,17 @@ from loguru import logger
 
 import qwip
 from qwip import qsettings
-from qwip.settings.settings import Settings, qattrs
+from qwip.settings.settings import Settings, qdefine
 from qwip.defaults import QWiPDefault, dynamic_default
 
 
-@qattrs
+@qdefine
 class ChildArgs(Settings):
     default_int: int = 2
     default_float: float = 0.2
     default_str: str = 'child'
 
-@qattrs
+@qdefine
 class DefaultArgs(Settings):
     default_int: int = 1
     default_float: float = 0.1

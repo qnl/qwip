@@ -10,19 +10,19 @@ import pendulum
 
 from numpy.typing import NDArray
 
-from qwip.settings.settings import Settings, qattrs
+from qwip.settings.settings import Settings, qdefine
 from qwip.flatdict import FlatDict
 
-@qattrs
+@qdefine
 class SimpleSettings(Settings):
     int_field: int
     str_field: str
     bool_field: bool
     float_field: float
 
-@qattrs
+@qdefine
 class NestedSettings(SimpleSettings):
-    @qattrs
+    @qdefine
     class ChildSetting(Settings):
         def positive(instance, attribute, value):
             if value <= 0:
@@ -35,7 +35,7 @@ class NestedSettings(SimpleSettings):
     list_field: List[int]
     optional_str: Optional[str]
 
-@qattrs
+@qdefine
 class NumpySettings(Settings):
     # Numpy will set dtype = int64 for integer only arrays
     float_field: NDArray[np.float64]
@@ -43,7 +43,7 @@ class NumpySettings(Settings):
     numpy_field: np.ndarray
     matrix_field: np.ndarray
     
-@qattrs
+@qdefine
 class PendulumSettings(Settings):
     date_field: pendulum.Date
     datetime_field: pendulum.DateTime
