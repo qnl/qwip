@@ -57,18 +57,14 @@ class Settings(SettingsBase):
                 base = remainder[0]
                 remainder = keys[i+1:]
 
-                if isinstance(subgroup, list):
-                    subgroup = subgroup[int(subkey)]
+                if subkey in subgroup:
+                    subgroup = getattr(subgroup, subkey)
                 else:
-                    if subkey in subgroup:
-                        subgroup = getattr(subgroup, subkey)
-                    else:
-                        break
+                    break
             else:
                 base = remainder[0]
-                base = int(base) if isinstance(subgroup, list) else base
 
-                if isinstance(subgroup, (list, Settings, FlatDict)):
+                if isinstance(subgroup, (Settings, FlatDict)):
                     subgroup.__setitem__(base, val)
                 else:
                     setattr(subgroup, base, val)

@@ -98,13 +98,10 @@ class FlatMapping(Mapping):
         key = self.split(self.strip(key))
         val = self
         for subkey in key:
-            if isinstance(val, list):
-                val = val[int(subkey)]
-            else:
-                try:
-                    val = getattr(val, subkey)
-                except AttributeError as e:
-                    raise KeyError(str(e).rsplit(' ', maxsplit=1)[-1].strip('\'')) from AttributeError
+            try:
+                val = getattr(val, subkey)
+            except AttributeError as e:
+                raise KeyError(str(e).rsplit(' ', maxsplit=1)[-1].strip('\'')) from AttributeError
         return val
 
     def __iter__(self):
@@ -152,11 +149,7 @@ class FlatMapping(Mapping):
         def flat_enumerate(maybe_lst, index=(), levels=None):
             
             next_levels = levels - 1 if levels is not None and levels > 0 else levels
-            if isinstance(maybe_lst, list) and (levels is None or levels != 0):
-                for i, nxt in enumerate(maybe_lst):
-                    yield from flat_enumerate(nxt, index=(*index, i), levels=next_levels)
-            else:
-                yield index, maybe_lst, next_levels
+            yield index, maybe_lst, next_levels
 
         if levels == 0:
             return
@@ -167,18 +160,6 @@ class FlatMapping(Mapping):
                 next_base = k if base is None else  f'{base}{self._delim}{k}'
                 
                 yield from v.__flatiter__(base=next_base, levels=next_levels)
-            elif isinstance(v, list) and v and (levels is None or levels < 0 or levels > 1):
-
-                for idx, next_v, levels in flat_enumerate(v, levels=next_levels):
-                    listkey = self._delim.join(str(i) for i in idx)
-
-                    if hasattr(next_v, '__flatiter__') and next_v and (levels is None or levels != 0):
-                        next_base = f'{k}{self._delim}{listkey}'
-                        if base:
-                            next_base = f'{base}{self._delim}{next_base}'
-                        yield from next_v.__flatiter__(base=next_base)
-                    else:
-                        yield f'{k}{self._delim}{listkey}' if base is None else f'{base}{self._delim}{k}{self._delim}{listkey}'
             else:
                 yield k if base is None else f'{base}{self._delim}{k}'
 
@@ -285,21 +266,12 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
         object.__setattr__(self, name, value)
 
     def __setitem__(self, key, val):
-        def recursive_convert_list(list_val):
-            for i, element in enumerate(list_val):
-                if isinstance(element, dict):
-                    list_val[i] = self.__class__(element)
-                elif isinstance(element, list):
-                    recursive_convert_list(element)
-
         keys = key.strip(self._delim).split(self._delim)
 
         if isinstance(val, Mapping) and not isinstance(val, FlatMapping):
             new_val = self.__class__()
             new_val.update(val)
             val = new_val
-        elif isinstance(val, list):
-            recursive_convert_list(val)
 
         if len(keys) == 1:
             setattr(self, keys[0], val)
@@ -311,9 +283,7 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
             base = remainder[0]
             remainder = keys[i+1:]
 
-            if isinstance(subgroup, list):
-                subgroup = subgroup[int(subkey)]
-            elif isinstance(subgroup, FlatMapping):
+            if isinstance(subgroup, FlatMapping):
                 if subkey in subgroup:
                     subgroup = getattr(subgroup, subkey)
                 else:
@@ -324,8 +294,7 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
                 )
         else: # Finished for loop
             base = remainder[0]
-            base = int(base) if isinstance(subgroup, list) else base
-            if isinstance(subgroup, (list, FlatMapping)):
+            if isinstance(subgroup, FlatMapping):
                 subgroup.__setitem__(base, val)
             else:
                 try:
@@ -401,14 +370,13 @@ def make_flatdict_structure_fn(cls):
 
         if VT is Any:
             levels = None
-        elif issubclass(VT, (Mapping, list, np.ndarray)) or attr.has(VT):
+        elif issubclass(VT, Mapping) or attr.has(VT):
             levels = 1
 
     _cls = get_origin(_cls) or _cls
 
     def new_structure_fn(obj, cls):
         override = get_args(cls)[1] if is_annotated(cls) else levels
-        # print('levels', override, levels, 'for', cls)
 
         if isinstance(obj, Mapping):
             obj = _cls(obj).toflatdict(levels=override)
