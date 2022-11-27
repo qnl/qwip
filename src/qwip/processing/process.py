@@ -4,7 +4,7 @@ from typing import Union, Optional, Callable, Any
 
 import attr
 
-from attr import attrib
+from attr import field
 from loguru import logger
 
 import qwip
@@ -52,9 +52,9 @@ def get_process_type(process_type: str) -> type:
 @qdefine
 class ProcessSettings(Settings):
     name: str
-    process_type: type = attrib(converter=get_process_type, metadata=dict(auto_convert=False))
-    inputs: tuple[str, ...] = attrib(factory=tuple)
-    parameters: FlatDict[str, Any] = attrib(factory=FlatDict)
+    process_type: type = field(converter=get_process_type, metadata=dict(auto_convert=False))
+    inputs: tuple[str, ...] = field(factory=tuple)
+    parameters: FlatDict[str, Any] = field(factory=FlatDict)
 
     @process_type.validator
     def validate_process_type(self, attribute, value):
@@ -72,8 +72,8 @@ class ProcessSettings(Settings):
 
 @qdefine
 class Process:
-    settings: ProcessSettings = attrib(metadata=dict(serialize=False))
-    completed: bool = attrib(default=False, metadata=dict(serialize=False))
+    settings: ProcessSettings = field(metadata=dict(serialize=False))
+    completed: bool = field(default=False, metadata=dict(serialize=False))
 
     def run(self, *inputs):
         raise NotImplementedError('Process subclasses should implement processing logic.')

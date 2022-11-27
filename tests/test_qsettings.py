@@ -1,6 +1,6 @@
 import pytest
 
-from attr import attrib
+from attr import field
 
 import qwip
 
@@ -17,7 +17,7 @@ class ExampleSettings(DefaultSettings):
 @qdefine
 class NestedSettings(DefaultSettings):
     float_field: float = 0.1
-    child: ExampleSettings = attrib(factory=ExampleSettings)
+    child: ExampleSettings = field(factory=ExampleSettings)
 
 @pytest.fixture
 def example():

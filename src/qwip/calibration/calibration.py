@@ -3,7 +3,7 @@ from pathlib import Path
 from cattr.converters import GenConverter
 
 import pendulum
-from attr import attrib
+from attr import field
 from pendulum import DateTime
 
 from qtrl.amiable_sequencer import AM_Sequence
@@ -18,13 +18,13 @@ from qwip.processing.pipeline import Pipeline
 class Parameter:
     name: str
     value: Any
-    timestamp: DateTime = attrib(factory=pendulum.now)
-    metadata: FlatDict = attrib(factory=FlatDict)
+    timestamp: DateTime = field(factory=pendulum.now)
+    metadata: FlatDict = field(factory=FlatDict)
 
 @qdefine
 class CalibrationLogger:
     parameter: Parameter
-    logpath: Path = attrib()
+    logpath: Path = field()
     extension: str = '.yaml'
     fmt: str = 'YYYY-MM-DDTHH-mm-ss'
 
@@ -74,7 +74,7 @@ class CalibrationLogger:
 class Calibration:
     @qdefine
     class Result:
-        timestamp: DateTime = attrib(factory=pendulum.now)
+        timestamp: DateTime = field(factory=pendulum.now)
 
         def unstructure(self, converter=qwip.converter):
             return converter.unstructure(self)
@@ -84,8 +84,8 @@ class Calibration:
             return converter.structure(data, cls)
 
     processing: Pipeline
-    results: FlatDict[str, Result] = attrib(factory=FlatDict)
-    # logger: CalibrationLogger = attrib()
+    results: FlatDict[str, Result] = field(factory=FlatDict)
+    # logger: CalibrationLogger = field()
 
     def get_sequence(self) -> AM_Sequence:
         raise NotImplementedError

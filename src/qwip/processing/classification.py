@@ -5,7 +5,7 @@ from typing import Mapping, Optional, Set, Union, Annotated
 import numpy as np
 
 from loguru import logger
-from attr import attrib
+from attr import field
 from sklearn.mixture import GaussianMixture
 
 from qwip.typing import NDArray
@@ -28,7 +28,7 @@ class IQRotation(Process):
             to `run()`.
 
     """
-    angles: dict[str, float] = attrib(factory=dict)
+    angles: dict[str, float] = field(factory=dict)
 
     @dynamic_default(unit='units/angle')
     def run(self, data, /, unit: str = None):
@@ -60,7 +60,7 @@ class IQRotation(Process):
 class GMMData(Settings):
     means: NDArray[np.float64]
     covariances: NDArray[np.float64]
-    separations: FlatDict[str, float] = attrib(factory=FlatDict)
+    separations: FlatDict[str, float] = field(factory=FlatDict)
 
     def gmm_model(self):
         n_states = self.means.shape[0]
@@ -83,7 +83,7 @@ class GMM(Process):
     """
 
     gmms: FlatDict[str, GMMData]
-    mixes: FlatDict[str, GaussianMixture] = attrib(init=False, metadata=dict(serialize=False))
+    mixes: FlatDict[str, GaussianMixture] = field(init=False, metadata=dict(serialize=False))
 
     def run(self, data, /):
         """Classifies the data using a Gaussian Mixture model.
@@ -157,7 +157,7 @@ class StatePopulations(Process):
     expected to have the shape `(n_shots, ...)`.
     """
 
-    states: Union[int, dict[str, int]] = attrib(default=2, metadata=dict(auto_convert=False))
+    states: Union[int, dict[str, int]] = field(default=2, metadata=dict(auto_convert=False))
     axis: int = 0
 
     def run(self, data, /):

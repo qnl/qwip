@@ -5,7 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import attr
-from attr import attrib
+from attr import field
 from loguru import logger
 
 from qwip import __version__, __file__, yaml
@@ -61,7 +61,7 @@ class SlackSettings(DefaultSettings):
         webhook_url: str
 
     oauth_url: str = 'https://slack.com/oauth/v2/authorize?client_id=48620956720.2735463917265&scope=incoming-webhook&user_scope='
-    channels: FlatDict[str, SlackChannel] = attrib(factory=FlatDict)
+    channels: FlatDict[str, SlackChannel] = field(factory=FlatDict)
 
 @qdefine
 class SourceInfo(DefaultSettings):
@@ -72,12 +72,12 @@ class SourceInfo(DefaultSettings):
 
 @qdefine
 class UnitSettings(DefaultSettings):
-    angle: str = attrib(default='degrees',
+    angle: str = field(default='degrees',
                               validator=attr.validators.in_(('degrees', 'radians')))
 
 @qdefine
 class LogSettings(DefaultSettings):
-    directory: Path = attrib(default=Path('~/.qwip/logs/').expanduser())
+    directory: Path = field(default=Path('~/.qwip/logs/').expanduser())
 
     @directory.validator
     def _validate_log_directory(self, attribute, value):
@@ -96,12 +96,12 @@ class DataSettings(DefaultSettings):
 class QWiPSettings(DefaultSettings):
     """A settings class for global library settings."""
     version: str = __version__
-    src: SourceInfo = attrib(factory=SourceInfo)
+    src: SourceInfo = field(factory=SourceInfo)
     file_format: str = 'yaml'
-    logging: LogSettings = attrib(factory=LogSettings)
-    notifiers: FlatDict[str, SlackSettings] = attrib(factory=FlatDict)
-    units: UnitSettings = attrib(factory=UnitSettings)
-    data: DataSettings = attrib(factory=DataSettings)
+    logging: LogSettings = field(factory=LogSettings)
+    notifiers: FlatDict[str, SlackSettings] = field(factory=FlatDict)
+    units: UnitSettings = field(factory=UnitSettings)
+    data: DataSettings = field(factory=DataSettings)
 
 def process_qsettings_file():
     paths = ['.', '~/.qwip/']

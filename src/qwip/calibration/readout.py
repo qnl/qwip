@@ -1,5 +1,5 @@
 from typing import Optional, Mapping
-from attr import attrib
+from attr import field
 import pendulum
 import numpy as np
 import pandas as pd
@@ -22,7 +22,7 @@ class ReadoutCalibration(Calibration):
     class Result(Calibration.Result):
         means: NDArray[np.float_]
         covariances: NDArray[np.float_]
-        separations: FlatDict[str, float] = attrib(factory=FlatDict)
+        separations: FlatDict[str, float] = field(factory=FlatDict)
 
         def gmm_model(self):
             n_states = self.means.shape[0]

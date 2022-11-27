@@ -1,4 +1,4 @@
-from attr import attrib
+from attr import field
 
 from qwip.settings.settings import qdefine, Settings
 

@@ -6,7 +6,7 @@ import functools
 from typing import Callable, Dict
 
 from loguru import logger
-from attr import attrib
+from attr import field
 
 from qwip import qsettings
 from qwip.settings.settings import qdefine, Settings

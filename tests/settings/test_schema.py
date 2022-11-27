@@ -9,7 +9,7 @@ import attr
 import numpy as np
 import pendulum
 
-from attr import attrib
+from attr import field
 from loguru import logger
 
 from qwip.settings.settings import Settings, qdefine
@@ -22,7 +22,7 @@ def test_properties():
     class FlatSettings(Settings):
         """A simple settings class."""
 
-        number_property: float = attrib(metadata=dict(description='A number.'))
+        number_property: float = field(metadata=dict(description='A number.'))
         string_property: str
         bool_property: bool = False
 
@@ -163,7 +163,7 @@ def test_regex():
     regex = r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)'
     @qdefine
     class RegexSetting(Settings):
-        email: str = attrib(
+        email: str = field(
             validator=[
                 attr.validators.matches_re(regex),
             ]
@@ -178,7 +178,7 @@ def test_regex():
 def test_in_validator():
     @qdefine
     class InSettings(Settings):
-        option_property: Any = attrib(
+        option_property: Any = field(
             validator=attr.validators.in_([0, 'str', False])
         )
 
@@ -189,7 +189,7 @@ def test_in_validator():
 def test_property_names():
     @qdefine
     class ConstrainedSettings(Settings):
-        names: FlatDict[str, int] = attrib(
+        names: FlatDict[str, int] = field(
             validator=attr.validators.deep_iterable(
                 member_validator=attr.validators.matches_re('[a-zA-Z][0-9]')
             )
@@ -214,10 +214,10 @@ def test_zurich():
             readout_delay: float
             reset_delay: float
         
-        disconnect: str = attrib(
+        disconnect: str = field(
             validator=attr.validators.in_(['yes', 'no'])
         )
-        experiment_setup: str = attrib(
+        experiment_setup: str = field(
             validator=attr.validators.in_([
                 'multiqubitbasic',
                 'multiqubitdig',
@@ -227,14 +227,14 @@ def test_zurich():
             ])
         )
         hardware_settings: HardwareSettings
-        hdawgs: list[str] = attrib(
+        hdawgs: list[str] = field(
             validator=attr.validators.deep_iterable(attr.validators.matches_re('dev[0-9]{4}'))
         )
         readout: ReadoutSettings
-        replay: str = attrib(
+        replay: str = field(
             validator=attr.validators.in_(['yes', 'no'])
         )
-        software_modulation: str = attrib(
+        software_modulation: str = field(
             validator=attr.validators.in_(['yes', 'no'])
         )
 

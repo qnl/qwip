@@ -3,7 +3,7 @@ import re
 from typing import Any, Callable, Mapping, Union
 
 import numpy as np
-from attr import attrib
+from attr import field
 from attr.validators import in_
 
 from qwip.flatdict import FlatDict
@@ -51,7 +51,7 @@ class Rename(Process):
         else:
             return maybe_mapping
 
-    rename: Callable[[str], str] = attrib(converter=_create_rename_func, metadata=dict(auto_convert=False))
+    rename: Callable[[str], str] = field(converter=_create_rename_func, metadata=dict(auto_convert=False))
 
     def run(self, data, /):
         """Renames the data passed to subsequent blocks."""
@@ -75,7 +75,7 @@ class FilterData(Process):
         else:
             return cond
 
-    filter: Callable[..., bool] = attrib(
+    filter: Callable[..., bool] = field(
         converter=_filter_func_from_condition,
         metadata=dict(auto_convert=False)
     )
@@ -92,7 +92,7 @@ class CollectData(Process):
     The results are placed in a `FlatDict` object where the key corresponds
     to the name of the input process.
     """
-    outer_key: str = attrib(default='process',
+    outer_key: str = field(default='process',
                             validator=in_(('process', 'label')))
 
     def run(self, *data):

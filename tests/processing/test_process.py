@@ -2,7 +2,7 @@ import pytest
 import numpy as np
 from loguru import logger
 from numpy.typing import NDArray
-from attr import attrib
+from attr import field
 
 import qwip.processing as qproc
 
@@ -19,7 +19,7 @@ class ExampleProcess(Process):
     a: dict[str, float]
     b: NDArray = np.zeros(5)
     c: int = 1
-    d: float = attrib(
+    d: float = field(
         metadata=dict(serialize=False),
         factory=float
     )

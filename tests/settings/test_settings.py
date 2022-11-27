@@ -3,7 +3,7 @@ import attr
 
 from enum import Enum
 from typing import Dict, List, Optional
-from attr import attrib, s
+from attr import field, s
 
 import numpy as np
 import pendulum
@@ -28,7 +28,7 @@ class NestedSettings(SimpleSettings):
             if value <= 0:
                 raise ValueError(f'"{attribute.name}" must be positive, got {value}.')
 
-        positive_int_field: int = attrib(validator=positive)
+        positive_int_field: int = field(validator=positive)
 
     setting_field: ChildSetting
     param_field: FlatDict[str, str]

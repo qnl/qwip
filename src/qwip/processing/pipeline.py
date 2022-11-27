@@ -3,7 +3,7 @@ from typing import Optional, Callable, Any, Set
 
 import attr
 
-from attr import attrib
+from attr import field
 from loguru import logger
 
 from qwip.flatdict import FlatDict
@@ -12,8 +12,8 @@ from qwip.processing.process import Process, ProcessSettings
 
 @qdefine
 class Pipeline:
-    processes: FlatDict[str, Process] = attrib(factory=FlatDict)
-    dependency_cache: dict[str, Any] = attrib(factory=dict)
+    processes: FlatDict[str, Process] = field(factory=FlatDict)
+    dependency_cache: dict[str, Any] = field(factory=dict)
 
     def reset(self):
         self.dependency_cache = dict()

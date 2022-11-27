@@ -7,8 +7,7 @@ from typing import Optional
 
 import attr, cattr
 
-
-from attrs import define
+from attrs import define, frozen
 
 from qwip import yaml
 from qwip.settings.base import SettingsBase
@@ -28,6 +27,13 @@ qdefine = functools.partial(
     kw_only=True,
     field_transformer=qwip_field_transform,
     on_setattr=[attr.setters.convert, attr.setters.validate]
+)
+
+qfrozen = functools.partial(
+    frozen,
+    auto_attribs=True,
+    kw_only=True,
+    field_transformer=qwip_field_transform,
 )
 
 @contextmanager
