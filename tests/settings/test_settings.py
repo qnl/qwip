@@ -133,7 +133,7 @@ def test_pendulum_structure(pendulumdict):
 def test_type_validate(typefaildict):
     with pytest.raises(TypeError):
         s = NestedSettings(**typefaildict)
-    typefaildict['param_field']['key2'] = ['value2']
+    typefaildict['param_field']['key2'] = 'value2'
 
     with pytest.raises(TypeError):
         s = NestedSettings(**typefaildict)
