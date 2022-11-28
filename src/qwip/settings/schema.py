@@ -9,9 +9,11 @@ import numpy as np
 from loguru import logger
 
 # from qwip.settings.settings import Settings
+from typing import get_origin, get_args
 from qwip.settings.base import SettingsBase
 from qwip.flatdict import FlatDict
-from qwip.settings.typing import get_class_from_type, is_optional, typedispatch, get_origin, get_args
+from qwip.typing import is_optional_type, typedispatch
+# from qwip.settings.typing import get_class_from_type, is_optional, typedispatch
 
 
 def schema(cls):
@@ -48,19 +50,19 @@ def collect_properties(cls, definitions=None):
 
         is_settings = False
         if get_origin(f.type):
-            is_settings = is_optional(f.type) and issubclass(get_args(f.type)[0], SettingsBase)
+            is_settings = is_optional_type(f.type) and issubclass(get_args(f.type)[0], SettingsBase)
         else:
             is_settings = (f.type != typing.Any) and issubclass(f.type, SettingsBase)
 
         if is_settings:
-            base_type = get_args(f.type)[0] if is_optional(f.type) else f.type
+            base_type = get_args(f.type)[0] if is_optional_type(f.type) else f.type
             properties[f.name] = {'$ref': f'#/definitions/{base_type.__name__}'}
             if f.name not in definitions:
                 definitions[base_type.__name__] = fschema
         else:
             properties[f.name] = fschema
             
-        if f.default == attr.NOTHING and not is_optional(f.type):
+        if f.default == attr.NOTHING and not is_optional_type(f.type):
             required.append(f.name)
             
     return properties, required, definitions
@@ -82,7 +84,7 @@ def field_schema(field, definitions=None):
 def add_description(fschema, field):
     fieldtype = None
     if get_origin(field.type):
-        if is_optional(field.type):
+        if is_optional_type(field.type):
             fieldtype = get_args(field.type)[0]
     elif field.type != typing.Any:
         fieldtype = field.type
@@ -115,7 +117,7 @@ def process_types(fschema, field, definitions=None):
     if field.type == typing.Any:
         return
 
-    class_type_map = get_class_from_type(field.type)
+    class_type_map = get_origin(field.type) or field.type
     json_types = set(get_json_type(cls) for cls in class_type_map)
 
     fschema['type'] = list(json_types) if len(json_types) > 1 else json_types.pop()
@@ -203,7 +205,7 @@ def _(clstype, fschema, field, tp, definitions=None):
     json_types = set()
     if vt is not None and vt != typing.Any:
         logger.debug(f'Adding types for {vt}')
-        class_type_map = get_class_from_type(vt)
+        class_type_map = get_origin(vt) or vt
         
         for cls in class_type_map:
             json_types.add(get_json_type(cls))
@@ -270,7 +272,7 @@ def _(clstype, fschema, field, tp, definitions=None):
 
     json_types = set()
     if vt is not None:
-        class_type_map = get_class_from_type(vt)
+        class_type_map = get_origin(vt) or vt
 
         for cls in class_type_map:
             json_types.add(get_json_type(cls))
