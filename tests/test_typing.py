@@ -90,7 +90,7 @@ def test_optional(tp, expect):
         (dict, True),
         (list[int], True),
         (tuple[str, ...], True),
-        (NDArray[float], True),
+        (NDArray[np.float32], True),
         (bool, False),
         (Union[int, float], False)
     ]
