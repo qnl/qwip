@@ -15,13 +15,13 @@ from numpy.typing import NDArray
 
 from qwip.typing import (
     typedispatch,
-    is_annotated,
-    is_callable,
-    is_union,
-    is_optional,
-    is_iterable,
-    is_mapping,
-    is_ndarray
+    is_annotated_type,
+    is_callable_type,
+    is_union_type,
+    is_optional_type,
+    is_iterable_type,
+    is_mapping_type,
+    is_ndarray_type
 )
 
 def test_typedispatch():
@@ -55,7 +55,7 @@ def test_typedispatch():
     ]
 )
 def test_annotated(tp, expect):
-    assert is_annotated(tp) == expect
+    assert is_annotated_type(tp) == expect
 
 @pytest.mark.parametrize(
     'tp,expect',
@@ -67,7 +67,7 @@ def test_annotated(tp, expect):
     ]
 )
 def test_union(tp, expect):
-    assert is_union(tp) == expect
+    assert is_union_type(tp) == expect
 
 @pytest.mark.parametrize(
     'tp,expect',
@@ -80,7 +80,7 @@ def test_union(tp, expect):
     ]
 )
 def test_optional(tp, expect):
-    assert is_optional(tp) == expect
+    assert is_optional_type(tp) == expect
 
 @pytest.mark.parametrize(
     'tp,expect',
@@ -96,7 +96,7 @@ def test_optional(tp, expect):
     ]
 )
 def test_iterable(tp, expect):
-    assert is_iterable(tp) == expect
+    assert is_iterable_type(tp) == expect
 
 @pytest.mark.parametrize(
     'tp,expect',
@@ -110,7 +110,7 @@ def test_iterable(tp, expect):
     ]
 )
 def test_mapping(tp, expect):
-    assert is_mapping(tp) == expect
+    assert is_mapping_type(tp) == expect
 
 @pytest.mark.parametrize(
     'tp,expect',
@@ -125,7 +125,7 @@ def test_mapping(tp, expect):
     ]
 )
 def test_ndarray(tp, expect):
-    assert is_ndarray(tp) == expect
+    assert is_ndarray_type(tp) == expect
 
 @pytest.mark.parametrize(
     'tp,expect',
@@ -138,4 +138,4 @@ def test_ndarray(tp, expect):
     ]
 )
 def test_callable(tp, expect):
-    assert is_callable(tp) == expect
+    assert is_callable_type(tp) == expect

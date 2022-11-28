@@ -19,38 +19,38 @@ NDArray = Annotated[_NDArray, '']
 def issubtype(tp, cls):
     return isclass(tp) and issubclass(tp, cls)
 
-def is_annotated(tp):
+def is_annotated_type(tp):
     return get_origin(tp) is Annotated
 
-def is_callable(tp):
+def is_callable_type(tp):
     if o := get_origin(tp):
         return issubtype(o, Callable)
     else:
         return issubtype(tp, Callable)
 
-def is_union(tp):
+def is_union_type(tp):
     return get_origin(tp) in (Union, UnionType)
 
-def is_optional(tp):
-    return is_union(tp) and type(None) in get_args(tp)
+def is_optional_type(tp):
+    return is_union_type(tp) and type(None) in get_args(tp)
 
-def is_iterable(tp):
+def is_generic_type(tp, origin_tp=None):
+    if origin_tp is None:
+        return NotImplementedError
+    
     if o := get_origin(tp):
-        return issubtype(o, Iterable)
+        return issubtype(o, origin_tp)
     else:
-        return issubtype(tp, Iterable)
+        return issubtype(tp, origin_tp)
 
-def is_mapping(tp):
-    if o := get_origin(tp):
-        return issubtype(o, Mapping)
-    else:
-        return issubtype(tp, Mapping)
+def is_iterable_type(tp):
+    return is_generic_type(tp, Iterable)
 
-def is_ndarray(tp):
-    if o := get_origin(tp):
-        return issubtype(o, np.ndarray)
-    else:
-        return issubtype(tp, np.ndarray)
+def is_mapping_type(tp):
+    return is_generic_type(tp, Mapping)
+
+def is_ndarray_type(tp):
+    return is_generic_type(tp, np.ndarray)
 
 def typedispatch(func):
     """Type-dispatch generic function decorator.

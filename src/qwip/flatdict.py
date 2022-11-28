@@ -11,7 +11,7 @@ import numpy as np
 from cattr.gen import make_mapping_structure_fn, make_mapping_unstructure_fn
 
 import qwip
-from qwip.typing import is_annotated, is_optional
+from qwip.typing import is_annotated_type, is_optional_type, is_generic_type, issubtype
 
 class FlatKeysView(KeysView):
     """A flattened key view."""
@@ -363,7 +363,7 @@ def make_flatdict_structure_fn(cls):
 
     if args := get_args(_cls):
         VT = args[1]
-        while is_optional(VT) or is_annotated(VT):
+        while is_optional_type(VT) or is_annotated_type(VT):
             VT = get_args(VT)[0]
             
         VT = get_origin(VT) or VT
@@ -376,7 +376,7 @@ def make_flatdict_structure_fn(cls):
     _cls = get_origin(_cls) or _cls
 
     def new_structure_fn(obj, cls):
-        override = get_args(cls)[1] if is_annotated(cls) else levels
+        override = get_args(cls)[1] if is_annotated_type(cls) else levels
 
         if isinstance(obj, Mapping):
             obj = _cls(obj).toflatdict(levels=override)
@@ -385,6 +385,6 @@ def make_flatdict_structure_fn(cls):
     return new_structure_fn
 
 qwip.converter.register_structure_hook_factory(
-    lambda cls: issubclass(get_origin(cls) or cls, FlatDict),
+    lambda cls: is_generic_type(cls, FlatDict),
     make_flatdict_structure_fn
 )
