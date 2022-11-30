@@ -21,16 +21,7 @@ from attrs.validators import (
     instance_of, is_callable, deep_iterable, deep_mapping, optional, and_
 )
 
-from qwip.typing import (
-    typedispatch,
-    is_annotated_type,
-    is_callable_type,
-    is_union_type,
-    is_optional_type,
-    is_mapping_type,
-    is_iterable_type,
-    is_ndarray_type
-)
+from qwip.typing import typedispatch
 
 from loguru import logger
 
