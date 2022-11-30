@@ -2,12 +2,15 @@ from functools import reduce
 from types import UnionType, GenericAlias
 from typing import (
     Any,
-    Type, 
+    Annotated,
+    Type,
+    Union, 
     _SpecialForm,
     ForwardRef,
     get_origin,
     get_args
 )
+from collections.abc import Callable, Iterable, Mapping
 
 import attrs
 import numpy as np
@@ -19,6 +22,7 @@ from attrs.validators import (
 )
 
 from qwip.typing import (
+    typedispatch,
     is_annotated_type,
     is_callable_type,
     is_union_type,
@@ -140,15 +144,24 @@ class _UnionValidator:
             )
 
 
-def get_tuple_of_types_validator(tps: tuple[Type]) -> callable:
-    if len(tps) == 0:
-        return None
-    elif len(tps) == 1:
-        return get_type_validator(tps[0])
-    else:
-        return get_union_validator(reduce(lambda a, b: a | b, tps))
+@typedispatch
+def get_validator(tps: Type | tuple[Type]) -> Callable:
+    raise NotImplementedError(f'Type validator for {tps} is not implemented.')
 
-def get_tuple_validator(tps: Type) -> callable:
+@get_validator.register(Any)
+def get_any_validator(tps: Type) -> Callable:
+    return None
+
+@get_validator.register(Annotated)
+def get_annotated_validator(tps: Type) -> Callable:
+    return get_type_validator(get_args(tps)[0])
+
+@get_validator.register(Callable)
+def get_annotated_validator(tps: Type) -> Callable:
+    return is_callable()
+
+@get_validator.register(tuple)
+def get_tuple_validator(tps: Type) -> Callable:
     args = get_args(tps)
     tuple_validator = get_type_validator(get_origin(tps))
 
@@ -166,14 +179,15 @@ def get_tuple_validator(tps: Type) -> callable:
         validators = tuple(get_type_validator(a) for a in args)
         return _DeepTupleValidator(validators, tuple_validator)
 
-
-def get_numpy_validator(tps: Type) -> callable:
+@get_validator.register(np.ndarray)
+def get_numpy_validator(tps: Type) -> Callable:
     _, dtype = get_args(tps)
 
     dtype = get_args(dtype)[0]
     return _NumpyTypeValidator(dtype=dtype)
 
-def get_mapping_validator(tps: Type) -> callable:
+@get_validator.register(Mapping)
+def get_mapping_validator(tps: Type) -> Callable:
     args = get_args(tps)
     key_validator = get_type_validator(args[0]) or _NullValidator()
     mapping_validator = get_type_validator(get_origin(tps))
@@ -190,7 +204,8 @@ def get_mapping_validator(tps: Type) -> callable:
     else:
         return deep_mapping(key_validator, value_validator, mapping_validator)
 
-def get_iterable_validator(tps: Type) -> callable:
+@get_validator.register(Iterable)
+def get_iterable_validator(tps: Type) -> Callable:
     member_validator = get_type_validator(get_args(tps))
     iterable_validator = get_type_validator(get_origin(tps))
 
@@ -200,12 +215,17 @@ def get_iterable_validator(tps: Type) -> callable:
     else:
         return iterable_validator
 
-def get_optional_validator(tps: Type) -> callable:
+def get_optional_validator(tps: Type) -> Callable:
     args = tuple(tp for tp in get_args(tps) if tp is not type(None))
     return optional(get_type_validator(args))
 
-def get_union_validator(tps: Type) -> callable:
+@get_validator.register(Union)
+@get_validator.register(UnionType)
+def get_union_validator(tps: Type) -> Callable:
     args = get_args(tps)
+
+    if type(None) in args:
+        return get_optional_validator(tps)
 
     def is_special_type(tp):
         """Determines if a type can be directly handled within a union"""
@@ -226,6 +246,14 @@ def get_union_validator(tps: Type) -> callable:
 
     return _UnionValidator(validators)
 
+def get_tuple_of_types_validator(tps: tuple[Type]) -> Callable:
+    if len(tps) == 0:
+        return None
+    elif len(tps) == 1:
+        return get_type_validator(tps[0])
+    else:
+        return get_union_validator(reduce(lambda a, b: a | b, tps))
+
 def get_type_validator(tps: Type | tuple[Type]):
     try:
         isinstance(None, tps)
@@ -239,28 +267,8 @@ def get_type_validator(tps: Type | tuple[Type]):
     elif isinstance(tps, (str, ForwardRef)):
         logger.warning(f'No validator added for forward reference {repr(tps)}.')
         return None
-    elif tps == Any:
-        return None
-    elif is_annotated_type(tps):
-        return get_type_validator(get_args(tps)[0])
-    elif is_optional_type(tps):
-        return get_optional_validator(tps)
-    elif is_union_type(tps):
-        return get_union_validator(tps)
-    elif issubclass(get_origin(tps), tuple):
-        return get_tuple_validator(tps)
-    elif is_ndarray_type(tps):
-        return get_numpy_validator(tps)
-    elif is_mapping_type(tps):
-        return get_mapping_validator(tps)
-    elif is_iterable_type(tps):
-        return get_iterable_validator(tps)
-    elif is_callable_type(tps):
-        # Checking argument/return types not implemented for now
-        return is_callable()
     else:
-        raise NotImplementedError(f'Type validator for {tps} is not implemented.')
-
+        return get_validator(tps)
 
 def add_type_validators(cls, fields):
     new_fields = []
