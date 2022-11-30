@@ -29,14 +29,14 @@ def is_callable_type(tp):
         return issubtype(tp, Callable)
 
 def is_union_type(tp):
-    return get_origin(tp) in (Union, UnionType)
+    return get_origin(tp) in {Union, UnionType}
 
 def is_optional_type(tp):
     return is_union_type(tp) and type(None) in get_args(tp)
 
 def is_generic_type(tp, origin_tp=None):
     if origin_tp is None:
-        return NotImplementedError
+        return get_origin(tp) is not None
     
     if o := get_origin(tp):
         return issubtype(o, origin_tp)
@@ -60,16 +60,45 @@ def typedispatch(func):
     to be defined for different attributes when attrs classes are being created.
     """
 
-    dispatcher = singledispatch(func)
-    
+    _dispatcher = singledispatch(func)
+    # _dispatcher.registry is a read-only MappingProxy
+    registry = {}
+
+    def dispatch(tp: type) -> Callable:
+        if origin := get_origin(tp):
+            tp = origin
+
+        try:
+            impl = registry[tp]
+        except KeyError:
+            impl = _dispatcher.dispatch(tp) if isinstance(tp, type) else func
+
+        return impl
+
+    def register(tp: type, func: Callable | None = None) -> Callable:
+        if func is None:
+            return lambda f: register(tp, f)
+
+        if origin := get_origin(tp):
+            tp = origin
+
+        # functools singledispatch can handle normal classes
+        if not isinstance(tp, type):
+            registry[tp] = func
+        else:
+            _dispatcher.register(tp, func)
+
+        return func
+
     def wrapper(*args, **kwargs):
         if not args:
-            raise TypeError(f'{funcname} requires at least '
-                            '1 positional argument')
-        return dispatcher.dispatch(args[0])(*args, **kwargs)
+            raise TypeError(f'{funcname} requires at least 1 positional argument')
+        return dispatch(args[0])(*args, **kwargs)
     
     funcname = getattr(func, '__name__', 'typedispatch function')
-    wrapper.register = dispatcher.register
-    wrapper.dispatcher = dispatcher
+    wrapper.register = register
+    wrapper.dispatch = dispatch
+    wrapper.registry = registry
+    wrapper._dispatcher = _dispatcher
     update_wrapper(wrapper, func)
     return wrapper
