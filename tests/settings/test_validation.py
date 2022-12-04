@@ -132,6 +132,7 @@ class TestGetTypeValidators():
             (dict[str, list[int]], {}, does_not_raise()),
             (dict[str, list[int]], {'a': [], 'b': [1, 2]}, does_not_raise()),
             (dict[str, dict[int, int]], {'a': [], 'b': [1, 2]}, pytest.raises(TypeError)),
+            (frozenset[tuple[str, int]], frozenset({(1, 1), (2, 2)}), pytest.raises(TypeError))
         ]
     )
     def test_nested_containers(self, tp, value, expect):
