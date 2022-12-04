@@ -20,10 +20,34 @@ class TestLocation:
         l4 = Location(references={(l1, 0.5), (l2, 0.5), (l3, 0.5)})
         assert l4.references == frozenset({(l1, 0.5), (l2, 0.5), (l3, 0.5)})
 
+    def test_create_str(self):
+        loc = Location('a')
+        assert loc.offset == 'a' and loc.references == frozenset()
+
+        with pytest.raises(ValueError):
+            loc = Location('a', {(Location(), 1)})
+
+    @pytest.mark.parametrize(
+        'op1,op2,equal',
+        [
+            (Location(), Location(), True),
+            (Location(1), Location(1), True),
+            (Location(1), Location(-1), False),
+            (Location(0, {(Location(1), 1)}), Location(0, {(Location(1), 1)}), True),
+            (Location(0, {(Location(1), 1)}), Location(0, {(Location(-1), -1)}), False),
+            (Location('a'), Location('b'), False),
+            (Location('a'), Location('a'), True)
+        ]
+    )
+    def test_equal(self, op1, op2, equal):
+        assert (op1 == op2) is equal
+
     @pytest.mark.parametrize(
         'location,inverse',
         [
             (Location(), Location()),
+            (Location('str'), Location(0, {(Location('str'), -1)})),
+            (-Location('str'), Location('str')),
             (Location(1), Location(-1)),
             (Location(-1), Location(1)),
             (Location(-1, {(Location(1), 1)}), Location(1, {(Location(1), -1)}))
@@ -31,7 +55,6 @@ class TestLocation:
     )
     def test_negation(self, location, inverse):
         assert -location == inverse
-
 
     @pytest.mark.parametrize(
         'op1,op2,result',
@@ -55,6 +78,27 @@ class TestLocation:
     @pytest.mark.parametrize(
         'op1,op2,result',
         [
+            ('a', Location(), Location('a')),
+            (Location(), Location('a'), Location('a')),
+            (
+                Location('a'),
+                Location('b'),
+                Location(0, {(Location('a'), 1), (Location('b'), 1)})
+            ),
+            (Location('a'), Location(2), Location(2, {(Location('a'), 1)})),
+            (Location(-1, {(Location('a'), 1)}), Location(1), Location('a'))
+        ]
+    )
+    def test_add_str(self, op1, op2, result):
+        if hasattr(result, '__enter__'):
+            with result:
+                op1 + op2
+        else:
+            assert op1 + op2 == result
+
+    @pytest.mark.parametrize(
+        'op1,op2,result',
+        [
             (Location(), Location(), Location()),
             (Location(1), Location(1), Location()),
             (Location(), Location(5), Location(-5)),
@@ -69,7 +113,27 @@ class TestLocation:
             with result:
                 op1 - op2
         else:
-            print(op1 - op2)
+            assert op1 - op2 == result
+
+    @pytest.mark.parametrize(
+        'op1,op2,result',
+        [
+            ('a', Location(), Location('a')),
+            (Location(), Location('a'), Location(0, {(Location('a'), -1)})),
+            (
+                Location('a'),
+                Location('b'),
+                Location(0, {(Location('a'), 1), (Location('b'), -1)})
+            ),
+            (Location('a'), Location(2), Location(-2, {(Location('a'), 1)})),
+            (Location(1, {(Location('a'), 1)}), Location(1), Location('a'))
+        ]
+    )
+    def test_subtract_str(self, op1, op2, result):
+        if hasattr(result, '__enter__'):
+            with result:
+                op1 - op2
+        else:
             assert op1 - op2 == result
 
     @pytest.mark.parametrize(
@@ -77,6 +141,9 @@ class TestLocation:
         [
             (Location(1), 0, Location()),
             (0, Location(1, {(Location(5), 1)}), Location()),
+            (Location('a'), 0, Location()),
+            (2, Location(0, {(Location('a'), 0.5)}), Location('a')),
+            (Location('a'), 1, Location('a')),
             (Location(1, {(Location(2), 1)}), 0.5, Location(0.5, {(Location(2), 0.5)})),
             ([], Location(), pytest.raises(TypeError)),
         ]
@@ -87,6 +154,11 @@ class TestLocation:
                 op1 * op2
         else:
             assert op1 * op2 == result
+        
+        if op1 == 1:
+            assert op1 * op2 is op2
+        elif op2 == 1:
+            assert op1 * op2 is op1
 
     def test_repr(self):
         l0 = Location()

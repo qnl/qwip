@@ -18,14 +18,25 @@ def _convert_offset(val) -> float | str:
     except ValueError:
         return val
 
+def _no_refs_in_string_location(inst, attr, value):
+    if isinstance(inst.offset, str) and len(value) != 0:
+        raise ValueError(
+            f'Variable locations cannot hold references. Got {value} that'
+            f'is non-empty.'
+        )
+
 @qfrozen(kw_only=False)
 class Location:
     offset: float | str = field(converter=_convert_offset, default=0)
-    references: frozenset[tuple[ForwardRef('Location'), float]] = field(factory=frozenset)
+    references: frozenset[tuple[ForwardRef('Location'), float]] = field(
+        validator=_no_refs_in_string_location,
+        factory=frozenset
+    )
 
     def substitute(self, new: 'Location | Real', old: 'Location') -> 'Location':
         if old == new:
-            return new if isinstance(new, type(self)) else type(self)(new)
+            cls = type(self)
+            return new if isinstance(new, cls) else cls(new)
         else:
             found_loc = False
             refs = {}
@@ -51,10 +62,15 @@ class Location:
             return Location(0, frozenset({(self, -1)}))
 
         offset = -self.offset
+
+        if len(self.references) == 1 and offset == 0:
+            loc, c = next(iter(self.references))
+            if -c == 1:
+                return loc
     
         return Location(
             offset=offset,
-            references=frozenset((loc, -c) for loc, c in self.references)
+            references=frozenset((loc, -c) for loc, c in self.references if c != 0)
         )
 
     def __add__(self, other) -> 'Location':
@@ -86,6 +102,11 @@ class Location:
             for loc, c in other.references:
                 coeff_map[loc] = coeff_map.get(loc, 0) + c
 
+        if len(coeff_map) == 1 and offset == 0:
+            (loc, c), = coeff_map.items()
+            if c == 1:
+                return loc
+
         return Location(
             offset=offset,
             references=frozenset(
@@ -103,7 +124,7 @@ class Location:
         if other == 0 or other == zero:
             return self
         elif self == zero:
-            return -other if isinstance(other, Location) else Location(-other)
+            return -other if isinstance(other, Location) else -Location(other)
 
         # Check for string or number
         if isinstance(other, (str, Real)):
@@ -125,6 +146,11 @@ class Location:
             offset -= other.offset
             for loc, c in other.references:
                 coeff_map[loc] = coeff_map.get(loc, 0) - c
+
+        if len(coeff_map) == 1 and offset == 0:
+            (loc, c), = coeff_map.items()
+            if c == 1:
+                return loc
 
         return Location(
             offset=offset,
@@ -153,6 +179,11 @@ class Location:
                 0,
                 frozenset((self, other))
             )
+
+        if len(self.references) == 1 and self.offset == 0:
+            loc, c = next(iter(self.references))
+            if c*other == 1:
+                return loc
         else:
             return Location(
                 self.offset * other,
@@ -162,5 +193,9 @@ class Location:
     def __rmul__(self, other) -> 'Location':
         """Scalar multiplication of a location."""
         return self.__mul__(other)
+
+    def __div__(self, other) -> 'Location':
+        """Scalar division of a location."""
+        return self.__mul__(1/other)
 
 resolve_types_with_validation(Location, globals(), locals())
