@@ -41,7 +41,7 @@ class TestLocation:
             (Location(), Location(5), Location(5)),
             (Location(), 5, Location(5)),
             (5, Location(), Location(5)),
-            ('5', Location(), pytest.raises(TypeError)),
+            ([], Location(), pytest.raises(TypeError)),
             (Location(1, {(Location(5), 1)}), Location(-1, {(Location(5), -1)}), Location())
         ]
     )
@@ -60,7 +60,7 @@ class TestLocation:
             (Location(), Location(5), Location(-5)),
             (Location(), 5, Location(-5)),
             (5, Location(), Location(5)),
-            ('5', Location(), pytest.raises(TypeError)),
+            ([], Location(), pytest.raises(TypeError)),
             (Location(1, {(Location(5), 1)}), Location(1, {(Location(5), 1)}), Location())
         ]
     )
@@ -69,6 +69,7 @@ class TestLocation:
             with result:
                 op1 - op2
         else:
+            print(op1 - op2)
             assert op1 - op2 == result
 
     @pytest.mark.parametrize(
@@ -77,7 +78,7 @@ class TestLocation:
             (Location(1), 0, Location()),
             (0, Location(1, {(Location(5), 1)}), Location()),
             (Location(1, {(Location(2), 1)}), 0.5, Location(0.5, {(Location(2), 0.5)})),
-            ('5', Location(), pytest.raises(TypeError)),
+            ([], Location(), pytest.raises(TypeError)),
         ]
     )
     def test_scalar_multiply(self, op1, op2, result):
