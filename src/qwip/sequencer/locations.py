@@ -4,6 +4,8 @@ from typing import Union, ForwardRef
 import attrs
 from attrs import field, resolve_types
 
+import qwip
+from qwip._cattr import make_attrs_structure_fn
 from qwip.settings.settings import qfrozen
 from qwip.flatdict import FlatDict
 from qwip.settings.validation import resolve_types_with_validation
@@ -54,6 +56,29 @@ class Location:
                 offset=self.offset,
                 reference=frozenset(refs)
             )
+    
+    def resolve(self, **variable_map):
+        """Resolves string variables referenced in a `Location`."""
+        if isinstance(self.offset, str) and (loc := variable_map.get(self.offset)):
+            return loc if isinstance(loc, Location) else Location(loc)
+        elif len(self.references) == 0:
+            return self
+
+        offset = self.offset
+        unresolved_refs = {}
+        for loc, c in self.references:
+            loc = loc.resolve(**variable_map)
+
+            if not isinstance(loc.offset, str):
+                offset += loc.offset * c
+                
+                for subloc, subc in loc.references:
+                    unresolved_refs[subloc] = unresolved_refs.get(subloc, 0) + c * subc
+            else:
+                unresolved_refs[loc] = unresolved_refs.get(loc, 0) + c
+
+        return Location(offset, frozenset(unresolved_refs.items()))
+
 
     def __neg__(self) -> 'Location':
         """Negates a location."""
@@ -177,7 +202,7 @@ class Location:
         if isinstance(self.offset, str):
             return Location(
                 0,
-                frozenset((self, other))
+                {(self, other)}
             )
 
         if len(self.references) == 1 and self.offset == 0:
@@ -199,3 +224,16 @@ class Location:
         return self.__mul__(1/other)
 
 resolve_types_with_validation(Location, globals(), locals())
+
+structure_location_attrs = make_attrs_structure_fn(Location)
+
+def structure_location(v, cls):
+    if isinstance(v, str):
+        return cls(v)
+
+    return structure_location_attrs(v, cls)
+
+qwip.converter.register_structure_hook(
+    Location,
+    structure_location
+)

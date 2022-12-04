@@ -1,6 +1,7 @@
 import pytest
 import attrs
 
+import qwip
 from qwip.sequencer.locations import Location
 
 class TestLocation:
@@ -24,8 +25,22 @@ class TestLocation:
         loc = Location('a')
         assert loc.offset == 'a' and loc.references == frozenset()
 
+        loc = Location(0, {('a', -1)})
+        assert loc.offset == 0 and loc.references == frozenset({(Location('a'), -1)})
+
         with pytest.raises(ValueError):
             loc = Location('a', {(Location(), 1)})
+
+    @pytest.mark.parametrize(
+        'to_structure,location',
+        [
+            ('a', Location('a')),
+            (dict(offset=0), Location()),
+            (dict(offset=1, references={('a', 1)}), 1 + Location('a'))
+        ]
+    )
+    def test_structure_(self, to_structure, location):
+        assert qwip.converter.structure(to_structure, Location) == location
 
     @pytest.mark.parametrize(
         'op1,op2,equal',
@@ -83,10 +98,10 @@ class TestLocation:
             (
                 Location('a'),
                 Location('b'),
-                Location(0, {(Location('a'), 1), (Location('b'), 1)})
+                Location(0, {('a', 1), ('b', 1)})
             ),
-            (Location('a'), Location(2), Location(2, {(Location('a'), 1)})),
-            (Location(-1, {(Location('a'), 1)}), Location(1), Location('a'))
+            (Location('a'), Location(2), Location(2, {('a', 1)})),
+            (Location(-1, {('a', 1)}), Location(1), Location('a'))
         ]
     )
     def test_add_str(self, op1, op2, result):
@@ -143,7 +158,7 @@ class TestLocation:
             (0, Location(1, {(Location(5), 1)}), Location()),
             (Location('a'), 0, Location()),
             (2, Location(0, {(Location('a'), 0.5)}), Location('a')),
-            (Location('a'), 1, Location('a')),
+            (Location('a'), 3, Location(0, {(Location('a'), 3)})),
             (Location(1, {(Location(2), 1)}), 0.5, Location(0.5, {(Location(2), 0.5)})),
             ([], Location(), pytest.raises(TypeError)),
         ]
@@ -159,6 +174,34 @@ class TestLocation:
             assert op1 * op2 is op2
         elif op2 == 1:
             assert op1 * op2 is op1
+
+    @pytest.mark.parametrize(
+        'loc,variable_map,result',
+        [
+            (Location('a'), dict(a=1), Location(1)),
+            (Location(1), dict(a=1), Location(1)),
+            (2 + Location('a'), dict(a=1), Location(3)),
+            (2 + Location('a'), dict(b=1), Location(2, {(Location('a'), 1)})),
+            (
+                Location(1, {(Location(1, {(Location('a'), 2), (Location('b'), 1)}), 2)}),
+                dict(a=1, b=1),
+                Location(9)
+            ),
+            (
+                Location(1, {(Location(1, {(Location('a'), 2), (Location('b'), 1)}), 2)}),
+                dict(b=1),
+                Location(5, {(Location('a'), 4)})
+            ),
+            (1 + Location('a'), dict(a='b'), 1 + Location('b')),
+            (
+                1 + Location('a'),
+                dict(a=Location(5, {(Location('b'), 2)})),
+                6 + 2*Location('b')
+            )
+        ]
+    )
+    def test_resolve(self, loc, variable_map, result):
+        assert loc.resolve(**variable_map) == result
 
     def test_repr(self):
         l0 = Location()
