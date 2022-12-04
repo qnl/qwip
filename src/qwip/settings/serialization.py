@@ -22,7 +22,7 @@ def add_type_converters(cls, fields):
     new_fields = []
 
     for field in fields:
-        if field.metadata.get('auto_convert', True) and field.init:
+        if field.metadata.get('auto_convert', True) and field.init and field.converter is None:
             field = field.evolve(converter=get_type_converter(field.type))
 
         new_fields.append(field)

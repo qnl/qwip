@@ -1,4 +1,4 @@
-from typing import Any, get_origin, get_args
+from typing import Any, ForwardRef, get_origin, get_args
 from pathlib import Path
 
 import attr
@@ -25,6 +25,23 @@ converter.register_structure_hook(
 converter.register_structure_hook(
     str,
     lambda v, cls: str(v) if isinstance(v, (int, float, bool)) else v
+)
+
+# ========== ForwardRef ========== #
+
+def make_forward_ref_structure_fn(cls):
+    def forward_ref_structure_fn(obj, cls):
+        cls = cls._evaluate(None, None, set())
+        return converter.structure(obj, cls)
+
+    return forward_ref_structure_fn
+
+def is_forward_ref(cls):
+    return isinstance(cls, ForwardRef)
+
+converter.register_structure_hook_factory(
+    is_forward_ref,
+    make_forward_ref_structure_fn
 )
 
 # ========== stdlib types ========== #
