@@ -1,5 +1,6 @@
 from numbers import Real
 from typing import Union, ForwardRef
+from functools import lru_cache
 
 import attrs
 from attrs import field, resolve_types
@@ -58,7 +59,7 @@ class Location:
             )
     
     def resolve(self, **variable_map):
-        """Resolves string variables referenced in a `Location`."""
+        """Resolves string variables referenced in a location."""
         if isinstance(self.offset, str) and (loc := variable_map.get(self.offset)):
             return loc if isinstance(loc, Location) else Location(loc)
         elif len(self.references) == 0:
@@ -79,6 +80,18 @@ class Location:
 
         return Location(offset, frozenset(unresolved_refs.items()))
 
+    @lru_cache(maxsize=2)
+    def variables(self, return_string=False) -> set['Location']:
+        """Returns the set of variables that the location depends on."""
+
+        if isinstance(self.offset, str):
+            return {self.offset if return_string else self}
+        
+        subsets = (
+            loc.variables(return_string=return_string)
+                for loc, c in self.references
+        )
+        return set().union(*subsets)
 
     def __neg__(self) -> 'Location':
         """Negates a location."""

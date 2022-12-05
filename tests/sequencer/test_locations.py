@@ -203,6 +203,24 @@ class TestLocation:
     def test_resolve(self, loc, variable_map, result):
         assert loc.resolve(**variable_map) == result
 
+    @pytest.mark.parametrize(
+        'loc,result,return_string',
+        [
+            (Location(), set(), False),
+            (Location(), set(), True),
+            (Location('a'), {Location('a')}, False),
+            (Location('a'), {'a'}, True),
+            (Location(1) + 'a' + 'b', {'a', 'b'}, True),
+            (
+                Location(1, {('a', 2), (Location(2, {('b', 1)}), 1)}),
+                {'a', 'b'},
+                True
+            )
+        ]
+    )
+    def test_variables(self, loc, result, return_string):
+        assert loc.variables(return_string) == result
+
     def test_repr(self):
         l0 = Location()
         l1 = Location(5)
