@@ -221,6 +221,31 @@ class TestLocation:
     def test_variables(self, loc, result, return_string):
         assert loc.variables(return_string) == result
 
+    @pytest.mark.parametrize(
+        'loc,variable,expect',
+        [
+            (Location(), 'start', False),
+            (Location('start'), 'start', True),
+            (
+                Location(2, {(Location(3, {(Location('b'), 1)}), 2), (Location('a'), 0.5)}),
+                'a',
+                True
+            ),
+            (
+                Location(2, {(Location(3, {(Location('b'), 1)}), 2), (Location('a'), 0.5)}),
+                'b',
+                True
+            ),
+            (
+                Location(2, {(Location(3, {(Location('b'), 1)}), 2), (Location('a'), 0.5)}),
+                'c',
+                False
+            ),
+        ]
+    )
+    def test_contains(self, loc, variable, expect):
+        assert (variable in loc) is expect
+
     def test_repr(self):
         l0 = Location()
         l1 = Location(5)

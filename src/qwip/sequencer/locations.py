@@ -93,6 +93,9 @@ class Location:
         )
         return set().union(*subsets)
 
+    def __contains__(self, variable: str) -> bool:
+        return variable in self.variables(return_string=True)
+
     def __neg__(self) -> 'Location':
         """Negates a location."""
         if isinstance(self.offset, str):
