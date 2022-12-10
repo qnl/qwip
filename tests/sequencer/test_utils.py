@@ -2,7 +2,7 @@ import pytest
 import attrs
 
 import qwip
-from qwip.sequencer.locations import Location
+from qwip.sequencer.utils import Location
 
 class TestLocation:
     def test_create(self):

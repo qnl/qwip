@@ -1,6 +1,7 @@
 from numbers import Real
-from typing import Union, ForwardRef
+from typing import Union, ForwardRef, TypeVar
 from functools import lru_cache
+from typing_extensions import Self
 
 import attrs
 from attrs import field, resolve_types
@@ -24,21 +25,25 @@ def _convert_offset(val) -> float | str:
 def _no_refs_in_string_location(inst, attr, value):
     if isinstance(inst.offset, str) and len(value) != 0:
         raise ValueError(
-            f'Variable locations cannot hold references. Got {value} that'
+            f'Variables cannot hold references. Got {value} that'
             f'is non-empty.'
         )
 
 @qfrozen(kw_only=False)
-class Location:
+class LinearExpression:
     offset: float | str = field(converter=_convert_offset, default=0)
-    references: frozenset[tuple[ForwardRef('Location'), float]] = field(
+    references: frozenset[tuple[Self, float]] = field(
         validator=_no_refs_in_string_location,
         factory=frozenset
     )
 
-    def substitute(self, new: 'Location | Real', old: 'Location') -> 'Location':
+    def substitute(
+        self,
+        new: Self | Real,
+        old: Self
+    ) -> Self:
+        cls = type(self)
         if old == new:
-            cls = type(self)
             return new if isinstance(new, cls) else cls(new)
         else:
             found_loc = False
@@ -53,15 +58,16 @@ class Location:
             if not found_loc:
                 raise ValueError(f'{old} is not a dependency of {self}.')
 
-            return Location(
+            return cls(
                 offset=self.offset,
                 reference=frozenset(refs)
             )
     
     def resolve(self, **variable_map):
         """Resolves string variables referenced in a location."""
+        cls = type(self)
         if isinstance(self.offset, str) and (loc := variable_map.get(self.offset)):
-            return loc if isinstance(loc, Location) else Location(loc)
+            return loc if isinstance(loc, cls) else cls(loc)
         elif len(self.references) == 0:
             return self
 
@@ -78,10 +84,10 @@ class Location:
             else:
                 unresolved_refs[loc] = unresolved_refs.get(loc, 0) + c
 
-        return Location(offset, frozenset(unresolved_refs.items()))
+        return cls(offset, frozenset(unresolved_refs.items()))
 
     @lru_cache(maxsize=2)
-    def variables(self, return_string=False) -> set['Location']:
+    def variables(self, return_string=False) -> set['LinearExpression']:
         """Returns the set of variables that the location depends on."""
 
         if isinstance(self.offset, str):
@@ -96,11 +102,13 @@ class Location:
     def __contains__(self, variable: str) -> bool:
         return variable in self.variables(return_string=True)
 
-    def __neg__(self) -> 'Location':
+    def __neg__(self) -> Self:
         """Negates a location."""
+        cls = type(self)
+
         if isinstance(self.offset, str):
             offset = 0
-            return Location(0, frozenset({(self, -1)}))
+            return cls(0, frozenset({(self, -1)}))
 
         offset = -self.offset
 
@@ -109,23 +117,25 @@ class Location:
             if -c == 1:
                 return loc
     
-        return Location(
+        return cls(
             offset=offset,
             references=frozenset((loc, -c) for loc, c in self.references if c != 0)
         )
 
-    def __add__(self, other) -> 'Location':
+    def __add__(self, other) -> Self:
         """Adds two locations."""
-        zero = Location()
+        cls = type(self)
+
+        zero = cls()
         if other == 0 or other == zero:
             return self
         elif self == zero:
-            return other if isinstance(other, Location) else Location(other)
+            return other if isinstance(other, cls) else cls(other)
 
         # Check for string or number
         if isinstance(other, (str, Real)):
-            other = Location(other)
-        elif not isinstance(other, Location):
+            other = cls(other)
+        elif not isinstance(other, cls):
             raise TypeError(_type_error_text(self, other, '+'))
 
         offset = 0
@@ -148,29 +158,31 @@ class Location:
             if c == 1:
                 return loc
 
-        return Location(
+        return cls(
             offset=offset,
             references=frozenset(
                 (loc, c) for loc, c in coeff_map.items() if c != 0
             )
         )
 
-    def __radd__(self, other) -> 'Location':
+    def __radd__(self, other) -> Self:
         """Adds two locations."""
         return self.__add__(other)
 
-    def __sub__(self, other) -> 'Location':
+    def __sub__(self, other) -> Self:
         """Subtracts two locations."""
-        zero = Location()
+        cls = type(self)
+    
+        zero = cls()
         if other == 0 or other == zero:
             return self
         elif self == zero:
-            return -other if isinstance(other, Location) else -Location(other)
+            return -other if isinstance(other, cls) else -cls(other)
 
         # Check for string or number
         if isinstance(other, (str, Real)):
-            other = Location(other)
-        elif not isinstance(other, Location):
+            other = cls(other)
+        elif not isinstance(other, cls):
             raise TypeError(_type_error_text(self, other, '-'))
 
         offset = 0
@@ -193,30 +205,32 @@ class Location:
             if c == 1:
                 return loc
 
-        return Location(
+        return cls(
             offset=offset,
             references=frozenset(
                 (loc, c) for loc, c in coeff_map.items() if c != 0
             )
         )
     
-    def __rsub__(self, other) -> 'Location':
+    def __rsub__(self, other) -> Self:
         """Subtracts two locations."""
         return -self.__sub__(other)
 
-    def __mul__(self, other) -> 'Location':
+    def __mul__(self, other) -> Self:
         """Scalar multiplication of a location."""
         if not isinstance(other, Real):
             raise TypeError(_type_error_text(self, other, '*'))
 
-        zero = Location()
+        cls = type(self)
+
+        zero = cls()
         if other == 0 or self == zero:
             return zero
         elif other == 1:
             return self
 
         if isinstance(self.offset, str):
-            return Location(
+            return cls(
                 0,
                 {(self, other)}
             )
@@ -226,30 +240,38 @@ class Location:
             if c*other == 1:
                 return loc
         else:
-            return Location(
+            return cls(
                 self.offset * other,
                 frozenset((loc, c * other) for loc, c in self.references)
             )
 
-    def __rmul__(self, other) -> 'Location':
+    def __rmul__(self, other) -> Self:
         """Scalar multiplication of a location."""
         return self.__mul__(other)
 
-    def __div__(self, other) -> 'Location':
+    def __div__(self, other) -> Self:
         """Scalar division of a location."""
         return self.__mul__(1/other)
 
-resolve_types_with_validation(Location, globals(), locals())
+resolve_types_with_validation(LinearExpression, globals(), locals())
 
-structure_location_attrs = make_attrs_structure_fn(Location)
 
-def structure_location(v, cls):
-    if isinstance(v, str):
-        return cls(v)
+def make_linear_expression_structure_fn(cls):
+    structure_attrs = make_attrs_structure_fn(cls)
 
-    return structure_location_attrs(v, cls)
+    def structure_fn(obj, cls):
+        if isinstance(obj, str):
+            return cls(obj)
 
-qwip.converter.register_structure_hook(
-    Location,
-    structure_location
+        return structure_attrs(obj, cls)
+
+    return structure_fn
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: issubclass(cls, LinearExpression),
+    make_linear_expression_structure_fn
 )
+
+@qfrozen(kw_only=False)
+class Location(LinearExpression):
+    ...
