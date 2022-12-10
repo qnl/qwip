@@ -246,6 +246,28 @@ class TestLocation:
     def test_contains(self, loc, variable, expect):
         assert (variable in loc) is expect
 
+    @pytest.mark.parametrize(
+        'exp1,exp2,op,expect',
+        [
+            (Location(), 1, 'lt', True),
+            (Location(), 0, 'ge', True),
+            (Location(), 0, 'le', True),
+            (Location(), 0, 'gt', False),
+            (Location(), Location(3, {(Location(2), -3)}), 'lt', False),
+            (Location(), 'var', 'gt', pytest.raises(ValueError))
+        ]
+    )
+    def test_compariosn(self, exp1, exp2, op, expect):
+        import operator
+        op = getattr(operator, op)
+
+        if hasattr(expect, '__enter__'):
+            with expect:
+                op(exp1, exp2)
+
+        else:
+            assert op(exp1, exp2) == expect
+
     def test_repr(self):
         l0 = Location()
         l1 = Location(5)

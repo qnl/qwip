@@ -87,7 +87,7 @@ class LinearExpression:
         return cls(offset, frozenset(unresolved_refs.items()))
 
     @lru_cache(maxsize=2)
-    def variables(self, return_string=False) -> set['LinearExpression']:
+    def variables(self, return_string=False) -> set[Self]:
         """Returns the set of variables that the location depends on."""
 
         if isinstance(self.offset, str):
@@ -252,6 +252,108 @@ class LinearExpression:
     def __div__(self, other) -> Self:
         """Scalar division of a location."""
         return self.__mul__(1/other)
+
+    def __lt__(self, other) -> bool:
+        """Compares two expressions.
+        
+        Returns:
+            True if self < other.
+        """
+        cls = type(self)
+
+        if not isinstance(other, cls):
+            other = cls(other)
+
+        if self.variables() or other.variables():
+            raise ValueError(
+                'Variable expressions must be resolved before comparison. '
+                f'({self} < {other})'
+            )
+        
+        if self.references:
+            self = self.resolve()
+
+        if other.references:
+            other = other.resolve()
+
+        return self.offset < other.offset
+
+    def __gt__(self, other) -> bool:
+        """Compares two expressions.
+        
+        Returns:
+            True if self > other.
+        """
+        cls = type(self)
+
+        if not isinstance(other, cls):
+            other = cls(other)
+
+        if self.variables() or other.variables():
+            raise ValueError(
+                'Variable expressions must be resolved before comparison. '
+                f'({self} > {other})'
+            )
+        
+        if self.references:
+            self = self.resolve()
+
+        if other.references:
+            other = other.resolve()
+
+        return self.offset > other.offset
+
+    def __le__(self, other) -> bool:
+        """Compares two expressions.
+        
+        Returns:
+            True if self <= other.
+        """
+        cls = type(self)
+
+        if not isinstance(other, cls):
+            other = cls(other)
+
+        if self.variables() or other.variables():
+            raise ValueError(
+                'Variable expressions must be resolved before comparison. '
+                f'({self} <= {other})'
+            )
+        
+        if self.references:
+            self = self.resolve()
+
+        if other.references:
+            other = other.resolve()
+
+        return self.offset <= other.offset
+
+    def __ge__(self, other) -> bool:
+        """Compares two expressions.
+        
+        Returns:
+            True if self >= other.
+        """
+        cls = type(self)
+
+        if not isinstance(other, cls):
+            other = cls(other)
+
+        if self.variables() or other.variables():
+            raise ValueError(
+                'Variable expressions must be resolved before comparison. '
+                f'({self} >= {other})'
+            )
+        
+        if self.references:
+            self = self.resolve()
+
+        if other.references:
+            other = other.resolve()
+
+        return self.offset >= other.offset
+
+
 
 resolve_types_with_validation(LinearExpression, globals(), locals())
 
