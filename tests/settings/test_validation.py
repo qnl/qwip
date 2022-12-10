@@ -13,6 +13,8 @@ from typing import (
     Optional,
     Union,
 )
+from typing_extensions import Self
+
 from attr import field, define
 from attr.exceptions import NotCallableError
 from qwip.flatdict import FlatDict
@@ -306,6 +308,14 @@ class TestAddTypeValidator:
 
         with pytest.raises(ValueError):
             A(attr=1)
+
+    def test_self_type(self):
+        @qdefine
+        class A:
+            attr: Self
+
+        field = attrs.fields(A).attr
+        assert field.type._evaluate(globals(), locals(), set()) == A
 
 def test_resolve_types_with_validation():
     @qdefine
