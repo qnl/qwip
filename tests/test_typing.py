@@ -6,8 +6,10 @@ from typing import (
     Annotated,
     Optional,
     Union,
-    get_args
+    get_args,
+    ForwardRef
 )
+from typing_extensions import Self
 
 import numpy as np
 from numpy.typing import NDArray
@@ -23,6 +25,7 @@ from qwip.typing import (
     is_iterable_type,
     is_mapping_type,
     is_ndarray_type,
+    replace_self_type,
 )
 
 class TestTypeDispatch:
@@ -291,3 +294,21 @@ def test_ndarray(tp, expect):
 )
 def test_callable(tp, expect):
     assert is_callable_type(tp) == expect
+
+TypeA = ForwardRef('A', module=__name__, is_class=True)
+
+@pytest.mark.parametrize(
+    'tp,expect',
+    [
+        (int, int),
+        (Self, TypeA),
+        (tuple[Self, ...], tuple[TypeA, ...]),
+        (tuple[list[Self]], tuple[list[TypeA]]),
+        (dict[str, Self], dict[str, TypeA]),
+        (str | Self, Union[str, TypeA])
+    ]
+)
+def test_replace_self_type(tp, expect):
+    class A:
+        ...
+    assert replace_self_type(tp, A) == expect
