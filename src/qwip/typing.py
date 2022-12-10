@@ -6,9 +6,11 @@ from types import UnionType
 from typing import (
     Annotated,
     Union,
+    ForwardRef,
     get_args,
     get_origin,
 )
+from typing_extensions import Self
 from functools import singledispatch, update_wrapper
 
 import numpy as np
@@ -51,6 +53,40 @@ def is_mapping_type(tp):
 
 def is_ndarray_type(tp):
     return is_generic_type(tp, np.ndarray)
+
+def replace_self_type(tp, cls):
+    """Replaces instances of Self type with a class ForwardRef
+
+    This function recursively iterations through any arguments of the given
+    type and replaces any instances of Self with a forward references with
+    the class module specified.
+
+    Args:
+        tp: A type to replace instances of Self
+        cls: The cls tp replace Self with
+
+    Returns:
+        A forward reference that references the class.
+    """
+    if tp is Self:
+        return ForwardRef(cls.__name__, module=cls.__module__, is_class=True)
+
+    if isinstance(tp, (str, ForwardRef)):
+        return tp
+
+    args = get_args(tp)
+    orig = get_origin(tp)
+
+    if orig:
+        orig = replace_self_type(orig, cls)
+        args = tuple(replace_self_type(a, cls) for a in args)
+        
+        if orig is UnionType:
+            orig = Union
+
+        return orig[args] # type: ignore
+
+    return tp
 
 def typedispatch(func):
     """Type-dispatch generic function decorator.
