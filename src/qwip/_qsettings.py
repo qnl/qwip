@@ -72,7 +72,7 @@ class SourceInfo(DefaultSettings):
 
 @qdefine
 class UnitSettings(DefaultSettings):
-    angle: str = field(default='degrees',
+    phase: str = field(default='degrees',
                               validator=attr.validators.in_(('degrees', 'radians')))
 
 @qdefine

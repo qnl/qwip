@@ -24,13 +24,13 @@ class IQRotation(Process):
 
     Attributes:
         angle (dict): A dictionary of angles for each data key. The unit defaults
-            to `qsettings['units/angle']` but can be set as a keword argument
+            to `qsettings['units/phase']` but can be set as a keword argument
             to `run()`.
 
     """
     angles: dict[str, float] = field(factory=dict)
 
-    @dynamic_default(unit='units/angle')
+    @dynamic_default(unit='units/phase')
     def run(self, data, /, unit: str = None):
         """Rotates the data by the specified angle.
         

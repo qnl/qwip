@@ -107,7 +107,7 @@ class TestIQRotation:
         iq_process.angles.update(dict(R0=np.pi/2, R1=-np.pi))
 
         with qwip.qsettings.context():
-            qwip.qsettings['units/angle'] = 'radians'
+            qwip.qsettings['units/phase'] = 'radians'
             outputs = iq_process(data)
 
         desired = {
