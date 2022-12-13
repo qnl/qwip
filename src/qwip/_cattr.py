@@ -1,5 +1,6 @@
 from typing import Any, ForwardRef, get_origin, get_args
 from pathlib import Path
+from numbers import Number
 
 import attr
 import cattr
@@ -18,8 +19,8 @@ converter.register_structure_hook(
 )
 
 converter.register_structure_hook(
-    int,
-    lambda v, cls: int(v) if isinstance(v, (float, str, bool)) else v
+    Number,
+    lambda v, cls: cls(v) if isinstance(v, Number) else v
 )
 
 converter.register_structure_hook(

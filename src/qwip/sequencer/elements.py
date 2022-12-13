@@ -1,0 +1,510 @@
+from typing import Callable, Union, ForwardRef, Protocol, runtime_checkable
+from numbers import Real
+from attrs import field
+from collections.abc import Collection
+from typing_extensions import Self
+
+import numpy as np
+
+from qwip.settings.settings import qdefine
+from qwip.sequencer.utils import Location
+from qwip.sequencer.waveform import (
+    Waveform,
+    Channel,
+    ModulatedWaveform,
+    MarkerWaveform,
+    VirtualZWaveform,
+    ModulationFrequency
+)
+
+SequenceNode = Union[Waveform, ForwardRef('SequenceElement')]
+LocationLike = Location | str | Real
+
+class UnderconstrainedSolveError(Exception):
+    ...
+
+@qdefine
+class SequenceElement:
+    # name: str
+    locations: dict[Location, list[SequenceNode]] = field(factory=dict)
+    constraints: dict[str, Location | str] = field(factory=dict)
+    channels: set[Channel] = field(factory=set)
+
+    @classmethod
+    def fromtuples(
+        cls,
+        pulse_locations: list[tuple[LocationLike, Waveform | None]],
+        **constraints
+    ) -> 'SequenceElement':
+        """Constructs a sequence from a tuple of locations and waveforms.
+        
+        The constructor will add `Location('start')` to every location if it does not
+        already contain a 'start' location.
+
+        Args:
+            locations: A list of (location, pulse) pairs to add to the sequence
+            **constraints: remaining keyword arguments will be added to the mapping
+                of constraints.
+
+        Returns:
+            The resulting sequence element instance
+        """
+        locations = {}
+        channels = set()
+
+        for loc, wave in pulse_locations:
+            if isinstance(loc, (str, Real)):
+                loc = Location(loc)
+
+            locations[loc] = locations.get(loc, list())
+
+            if wave is not None:
+                locations[loc].append(wave)
+                channels.update(wave.channels)
+
+        constraints = {
+            k: Location(l) if isinstance(l, str) else l for k, l in constraints.items()
+        }
+
+        return cls(locations=locations, constraints=constraints, channels=channels)
+
+    def add_waveform(
+        self,
+        location: LocationLike,
+        waveform: Waveform | Collection[Waveform],
+    ) -> None:
+        """Adds a waveform to the sequence element at the specified location.
+
+        Args:
+            location: The location at which to place the waveform
+            waveform: The waveform to add
+        """
+        if not isinstance(location, Location):
+            location = Location(location)
+
+        if isinstance(waveform, Waveform):
+            waveform = [waveform]
+        
+        self.locations[location] = self.locations.get(location, list()) + waveform
+        self.channels.update(waveform.channels)
+
+        return self
+
+    def add_constraints(
+        self,
+        *,
+        overwrite: bool = False,
+        **kwargs
+    ) -> None:
+        """Adds constraints to the set of existing constraints.
+        
+        All constraints are of the form `'variable_name' = Location(...)`.
+
+        Args:
+            overwrite: Whether to overwrite existing constraints for the specified
+                variables.
+            **kwargs: constraints are specified as name=location arguments
+        """
+
+        for name, location in kwargs.items():
+            if not isinstance(location, Location):
+                location = Location(location)
+
+            if not overwrite and name in self.constraints:
+                raise ValueError(
+                    f'Constraint {self.constraints[name]} for {name} already exists. '
+                    f'Set `overwrite=True` to overwrite this constraint.'
+                )
+
+            self.constraints[name] = location
+
+    def remove_constraint(
+        self,
+        name: str
+    ) -> Location | None:
+        """Removes a constraint from the constraint mapping.
+        
+        Args:
+            name: The variable to remove the constraint for.
+
+        Returns:
+            The Location specified in the constraint or None if `name` was
+            not in the constraint mapping.
+        """
+        return self.constraints.pop(name, None)
+
+    def append(self,
+        other: 'SequenceElement',
+        self_loc: LocationLike = Location(),
+        other_loc: LocationLike = Location(),
+        shared: set[str] = set(),
+        name: str | None = None,
+    ) -> 'SequenceElement':
+        """Appends a sequence element.
+        
+        Args:
+            other: The sequence element to append.
+            name: A (optional) variable name to set the new location of the origin
+                for the `other` sequence. This makes it simple to shift the origin
+                later.
+            self_loc: The location in the current sequence element to line up with
+                the location in the `other` sequence element.
+            other_loc: The location in the `other` sequence element to line up with
+                the location in the current sequence element.
+            shared: The set of variables that are shared between the two sequence
+                elements.
+
+        Raises:
+            ValueError: If the two sequence elements share any variables that are not
+                explicitly declared in `shared`, or if `name` conflicts with any
+                existing variables.
+        """
+        if not isinstance(self_loc, Location):
+            self_loc = Location(self_loc)
+        
+        if not isinstance(other_loc, Location):
+            other_loc = Location(other_loc)
+        
+        conflict = (self.variables() & other.variables()) - shared
+        if conflict:
+            errorstring = '\n\t' + '\n\t'.join(f'- {v}' for v in conflict)
+            raise ValueError(
+                f'The following variables exist in both sequence elements. Rename '
+                f'the variables in one sequence to avoid conflicts or declare them '
+                f'as shared variables.{errorstring}'
+            )
+
+        if name in (self.variables() | other.variables()):
+            raise ValueError(
+                f'Variable name \'{name}\' is already in use.'
+            )
+        
+        dt = self_loc - other_loc
+        if name is not None:
+            self.constraints[name] = dt
+            dt = Location(name)
+
+        for loc, waves in other.locations.items():
+            loc += dt
+            self.locations[loc] = self.locations.get(loc, [])
+            self.locations[loc].extend(waves)
+
+        for var, loc in other.constraints:
+            if var in self.constraints and self.constraints[var] != loc:
+                raise ValueError(
+                    f'Conflicting constraints:\n'
+                    f'\t{var} = {self.constraints[var]}\n'
+                    f'\t{var} = {loc}'
+                )
+
+            self.constraints[var] = loc
+
+        self.channels.update(other.channels)
+
+        return self
+
+    def variables(self) -> set[str]:
+        """Returns the set of variables referenced in the sequence element.
+
+        Returns:
+            A set that contains the names of all variables referenced within the
+            location mapping or the constraint mapping.
+        """
+        lvars = (
+            loc.variables(return_string=True) for loc in self.locations
+        )
+        cvars = (
+            {k, *loc.variables(return_string=True)} 
+                for k, loc in self.constraints.items()
+        )
+        
+        return set().union(*cvars, *lvars)
+
+    def rename_variables(
+        self,
+        rename_func: Callable[[str], str]
+    ) -> set[str]:
+        """Renames all variables.
+
+        This function renames variables according to `rename_func`.
+
+        Args:
+            rename_func: a function that, given a string, returns a new string.
+
+        Returns:
+            A set containing the new names of all variables referenced by the
+            sequence element.
+        """
+        varmap = {n: rename_func(n) for n in self.variables()}
+        
+        self.locations = {loc.resolve(**varmap): waves for loc, waves in self.locations.items()}
+        self.constraints = {
+            varmap.get(name, name): loc.resolve(**varmap) for name, loc in self.constraints
+        }
+
+        return set(varmap.items())
+
+    @staticmethod
+    def _solve_constraint_matrix(
+        basis_set: dict[Location, int],
+        constraints: dict[str, Location]
+    ) -> dict[str, Location]:
+        """Solves a constraint matrix.
+
+        Args:
+            basis_set: A dictionary mapping variables to a basis index. This dictionary
+                should assign a unique integer in [0, N) to each variable, where
+                N is the number of variables in the basis set.
+            constraints: The set of constraints to solve. This specifies a linear system
+                of equations.
+
+        Returns:
+            A dict mapping variable names to concrete locations.
+
+        Raises:
+            numpy.linalg.LinalgError: If the constraint matrix is singular.
+        """
+        N = len(basis_set)
+
+        A = np.zeros((N, N))
+        b = np.zeros(N)
+
+        for y, xs in constraints.items():
+            y = Location(y)
+            y_idx = basis_set[y]
+            
+            b[y_idx] = xs.offset
+
+            A[y_idx, y_idx] = 1
+
+            for x, coefficient in xs.references:
+                x_idx = basis_set[x]
+                A[y_idx, x_idx] -= coefficient
+
+        result = np.linalg.solve(A, b)
+
+        return {loc.offset: result[i] for loc, i in basis_set.items()}
+            
+
+    def solve_constraints(self, **kwargs) -> dict[str, Location]:
+        """Solves all timing constraints for the sequence element.
+
+        **kwargs: Keyword arguments can be used to add constraints and are passed
+            directly to `add_constraints`.
+
+        Returns:
+            A dictionary mapping all location names to concrete locations.
+        """
+        self.add_constraints(**kwargs)
+
+        all_vars = self.variables()
+
+        if (num_vars := len(all_vars)) > (num_cons := len(self.constraints)):
+            raise UnderconstrainedSolveError(
+                f'Found {num_vars} variables but only {num_cons} constraints. '
+                f'(variables = {all_vars})'
+            )
+
+        basis_set = {
+            Location(v): i for i, v in enumerate(all_vars)
+        }
+
+        result = type(self)._solve_constraint_matrix(basis_set, self.constraints)
+
+        return result
+
+    def resolve_locations(
+        self,
+        sort: bool = True,
+        reset_zero: bool = True,
+        end_marker: str = 'end',
+        **kwargs
+    ) -> dict[Location, list[Waveform]]:
+        """Resolves all locations into concrete times.
+
+        Optionally time orders the location mapping and sets the earliest location
+        to t = 0.
+        
+        Args:
+            sort: Whether or not to time order the location mapping.
+            reset_zero: Whether or not to translate the location mapping such that
+                the earliest location is t = 0.
+            **kwargs: Additional constraints to add to the sequence elements
+                before solving for the locations.
+
+        Returns:
+            A dictionary mapping concrete locations to lists of Waveforms
+        """
+        constraints = self.solve_constraints(**kwargs)
+
+        locations = dict()
+
+        t_max = Location()
+
+        for loc, waves in self.locations.items():
+            loc = loc.resolve(**constraints)
+            locations[loc] = locations.get(loc, list())
+
+            locations[loc].extend(waves)
+
+            t = loc + max(w.width for w in waves)
+
+            t_max = t if t > t_max else t_max
+
+        locations[t_max] = locations.get(t_max, [])
+        locations[t_max] += [MarkerWaveform(name=end_marker)]
+
+        if sort:
+            locations = dict(sorted(locations.items(), key=lambda l: l[0]))
+
+        if reset_zero:
+            t0 = next(iter(locations)) if sort else min(locations)
+            locations = {l - t0: w for l, w in locations.items()}
+
+        return locations
+
+    def translate(
+        self,
+        dt: LocationLike,
+    ) -> 'SequenceElement':
+        """Shifts a sequence element in time.
+        
+        This function translates all the waveforms in the sequence element by dt, which
+        is equivalent to taking s(t) -> s(t - dt).
+
+        Args:
+            dt: Amount of time to translate locations by.
+
+        Returns:
+            The sequence element.
+        """
+        
+        self.locations = {
+            loc + dt: waves for loc, waves in self.locations
+        }
+
+        return self
+
+    def __getitem__(self, key: LocationLike):
+        if not isinstance(key, Location):
+            key = Location(key)
+        return self.locations[key]
+
+    def __add__(self, other: Self) -> Self:
+        """Adds two sequence elements.
+
+        The sum of two sequence elements s(t) and r(t) is equivalent to the
+        pointwise addition at every point in time.
+
+        Args:
+            other: The other sequence element to add.
+        
+        Returns:
+            A new sequence element equal to s(t) + r(t).
+        """
+        raise NotImplementedError()
+
+
+@runtime_checkable
+class PhaseTracker(Protocol):
+    def update_phase_tracker(
+        self,
+        time: float,
+        phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]]
+    ) -> None:
+        ...
+
+def find_end_marker(locations, name='end') -> Location | None:
+    for loc, waves in locations.items():
+        if MarkerWaveform(name=name) in waves:
+            return loc
+    
+    return None
+
+@qdefine
+class WaveformCompiler:
+    channels: dict[Channel, int] = field(factory=dict)
+    sample_rate: float
+    modulations: dict[str, ModulationFrequency] = field(factory=dict)
+        
+    def compile_phases(
+        self,
+        locations: dict[Location, list[Waveform]]
+    ) -> dict[ModulationFrequency, np.ndarray]:
+        phase_tracker = {
+            ModulationFrequency(name): [(0, 0)] for name in self.modulations
+        }
+
+        for loc, waves in locations.items():
+            loc = loc.offset
+
+            for w in waves:
+                if not isinstance(w, PhaseTracker):
+                    continue
+                
+                w.update_phase_tracker(loc, phase_tracker)
+
+        return {
+            mod_freq: np.array(phase_jumps)
+                for mod_freq, phase_jumps in phase_tracker.items()
+        }
+
+    def compile_timepoints(
+        self,
+        locations: dict[Location, list[Waveform]],
+        phase_tracker: dict[ModulationFrequency, tuple[float, float]],
+        t_max: float,
+        pulse_kwargs: dict = {}
+    ):
+        sample_rate = self.sample_rate
+        # Get last time value
+        num_timepoints = int(t_max * sample_rate)
+        num_channels = len(self.channels)
+
+        waveform_array = np.zeros(
+            (num_channels, num_timepoints),
+            dtype=np.float32
+        )
+
+        ts = np.arange(num_timepoints) / sample_rate
+
+        for loc, waves in locations.items():
+            for w in waves:
+                start, end = loc.offset, loc.offset + w.width
+
+                s_idx, e_idx = int(start * sample_rate), int(end * sample_rate) + 1
+                if s_idx == e_idx - 1:
+                    continue
+                
+                ts_wave = ts[s_idx:e_idx]
+
+                w_t = w(
+                    ts_wave,
+                    t0=start + w.t0,
+                    phase_tracker=phase_tracker,
+                    modulations=self.modulations,
+                    **pulse_kwargs
+                )
+                ch_idx = [self.channels[c] for c in w.channels]
+                waveform_array[ch_idx, s_idx:e_idx] = w_t
+
+        return waveform_array
+
+    def compile_sequence_element(
+        self,
+        se: SequenceElement,
+        end: str = 'end',
+        location_kwargs: dict = {},
+        pulse_kwargs: dict = {}
+    ):
+        locations = se.resolve_locations(**location_kwargs)
+        phase_tracker = self.compile_phases(locations)
+
+        t_max = find_end_marker(locations, end).offset
+
+        return self.compile_timepoints(
+            locations=locations,
+            phase_tracker=phase_tracker,
+            t_max=t_max,
+            pulse_kwargs=pulse_kwargs
+        )

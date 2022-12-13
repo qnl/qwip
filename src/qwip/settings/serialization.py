@@ -13,7 +13,7 @@ class _TypeConverter:
     def __call__(self, v):
         try:
             return qwip.converter.structure(v, self.fieldtype)
-        except Exception as e:            
+        except Exception as e:
             logger.debug(f'Conversion failed due to {e}.')
             return v
 

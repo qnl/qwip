@@ -1,0 +1,292 @@
+from typing import Callable, Union, ForwardRef, Protocol, runtime_checkable
+from numbers import Real
+from attrs import field, define
+from collections.abc import Collection
+from collections.abc import Sequence as TSequence
+from typing_extensions import Self
+import itertools as it
+
+from numpy.typing import NDArray
+
+import numpy as np
+
+from qwip.settings.settings import qdefine
+from qwip.sequencer.elements import SequenceElement
+
+
+@qdefine(init=False, slots=False, repr=False, eq=False, order=False)
+class Sequence(np.ndarray):
+    names: tuple[str | None, ...]
+    labels: dict[str, np.ndarray]
+
+    def __new__(
+        cls,
+        array: NDArray[SequenceElement],
+        names: tuple[str, ...] | None = None,
+        **labels
+    ):
+        # Turn array into ndarray and return view as Sequence
+        # If array is already a subclass of ndarray, it will pass through
+        # np.asanyarray unchanged.
+        obj = np.asanyarray(array, dtype=object).view(cls)
+
+        if names is None and not labels:
+            return obj
+
+        # Validate names
+        if names is not None:
+            names = _expand_names(names, obj.shape)
+
+            if len(names) != len(obj.shape):
+                raise ValueError(
+                    f'Length of axis names {names} does not match shape {obj.shape}.'
+                )
+
+            unique_names = set()
+            for n in names:
+                if n in unique_names:
+                    raise ValueError(f'{names} contains a duplicate name!')
+                if n is not None:
+                    unique_names.add(n)
+
+            obj.names = names 
+
+        if labels:
+            obj.labels = dict()
+            _set_labels(obj, labels, should_raise=True)
+
+        return obj
+
+    def __array_finalize__(
+        self,
+        obj: NDArray[SequenceElement],
+        /
+    ) -> None:
+        # No additional cleanup necessary if this is explicit construction
+        if obj is None: return
+        # print('Array finalize. self.shape:', self.shape, 'names:', getattr(self, 'names', ...), 'labels:', getattr(self, 'labels', ...))
+        # print('Array finalize. obj.shape:', obj.shape, 'names:', getattr(obj, 'names', ...), 'labels:', getattr(obj, 'labels', ...))
+
+        if not hasattr(self, 'names'):
+             # We copy names from obj if it exists and obj matches the correct shape
+            if hasattr(obj, 'names') and self.shape == obj.shape:
+                self.names = obj.names
+            # otherwise set to default
+            else: 
+                self.names = tuple(None for _ in range(len(self.shape)))
+
+        if not hasattr(self, 'labels'):
+            self.labels = dict()
+
+            if hasattr(obj, 'labels'):
+                _set_labels(self, obj.labels, should_raise=False)
+
+    def __repr__(self) -> str:
+        names = '' if all(n is None for n in self.names) else f'names={self.names}' + ', '
+        prefix = '    '
+        arr = prefix + np.array2string(self, prefix=prefix)
+        return f'Sequence({names}shape={self.shape}\n{arr}\n)'
+
+    def _expand_basic_index(self, index: tuple) -> tuple:
+        """Expands out ellipses in numpy basic indices.
+
+        This expands the index according to the shape of self. According to 
+        the numpy [documentation](https://numpy.org/doc/stable/user/basics.indexing.html#dimensional-indexing-tools)
+        ... will expand out to as many slice(None) as needed to match the
+        shape of the ndarray.
+        
+        Args:
+            index: The numpy index to expand that may include ...
+        
+        Returns:
+            An equivalent index with every dimension expanded out.
+        """
+
+        if not isinstance(index, tuple):
+            index = (index,) if index is ... else (index, ...) 
+        elif ... not in index:
+            return index
+
+        # Number of slices to create
+        n = len(self.shape) - len(tuple(i for i in index if i not in (..., np.newaxis)))
+        
+        # Must return a single element interable if not ellipse for itertools.chain
+        replace_ellipsis = lambda i: (slice(None) for _ in range(n)) if i is ... else (i,)
+
+        return tuple(it.chain(*(replace_ellipsis(i) for i in index)))
+
+    def _get_names_from_index(self, index: tuple) -> tuple:
+        """Determines new names for a view of self given the index.
+        
+        Args:
+            index: The expanded index with no ellipses.
+        
+        Returns:
+            A tuple of updated names
+        """
+        names = []
+
+        dim = 0
+        for idx in index:
+            if isinstance(idx, slice):
+                names.append(self.names[dim])
+                dim += 1
+            elif idx is None:
+                names.append(None)
+            else:
+                dim += 1
+
+        return tuple(names)
+
+    
+    def __getitem__(self, key):
+        if _is_advanced_index(key):
+            raise NotImplemented
+
+        obj = super().__getitem__(key)
+
+        # If indexing leads to a single valued sequence element
+        if not isinstance(obj, type(self)):
+            return obj
+
+        expanded = self._expand_basic_index(key)
+        obj.names = self._get_names_from_index(expanded) # Set names
+
+        # Copy over label views
+        for n in self.labels:
+            if n not in obj.names:
+                continue
+
+            obj.labels[n] = self.labels[n][expanded[obj.names.index(n)]]
+
+        return obj
+
+    @classmethod
+    def empty(
+        cls,
+        shape: tuple[int, ...], 
+        names: tuple[str, ...] | None = None,
+        **labels: np.ndarray
+    ) -> Self:
+        """Creates a Sequence of the specified shape with empty SequenceElements.
+        
+        Args:
+            shape: The desired shape of the output sequence.
+            names: Names to attach to the axis dimensions.
+            labels: Labels to attach to the axis dimensions.
+        """
+        
+        arr = np.empty(shape, dtype=object)
+
+        for index in np.ndindex(*arr.shape):
+            arr[index] = SequenceElement()
+
+        return cls(arr, names, **labels)
+
+def _expand_names(names: tuple, shape: tuple[int]) -> tuple:
+        """Expands out ellipses in names to match shape.
+
+        This function expands out any tuples of names containing ... to match 
+        the number of dimensions specified by shape. Replace ... with as many
+        None values as necessary. The name tuple is also validated to ensure
+        that the total length matches the number of dimensions (unless ...
+        is included) and that no duplicate names exist (except for None).
+        
+        Args:
+            names: The tuple of names passed to the constructor.
+            shape: The shape of the array that the names will be attached to.
+        
+        Returns:
+            An equivalent tuple of names with every dimension expanded out.
+
+        Raises:
+            IndexError: If names contains more than one ellipsis.
+        """
+
+        if ... not in names:
+            return names
+
+        if names.count(...) > 1:
+            raise IndexError('names can only contain a single ellipsis (\'...\')')
+
+        num_dims = len(shape)
+        num_to_expand = num_dims - len(names) + 1
+
+        def replace_ellipsis(n):
+            return (None for _ in range(num_to_expand)) if n is ... else (n,)
+
+        return tuple(it.chain(*(replace_ellipsis(n) for n in names)))
+
+def _is_advanced_index(index: TSequence) -> True:
+    """Determines if an index triggers numpy advanced indexing.
+    
+    See the numpy [documentation](https://numpy.org/doc/stable/user/basics.indexing.html)
+    for more details on indexing.
+
+    Args:
+        index: An index passed to `ndarray.__getitem__`.
+    
+    Returns:
+        True if the index would trigger advanced indexing under numpy rules.
+    """
+
+    # Check if index is a non-tuple sequence object
+
+    int_or_bool = 'biu'
+
+    def is_sequence_or_np_index(i):
+        return (
+            isinstance(i, TSequence) or
+            (isinstance(i, np.ndarray) and i.dtype.kind in int_or_bool)
+        )
+
+    return (
+        (is_sequence_or_np_index(index) and not isinstance(index, tuple)) or
+        (isinstance(index, tuple) and any(is_sequence_or_np_index(i) for i in index))
+    )
+
+def _set_labels(
+    obj: Sequence,
+    labels: dict[str, TSequence],
+    should_raise: bool = False
+) -> Sequence:
+    """Sets labels on a Sequence.
+
+    This function os used in both the explicit constructor and 
+    `__array_finalize__` to copy labels from a source dict to the Sequence
+    object being created. Label arrays are copied by reference when the
+    Sequence object is a view of another ndarray or Sequence. Labels are
+    automatically converted to ndarrays.
+
+    Args:
+        obj: The Sequence object to attach the labels to.
+        labels: The source dictionary from which labels should be copied.
+        should_raise: Whether or not to raise an exception or silently pass.
+    
+    Returns:
+        The Sequence object.
+    """
+    for n, arr in labels.items():
+        try:
+            idx = obj.names.index(n)
+        
+        except ValueError as e:
+            if should_raise:
+                raise ValueError(
+                    f'\'{n}\' is not an axis name. names = {obj.names}'
+                ) from e
+
+            continue
+            
+        if len(arr) != obj.shape[idx]:
+            if should_raise:
+                raise ValueError(
+                    f'{arr} has shape {arr.shape} which does not match shape '
+                    f'{obj.shape} for dimension {idx}.'
+                )
+
+            continue
+
+        obj.labels[n] = np.asarray(arr)
+
+    return obj

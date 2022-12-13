@@ -1,0 +1,275 @@
+import pytest
+import numpy as np
+from numpy.testing import assert_array_equal
+
+from contextlib import nullcontext as noerror
+
+from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.sequence import Sequence, _is_advanced_index
+
+class TestSequence:
+    @pytest.mark.parametrize(
+        'elements,names,labels,shape,error',
+        [
+            ([], None, dict(), (0,), noerror()),
+            (
+                [SequenceElement() for _ in range(10)],
+                None,
+                dict(),
+                (10,),
+                noerror()
+            ),
+            (
+                [[SequenceElement() for _ in range(4)] for _ in range(3)],
+                (None, None),
+                dict(),
+                (3, 4),
+                noerror()
+            ),
+            (
+                [[SequenceElement() for _ in range(4)] for _ in range(15)],
+                ('a', 'b'),
+                dict(a=np.arange(15), b=np.arange(4)),
+                (15, 4),
+                noerror()
+            ),
+            (
+                [SequenceElement() for _ in range(10)],
+                ('a', 'b'),
+                dict(),
+                (10,),
+                pytest.raises(ValueError),
+            ),
+            (
+                [SequenceElement() for _ in range(5)],
+                ('a',),
+                dict(a=np.arange(10)),
+                (5),
+                pytest.raises(ValueError),
+            ),
+            (
+                [[SequenceElement() for _ in range(5)] for _ in range(4)],
+                ('a', 'a'),
+                dict(),
+                (4, 5),
+                pytest.raises(ValueError),
+            )
+        ]
+    )
+    def test_explicit_constructor(self, elements, names, labels, shape, error):
+        with error:
+            s = Sequence(elements, names=names, **labels)
+
+            # Check shape matches
+            assert s.shape == shape
+
+            if names:
+                assert s.names == names
+
+            if labels:
+                assert s.labels.keys() == labels.keys()
+                # Labels are not copied
+                for l1, l2 in zip(s.labels.values(), labels.values()):
+                    assert l1 is l2
+
+    def test_label_conversion(self):
+        s = Sequence(
+            [SequenceElement() for _ in range(3)],
+            names=('a',),
+            a=[1, 2, 3]
+        )
+
+        assert isinstance(s.labels['a'], np.ndarray)
+        assert_array_equal(s.labels['a'], np.array([1, 2, 3]))
+
+    @pytest.mark.parametrize(
+        'arr',
+        [
+            np.array(
+                [[SequenceElement() for _ in range(3)] for _ in range(2)],
+            ),
+            Sequence.empty((2, 3), names=('a', 'b'), a=np.arange(2))
+        ]
+    )
+    def test_constructor_pass_through(self, arr):
+        s = Sequence(
+            arr,
+            names=('c', 'd'),
+            c=np.zeros(2),
+            d=np.ones(3)
+        )
+
+        assert s.names == ('c', 'd')
+        assert_array_equal(s.labels['c'], np.zeros(2))
+        assert_array_equal(s.labels['d'], np.ones(3))
+        
+        assert_array_equal(s, arr)
+        assert s.base is arr
+
+    @pytest.mark.parametrize(
+        'sequence',
+        [
+            Sequence.empty((1, 2, 3, 4)),
+            Sequence.empty(
+                (4, 5),
+                names=('a', 'b'),
+                a=np.linspace(0, 1, 4),
+                b=np.zeros(5)
+            ),
+            Sequence.empty(
+                10,
+                names=('d0',),
+            )
+        ]
+    )
+    def test_view(self, sequence):
+        s1 = sequence.view()
+
+        assert_array_equal(sequence, s1)
+        assert sequence.names == s1.names
+        assert sequence.labels.keys() == s1.labels.keys()
+
+        for l1, l2 in zip(sequence.labels.values(), s1.labels.values()):
+            # Labels are not copied
+            assert l1 is l2
+
+        assert s1.base is sequence            
+
+    @pytest.mark.parametrize(
+        'shape,names,labels',
+        [
+            (10, None, dict()),
+            ((3, 4, 5), ('a', 'b', 'c'), dict(a=np.arange(3), b=np.arange(4), c=np.arange(5))),
+            ((1, 1), None, dict())
+        ]
+    )
+    def test_empty(self, shape, names, labels):
+        sequence = Sequence.empty(shape, names=names, **labels)
+
+        if not isinstance(shape, tuple):
+            shape = (shape,)
+
+        assert sequence.shape == shape
+        
+        obj_ids = set()
+        for index in np.ndindex(*shape):
+            se = sequence[index]
+            obj_ids.add(id(se))
+
+        # Checks that all sequence elements are unique/separate objects
+        assert len(obj_ids) == np.product(shape)
+        
+        if names:
+            assert sequence.names == names
+        
+        if labels:
+            for v1, v2 in zip(sequence.labels.values(), labels.values()):
+                assert v1 is v2
+
+
+class TestSequenceIndexing:
+    @pytest.mark.parametrize(
+        'index,is_advanced',
+        [
+            ((1, 2, 3), False),
+            (((1, 2, 3),), True),
+            ((slice(None), ..., np.newaxis), False),
+            (np.arange(10), True)
+        ]
+    )
+    def test_is_advanced_index(self, index, is_advanced):
+        assert _is_advanced_index(index) == is_advanced
+
+    @pytest.mark.parametrize(
+        'start_shape,index,expected_shape',
+        [
+            ((3, 4, 5), np.s_[0, :, :], (4, 5)),
+            ((3, 4, 5), np.s_[:2, ...], (2, 4, 5)),
+            ((3, 4, 5), np.s_[..., np.newaxis, ::2], (3, 4, 1, 3)),
+            ((3, 4, 5), np.s_[..., :, :, :],  (3, 4, 5)),
+        ]
+    )
+    def test_basic_indexing(self, start_shape, index, expected_shape):
+        s = Sequence.empty(start_shape)
+
+        assert s[index].shape == expected_shape
+        assert s.labels == dict()
+
+    @pytest.mark.parametrize(
+        'shape,names,index,expected',
+        [
+            ((3, 4, 5), ('a', 'b', 'c'), np.s_[0, :, :], ('b', 'c')),
+            ((3, 4), ('a', 'b'), np.s_[:, np.newaxis, :], ('a', None, 'b')),
+            ((3, 4, 5), ('a', 'b', 'c'), np.s_[np.newaxis, 0, ..., :], (None, 'b', 'c'))
+        ]
+    )
+    def test_names_from_index(self, shape, names, index, expected):
+        s = Sequence.empty(shape, names=names)
+
+        expanded = s._expand_basic_index(index)
+        updated_names = s._get_names_from_index(expanded)
+
+        assert updated_names == expected
+
+    @pytest.mark.parametrize(
+        'shape,names,index,expected',
+        [
+            (
+                (5,), ('a',), np.s_[:2], dict(a=np.arange(5)[:2])
+            ),
+            (
+                (1, 2, 10), (None, None, 'c'), np.s_[:, :, 1::2], dict(c=np.arange(10)[1::2])
+            ),
+            (
+                (5, 4, 3), ('a', 'b', 'c'), np.s_[-3:, 1, 1], dict(a=np.arange(5)[-3:])
+            ),
+            (
+                (10, 10, 5),
+                ('a', None, 'c'),
+                np.s_[0],
+                dict(c=np.arange(5))
+            ),
+            (
+                (10, 11, 12),
+                ('a', 'b', 'c'),
+                np.s_[...],
+                dict(a=np.arange(10), b=np.arange(11), c=np.arange(12))
+            ),
+            (
+                (3, 4, 5),
+                ('a', 'b', 'c'),
+                np.s_[:, 2, ..., 3],
+                dict(a=np.arange(3))
+            ),
+        ]
+    )
+    def test_basic_indexing_with_names_and_labels(self, shape, names, index, expected):
+        labels = {n: np.arange(dim) for n, dim in zip(names, shape) if n}
+
+        s = Sequence.empty(shape, names=names, **labels)
+        view = s[index]
+
+        assert view.labels.keys() == expected.keys()
+        for n in view.labels:
+            assert_array_equal(view.labels[n], expected[n])
+
+        # Check that view labels are also views of the original labels
+        for n in view.labels:
+            assert s.labels[n] is view.labels[n].base
+
+
+    # @pytest.mark.parametrize(
+
+    # )
+    # def test_expand_basic_index(self, index, expanded):
+    #     assert 
+
+
+
+    def test_broadcasting(self):
+        shape = (3, 4, 5)
+        s = Sequence.empty((3, 4, 5), names=(None, 'name', ..., None), name=np.ones(4))
+        print(s.names)
+        b = np.broadcast_to(s, (1, 3, 4, 5), subok=True)
+        
+        print(b.names)
