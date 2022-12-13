@@ -116,7 +116,7 @@ def test_nested_structure(nesteddict):
 def test_numpy_structure(numpydict):
     s = NumpySettings(**numpydict)
     assert s['float_field'].dtype == np.float64
-    assert s['int_field'].dtype == np.int64
+    assert s['int_field'].dtype == np.int_
 
     assert id(s['numpy_field']) == id(numpydict['numpy_field'])
 
