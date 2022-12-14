@@ -1,7 +1,3 @@
-from typing import Callable, Union, ForwardRef, Protocol, runtime_checkable
-from numbers import Real
-from attrs import field, define
-from collections.abc import Collection
 from collections.abc import Sequence as TSequence
 from typing_extensions import Self
 import itertools as it
@@ -13,6 +9,14 @@ import numpy as np
 from qwip.settings.settings import qdefine
 from qwip.sequencer.elements import SequenceElement
 
+SEQUENCE_FUNCTIONS = {}
+
+def sequence_implements(np_function):
+    def decorator(func):
+        SEQUENCE_FUNCTIONS[np_function] = func
+        return func
+    
+    return decorator
 
 @qdefine(init=False, slots=False, repr=False, eq=False, order=False)
 class Sequence(np.ndarray):
@@ -73,7 +77,7 @@ class Sequence(np.ndarray):
                 self.names = obj.names
             # otherwise set to default
             else: 
-                self.names = tuple(None for _ in range(len(self.shape)))
+                self.names = (None,) * len(self.shape)
 
         if not hasattr(self, 'labels'):
             self.labels = dict()
@@ -160,6 +164,45 @@ class Sequence(np.ndarray):
             obj.labels[n] = self.labels[n][expanded[obj.names.index(n)]]
 
         return obj
+
+    def __array_ufunc__(
+        self,
+        ufunc,
+        method,
+        *inputs,
+        out=None,
+        **kwargs
+    ):
+        print('ufunc:', ufunc, 'method:', method, 'inputs:', *inputs, 'out:', out, 'kwargs:', kwargs)
+        raise Exception
+        outputs = out if out else (None,) * ufunc.nout
+
+        results = getattr(ufunc, method)(*inputs, **kwargs)
+
+        if results is NotImplemented:
+            return NotImplemented
+
+        if method == 'at':
+            return
+        
+        if ufunc.nout == 1:
+            results = (results,)
+
+        results = tuple(
+            (np.asarray(result).view(type(self)) if output is None else output)
+            for result, output in zip(results, outputs)
+        )
+
+        return results[0] if len(results) == 1 else results
+
+    def __array_function__(self, func, types, args, kwargs):
+        if func not in SEQUENCE_FUNCTIONS:
+            return NotImplemented
+
+        if not all (issubclass(t, type(self)) for t in types):
+            return NotImplemented
+
+        return SEQUENCE_FUNCTIONS[func](*args, **kwargs)
 
     @classmethod
     def empty(
@@ -290,3 +333,64 @@ def _set_labels(
         obj.labels[n] = np.asarray(arr)
 
     return obj
+
+@sequence_implements(np.array2string)
+def array2string(a, **kwargs):
+    return np.array2string(np.asarray(a), **kwargs)
+
+@sequence_implements(np.concatenate)
+def concatenate(
+    sequences,
+    axis=0,
+    **kwargs
+):  
+    """Concatenates sequences along the specified axis.
+    
+    Args:
+        sequences: An iterable of sequences to concatenate.
+        axis: The axis along which to concatenate the sequences.
+    """
+    arr_views = tuple(np.asarray(arr) for arr in sequences)
+    seq = np.concatenate(arr_views, axis=axis, **kwargs).view(Sequence)
+
+    arr_names = tuple(
+        tuple(arr.names[dim] for arr in sequences) for dim in range(len(seq.shape))
+    )
+
+    names = []
+    for dim, axis_names in enumerate(arr_names):
+        unique_names = set(n for n in axis_names if n is not None)
+        if len(unique_names) == 0:
+            names.append(None)
+            continue
+        elif len(unique_names) > 1:
+            raise ValueError(
+                f'All names along axis {dim} must be the same. {arr_names[dim]}'
+            )
+        
+        name = next(iter(unique_names))  # Get the axis name
+        names.append(name)
+
+        labels = []
+
+        for s in sequences:
+            label = s.labels.get(name)
+
+            # append labels for each array to labels if it exists
+            if label is not None:
+                labels.append(label)
+            # if labels is None, break if concatenation axis or continue otherwise
+            elif dim == axis:
+                break
+        else:
+            if dim == axis:
+                seq.labels[name] = np.concatenate(labels)
+            elif labels:
+                unique_values = np.unique(np.stack(labels), axis=0)
+                # Assign labels only if all labels along non-concatenation axis are the same
+                if unique_values.shape[0] == 1:
+                    seq.labels[name] = labels[0]
+    
+    seq.names = tuple(names)
+
+    return seq

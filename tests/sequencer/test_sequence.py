@@ -7,7 +7,7 @@ from contextlib import nullcontext as noerror
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import Sequence, _is_advanced_index
 
-class TestSequence:
+class TestSequenceConstruction:
     @pytest.mark.parametrize(
         'elements,names,labels,shape,error',
         [
@@ -257,19 +257,64 @@ class TestSequenceIndexing:
         for n in view.labels:
             assert s.labels[n] is view.labels[n].base
 
+class TestSequenceJoins:
+    @pytest.mark.parametrize(
+        'seqs,axis,names,labels,error',
+        [
+            (
+                [Sequence.empty(5), Sequence.empty(6), Sequence.empty(7)],
+                0,
+                (None,),
+                dict(),
+                noerror()
+            ),
+            (
+                [
+                    Sequence.empty((5, 2), names=('d0', ...), d0=np.arange(5)),
+                    Sequence.empty((5, 3)),
+                ],
+                1,
+                ('d0', None),
+                dict(d0=np.arange(5)),
+                noerror()
+            ),
+            (
+                [
+                    Sequence.empty((5, 2), names=(..., 'd1'), d1=np.arange(2)),
+                    Sequence.empty((5, 3), names=('d0', 'd1'), d1=np.arange(2, 5)),
+                ],
+                1,
+                ('d0', 'd1'),
+                dict(d1=np.arange(5)),
+                noerror()
+            ),
+            (
+                [
+                    Sequence.empty((5, 1, 2), names=('d0', ..., 'd2'), d0=np.arange(5)),
+                    Sequence.empty((5, 1, 3), names=('d0', 'd1', 'd2'), d0=np.arange(5)),
+                    Sequence.empty((5, 1, 4), names=('d0', ...), d0=np.arange(5)),
+                ],
+                2,
+                ('d0', 'd1', 'd2'),
+                dict(d0=np.arange(5)),
+                noerror()
+            )
+        ]
+    )
+    def test_concatenate(self, seqs, axis, names, labels, error):
+        with error:
+            c = np.concatenate(seqs, axis=axis)
 
-    # @pytest.mark.parametrize(
+            shape = []
+            for dim in range(len(seqs[0].shape)):
+                if dim == axis:
+                    shape.append(sum(s.shape[dim] for s in seqs))
+                else:
+                    shape.append(seqs[0].shape[dim])
 
-    # )
-    # def test_expand_basic_index(self, index, expanded):
-    #     assert 
-
-
-
-    def test_broadcasting(self):
-        shape = (3, 4, 5)
-        s = Sequence.empty((3, 4, 5), names=(None, 'name', ..., None), name=np.ones(4))
-        print(s.names)
-        b = np.broadcast_to(s, (1, 3, 4, 5), subok=True)
-        
-        print(b.names)
+            assert c.shape == tuple(shape)
+            assert c.names == names
+            assert c.labels.keys() == labels.keys()
+            
+            for v1, v2 in zip(c.labels.values(), labels.values()):
+                assert_array_equal(v1, v2)
