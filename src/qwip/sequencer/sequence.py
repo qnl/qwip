@@ -145,7 +145,7 @@ class Sequence(np.ndarray):
     
     def __getitem__(self, key):
         if _is_advanced_index(key):
-            raise NotImplemented
+            return NotImplemented
 
         obj = super().__getitem__(key)
 
@@ -349,6 +349,9 @@ def concatenate(
     Args:
         sequences: An iterable of sequences to concatenate.
         axis: The axis along which to concatenate the sequences.
+
+    Returns:
+        The concatenated sequences.
     """
     arr_views = tuple(np.asarray(arr) for arr in sequences)
     seq = np.concatenate(arr_views, axis=axis, **kwargs).view(Sequence)
@@ -356,6 +359,9 @@ def concatenate(
     arr_names = tuple(
         tuple(arr.names[dim] for arr in sequences) for dim in range(len(seq.shape))
     )
+
+    if axis < 0:
+        axis = len(seq.shape) + axis
 
     names = []
     for dim, axis_names in enumerate(arr_names):
@@ -392,5 +398,92 @@ def concatenate(
                     seq.labels[name] = labels[0]
     
     seq.names = tuple(names)
+
+    return seq
+
+@sequence_implements(np.stack)
+def stack(
+    sequences,
+    axis=0,
+    name: str | None = None,
+    label: np.ndarray | None = None,
+    **kwargs
+):
+    """Joins sequences along a new axis.
+    
+    Args:
+        sequences: An iterable of sequences to concatenate.
+        axis: Specifies the new axis in the stacked sequences.
+        name: A name for the new axis.
+        label: Labels for the new axis. Must match the number of sequences.
+
+    Returns:
+        The joined sequences.
+    """
+    arr_views = tuple(np.asarray(arr) for arr in sequences)
+    seq = np.stack(arr_views, axis=axis, **kwargs).view(Sequence)
+
+    if axis < 0:
+        axis = len(seq.shape) + axis
+
+    arr_names = tuple(
+        tuple(arr.names[dim] for arr in sequences) for dim in range(len(seq.shape) - 1)
+    )
+
+    new_name = name
+    new_label = label
+
+    names = []
+    for dim, axis_names in enumerate(arr_names):
+        unique_names = set(n for n in axis_names if n is not None)
+        if len(unique_names) == 0:
+            names.append(None)
+            continue
+        elif len(unique_names) > 1:
+            raise ValueError(
+                f'All names along axis {dim} must be the same. {arr_names[dim]}'
+            )
+        
+        name = next(iter(unique_names))  # Get the axis name
+        names.append(name)
+
+        labels = []
+
+        for s in sequences:
+            label = s.labels.get(name)
+
+            # append labels for each array to labels if it exists
+            if label is not None:
+                labels.append(label)
+
+        if labels:
+            unique_values = np.unique(np.stack(labels), axis=0)
+            # Assign labels only if all labels along non-concatenation axis are the same
+            if unique_values.shape[0] == 1:
+                seq.labels[name] = labels[0]
+
+    if new_name in names and new_name is not None:
+        raise ValueError(f'Axis name {name} is already in names. {names}')
+    else:
+        names.insert(axis, new_name)
+
+    if new_label is not None:
+        if new_name is None:
+            raise ValueError(
+                f'Cannot add a label for an axis with no name.'
+            )
+
+        if new_label.shape[0] != seq.shape[axis]:
+            raise ValueError(
+                f'Label has shape {new_label.shape} that is not compatible with '
+                f'shape {seq.shape} on axis {axis}.'
+            )
+
+        seq.labels[new_name] = new_label
+
+    seq.names = tuple(names)
+
+    return seq
+
 
     return seq
