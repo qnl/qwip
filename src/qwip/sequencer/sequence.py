@@ -59,17 +59,17 @@ class Sequence(np.ndarray):
             obj.labels = dict()
             _set_labels(obj, labels, should_raise=True)
 
+        obj.__array_finalize__()
+
         return obj
 
     def __array_finalize__(
         self,
-        obj: NDArray[SequenceElement],
+        obj: NDArray[SequenceElement] | None = None,
         /
     ) -> None:
         # No additional cleanup necessary if this is explicit construction
         if obj is None: return
-        # print('Array finalize. self.shape:', self.shape, 'names:', getattr(self, 'names', ...), 'labels:', getattr(self, 'labels', ...))
-        # print('Array finalize. obj.shape:', obj.shape, 'names:', getattr(obj, 'names', ...), 'labels:', getattr(obj, 'labels', ...))
 
         if not hasattr(self, 'names'):
              # We copy names from obj if it exists and obj matches the correct shape
@@ -225,6 +225,42 @@ class Sequence(np.ndarray):
             arr[index] = SequenceElement()
 
         return cls(arr, names, **labels)
+
+    def transpose(self, *axes):
+        """Reverses or permutes axis of the sequence.
+    
+        Args:
+            axes: Specifies the permutation of the axes. If None, the axes are
+                reversed. Can be a tuple of ints or n ints.
+
+        Returns:
+            Returns a view of the sequence with the permuted axes.
+        """
+        seq = super().transpose(*axes)
+
+        if len(axes) == 1:
+            axes = axes[0]
+
+        if axes is None or not len(axes):
+            seq.names = tuple(reversed(self.names))
+            return seq
+
+        seq.names = tuple(self.names[i] for i in axes)
+
+        return seq
+
+    @property
+    def T(self):
+        """Returns the transpose of a sequence.
+        
+        This is necessary to ensure that seq.T.names has the correct
+        ordering of axis names.
+
+        Returns:
+            A transposed view of the of the sequence.
+        """
+        return self.transpose()
+
 
 def _expand_names(names: tuple, shape: tuple[int]) -> tuple:
         """Expands out ellipses in names to match shape.
@@ -485,5 +521,41 @@ def stack(
 
     return seq
 
+@sequence_implements(np.reshape)
+def reshape(
+    seq,
+    shape,
+    **kwargs
+):
+    """Reshapes the sequence.
 
-    return seq
+    Reshaping a sequence creates a view of the sequence but does not
+    copy over the axis names and labels in most cases, since this is
+    not a sensible thing to do most of the time.
+    
+    Args:
+        seq: The sequence to reshape.
+        shape: The new shape of the sequence.
+        **kwargs: Keyword arguments are passed to numpy reshape.
+
+    Returns:
+        A view of the sequence with the specified shape.
+    """
+    return seq.reshape(shape, **kwargs)
+
+@sequence_implements(np.transpose)
+def transpose(
+    seq,
+    axes=None,
+):
+    """Reverses or permutes axis of a sequence.
+    
+    Args:
+        seq: The sequence to transpose.
+        axes: Specifies the permutation of the axes. If None, the axes are
+            reversed.
+
+    Returns:
+        The transposed sequence. A view is returned if possible.
+    """
+    return seq.transpose(axes)

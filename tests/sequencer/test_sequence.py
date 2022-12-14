@@ -261,6 +261,52 @@ class TestSequenceIndexing:
         for n in view.labels:
             assert s.labels[n] is view.labels[n].base
 
+class TestSequenceShaping:
+    def test_reshape(self):
+        s = Sequence.empty((4, 5, 3), names=('a','b','c'), a=np.arange(4))
+
+        r = s.reshape(4, -1)
+        # print(r.shape, r.names, r.labels, r.base is s)
+
+    @pytest.mark.parametrize(
+        'seq,axes,shape,names',
+        [
+            (
+                Sequence.empty((1, 2, 3, 4), ('a', 'b', 'c', 'd')),
+                None,
+                (4, 3, 2, 1),
+                ('d', 'c', 'b', 'a')
+            ),
+            (
+                Sequence.empty((1, 2, 3, 4), ('a', 'b', 'c', 'd')),
+                (2, 0, 1, 3),
+                (3, 1, 2, 4),
+                ('c', 'a', 'b', 'd')
+            )
+        ]
+    )
+    def test_transpose(self, seq, axes, shape, names):
+        r = seq.transpose(axes)
+        r1 = np.transpose(seq, axes)
+
+        assert r.names == names
+        assert r.shape == shape
+        assert r1.names == names
+        assert r1.shape == shape
+
+    @pytest.mark.parametrize(
+        'shape,names',
+        [
+            ((2,), ('a',)),
+            ((1, 2, 3), ('a', 'b', 'c'))
+        ]
+    )
+    def test_T(self, shape, names):
+        s = Sequence.empty(shape, names=names)
+
+        assert s.T.shape == tuple(reversed(shape))
+        assert s.T.names == tuple(reversed(names))
+
 class TestSequenceJoins:
     @pytest.mark.parametrize(
         'seqs,axis,names,labels,error',
