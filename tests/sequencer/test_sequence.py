@@ -8,7 +8,8 @@ from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import (
     Sequence,
     stack,
-    _is_advanced_index
+    _is_advanced_index,
+    broadcast_names_and_labels
 )
 
 class TestSequenceConstruction:
@@ -307,6 +308,12 @@ class TestSequenceShaping:
         assert s.T.shape == tuple(reversed(shape))
         assert s.T.names == tuple(reversed(names))
 
+    def test_broadcast(self):
+        s = Sequence.empty((2, 4), names=('x', 'a'), a=np.arange(4), x=np.arange(2))
+        r = Sequence.empty((4, 1, 1), names=('b', 'x', ...), x=np.arange(1))
+
+        broadcast_names_and_labels(s, r)
+
 class TestSequenceJoins:
     @pytest.mark.parametrize(
         'seqs,axis,names,labels,error',
@@ -479,4 +486,93 @@ class TestSequenceJoins:
         for i, n in enumerate('abc'):
             assert_array_equal(c.labels[n], np.arange(i + 2))
 
-    
+
+class TestSequenceUniversalFunctions:
+    @pytest.mark.parametrize(
+        'a,b,shape,names,labels',
+        [
+            (
+                Sequence.empty((10,), names=('a',), a=np.arange(10)),
+                Sequence.empty((10,)),
+                (10,),
+                ('a',),
+                dict(a=np.arange(10))
+            ),
+            (
+                Sequence.empty((3, 2, 1), names=('a', ...), a=np.arange(3)),
+                Sequence.empty((1, 2, 3), names=(...,'b','c'), c=np.arange(3)),
+                (3, 2, 3),
+                ('a', 'b', 'c'),
+                dict(a=np.arange(3), c=np.arange(3))
+            ),
+            (
+                Sequence.empty((2, 3, 1), names=(..., 'b', 'c'), c=np.ones(1)),
+                Sequence.empty((4,), names=('c',), c=np.ones(4)),
+                (2, 3, 4),
+                (None, 'b', 'c'),
+                dict(c=np.ones(4))
+            ),
+            (
+                Sequence.empty(4, names=('a',), a=np.arange(4)),
+                Sequence.empty(4, names=('a',), a=np.ones(4)),
+                (4,),
+                ('a',),
+                dict()
+            )
+        ]
+    )
+    def test_ufunc_call(self, a, b, shape, names, labels):
+        c = a + b
+
+        assert c.shape == shape
+        assert c.names == names
+        assert set(c.labels.keys()) == set(labels.keys())
+
+        for n, label in c.labels.items():
+            assert_array_equal(label, labels[n])
+
+    @pytest.mark.parametrize(
+        'seq,kwargs,shape,names,labels',
+        [
+            (
+                Sequence.empty((10,), names=('a',), a=np.arange(10)),
+                {},
+                tuple(),
+                tuple(),
+                {}
+            ),
+            (
+                Sequence.empty(
+                    (3, 2, 1),
+                    names=('a', 'b', 'c'),
+                    a=np.arange(3),
+                    b=np.arange(2)
+                ),
+                dict(axis=1),
+                (3, 1),
+                ('a', 'c'),
+                dict(a=np.arange(3))
+            ),
+            (
+                Sequence.empty(
+                    (3, 2),
+                    names=('a', 'b'),
+                    a=np.arange(3),
+                    b=np.arange(2)
+                ),
+                dict(axis=1, keepdims=True),
+                (3, 1),
+                ('a', 'b'),
+                dict(a=np.arange(3))
+            ),
+        ]
+    )
+    def test_ufunc_reduce(self, seq, kwargs, shape, names, labels):
+        result = np.sum(seq, **kwargs)
+
+        assert result.shape == shape
+        assert result.names == names
+        assert set(result.labels.keys()) == set(labels.keys())
+
+        for n, label in result.labels.items():
+            assert_array_equal(label, labels[n])

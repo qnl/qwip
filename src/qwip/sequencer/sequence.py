@@ -167,17 +167,24 @@ class Sequence(np.ndarray):
 
     def __array_ufunc__(
         self,
-        ufunc,
-        method,
+        ufunc: np.ufunc,
+        method: str,
         *inputs,
-        out=None,
+        out = None,
         **kwargs
     ):
-        print('ufunc:', ufunc, 'method:', method, 'inputs:', *inputs, 'out:', out, 'kwargs:', kwargs)
-        raise Exception
         outputs = out if out else (None,) * ufunc.nout
 
-        results = getattr(ufunc, method)(*inputs, **kwargs)
+        args = (
+            arr.view(np.ndarray) if isinstance(arr, Sequence) else arr for arr in inputs
+        )
+
+        results = getattr(ufunc, method)(*args, **kwargs)
+
+        names, labels = broadcast_names_and_labels(
+            *(seq for seq in inputs if isinstance(seq, Sequence)),
+            raise_on_conflict=ufunc.__name__ not in ('equal', 'not_equal')
+        )
 
         if results is NotImplemented:
             return NotImplemented
@@ -189,11 +196,32 @@ class Sequence(np.ndarray):
             results = (results,)
 
         results = tuple(
-            (np.asarray(result).view(type(self)) if output is None else output)
+            (np.asanyarray(result).view(type(self)) if output is None else output)
             for result, output in zip(results, outputs)
         )
 
-        return results[0] if len(results) == 1 else results
+        if len(results) == 1:
+            results = results[0]
+
+            if method == 'reduce' and not kwargs.get('keepdims', False):
+                axis = kwargs.get('axis', 0)
+
+                if axis is None:
+                    names = tuple()
+                else:
+                    axis = (axis,) if isinstance(axis, int) else axis
+                    axis = tuple(
+                        d + inputs[0].ndim if d < 0 else d for d in axis
+                    )
+
+                    names = tuple(n for i, n in enumerate(names) if i not in axis)
+
+            results.names = names
+            for dim, n in enumerate(results.names):
+                if n in labels and len(labels[n]) == results.shape[dim]:
+                    results.labels[n] = labels[n]
+
+        return results
 
     def __array_function__(self, func, types, args, kwargs):
         if func not in SEQUENCE_FUNCTIONS:
@@ -370,13 +398,66 @@ def _set_labels(
 
     return obj
 
+def broadcast_names_and_labels(*seqs, raise_on_conflict=False):
+    b = np.broadcast(*seqs)
+
+    def get_name(seq, dim):
+        if b.ndim - seq.ndim > dim:
+            return None
+        
+        return seq.names[seq.ndim - b.ndim + dim]
+
+    seq_names = tuple(
+        tuple(
+            get_name(seq, dim) for seq in seqs
+        ) for dim in range(b.ndim)
+    )
+
+    names = []
+    labels = {}
+    for dim, axis_names in enumerate(seq_names):
+        unique_names = set(n for n in axis_names if n is not None)
+        if len(unique_names) == 0:
+            names.append(None)
+            continue
+        elif len(unique_names) > 1:
+            if raise_on_conflict:
+                raise ValueError(
+                    f'All names along axis {dim} must be the same. {seq_names[dim]}'
+                )
+
+            names.append(None)
+            continue
+        
+        name = next(iter(unique_names))  # Get the axis name
+        names.append(name)
+
+        axis_labels = []
+
+        for s in seqs:
+            label = s.labels.get(name)
+
+            # append labels for each array to labels if it exists
+            if label is not None:
+                if len(label) != b.shape[dim]:
+                    label = np.broadcast_to(label, (b.shape[dim],))
+                axis_labels.append(label)
+
+        if axis_labels:
+            unique_values = np.unique(np.stack(axis_labels), axis=0)
+            # Assign labels only if all labels are the same
+            if unique_values.shape[0] == 1:
+                labels[name] = axis_labels[0]
+    
+    return names, labels
+
 @sequence_implements(np.array2string)
 def array2string(a, **kwargs):
     return np.array2string(np.asarray(a), **kwargs)
 
 @sequence_implements(np.concatenate)
 def concatenate(
-    sequences,
+    sequences: TSequence[Sequence],
     axis=0,
     **kwargs
 ):  
@@ -393,11 +474,11 @@ def concatenate(
     seq = np.concatenate(arr_views, axis=axis, **kwargs).view(Sequence)
 
     arr_names = tuple(
-        tuple(arr.names[dim] for arr in sequences) for dim in range(len(seq.shape))
+        tuple(arr.names[dim] for arr in sequences) for dim in range(seq.ndim)
     )
 
     if axis < 0:
-        axis = len(seq.shape) + axis
+        axis = seq.ndim + axis
 
     names = []
     for dim, axis_names in enumerate(arr_names):
@@ -439,8 +520,8 @@ def concatenate(
 
 @sequence_implements(np.stack)
 def stack(
-    sequences,
-    axis=0,
+    seqs: Sequence,
+    axis = 0,
     name: str | None = None,
     label: np.ndarray | None = None,
     **kwargs
@@ -456,74 +537,44 @@ def stack(
     Returns:
         The joined sequences.
     """
-    arr_views = tuple(np.asarray(arr) for arr in sequences)
+    arr_views = tuple(np.asarray(arr) for arr in seqs)
     seq = np.stack(arr_views, axis=axis, **kwargs).view(Sequence)
 
     if axis < 0:
-        axis = len(seq.shape) + axis
+        axis = seq.ndim + axis
 
-    arr_names = tuple(
-        tuple(arr.names[dim] for arr in sequences) for dim in range(len(seq.shape) - 1)
-    )
+    names, labels = broadcast_names_and_labels(*seqs, raise_on_conflict=True)
 
-    new_name = name
-    new_label = label
-
-    names = []
-    for dim, axis_names in enumerate(arr_names):
-        unique_names = set(n for n in axis_names if n is not None)
-        if len(unique_names) == 0:
-            names.append(None)
-            continue
-        elif len(unique_names) > 1:
-            raise ValueError(
-                f'All names along axis {dim} must be the same. {arr_names[dim]}'
-            )
-        
-        name = next(iter(unique_names))  # Get the axis name
-        names.append(name)
-
-        labels = []
-
-        for s in sequences:
-            label = s.labels.get(name)
-
-            # append labels for each array to labels if it exists
-            if label is not None:
-                labels.append(label)
-
-        if labels:
-            unique_values = np.unique(np.stack(labels), axis=0)
-            # Assign labels only if all labels along non-concatenation axis are the same
-            if unique_values.shape[0] == 1:
-                seq.labels[name] = labels[0]
-
-    if new_name in names and new_name is not None:
+    if name in names and name is not None:
         raise ValueError(f'Axis name {name} is already in names. {names}')
     else:
-        names.insert(axis, new_name)
+        names.insert(axis, name)
 
-    if new_label is not None:
-        if new_name is None:
+    if label is not None:
+        if name is None:
             raise ValueError(
                 f'Cannot add a label for an axis with no name.'
             )
 
-        if new_label.shape[0] != seq.shape[axis]:
+        if label.shape[0] != seq.shape[axis]:
             raise ValueError(
-                f'Label has shape {new_label.shape} that is not compatible with '
+                f'Label has shape {label.shape} that is not compatible with '
                 f'shape {seq.shape} on axis {axis}.'
             )
 
-        seq.labels[new_name] = new_label
+        labels[name] = label
 
     seq.names = tuple(names)
+
+    for n in seq.names:
+        if (l := labels.get(n)) is not None:
+            seq.labels[n] = l
 
     return seq
 
 @sequence_implements(np.reshape)
 def reshape(
-    seq,
+    seq: Sequence,
     shape,
     **kwargs
 ):
@@ -545,7 +596,7 @@ def reshape(
 
 @sequence_implements(np.transpose)
 def transpose(
-    seq,
+    seq: Sequence,
     axes=None,
 ):
     """Reverses or permutes axis of a sequence.
@@ -559,3 +610,30 @@ def transpose(
         The transposed sequence. A view is returned if possible.
     """
     return seq.transpose(axes)
+
+@sequence_implements(np.add)
+def add(
+    seq1: Sequence,
+    seq2: Sequence,
+    /,
+    **kwargs
+):
+    return seq1.add(seq2, **kwargs)
+
+@sequence_implements(np.sum)
+def sum(
+    seq: Sequence,
+    axis: tuple[int, ...] | int | None = None,
+    **kwargs
+):
+    """Sum of sequence elements over a specified axis.
+    
+    Args:
+        seq: The sequence to sum.
+        axis: The axis or axes to add. If axis=None, the entire sequence
+            is summed.
+    
+    Returns:
+        The resulting sequence.
+    """
+    return seq.sum(axis, **kwargs)
