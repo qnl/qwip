@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from contextlib import nullcontext
+from contextlib import nullcontext as noerror
 
 from qwip.sequencer.utils import Location
 from qwip.sequencer.elements import (
@@ -43,13 +43,6 @@ class TestSequenceElement:
         
         if start:
             assert se.constraints['start'] == start
-
-    def test_add_waveform(self):
-        s = SquareWaveform()
-
-        se = SequenceElement()
-
-
 
     @pytest.mark.parametrize(
         'locations,constraints,expect',
@@ -119,7 +112,7 @@ class TestSequenceElement:
                 for k, loc in constraints.items()
         }
 
-        context = expect if hasattr(expect, '__enter__') else nullcontext()
+        context = expect if hasattr(expect, '__enter__') else noerror()
         with context:
             result = SequenceElement._solve_constraint_matrix(
                 basis_set, constraints
@@ -180,3 +173,42 @@ class TestSequenceElement:
             assert se1.constraints[name] == self_loc - other_loc
         else:
             assert se1.constraints == dict()
+
+    @pytest.mark.parametrize(
+        'se1,se2,result',
+        [
+            (SequenceElement(), SequenceElement(), SequenceElement()),
+            (
+                SequenceElement.fromtuples(
+                    [
+                        (Location('start'), SquareWaveform(channels=['a']))
+                    ],
+                    start=Location()
+                ),
+                SequenceElement.fromtuples(
+                    [
+                        (Location('start'), SquareWaveform(channels=['b']))
+                    ],
+                    start=Location(),
+                    width=Location(10)
+                ),
+                SequenceElement.fromtuples(
+                    [
+                        (Location('start'), SquareWaveform(channels=['a'])),
+                        (Location('start'), SquareWaveform(channels=['b'])),
+                    ],
+                    start=Location(),
+                    width=Location(10)
+                )
+            ),
+            (
+                SequenceElement.fromtuples([], start=Location()),
+                SequenceElement.fromtuples([], start=Location(1)),
+                pytest.raises(ValueError)
+            )
+        ]
+    )
+    def test_add(self, se1, se2, result):
+        context = result if hasattr(result, '__enter__') else noerror()
+        with context:
+            assert se1 + se2 == result

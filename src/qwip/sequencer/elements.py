@@ -402,8 +402,41 @@ class SequenceElement:
         Returns:
             A new sequence element equal to s(t) + r(t).
         """
-        raise NotImplementedError()
 
+        locations = dict()
+        channels = set()
+        constraints = dict()
+
+        for loc, waves in self.locations.items():
+            locations[loc] = []
+            for w in waves:
+                locations[loc].append(w)
+
+        for loc, waves in other.locations.items():
+            locations[loc] = locations.get(loc, list())
+            for w in waves:
+                locations[loc].append(w)
+        
+        channels.update(self.channels)
+        channels.update(other.channels)
+
+        for key, loc in self.constraints.items():
+            constraints[key] = loc
+
+        for key, loc in other.constraints.items():
+            if constraints.get(key, loc) != loc:
+                raise ValueError(
+                    f'Cannot add two sequences with conflicting constraints. '
+                    f'{key} = {loc} is incompatible with {key} = {constraints[key]}.'
+                )
+
+            constraints[key] = loc
+
+        return SequenceElement(
+            locations=locations,
+            constraints=constraints,
+            channels=channels
+        )
 
 @runtime_checkable
 class PhaseTracker(Protocol):
