@@ -178,6 +178,7 @@ class TestLocation:
     @pytest.mark.parametrize(
         'loc,variable_map,result',
         [
+            (Location('a'), dict(a=0), Location()),
             (Location('a'), dict(a=1), Location(1)),
             (Location(1), dict(a=1), Location(1)),
             (2 + Location('a'), dict(a=1), Location(3)),

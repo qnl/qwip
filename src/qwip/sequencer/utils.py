@@ -66,7 +66,7 @@ class LinearExpression:
     def resolve(self, **variable_map):
         """Resolves string variables referenced in a location."""
         cls = type(self)
-        if isinstance(self.offset, str) and (loc := variable_map.get(self.offset)):
+        if isinstance(self.offset, str) and (loc := variable_map.get(self.offset)) is not None:
             return loc if isinstance(loc, cls) else cls(loc)
         elif len(self.references) == 0:
             return self
