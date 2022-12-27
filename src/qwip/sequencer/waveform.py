@@ -1,17 +1,29 @@
 import attrs
+from attrs import validators
 import numpy as np
 from numbers import Number
 from typing import get_args
 
-from scipy.fft import fft, fftfreq
+from scipy.fft import fft, fftfreq, fftshift
+from loguru import logger
 
 from attrs import field
 
 import qwip
-from qwip._cattr import make_attrs_structure_fn
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.defaults import dynamic_default
 from qwip.settings.settings import qdefine, qfrozen
 from qwip.sequencer.utils import LinearExpression
+
+REGISTERED_WAVEFORMS: dict[str, 'Waveform'] = dict()
+
+def register_waveform(cls) -> type:
+    if not issubclass(cls, Waveform):
+        raise TypeError(f'Registered waveforms must subclass {Waveform}.')
+
+    REGISTERED_WAVEFORMS[cls.__name__] = cls
+
+    return cls
 
 @qfrozen(kw_only=False)
 class ModulationFrequency(LinearExpression):
@@ -21,16 +33,27 @@ class ModulationFrequency(LinearExpression):
 class Channel:
     name: str
 
+def update_fields(inst, /, **kwargs) -> dict:
+    fields = {}
+
+    for field in attrs.fields(type(inst)):
+        if not field.metadata.get('allow_override', True):
+            continue
+        
+        value = getattr(inst, field.name)
+        fields[field.name] = kwargs.pop(
+            value,
+            kwargs.pop(
+                field.name,
+                value
+            )
+        )
+
+    return fields | {k: v for k, v in kwargs.items() if k not in fields}
+
 @qfrozen
 class Waveform:
-    name: str = field(metadata=dict(allow_overwrite=False))
-    channels: tuple[Channel, ...] = field(
-        factory=tuple,
-        metadata=dict(allow_overwrite=False)
-    )
-    width: float | str = 0
-    amplitude: float | str = 1
-    t0: float | str = 0
+    name: str = field(metadata=dict(allow_override=False))
 
     evolve = attrs.evolve
 
@@ -38,27 +61,11 @@ class Waveform:
     def _default_name(self):
         return type(self).__name__
 
-    def update_fields(self, **kwargs) -> dict:
-        fields = {}
-        for field in attrs.fields(type(self)):
-            if not field.metadata.get('allow_overwrite', True):
-                continue
-
-            value = getattr(self, field.name)
-            fields[field.name] = kwargs.pop(
-                value,
-                kwargs.pop(
-                    field.name,
-                    value
-                )
-            )
-
-        return fields | {k: v for k, v in kwargs.items() if k not in fields}
-
     def __call__(self, ts: np.ndarray, **kwargs) -> np.ndarray:
-        kwargs = self.update_fields(**kwargs)
+        kwargs = update_fields(self, **kwargs)
+
         try:
-            return self.get_waveform(ts.astype(np.float64), **kwargs)
+            return self.evaluate_timepoints(ts.astype(np.float32), **kwargs)
         except TypeError as e:
             variables = set()
             for f in attrs.fields(type(self)):
@@ -71,26 +78,57 @@ class Waveform:
                 f'The following string variables need to be resolved:\n\t' +
                 '\n\t'.join(f'{n} = {v}' for n, v in variables)
             )
-            raise ValueError(text) from e
 
-    def get_waveform(self, ts: np.ndarray, **kwargs) -> np.ndarray:
-        raise NotImplementedError(f'No waveform defined for {type(self)}!')
+            if variables:
+                raise ValueError(text) from e
+            else:
+                raise e
+
+    def evaluate_timepoints(self, ts: np.ndarray, **kwargs) -> np.ndarray:
+        raise NotImplementedError(
+            f'Method evaluate_timepoints not defined for {type(self)}!'
+        )
 
     def plot(self):
         ...
     
     def fft(self, ts, **kwargs) -> tuple[np.ndarray, np.ndarray]:
-        wave = self.get_waveform(ts, **kwargs)
+        wave = self(ts, **kwargs)
+
+        if len(wave.shape) > 1 and wave.shape[0] == 2:
+            wave = 1j*wave[1] + wave[0]
 
         N = len(ts)
         fs = fft(wave)
         ks = fftfreq(N, ts[1] - ts[0])
 
-        return ks, fs
-    
+        return fftshift(ks), fftshift(fs)
+
+@register_waveform
 @qfrozen
-class DCWaveform(Waveform):
-    def get_waveform(
+class BasicWaveform(Waveform):
+    channels: tuple[Channel, ...] = field(
+        factory=tuple,
+        metadata=dict(allow_override=False)
+    )
+    width: float | str = 0
+    amplitude: float | str = 1
+    t0: float | str = 0
+
+@register_waveform
+@qfrozen
+class InfiniteWaveform(BasicWaveform):
+    width: float | str = np.inf
+
+@register_waveform
+@qfrozen
+class MarkerWaveform(BasicWaveform):
+    ...
+
+@register_waveform
+@qfrozen
+class DCWaveform(InfiniteWaveform):
+    def evaluate_timepoints(
         self,
         ts: np.ndarray,
         amplitude: float,
@@ -99,121 +137,44 @@ class DCWaveform(Waveform):
     ) -> np.ndarray:
         return amplitude * np.ones_like(ts, dtype=np.float32)
 
+@register_waveform
 @qfrozen
-class SquareWaveform(Waveform):
-    def get_waveform(
-        self,
-        ts: np.ndarray,
-        width: float,
-        amplitude: float,
-        t0: float,
-        **kwargs
-    ) -> np.ndarray:
-        """Square waveform.
-
-        Args:
-            ts: Time values at which to evaluate the pulse.
-            width: The width of the square pulse.
-            amplitude: The amplitude of the pulse.
-            t0: The starting time of the pulse.
-
-        Returns:
-            A ndarray containing the function w(t) evaluated at the specified
-            times.
-        """
-        ts = ts - t0
-        wave = amplitude * ((ts > 0) & (ts < width)).astype(np.float32)
-
-        return wave
-
-@qfrozen
-class GaussianWaveform(Waveform):
-    cutoff: float | str = 3
-
-    def get_waveform(self,
-        ts: np.ndarray,
-        width: float,
-        amplitude: float,
-        t0: float,
-        cutoff: float,
-        **kwargs
-    ) -> np.ndarray:
-        """Gaussian waveform.
-
-        Args:
-            ts: Time values at which to evaluate the pulse.
-            width: The width of the Gaussian pulse, the Gaussian waveform will be
-                truncated such that w(t) == 0 for t < t0 and t > t0 + width.
-            amplitude: The amplitude of the pulse.
-            t0: The starting time of the pulse.
-            cutoff: How many standard deviations to include in the pulse width.
-                This defines the standard deviation as sigma = width / (2 * cutoff).
-
-        Returns:
-            A ndarray containing the function w(t) evaluated at the specified
-            times.
-        """
-        ts = ts - t0
-        sigma = width / (2 * cutoff)
-        wave = amplitude * np.exp(-0.5 * (ts - width / 2)**2 / sigma**2)
-
-        return wave
-
-@qfrozen
-class CosineRamp(Waveform):
-    ramp: float = 0.1
-
-@qfrozen
-class ModulatedWaveform(Waveform):
-    envelope: Waveform = field(metadata=dict(allow_overwrite=False))
-    width: float | str = field()
-    amplitude: float | str = field()
-    t0: float | str = field()
-    mod_freq: ModulationFrequency
+class CWWaveform(InfiniteWaveform):
+    frequency: ModulationFrequency
     phase: float | str = 0
 
-    @width.default
-    def _get_width_from_envelope(self):
-        return self.envelope.width
-
-    @t0.default
-    def _get_t0_from_envelope(self):
-        return self.envelope.t0
-
-    @amplitude.default
-    def _get_amplitude_from_envelope(self):
-        return self.envelope.amplitude
-
     @dynamic_default(phase_unit='units/phase')
-    def get_waveform(self,
+    def evaluate_timepoints(
+        self,
         ts: np.ndarray,
+        amplitude: float,
         phase: float,
         phase_tracker: dict[ModulationFrequency, np.ndarray] | None = None,
         modulations: dict[str, ModulationFrequency] = {},
         phase_unit: str = None,
+        complex_out: str = False,
         **kwargs
     ):
-        """Modulated waveform.
+        """Single frequency waveform.
         
-        A modulated waveform takes a waveform envelope and convolves it with a
-        single frequency valued waveform. If a phase tracker is supplied, the
-        relevant phases will also be added to the 
+        A CW waveform creates a single frequency valued waveform with infinite
+        support. If a phase tracker is supplied, the relevant phases will also
+        be adjusted when computing timepoints. 
 
         Args:
             ts: Time values at which to evaluate the pulse.
+            amplitude: The amplitude of the modulation tone.
             phase: The starting phase of the modulation tone.
             phase_tracker: A phase tracking dictionary mapping modulation channels
                 to a ndarray of times and discrete phase jumps.
             phase_unit: Either degrees or radians, specifies the phase units.
                 Defaults to the value set in `qsettings['units/phase']`.
-            **kwargs: Remaining keyword arguments are passed to `get_waveform` for
-                the envelope Waveform.
 
         Returns:
             A ndarray containing the function w(t) evaluated at the specified
             times.
         """
-        freq = 2*np.pi*self.mod_freq.resolve(**modulations).offset
+        freq = 2*np.pi*self.frequency.resolve(**modulations).offset
 
         if phase_tracker:
             phis = self.compute_integrated_phase(ts, phase_tracker)
@@ -224,24 +185,24 @@ class ModulatedWaveform(Waveform):
             phase *= np.pi / 180
             phis *= np.pi / 180
 
-        envelope = self.envelope(ts, **kwargs).astype(np.float32)
-        modulation = np.exp(1j*(freq*ts + phis + phase), dtype=np.complex64)
+        wave = amplitude * np.exp(1j*(freq*ts + phis + phase), dtype=np.complex64)
 
-        wave = envelope * modulation
-
-        if len(self.channels) == 1:
+        if complex_out:
+            return wave
+        elif len(self.channels) <= 1:
             return wave.real
-        if len(self.channels) == 2:
+        elif len(self.channels) == 2:
             return wave.view(np.float32).reshape(-1, 2).T
         else:
-            return np.broadcast_to(wave.real, (len(self.channels), len(wave)))
+            shape = (max(1, len(self.channels)), len(wave))
+            return np.broadcast_to(wave.real, shape)
 
     def compute_integrated_phase(
         self,
         ts: np.ndarray,
         phase_tracker: dict[ModulationFrequency, np.ndarray],
     ):
-        phase_jumps = phase_tracker[self.mod_freq]
+        phase_jumps = phase_tracker[self.frequency]
 
         # Find phase_jumps that are relevant for the time slice
         s = np.searchsorted(phase_jumps[:, 0], ts[0])
@@ -266,10 +227,48 @@ class ModulatedWaveform(Waveform):
 
         return phis
 
+@register_waveform
 @qfrozen
-class MarkerWaveform(Waveform):
-    ...
+class ModulatedWaveform(Waveform):
+    envelope: Waveform
+    mod_freq: CWWaveform
 
+    @property
+    def width(self) -> float | str:
+        return self.envelope.width
+
+    @property
+    def t0(self) -> float | str:
+        return self.envelope.t0
+
+    @property
+    def amplitude(self) -> float | str:
+        A_e = self.envelope.amplitude
+        A_f = self.mod_freq.amplitude
+        try:
+            return A_e * A_f
+        except TypeError:
+            return f'{A_e} * {A_f}'
+
+    @property
+    def channels(self) -> tuple[Channel]:
+        return self.mod_freq.channels
+
+    def evaluate_timepoints(self, ts, **kwargs) -> np.ndarray:
+        modulation = self.mod_freq(ts, complex_out=True, **kwargs)
+        envelope = self.envelope(ts, **kwargs)
+
+        wave = envelope * modulation
+
+        if len(self.channels) <= 1:
+            return wave.real
+        elif len(self.channels) == 2:
+            return wave.view(np.float32).reshape(-1, 2).T
+        else:
+            shape = (max(1, len(self.channels)), len(wave))
+            return np.broadcast_to(wave.real, shape)
+
+@register_waveform
 @qfrozen
 class VirtualZWaveform(MarkerWaveform):
     mod_freq: ModulationFrequency
@@ -301,6 +300,160 @@ class VirtualZWaveform(MarkerWaveform):
         else:
             phase_tracker[self.mod_freq].append(phase_entry)
 
+@register_waveform
+@qfrozen
+class SquareWaveform(BasicWaveform):
+    def evaluate_timepoints(
+        self,
+        ts: np.ndarray,
+        width: float,
+        amplitude: float,
+        t0: float,
+        **kwargs
+    ) -> np.ndarray:
+        """Square waveform.
+
+        Args:
+            ts: Time values at which to evaluate the pulse.
+            width: The width of the square pulse.
+            amplitude: The amplitude of the pulse.
+            t0: The starting time of the pulse.
+
+        Returns:
+            A ndarray containing the function w(t) evaluated at the specified
+            times.
+        """
+        ts = ts - t0
+        wave = amplitude * ((ts > 0) & (ts < width)).astype(np.float32)
+
+        return wave
+
+@register_waveform
+@qfrozen
+class GaussianWaveform(BasicWaveform):
+    cutoff: float | str = 3
+
+    def evaluate_timepoints(self,
+        ts: np.ndarray,
+        width: float,
+        amplitude: float,
+        t0: float,
+        cutoff: float,
+        **kwargs
+    ) -> np.ndarray:
+        """Gaussian waveform.
+
+        Args:
+            ts: Time values at which to evaluate the pulse.
+            width: The width of the Gaussian pulse, the Gaussian waveform will be
+                truncated such that w(t) == 0 for t < t0 and t > t0 + width.
+            amplitude: The amplitude of the pulse.
+            t0: The starting time of the pulse.
+            cutoff: How many standard deviations to include in the pulse width.
+                This defines the standard deviation as sigma = width / (2 * cutoff).
+
+        Returns:
+            A ndarray containing the function w(t) evaluated at the specified
+            times.
+        """
+        ts = ts - t0
+        sigma = width / (2 * cutoff)
+        wave = amplitude * np.exp(-0.5 * (ts - width / 2)**2 / sigma**2)
+
+        wave[~((0 <= ts) & (ts <= width))] = 0
+
+        return wave
+
+@register_waveform
+@qfrozen
+class CosineRampWaveform(BasicWaveform):
+    ramp: float = field(
+        default=0.1,
+        validator=[validators.le(0.5), validators.gt(0)]
+    )
+
+    def evaluate_timepoints(
+        self,
+        ts: np.ndarray,
+        width: float,
+        amplitude: float,
+        t0: float,
+        ramp: float,
+        **kwargs,
+    ) -> np.ndarray:
+        """Square pulse with cosine ramps.
+
+        Args:
+            ts: Time values at which to evaluate the pulse.
+            width: The total width of the cosine ramp pulse, including ramp times.
+            amplitude: The amplitude of the pulse.
+            t0: The starting time of the pulse.
+            ramp: The ramp fraction. The pulse will be smoothly varied from 0 to
+                amplitude and vice versa over a time (width * ramp) at the
+                beginning and end of the pulse.
+
+        Returns:
+            A ndarray containing the function w(t) evaluated at the specified
+            times.
+        """
+        ts = ts - t0
+        rlen = ramp * width
+        wave = np.zeros_like(ts, dtype=np.float32)
+
+        ramp_up = (0 <= ts) & (ts < rlen)
+        wave[ramp_up] = 0.5 * amplitude * (1 - np.cos(np.pi / rlen * ts[ramp_up]))
+
+        const = (rlen <= ts) & (ts < width - rlen)
+        wave[const] = amplitude
+
+        ramp_down = (width - rlen <= ts) & (ts < width)
+        wave[ramp_down] = 0.5 * amplitude * (
+            1 + np.cos(np.pi / rlen * (ts[ramp_down] - width + rlen))
+        )
+
+        return wave
+
+
+@register_waveform
+@qfrozen
+class DRAG(Waveform):
+    lmbda: float | str
+    envelope: Waveform
+
+    @property
+    def width(self) -> float | str:
+        return self.envelope.width
+
+    @property
+    def t0(self) -> float | str:
+        return self.envelope.t0
+
+    @property
+    def amplitude(self) -> float | str:
+        self.envelope.amplitude
+
+    def evaluate_timepoints(self, ts, lmbda, **kwargs) -> np.ndarray:
+        """Numerical DRAG pulse.
+
+        Args:
+            ts: Time values at which to evaluate the pulse.
+            lmbda: The DRAG parameter used to control the amplitude of the 
+                quadrature correction.
+            envelope: The envelope to apply the DRAG correction to.
+            **kwargs: All keyword arguments are passed to the envelope function.
+
+        Returns:
+            A ndarray containing the function w(t) evaluated at the specified
+            times.
+        """
+        envelope = self.envelope(ts, **kwargs)
+
+        delta_t = ts[1] - ts[0]
+
+        return envelope + 1j * lmbda / delta_t * np.gradient(envelope)
+
+# ========== float | str converters ========== #
+
 def convert_number_or_string(v, cls):
     if isinstance(v, cls):
         return v
@@ -316,7 +469,7 @@ def convert_number_or_string(v, cls):
         return qwip.converter.structure(v, stype)
     except Exception:
         ...
-    
+
     return v
 
 qwip.converter.register_structure_hook(
@@ -338,4 +491,42 @@ def make_channel_structure_fn(cls):
 qwip.converter.register_structure_hook_factory(
     lambda cls: issubclass(cls, Channel),
     make_channel_structure_fn
+)
+
+# ========== Waveform converters ========== #
+
+def make_waveform_structure_fn(cls):
+    structure_attrs = make_attrs_structure_fn(cls)
+    
+    def structure_fn(val, cls):
+        subclass = REGISTERED_WAVEFORMS.get(
+            val.get('__class__'),
+        )
+
+        if subclass is None:
+            logger.warning(
+                f'No registered waveform found. Structuring {val} as {cls}.'
+            )
+            return structure_attrs(val, cls)
+
+        return qwip.converter.structure(val, subclass)
+
+    return structure_fn
+
+def make_waveform_unstructure_fn(cls):
+    unstructure_attrs = make_attrs_unstructure_fn(cls)
+
+    def unstructure_fn(obj):
+        return {**unstructure_attrs(obj), '__class__': type(obj).__name__}
+
+    return unstructure_fn
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: cls in (BasicWaveform, Waveform),
+    make_waveform_structure_fn
+)
+
+qwip.converter.register_unstructure_hook_factory(
+    lambda cls: issubclass(cls, Waveform),
+    make_waveform_unstructure_fn
 )
