@@ -86,7 +86,7 @@ class SequenceElement:
             waveform = [waveform]
         
         self.locations[location] = self.locations.get(location, list()) + waveform
-        self.channels.update(waveform.channels)
+        self.channels.update(*(w.channels for w in waveform))
 
         return self
 
@@ -518,8 +518,13 @@ class WaveformCompiler:
                     modulations=self.modulations,
                     **pulse_kwargs
                 )
-                ch_idx = [self.channels[c] for c in w.channels]
-                waveform_array[ch_idx, s_idx:e_idx] = w_t
+
+                if len(wave.shape) == 1:
+                    wave = wave[np.newaxis, :]
+                
+                for i, c in enumerate(w.channels):
+                    ch_idx = self.channels[c]
+                    waveform_array[ch_idx, s_idx:e_idx] += w_t[i]
 
         return waveform_array
 

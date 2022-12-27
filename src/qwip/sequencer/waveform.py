@@ -65,7 +65,9 @@ class Waveform:
         kwargs = update_fields(self, **kwargs)
 
         try:
-            return self.evaluate_timepoints(ts.astype(np.float32), **kwargs)
+            wave = self.evaluate_timepoints(ts.astype(np.float32), **kwargs)
+            
+            return wave
         except TypeError as e:
             variables = set()
             for f in attrs.fields(type(self)):
