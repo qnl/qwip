@@ -167,11 +167,18 @@ def make_attrs_unstructure_fn(cls):
         f.name: cattr.override(omit=True) 
             for f in attr.fields(cls) if not should_unstructure(f)
     }
-    unstructure_fn = make_dict_unstructure_fn(
+
+    unstructure_from_dict = make_dict_unstructure_fn(
         cls,
         converter,
         **to_unstructure
     )
+
+    def unstructure_fn(v):
+        if v.__class__ is cls:
+            return unstructure_from_dict(v)
+
+        return converter.unstructure(v, unstructure_as=v.__class__)
 
     return unstructure_fn
 

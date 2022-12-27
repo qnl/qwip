@@ -274,6 +274,22 @@ class TestAttrs:
         unstruct = qwip.converter.unstructure(struct)
 
         assert unstruct == dict(a=1, b=1.0, c=True)
+    
+    def test_subclass(self):
+        @define
+        class A:
+            a: int
+        
+        @define
+        class B(A):
+            b: str
+
+        b_obj = B(a=1, b='b')
+        
+        unstruct = qwip.converter.unstructure(b_obj)
+
+        assert unstruct == dict(a=1, b='b')
+
 
     def test_omit_fields(self):
         @define
