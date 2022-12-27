@@ -171,6 +171,7 @@ def make_attrs_unstructure_fn(cls):
     unstructure_from_dict = make_dict_unstructure_fn(
         cls,
         converter,
+        _cattrs_omit_if_default=True,
         **to_unstructure
     )
 

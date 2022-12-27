@@ -294,7 +294,7 @@ class TestAttrs:
     def test_omit_fields(self):
         @define
         class A:
-            a: int = 0
+            a: int
             b: bool = field(default=False, metadata=dict(serialize=False))
             c: float = field(init=False)
 
@@ -302,7 +302,7 @@ class TestAttrs:
             def _init_c(self):
                 return 0.5 ** self.a
 
-        a = A()
+        a = A(0)
 
         unstruct = qwip.converter.unstructure(a)
         assert unstruct == dict(a=0)
