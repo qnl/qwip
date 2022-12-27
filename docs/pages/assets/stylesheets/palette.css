@@ -1,0 +1,12 @@
+[data-md-color-accent=medalist] {
+    --md-accent-fg-color: #C4820E;
+}
+
+[data-md-color-primary=berkeley-blue] {
+    --md-primary-fg-color: #003262;
+    --md-primary-fg-color--dark: #003262;
+}
+
+[data-md-color-primary=berkeley-blue] {
+    --md-text-link-color: #3B7EA1;
+}

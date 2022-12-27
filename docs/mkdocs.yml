@@ -1,0 +1,57 @@
+site_name: QWiP
+site_url: https://qnl.github.io/QWiP
+repo_name: qnl/QWiP
+repo_url: https://github.com/qnl/QWiP
+docs_dir: pages
+nav:
+  - QWiP: index.md
+  - User Guide:
+    - user-guide/user-guide.md
+    - Sequences:
+      - user-guide/sequences/sequences.md
+  - Developer Guide: developer-guide.md 
+  - API Reference:
+    - api/qwip.md
+  - Changelog: CHANGELOG.md
+markdown_extensions:
+  - admonition
+  - codehilite:
+      linenums: true
+  - footnotes
+  - pymdownx.arithmatex
+  - pymdownx.caret
+  - pymdownx.magiclink
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.tilde
+  - toc:
+      permalink: true
+theme:
+  name: material
+  custom_dir: overrides
+  font:
+    text: Roboto
+    code: Fira Code, Inconsolata
+  palette:
+    primary: berkeley-blue
+    accent: medalist
+  icon:
+    logo: material/home
+  features:
+    - navigation.tabs
+watch:
+  - ../src/qwip
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_source: true
+      default_handler: python
+extra_css: 
+  - assets/stylesheets/palette.css
+  - assets/stylesheets/layout.css
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML
