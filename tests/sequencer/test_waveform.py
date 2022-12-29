@@ -1,5 +1,5 @@
 import re
-
+from copy import copy, deepcopy
 from pathlib import Path
 import pytest
 import numpy as np
@@ -12,19 +12,12 @@ from qwip.sequencer.waveform import (
     Waveform,
     BasicWaveform,
     Channel,
-    MarkerWaveform,
     ModulationFrequency,
     ModulatedWaveform,
-    CosineRampWaveform,
     CWWaveform,
     DRAG,
-    DCWaveform,
     SquareWaveform,
     GaussianWaveform
-)
-
-from qwip.sequencer.sequence import (
-    SequenceElement
 )
 
 import matplotlib.pyplot as plt
@@ -42,7 +35,16 @@ def data_file(request):
 
     return datadir / f'{request.node.name.lstrip("test_")}.txt'
 
-class TestBasicWaveforms:
+class TestWaveform:
+    @pytest.mark.parametrize(
+        'wave',
+        [Waveform(), Waveform(name='wave')]
+    )
+    def test_copy(self, wave):
+        assert copy(wave) is wave
+        assert deepcopy(wave) is wave
+
+class TestBasicWaveform:
     @pytest.mark.parametrize(
         'name,expect',
         [
@@ -87,6 +89,37 @@ class TestBasicWaveforms:
 
         assert update_fields(w, **kwargs) == expect
 
+    def test_variables(self):
+        assert BasicWaveform().variables() == frozenset()
+
+        wave = BasicWaveform(width='w')
+        assert wave.variables() == frozenset({'w'})
+        assert wave.variables() is wave.variables()
+
+        assert wave.variables.cache_info().hits == 2
+
+    @pytest.mark.parametrize(
+        'wave,vmap,new',
+        [
+            (
+                BasicWaveform(width='w', amplitude='a'),
+                dict(w=1),
+                BasicWaveform(width=1, amplitude='a')
+            ),
+            (
+                BasicWaveform(width='w', amplitude='a'),
+                dict(c=1),
+                BasicWaveform(width='w', amplitude='a')
+            ),
+            (
+                BasicWaveform(amplitude='BasicWaveform'),
+                dict(BasicWaveform=0.2),
+                BasicWaveform(amplitude=0.2)
+            )
+        ]
+    )
+    def test_resolve(self, wave, vmap, new):
+        assert wave.resolve(**vmap) == new
 
 class TestCWWaveform:
     @pytest.mark.parametrize(
@@ -225,6 +258,27 @@ class TestModulatedWaveform:
         assert dict((p, getattr(wave, p)) for p in expected.keys()) == expected
 
     @pytest.mark.parametrize(
+        'env,vmap,new_env',
+        [
+            (
+                dict(width='w', amplitude='a', t0='t'),
+                dict(w=1, a=2, t=3),
+                dict(width=1, amplitude=2, t0=3)
+            ),
+        ]
+    )
+    def test_resolve(self, env, vmap, new_env):
+        env = SquareWaveform(**env)
+        new_env = SquareWaveform(**new_env)
+
+        mod = CWWaveform(frequency='f')
+
+        wave = ModulatedWaveform(envelope=env, mod_freq=mod)
+        expected = ModulatedWaveform(envelope=new_env, mod_freq=mod)
+
+        assert wave.resolve(**vmap) == expected
+
+    @pytest.mark.parametrize(
         'ts,phase_jumps',
         [
             (np.arange(240) / 2.4e9, np.array([(0, 0)])),
@@ -290,32 +344,31 @@ class TestModulatedWaveform:
         assert restruct == wave
 
 class TestDRAGWaveform:
-    def test_timepoints(self):
+    def test_suppression(self):
+        f0 = 500e6
+        f1 = -100e6
         env = DRAG(
             envelope=GaussianWaveform(width=20e-9),
-            lmbda=-2/(2*np.pi*200e6)
+            lmbda=1/(2*np.pi*f1)
         )
 
         freq = CWWaveform(
-            frequency=ModulationFrequency(500e6),
+            frequency=ModulationFrequency(f0),
             channels=('I', 'Q')
         )
 
-        w = ModulatedWaveform(envelope=env, mod_freq=freq)
+        wave_drag = ModulatedWaveform(envelope=env, mod_freq=freq)
+        wave_nodrag = ModulatedWaveform(envelope=env.envelope, mod_freq=freq)
 
         ts = np.arange(480) / 2.4e9
 
-        vals = w(ts, t0=100e-9)
+        # Compute fft and check that drag waveform is suppressed in a 40 MHz
+        # window around the target frequency.
+        ks, fs_drag = wave_drag.fft(ts, t0=100e-9)
+        ks, fs_nodrag = wave_nodrag.fft(ts, t0=100e-9)
 
-        fig, axes = plt.subplots(2, 1)
-        ax = axes[0]
-        ax.plot(ts*1e9, vals[0])
-        ax.plot(ts*1e9, vals[1])
-        ax.grid(True)
-        ax = axes[1]
-        ks, fs = w.fft(ts, t0=100e-9)
+        window = (f0 + f1 - 20e6 < ks) & (ks < f0 + f1 + 20e6)
+        
+        assert (np.abs(fs_drag[window]) < np.abs(fs_nodrag[window])).all()
 
-        ax.plot(ks/1e6, np.abs(fs))
-        ax.grid(True)
-        ax.axvline(400, color='k', linestyle='--')
-        plt.show()
+        

@@ -1,0 +1,435 @@
+from typing import Protocol, runtime_checkable
+from typing_extensions import Self
+
+import numpy as np
+from numpy.typing import NDArray
+
+from attrs import field
+from loguru import logger
+
+from qtrl.sequence_utils.readout import _ReadoutInfo
+
+from qwip.settings.settings import qdefine, qfrozen
+from qwip.sequencer.utils import Location
+from qwip.sequencer.waveform import (
+    Waveform,
+    Channel,
+    Marker,
+    ReadoutMarker,
+    ModulationFrequency
+)
+from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.sequence import Sequence
+
+@runtime_checkable
+class PhaseTracker(Protocol):
+    def update_phase_tracker(
+        self,
+        time: float,
+        phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]]
+    ) -> None:
+        ...
+
+def find_end_marker(locations, name='end') -> Location | None:
+    for loc, waves in locations.items():
+        if Marker(name=name) in waves:
+            return loc
+    
+    return None
+
+def find_readout_marker(locations) -> Location | None:
+    readout_location = None
+    for loc, waves in locations.items():
+        for w in waves:
+            if not isinstance(w, ReadoutMarker):
+                continue
+            
+            if readout_location is not None:
+                raise ValueError(
+                    'Only one terminal readout marker per sequence element is supported.'
+                )
+
+            readout_location = loc
+    
+    return readout_location
+
+@qdefine
+class WaveformData:
+    sample_rate: float
+    n_elements: int
+    num_channels: int
+    array: NDArray[np.float32] | None = None
+    x_axis: np.ndarray | None = None
+    is_array_compiled: bool = True
+    readout_locations: dict = field(factory=dict)
+    _readout: _ReadoutInfo | None = None
+
+    def get_readout_locations(self):
+        return self.readout_locations
+
+@qfrozen
+class ChannelInfo:
+    sample_rate: float
+    index: int
+    group: str
+    subchannel: int = 0 # Use nonzero for markers
+
+@qdefine
+class CompiledSequence:
+    """Compiled sequence.
+
+    Compiled sequences should be specific to the hardware it is meant to be run
+    on. This is meant to plug into existing qtrl code.
+    """
+
+    waveforms: dict[str, WaveformData] = field(factory=dict)
+    sequence: Sequence
+
+    @property
+    def array(self) -> np.ndarray:
+        return self.waveforms['seq'].array
+    
+    @property
+    def _readout(self) -> WaveformData:
+        return self.waveforms['readout']
+
+    def get_readout_locations(self) -> dict[int, int]:
+        return self.waveforms['seq'].get_readout_locations()
+
+    def generate_seq_table(self, elem_len=None):
+        """ Copied from the old sequencer
+
+        Split a 4 dimensional matrix into a list of unique elements and a sequence table from which to
+        recreate the original.
+            Input:
+                elem_len: - Length of which to chop up the waveforms into smaller pieces in an attempt
+                                   to find the list of unique elements.
+
+            Returns:
+                - Unique Waveforms - an array containing the unique chunks of all the waveforms, of dimension 3,
+                                    Dimension 0 - the number of unique elements found
+                                    Dimension 1 - the number of output elements, IE analog, mk1, mk2 etc
+                                    Dimension 2 - elem_len and contains the actual waveform chunk.
+
+                - seq_table - is what will become the sequence table.  It is laid out as so:
+                                Dimension 0 - Channel of the AWG
+                                Dimension 1 - Sequence Element Number
+                                Dimension 2 - Chunk Number (this is waveform length/ elem_len)
+                                The integer value n listed in the chunk number corresponds to the nth unique element
+                                from the unique waveform array above.
+
+            The original waveform can then be reconstructed in full using the results with the command:
+
+                unique_waveforms[seq_table].reshape(num_chans, seq_len, elem_len*wav_len, -1)
+        """
+        seq_array = self.array
+        if elem_len is None:
+            elem_len = seq_array.shape[-2]
+
+        if len(seq_array.shape) != 4:
+            raise Exception(
+                "Matrix must be of dimension 4, [0] is channels, [1] is sequence number, [2] is waveform, [3] is outport")
+
+        if seq_array.shape[2] % elem_len != 0:
+            raise Exception(
+                "Waveform length is not a multiple of element length")
+
+        num_chans = seq_array.shape[0]
+        seq_len = seq_array.shape[1]
+        num_outputs = seq_array.shape[3]
+        wav_len = int(seq_array.shape[2] / elem_len)
+
+        seq_array = np.round(seq_array, 5)
+
+        # Make what will become the sequence table
+        seq_table = np.zeros(seq_array.reshape(
+            num_chans, seq_len, -1, elem_len, num_outputs).shape[0:3])
+
+        # Chunk the waveform table into something of the right shape
+        chunked_waveforms = seq_array.reshape(
+            num_chans, seq_len, -1, elem_len, num_outputs)
+
+        # Hash the waveforms and stuff the hashes into the sequence table, we will replace these with more sensical
+        # numbers later
+        for chan in range(seq_table.shape[0]):
+            for seq_elem in range(seq_table.shape[1]):
+                for wav_elem in range(seq_table.shape[2]):
+                    seq_table[chan, seq_elem, wav_elem] = hash(
+                        chunked_waveforms[chan, seq_elem, wav_elem].tostring())
+
+        # Now we can count our unique hashes!
+        unique_hashes = np.unique(seq_table)
+        # print("Found {} unique chunks".format(len(unique_hashes)))
+        # ok, lets relabel our hashed values to a more normal numbering from 0- unique number of hashes
+        # lets make a little dictionary for this
+        relabeling = dict(
+            zip(unique_hashes, np.arange(unique_hashes.shape[0])))
+
+        # change our seq_table to reflect this new numbering
+        for chan in range(seq_table.shape[0]):
+            for seq_elem in range(seq_table.shape[1]):
+                for wav_elem in range(seq_table.shape[2]):
+                    seq_table[chan, seq_elem,
+                              wav_elem] = relabeling[seq_table[chan, seq_elem, wav_elem]]
+        seq_table = seq_table.astype(int)
+
+        # now we need to collect our unique waveforms, we can use our spiffy new seq_table for that
+        # here is the array we will stuff these into
+        unique_waveforms = np.zeros(
+            (unique_hashes.shape[0], elem_len, num_outputs))
+
+        # ok, we can use np.where to get a list of where all the elements are, take the first location
+        # and use that location information to get the waveform element from the chunked array,
+        # then stuff that into our unique_waveform array
+        for i in range(unique_hashes.shape[0]):
+            loc = np.where(seq_table == i)
+            unique_waveforms[i] = chunked_waveforms[loc[0]
+                                                    [0], loc[1][0], loc[2][0]]
+
+        # Verify we built what we wanted
+        if np.sum(unique_waveforms[seq_table].reshape(num_chans, seq_len, elem_len * wav_len, -1) != seq_array) != 0:
+            raise Exception(
+                "Sequence chunking failed, might be a hash collision (unlikely).")
+
+        # Huzzah, we have a nice sequence table and list of unique elements
+        return unique_waveforms, seq_table
+
+@qdefine
+class WaveformCompiler:
+    channels: dict[Channel, ChannelInfo] = field(factory=dict)
+    modulations: dict[str, ModulationFrequency] = field(factory=dict)
+    readout_qubits: list[int] = field(factory=list)
+    end_marker: str = 'end'
+    
+    def compile_phases(
+        self,
+        locations: dict[Location, list[Waveform]]
+    ) -> dict[ModulationFrequency, np.ndarray]:
+        phase_tracker = {
+            ModulationFrequency(name): [(0, 0)] for name in self.modulations
+        }
+
+        for loc, waves in locations.items():
+            loc = loc.offset
+
+            for w in waves:
+                if not isinstance(w, PhaseTracker):
+                    continue
+                
+                w.update_phase_tracker(loc, phase_tracker)
+
+        return {
+            mod_freq: np.array(phase_jumps)
+                for mod_freq, phase_jumps in phase_tracker.items()
+        }
+
+    def compile_timepoints(
+        self,
+        locations: dict[Location, list[Waveform]],
+        waveform_array: NDArray[np.float32],
+        sample_rate: float,
+        phase_tracker: dict[ModulationFrequency, tuple[float, float]],
+        pulse_kwargs: dict = {},
+    ):
+        num_timepoints = waveform_array.shape[1]        
+
+        ts = np.arange(num_timepoints) / sample_rate
+        logger.debug(f'Time array shape: {ts.shape}.')
+
+        for loc, waves in locations.items():
+            for w in waves:
+                start, end = loc.offset, loc.offset + w.width
+
+                s_idx, e_idx = int(start * sample_rate), int(end * sample_rate) + 1
+                if s_idx == e_idx - 1:
+                    continue
+                
+                ts_wave = ts[s_idx:e_idx]
+
+                w_t = w(
+                    ts_wave,
+                    t0=start + w.t0,
+                    phase_tracker=phase_tracker,
+                    modulations=self.modulations,
+                    **pulse_kwargs
+                )
+
+                if len(w_t.shape) == 1:
+                    w_t = w_t[np.newaxis, :]
+                
+                for i, c in enumerate(w.channels):
+                    ch_idx = self.channels[c].index,
+                    subchannel = self.channels[c].subchannel
+                    waveform_array[ch_idx, s_idx:e_idx, subchannel] += w_t[i]
+
+        return waveform_array
+
+    def compile_sequence_element(
+        self,
+        locations: dict[Location, list[Waveform]],
+        waveform_array: np.ndarray,
+        sample_rate: float,
+        pulse_kwargs: dict = {}
+    ):
+        # Compile phases
+        phase_tracker = self.compile_phases(locations)
+
+        return self.compile_timepoints(
+            locations=locations,
+            waveform_array=waveform_array,
+            sample_rate=sample_rate,
+            phase_tracker=phase_tracker,
+            pulse_kwargs=pulse_kwargs,
+        )
+
+    def get_channel_group_info(
+        self,
+        groups: tuple[str, ...]
+    ) -> dict[str, tuple[float, int]]:
+        channel_groups = dict()
+
+        ## This would ideally be cached for a given set of channel groups
+        for group in groups:
+            sample_rate = set()
+            ch_ids = set()
+            num_subchannels = 1
+
+            # Look through all channels
+            for ch, ch_info in self.channels.items():
+                if group != ch_info.group:
+                    continue
+
+                sample_rate.add(ch_info.sample_rate)
+                ch_ids.add(ch_info.index)
+                num_subchannels = max(num_subchannels, ch_info.subchannel + 1)
+
+                if len(sample_rate) > 1:
+                    raise ValueError(
+                        f'Channel {ch.name} has sample rate {ch_info.sample_rate} that does not match'
+                        f'sample rate {next(iter(sample_rate))} for group {group}.'
+                    )
+            
+            if not ch_ids:
+                raise ValueError(
+                    f'No channels found for channel group {group}.'
+                )
+
+            if (sorted_ids := sorted(ch_ids))[-1] != len(ch_ids) - 1:
+                raise ValueError(
+                    f'All physical channel indices should be specified. Channel group {group} has '
+                    f'physical indices: {sorted_ids}.'
+                )
+
+            channel_groups[group] = (next(iter(sample_rate)), len(sorted_ids), num_subchannels)
+
+        return channel_groups
+
+    def initialize_compiled_sequence(
+        self,
+        seq: Sequence,
+        max_times: dict[str, float]
+    ) -> CompiledSequence:
+        channel_groups = tuple(max_times)
+        channel_group_info = self.get_channel_group_info(channel_groups)
+
+        waveform_arrs = dict()
+        for key in channel_groups:
+            sample_rate, num_channels, num_subchannels = channel_group_info[key]
+            num_elements = np.product(seq.shape) if key == 'seq' else 1
+            num_timepoints = int(max_times[key].offset * sample_rate)
+
+            # We put num_subchannels as the first index and then transpose in an
+            # attempt to make memory layout more sensible.
+            arr_shape = (num_subchannels, num_channels, num_elements, num_timepoints)
+            logger.debug(f'Channel group {key} shape: {arr_shape}.')
+
+            waveform_arrs[key] = WaveformData(
+                sample_rate=sample_rate,
+                n_elements=num_elements,
+                num_channels=num_channels,
+                # This should return a view of the array
+                array = np.zeros(arr_shape, dtype=np.float32).transpose(1, 2, 3, 0)
+            )
+            logger.debug(f'dtype: {waveform_arrs[key].array.dtype}')
+
+        return CompiledSequence(waveforms=waveform_arrs, sequence=seq)
+
+    def compile(
+        self,
+        seq: Sequence,
+        location_kwargs: dict = {},
+        pulse_kwargs: dict = {},
+        **triggered_elements
+    ) -> CompiledSequence:
+
+        # First resolve all locations in the main sequence
+        locations = [
+            se.resolve_locations(
+                end_marker=self.end_marker,
+                **location_kwargs
+            ) for se in seq.flat
+        ]
+
+        # Then for any triggered sequence elements (most commonly readout)
+        triggered_locations = {
+            k: se.resolve_locations(
+                end_marker=self.end_marker,
+                **location_kwargs
+            ) for k, se in triggered_elements.items()
+        }
+
+        # The above step was necessary to determine the number of timepoints
+        # in the waveform array
+        max_times = dict(seq=0) | {
+            k: find_end_marker(se_locs, self.end_marker)
+                for k, se_locs in triggered_locations.items()
+        }
+        
+        max_times['seq'] = max(find_end_marker(se_locs, self.end_marker) for se_locs in locations)
+        logger.debug(max_times)
+
+        # Then use the collected information to initialize an empty CompiledSequence
+        # with the correct sizes for all waveform data arrays
+        cseq = self.initialize_compiled_sequence(seq, max_times)
+
+        # Now we move on to actually compiling timepoints and writing them to the 
+        # waveform data arrays
+        for i, se_locs in enumerate(locations):
+            logger.debug(cseq.waveforms['seq'].sample_rate)
+            self.compile_sequence_element(
+                se_locs,
+                # (channel_idx, element_idx, timepoints, num_outports)
+                cseq.waveforms['seq'].array[:, i, :],
+                cseq.waveforms['seq'].sample_rate,
+                pulse_kwargs
+            )
+
+        # Then do the same for triggered sequence_elements
+        for trigger, se_locs in triggered_locations.items():
+            self.compile_sequence_element(
+                se_locs,
+                # (channel_idx, element_idx, timepoints, num_outports)
+                cseq.waveforms[trigger].array[:, 0, :],
+                cseq.waveforms[trigger].sample_rate,
+                pulse_kwargs
+            )
+
+        # Finally we pull out all the readout locations in the sequence
+        for i, se_locs in enumerate(locations):
+            sample_rate = cseq.waveforms['seq'].sample_rate
+            rloc = int(find_readout_marker(se_locs).offset * sample_rate)
+            cseq.get_readout_locations()[i] = rloc
+
+        # This is needed for backwards compatibility.
+        rinfo = _ReadoutInfo(
+            cseq._readout,
+            self.readout_qubits,
+            len(cseq.get_readout_locations())
+        )
+        cseq._readout._readout = rinfo
+
+        return cseq
+
+
+
+

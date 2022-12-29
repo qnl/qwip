@@ -3,6 +3,8 @@ from attrs import validators
 import numpy as np
 from numbers import Number
 from typing import get_args
+from typing_extensions import Self
+from functools import lru_cache
 
 from scipy.fft import fft, fftfreq, fftshift
 from loguru import logger
@@ -14,6 +16,7 @@ from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.defaults import dynamic_default
 from qwip.settings.settings import qdefine, qfrozen
 from qwip.sequencer.utils import LinearExpression
+from qwip.typing import is_union_type
 
 REGISTERED_WAVEFORMS: dict[str, 'Waveform'] = dict()
 
@@ -86,6 +89,30 @@ class Waveform:
             else:
                 raise e
 
+    def __copy__(self) -> Self:
+        """Overrides copy for Waveform objects.
+        
+        Since Waveforms are immutable and only contain references
+        to other immutable objects we just return self instead of 
+        unnecessarily creating new objects.
+
+        Returns:
+            The Waveform object.
+        """
+        return self
+
+    def __deepcopy__(self, memo) -> Self:
+        """Overrides deepcopy for Waveform objects.
+        
+        Since Waveforms are immutable and only contain references
+        to other immutable objects we just return self instead of 
+        unnecessarily creating new objects.
+
+        Returns:
+            The Waveform object.
+        """
+        return self
+
     def evaluate_timepoints(self, ts: np.ndarray, **kwargs) -> np.ndarray:
         raise NotImplementedError(
             f'Method evaluate_timepoints not defined for {type(self)}!'
@@ -106,6 +133,55 @@ class Waveform:
 
         return fftshift(ks), fftshift(fs)
 
+    @lru_cache
+    def variables(self) -> frozenset[str]:
+        """Returns the set of variables referenced in the waveform."""
+        varset = set()
+
+        for f in attrs.fields(type(self)):
+            var = getattr(self, f.name)
+
+            if isinstance(var, Waveform):
+                varset.update(var.variables())
+            elif (
+                isinstance(var, str) and
+                is_union_type(f.type)
+            ):
+                varset.add(var)
+            
+        return frozenset(varset)
+
+    def resolve(self, **variable_map) -> Self:
+        variable_map = {
+            k: v for k, v in variable_map.items() if k in self.variables()
+        }
+
+        if not variable_map:
+            return self
+
+        to_update = {}
+
+        for f in attrs.fields(type(self)):
+            orig = getattr(self, f.name)
+
+            if isinstance(orig, Waveform):
+                to_update[f.name] = orig.resolve(**variable_map)
+            elif (
+                isinstance(orig, str) and
+                is_union_type(f.type) and
+                (updated := variable_map.get(orig)) is not None
+            ):
+                to_update[f.name] = updated
+
+        return self.evolve(**to_update)
+                
+
+
+
+    def __contains__(self, var: str) -> bool:
+        """Returns whether a variable is referenced in the waveform."""
+        return var in self.variables()
+
 @register_waveform
 @qfrozen
 class BasicWaveform(Waveform):
@@ -124,7 +200,17 @@ class InfiniteWaveform(BasicWaveform):
 
 @register_waveform
 @qfrozen
-class MarkerWaveform(BasicWaveform):
+class Marker(BasicWaveform):
+    ...
+
+@register_waveform
+@qfrozen
+class TriggerMarker(Marker):
+    ...
+
+@register_waveform
+@qfrozen
+class ReadoutMarker(Marker):
     ...
 
 @register_waveform
@@ -272,7 +358,7 @@ class ModulatedWaveform(Waveform):
 
 @register_waveform
 @qfrozen
-class VirtualZWaveform(MarkerWaveform):
+class VirtualZWaveform(Marker):
     mod_freq: ModulationFrequency
     phase: float | str = 0
 
@@ -501,6 +587,9 @@ def make_waveform_structure_fn(cls):
     structure_attrs = make_attrs_structure_fn(cls)
     
     def structure_fn(val, cls):
+        if isinstance(val, cls):
+            return val
+
         subclass = REGISTERED_WAVEFORMS.get(
             val.get('__class__'),
         )

@@ -86,7 +86,7 @@ class LinearExpression:
 
         return cls(offset, frozenset(unresolved_refs.items()))
 
-    @lru_cache(maxsize=2)
+    @lru_cache
     def variables(self, return_string=False) -> set[Self]:
         """Returns the set of variables that the location depends on."""
 

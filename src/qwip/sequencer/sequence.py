@@ -231,29 +231,19 @@ class Sequence(np.ndarray):
             return NotImplemented
 
         return SEQUENCE_FUNCTIONS[func](*args, **kwargs)
-
-    @classmethod
-    def empty(
-        cls,
-        shape: tuple[int, ...], 
-        names: tuple[str, ...] | None = None,
-        **labels: np.ndarray
-    ) -> Self:
-        """Creates a Sequence of the specified shape with empty SequenceElements.
+    
+    @property
+    def T(self):
+        """Returns the transpose of a sequence.
         
-        Args:
-            shape: The desired shape of the output sequence.
-            names: Names to attach to the axis dimensions.
-            labels: Labels to attach to the axis dimensions.
+        This is necessary to ensure that seq.T.names has the correct
+        ordering of axis names.
+
+        Returns:
+            A transposed view of the of the sequence.
         """
-        
-        arr = np.empty(shape, dtype=object)
-
-        for index in np.ndindex(*arr.shape):
-            arr[index] = SequenceElement()
-
-        return cls(arr, names, **labels)
-
+        return self.transpose()
+    
     def transpose(self, *axes):
         """Reverses or permutes axis of the sequence.
     
@@ -277,17 +267,34 @@ class Sequence(np.ndarray):
 
         return seq
 
-    @property
-    def T(self):
-        """Returns the transpose of a sequence.
+    @classmethod
+    def empty(
+        cls,
+        shape: tuple[int, ...], 
+        names: tuple[str, ...] | None = None,
+        **labels: np.ndarray
+    ) -> Self:
+        """Creates a Sequence of the specified shape with empty SequenceElements.
         
-        This is necessary to ensure that seq.T.names has the correct
-        ordering of axis names.
-
-        Returns:
-            A transposed view of the of the sequence.
+        Args:
+            shape: The desired shape of the output sequence.
+            names: Names to attach to the axis dimensions.
+            labels: Labels to attach to the axis dimensions.
         """
-        return self.transpose()
+        
+        arr = np.empty(shape, dtype=object)
+
+        for index in np.ndindex(*arr.shape):
+            arr[index] = SequenceElement()
+
+        return cls(arr, names, **labels)
+
+    @classmethod
+    def sweep(
+        cls,
+        se: SequenceElement,
+    ) -> Self:
+        ...
 
 
 def _expand_names(names: tuple, shape: tuple[int]) -> tuple:

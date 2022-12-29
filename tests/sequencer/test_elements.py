@@ -6,13 +6,21 @@ from contextlib import nullcontext as noerror
 from qwip.sequencer.utils import Location
 from qwip.sequencer.elements import (
     SequenceElement,
-    WaveformCompiler
 )
 from qwip.sequencer.waveform import (
     VirtualZWaveform,
     ModulationFrequency,
     ModulatedWaveform,
-    SquareWaveform
+    GaussianWaveform,
+    SquareWaveform,
+    CosineRampWaveform
+)
+
+WAVEFORMS = dict(
+    g1=GaussianWaveform(width=32e-9, amplitude=1),
+    g2=GaussianWaveform(width=32e-9, amplitude=0.5),
+    s1=SquareWaveform(width=32e-9, amplitude=1),
+    c1=CosineRampWaveform(width=32e-9, amplitude=1)
 )
 
 class TestSequenceElement:
@@ -43,6 +51,42 @@ class TestSequenceElement:
         
         if start:
             assert se.constraints['start'] == start
+
+    @pytest.mark.parametrize(
+        'all_locs,get_loc,expect',
+        [
+            (('a', 'b', 'c'), 'b', 'g2'),
+            (('a', 'b', 'c'), 1, pytest.raises(KeyError)),
+            (tuple(), 'a', pytest.raises(KeyError))
+        ]
+    )
+    def test_getitem(self, all_locs, get_loc, expect):
+        se = SequenceElement.fromtuples(
+            [(l, w) for l, w in zip(all_locs, WAVEFORMS.values())]
+        )
+
+        context = noerror() if isinstance(expect, str) else expect
+        with context:
+            assert se[get_loc] == [WAVEFORMS[expect]]
+
+    @pytest.mark.parametrize(
+        'pairs,wave,expect',
+        [
+            (
+                [(0, WAVEFORMS['s1']), (0, (WAVEFORMS['g2']))],
+                WAVEFORMS['s1'],
+                True
+            ),
+            (
+                [(0, WAVEFORMS['s1']), (0, (WAVEFORMS['g2']))],
+                WAVEFORMS['g1'],
+                False
+            )
+        ]
+    )
+    def test_contains(self, pairs, wave, expect):
+        se = SequenceElement.fromtuples(pairs)
+        assert (wave in se) == expect
 
     @pytest.mark.parametrize(
         'locations,constraints,expect',
@@ -212,3 +256,8 @@ class TestSequenceElement:
         context = result if hasattr(result, '__enter__') else noerror()
         with context:
             assert se1 + se2 == result
+
+    def test_deep_copy(self):
+        se = SequenceElement.fromtuples([])
+
+        

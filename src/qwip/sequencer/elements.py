@@ -1,8 +1,9 @@
-from typing import Callable, Union, ForwardRef, Protocol, runtime_checkable
+from typing import Callable, Union, ForwardRef
 from numbers import Real
 from attrs import field
 from collections.abc import Collection
 from typing_extensions import Self
+from copy import copy, deepcopy
 
 import numpy as np
 
@@ -12,7 +13,7 @@ from qwip.sequencer.waveform import (
     Waveform,
     Channel,
     ModulatedWaveform,
-    MarkerWaveform,
+    Marker,
     VirtualZWaveform,
     ModulationFrequency
 )
@@ -25,7 +26,6 @@ class UnderconstrainedSolveError(Exception):
 
 @qdefine
 class SequenceElement:
-    # name: str
     locations: dict[Location, list[SequenceNode]] = field(factory=dict)
     constraints: dict[str, Location | str] = field(factory=dict)
     channels: set[Channel] = field(factory=set)
@@ -70,9 +70,9 @@ class SequenceElement:
 
     def add_waveform(
         self,
-        location: LocationLike,
         waveform: Waveform | Collection[Waveform],
-    ) -> None:
+        location: LocationLike = Location(),
+    ) -> Self:
         """Adds a waveform to the sequence element at the specified location.
 
         Args:
@@ -90,10 +90,42 @@ class SequenceElement:
 
         return self
 
+    def remove_waveform(
+        self,
+        waveform: Waveform | Collection[Waveform],
+        location: LocationLike | None = None
+    ) -> Self:
+        """Removes a waveform to the sequence element.
+        
+        By default will remove all instances of the waveform(s). If a
+        location is specified, only instances of the waveform at the 
+        specified location are removed.
+        """
+
+        if isinstance(waveform, Waveform):
+            waveform = (waveform,)
+
+        if location is not None:
+            if not isinstance(location, Location):
+                location = Location(location)
+
+            self.locations[location][:] = [
+                w for w in self.locations[location] if w not in waveform
+            ]
+
+            return self
+
+        for loc in self.locations:
+            self.locations[loc][:] = [
+                w for w in self.locations[loc] if w not in waveform
+            ]
+
+        return self
+
     def add_constraints(
         self,
         *,
-        overwrite: bool = False,
+        overwrite: bool = True,
         **kwargs
     ) -> None:
         """Adds constraints to the set of existing constraints.
@@ -102,7 +134,7 @@ class SequenceElement:
 
         Args:
             overwrite: Whether to overwrite existing constraints for the specified
-                variables.
+                variables. Defaults to True.
             **kwargs: constraints are specified as name=location arguments
         """
 
@@ -316,7 +348,7 @@ class SequenceElement:
     def resolve_locations(
         self,
         sort: bool = True,
-        reset_zero: bool = True,
+        reset_zero: str | None = 'neg',
         end_marker: str = 'end',
         **kwargs
     ) -> dict[Location, list[Waveform]]:
@@ -328,7 +360,7 @@ class SequenceElement:
         Args:
             sort: Whether or not to time order the location mapping.
             reset_zero: Whether or not to translate the location mapping such that
-                the earliest location is t = 0.
+                the earliest location is t = 0. Can be 'neg', 'pos', 'both', or None.
             **kwargs: Additional constraints to add to the sequence elements
                 before solving for the locations.
 
@@ -352,13 +384,18 @@ class SequenceElement:
             t_max = t if t > t_max else t_max
 
         locations[t_max] = locations.get(t_max, [])
-        locations[t_max] += [MarkerWaveform(name=end_marker)]
+        locations[t_max] += [Marker(name=end_marker)]
 
         if sort:
             locations = dict(sorted(locations.items(), key=lambda l: l[0]))
 
-        if reset_zero:
-            t0 = next(iter(locations)) if sort else min(locations)
+        t0 = next(iter(locations)) if sort else min(locations)
+        should_reset = (
+            (reset_zero == 'neg' and t0 < Location()) or
+            (reset_zero == 'pos' and t0 > Location()) or
+            (reset_zero == 'both')
+        )
+        if should_reset:
             locations = {l - t0: w for l, w in locations.items()}
 
         return locations
@@ -366,7 +403,7 @@ class SequenceElement:
     def translate(
         self,
         dt: LocationLike,
-    ) -> 'SequenceElement':
+    ) -> Self:
         """Shifts a sequence element in time.
         
         This function translates all the waveforms in the sequence element by dt, which
@@ -385,10 +422,43 @@ class SequenceElement:
 
         return self
 
+    def copy(
+        self,
+        deep: bool = True
+    ) -> Self:
+        """Copies a sequence element.
+        
+        This function makes a copy of the sequence element. Defaults to making a deep copy
+        but can also make a shallow copy where the constraint dict and waveform mappings are
+        shared.
+
+        Args:
+            deep: Whether to make a deep copy or shallow copy. Defaults to True.
+        
+        Returns:
+            The new sequence element.
+        """
+
+        return deepcopy(self) if deep else copy(self)
+        
+
     def __getitem__(self, key: LocationLike):
-        if not isinstance(key, Location):
-            key = Location(key)
+        try:
+            if not isinstance(key, Location):
+                key = Location(key)
+        except:
+            pass
+
         return self.locations[key]
+
+    def __contains__(self, waveform: Waveform) -> bool:
+        """Checks if the waveform exists in the sequence element."""
+
+        for waves in self.locations.values():
+            if waveform in waves:
+                return True
+
+        return False
 
     def __add__(self, other: Self) -> Self:
         """Adds two sequence elements.
@@ -436,113 +506,4 @@ class SequenceElement:
             locations=locations,
             constraints=constraints,
             channels=channels
-        )
-
-@runtime_checkable
-class PhaseTracker(Protocol):
-    def update_phase_tracker(
-        self,
-        time: float,
-        phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]]
-    ) -> None:
-        ...
-
-def find_end_marker(locations, name='end') -> Location | None:
-    for loc, waves in locations.items():
-        if MarkerWaveform(name=name) in waves:
-            return loc
-    
-    return None
-
-@qdefine
-class WaveformCompiler:
-    channels: dict[Channel, int] = field(factory=dict)
-    sample_rate: float
-    modulations: dict[str, ModulationFrequency] = field(factory=dict)
-        
-    def compile_phases(
-        self,
-        locations: dict[Location, list[Waveform]]
-    ) -> dict[ModulationFrequency, np.ndarray]:
-        phase_tracker = {
-            ModulationFrequency(name): [(0, 0)] for name in self.modulations
-        }
-
-        for loc, waves in locations.items():
-            loc = loc.offset
-
-            for w in waves:
-                if not isinstance(w, PhaseTracker):
-                    continue
-                
-                w.update_phase_tracker(loc, phase_tracker)
-
-        return {
-            mod_freq: np.array(phase_jumps)
-                for mod_freq, phase_jumps in phase_tracker.items()
-        }
-
-    def compile_timepoints(
-        self,
-        locations: dict[Location, list[Waveform]],
-        phase_tracker: dict[ModulationFrequency, tuple[float, float]],
-        t_max: float,
-        pulse_kwargs: dict = {}
-    ):
-        sample_rate = self.sample_rate
-        # Get last time value
-        num_timepoints = int(t_max * sample_rate)
-        num_channels = len(self.channels)
-
-        waveform_array = np.zeros(
-            (num_channels, num_timepoints),
-            dtype=np.float32
-        )
-
-        ts = np.arange(num_timepoints) / sample_rate
-
-        for loc, waves in locations.items():
-            for w in waves:
-                start, end = loc.offset, loc.offset + w.width
-
-                s_idx, e_idx = int(start * sample_rate), int(end * sample_rate) + 1
-                if s_idx == e_idx - 1:
-                    continue
-                
-                ts_wave = ts[s_idx:e_idx]
-
-                w_t = w(
-                    ts_wave,
-                    t0=start + w.t0,
-                    phase_tracker=phase_tracker,
-                    modulations=self.modulations,
-                    **pulse_kwargs
-                )
-
-                if len(wave.shape) == 1:
-                    wave = wave[np.newaxis, :]
-                
-                for i, c in enumerate(w.channels):
-                    ch_idx = self.channels[c]
-                    waveform_array[ch_idx, s_idx:e_idx] += w_t[i]
-
-        return waveform_array
-
-    def compile_sequence_element(
-        self,
-        se: SequenceElement,
-        end: str = 'end',
-        location_kwargs: dict = {},
-        pulse_kwargs: dict = {}
-    ):
-        locations = se.resolve_locations(**location_kwargs)
-        phase_tracker = self.compile_phases(locations)
-
-        t_max = find_end_marker(locations, end).offset
-
-        return self.compile_timepoints(
-            locations=locations,
-            phase_tracker=phase_tracker,
-            t_max=t_max,
-            pulse_kwargs=pulse_kwargs
         )
