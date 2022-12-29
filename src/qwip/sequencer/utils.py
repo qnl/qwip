@@ -353,6 +353,29 @@ class LinearExpression:
 
         return self.offset >= other.offset
 
+    def __copy__(self) -> Self:
+        """Overrides copy for LinearExpression objects.
+        
+        Since LinearExpressions are immutable and only contain references
+        to other immutable objects we just return self instead of 
+        unnecessarily creating new objects.
+
+        Returns:
+            The LinearExpression object.
+        """
+        return self
+
+    def __deepcopy__(self, memo) -> Self:
+        """Overrides deepcopy for LinearExpression objects.
+        
+        Since LinearExpressions are immutable and only contain references
+        to other immutable objects we just return self instead of 
+        unnecessarily creating new objects.
+
+        Returns:
+            The LinearExpression object.
+        """
+        return self
 
 
 resolve_types_with_validation(LinearExpression, globals(), locals())

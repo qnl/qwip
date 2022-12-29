@@ -1,6 +1,8 @@
 import pytest
 import attrs
 
+from copy import copy, deepcopy
+
 import qwip
 from qwip.sequencer.utils import Location
 
@@ -268,6 +270,14 @@ class TestLocation:
 
         else:
             assert op(exp1, exp2) == expect
+
+    @pytest.mark.parametrize(
+        'loc',
+        [Location(), Location('a'), Location('a') + Location('b')]
+    )
+    def test_copy(self, loc):
+        assert copy(loc) is loc
+        assert deepcopy(loc) is loc
 
     def test_repr(self):
         l0 = Location()
