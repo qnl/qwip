@@ -1,10 +1,12 @@
 """Useful utility functions for working visualizing data with matplotlib.
 """
 
-from typing import Union
+import itertools as it
+from collections.abc import Iterable
 
 import numpy as np
 import matplotlib as mpl
+from matplotlib.axes import Axes
 from matplotlib.colors import (
     Colormap,
     LinearSegmentedColormap,
@@ -13,8 +15,17 @@ from matplotlib.colors import (
     to_hex
 )
 
+TColor = str | tuple[float, float, float] | tuple[float, float, float, float]
+
+def all_legend_handles_labels(
+    axes: Iterable[Axes],
+) -> tuple[list, list]:
+    handles, labels = zip(*(ax.get_legend_handles_labels() for ax in axes))
+
+    return list(it.chain(*handles)), list(it.chain(*labels))
+
 def get_colormap_with_dropout(
-    cmap: Union[str, Colormap],
+    cmap: str | Colormap,
     threshold: float = 0.2,
     smoothing: float = 0.1,
     alpha: float = None
@@ -60,7 +71,7 @@ def get_colormap_with_dropout(
     return new_cmap
 
 def get_alpha_colormap(
-    color: Union[str, tuple[float, float, float], tuple[float, float, float, float]],
+    color: TColor,
     lower: float = 0.1,
     upper: float = 1.0
 ) -> Colormap:
