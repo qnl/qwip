@@ -1,25 +1,30 @@
 from typing import Callable, Union, ForwardRef
 from numbers import Real
 from attrs import field
-from collections.abc import Collection
+from collections.abc import Collection, Callable
 from typing_extensions import Self
 from copy import copy, deepcopy
+from functools import singledispatchmethod
 
 import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 
 from qwip.settings.settings import qdefine
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     Waveform,
     Channel,
-    ModulatedWaveform,
+    CosineRampWaveform,
     Marker,
-    VirtualZWaveform,
-    ModulationFrequency
 )
+from qwip.visualization.utils import all_legend_handles_labels
 
 SequenceNode = Union[Waveform, ForwardRef('SequenceElement')]
 LocationLike = Location | str | Real
+TChannelMap = dict[Channel, tuple[Location, Waveform]]
 
 class UnderconstrainedSolveError(Exception):
     ...
@@ -466,9 +471,10 @@ class SequenceElement:
 
         for loc, waves in locations.items():
             for w in waves:
-                for wchan in w.channels:
-                    if wchan in channel_map:
-                        channel_map[wchan].append((loc, w))
+                wave_channels = w.channels or (None,)
+                for ch in wave_channels:
+                    if ch in channel_map:
+                        channel_map[ch].append((loc, w))
 
         return channel_map
 
@@ -490,6 +496,49 @@ class SequenceElement:
             channels = self.channels
 
         return type(self).locations_to_channel_map(self.locations, *channels)
+
+    def plot(
+        self,
+        channels: list[tuple[Channel | str,...]] | None = None,
+        constraints: dict[str, Location] = {},
+        filter_func: Callable[[Location, Waveform], bool] = None,
+        axes: Collection[Axes] = None,
+        fig_props: dict = {}
+    ) -> Figure:
+        """Plots the sequence element.
+
+        This function uses a default instance of SequenceElementPlotter to
+        render the sequence element. Since sequence elements are not yet compiled
+        an abstract rendering of the sequence element is created.
+
+        See SequenceElementPlotter to customize how sequence elements are
+        rendered.
+        
+        Args:
+            channels: An optional list of channel groups. Groups can be
+                specified as a tuple of Channels or strings that will be
+                converted to Channels.
+            constraints: A constraint dict to apply to the sequence element
+                before resolving locations.
+            filter_func: A callable used to filter the waveforms. Takes a
+                location and waveform and returns True if the waveform should be
+                included.
+            axes: A set of axes on which to plot the sequence element. Can be
+                used to plot the sequence element on an existing figure. If
+                None, a new figure is created.
+            fig_props: Optional arguments passed to SequenceElementPlotter.make_axes
+
+        Returns:
+            The matplotlib figure containing the plot axes.
+        """
+        return SequenceElementPlotter().plot(
+            self,
+            channels,
+            constraints,
+            filter_func,
+            axes,
+            fig_props
+        )
 
     def __getitem__(self, key: LocationLike):
         try:
@@ -556,3 +605,192 @@ class SequenceElement:
             constraints=constraints,
             channels=channels
         )
+
+
+@qdefine
+class SequenceElementPlotter:
+    """Plotter for Sequence elements."""
+
+    axsize: tuple[float, float] = (8, 1)
+    sort_channels: bool = True
+    separate_none: bool = False
+    channel_grouper: Callable[
+        [Self, Collection[Channel]],
+        list[tuple[Channel,...]]
+    ] | None = None
+    
+    def make_axes(
+        self,
+        n: int,
+        axsize: tuple[float, float] | None = None,
+        sharex: bool = True,
+        sharey: bool = True,
+        **props
+    ) -> np.ndarray:
+        """Creates a matplotlib figure and axes.
+        
+        Args:
+            n: Number of axes.
+            axsize: The size (width, height) in inc
+        """
+        if 'figsize' not in props:
+            axsize = axsize or self.axsize
+            width, height = axsize
+
+            if width == height == ...:
+                width, height = (8, 1)
+            elif width is ...:
+                width = 8 / height
+            elif height is ...:
+                height = 1 / 8 * width
+
+            props['figsize'] = (width, n * height)
+
+        fig, _ = plt.subplots(
+            n,
+            1,
+            sharex=sharex,
+            sharey=sharey,
+            **props
+        )
+        
+        return fig
+    
+    def group_channels(
+        self,
+        channels: list[tuple[Channel, ...]] | None,
+        channel_map: TChannelMap
+    ) -> list[tuple[Channel, ...]]:
+        if channels:
+            channels = [
+                (Channel(ch) if ch else ch for ch in group) 
+                    for group in channels
+            ]
+
+            return channels
+
+        if self.channel_grouper:
+            return self.channel_grouper(self, channel_map.keys())
+
+        return self.default_channel_grouper(channel_map.keys())
+
+    def default_channel_grouper(self, channels):
+        if self.sort_channels:
+            def get_name(maybe_channel):
+                if maybe_channel:
+                    return maybe_channel.name
+                return ''
+
+            channels = sorted(channels, key=get_name)
+
+        if self.separate_none:
+            channels = [(ch,) for ch in channels]
+        else:            
+            channels = [(ch, None) for ch in channels if ch]
+
+        return channels
+
+    def plot_panel(
+        self,
+        ax: Axes,
+        channel_map: TChannelMap,
+        filter_func: Callable[[Location, Waveform], bool] = None,
+        pulses: dict[Waveform, int] | None = None,
+    ) -> None:
+        seen = set()
+        for loc_waves in channel_map.values():
+            for loc, wave in loc_waves:
+                # Avoids repeating the exact same waveform
+                if (loc, wave) in seen:
+                    continue
+
+                seen.add((loc, wave))
+
+                if filter_func and not filter_func(loc, wave):
+                    continue
+
+                label = None
+                if pulses is not None and wave not in pulses:
+                    pulses[wave] = len(pulses)
+                    label = wave.name
+
+                props = dict(
+                    color=f'C{pulses[wave]}',
+                    label=label,
+                    alpha=0.5,
+                )
+
+                self.add_waveform_to_axes(wave, loc, ax, **props)
+
+        ax.set_ylabel('\n'.join(ch.name for ch in channel_map if ch))    
+
+    def plot(
+        self,
+        se: SequenceElement,
+        channels: list[tuple[Channel | str,...]] | None = None,
+        constraints: dict[str, Location] = {},
+        filter_func: Callable[[Location, Waveform], bool] = None,
+        axes: Collection[Axes] = None,
+        fig_props: dict = {}
+    ) -> Figure:
+        locations = se.resolve_locations(**constraints)
+        channel_map = SequenceElement.locations_to_channel_map(locations, *se.channels, None)
+        
+        channels = self.group_channels(channels, channel_map)
+
+        if axes is None:
+            fig = self.make_axes(len(channels), **fig_props)
+            axes = fig.axes
+
+        pulses = {}
+
+        for ax_id, chan_group in enumerate(channels):
+            self.plot_panel(
+                axes[ax_id],
+                {ch: channel_map[ch] for ch in chan_group},
+                filter_func=filter_func,
+                pulses=pulses,
+            )
+
+        figwidth, _ = fig.get_size_inches()
+
+        h, l = all_legend_handles_labels(axes)
+        axes[0].legend(
+            h,
+            l,
+            mode='expand',
+            bbox_to_anchor=(0, 1.05, 1, 0.05),
+            loc='lower left',
+            ncols=min(figwidth // 2, len(l)),
+            borderaxespad=0
+        )
+
+        axes[0].set_ylim(0, 1)
+        axes[-1].set_xlabel('Time (s)')
+
+        return fig
+
+    @singledispatchmethod
+    def add_waveform_to_axes(
+        self,
+        wave: Waveform,
+        loc: Location,
+        ax: Axes,
+        **props
+    ) -> None:
+        start, end = loc.offset, loc.offset + wave.width
+        wfunc = CosineRampWaveform(amplitude=wave.amplitude, width=(end - start))
+
+        ts = np.linspace(start, end)
+        ax.fill_between(ts, y1=wfunc(ts, t0=start), **props)
+
+    @add_waveform_to_axes.register(Marker)
+    def _(
+        self,
+        wave: Waveform,
+        loc: Location,
+        ax: Axes,
+        **props
+    ) -> None:
+        start = loc.offset
+        ax.axvline(start, **props)
