@@ -441,11 +441,42 @@ class SequenceElement:
 
         return deepcopy(self) if deep else copy(self)
 
+    @staticmethod
+    def locations_to_channel_map(
+        locations: dict[Location, list[Waveform]],
+        *channels: str | Channel
+    ) -> dict[Channel, list[tuple[Location, Waveform]]]:
+        """Splits a location dict by channel.
+        
+        Makes a single pass through the location dict. This static method
+        is provided as a convenience for processing arbitrary location maps.
+
+        Args:
+            channels: The channels to include in the channel map.
+
+        Returns:
+            A dictionary mapping channels to (location, waveform) pairs.
+        """
+
+        channels = (
+            Channel(c) if isinstance(c, str) else c for c in channels
+        )
+
+        channel_map = {c: [] for c in channels}
+
+        for loc, waves in locations.items():
+            for w in waves:
+                for wchan in w.channels:
+                    if wchan in channel_map:
+                        channel_map[wchan].append((loc, w))
+
+        return channel_map
+
     def get_channel_map(
         self,
         *channels: str | Channel
     ) -> dict[Channel, list[tuple[Location, Waveform]]]:
-        """Splits
+        """Splits the location dict by channel.
         
         Makes a single pass through the location dict.
 
@@ -455,23 +486,10 @@ class SequenceElement:
         Returns:
             A dictionary mapping channels to (location, waveform) pairs.
         """
-
-        if channels:
-            channels = (
-                Channel(c) if isinstance(c, str) else c for c in channels
-            )
-        else:
+        if not channels:
             channels = self.channels
 
-        channel_map = {c: [] for c in channels}
-
-        for loc, waves in self.locations.items():
-            for w in waves:
-                for wchan in w.channels:
-                    if wchan in channel_map:
-                        channel_map[wchan].append((loc, w))
-
-        return channel_map
+        return type(self).locations_to_channel_map(self.locations, *channels)
 
     def __getitem__(self, key: LocationLike):
         try:
