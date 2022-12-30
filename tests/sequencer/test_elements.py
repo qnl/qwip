@@ -13,14 +13,15 @@ from qwip.sequencer.waveform import (
     ModulatedWaveform,
     GaussianWaveform,
     SquareWaveform,
-    CosineRampWaveform
+    CosineRampWaveform,
+    Channel
 )
 
 WAVEFORMS = dict(
-    g1=GaussianWaveform(width=32e-9, amplitude=1),
-    g2=GaussianWaveform(width=32e-9, amplitude=0.5),
-    s1=SquareWaveform(width=32e-9, amplitude=1),
-    c1=CosineRampWaveform(width=32e-9, amplitude=1)
+    g1=GaussianWaveform(width=32e-9, amplitude=1, channels={'I'}),
+    g2=GaussianWaveform(width=32e-9, amplitude=0.5, channels={'Q'}),
+    s1=SquareWaveform(width=32e-9, amplitude=1, channels={'I', 'Q'}),
+    c1=CosineRampWaveform(width=32e-9, amplitude=1, channels={'F1'})
 )
 
 class TestSequenceElement:
@@ -257,7 +258,59 @@ class TestSequenceElement:
         with context:
             assert se1 + se2 == result
 
-    def test_deep_copy(self):
-        se = SequenceElement.fromtuples([])
+    @pytest.mark.parametrize(
+        'se',
+        [
+            SequenceElement(),
+            SequenceElement.fromtuples(
+                [('a', WAVEFORMS['c1']), ('b', WAVEFORMS['g1'])]
+            ),
+            SequenceElement.fromtuples(
+                [('a', WAVEFORMS['c1']), ('a', WAVEFORMS['g1'])],
+                a=Location()
+            )
+        ]
+    )
+    def test_deep_copy(self, se):
+        secopy = se.copy()
 
+        assert se == secopy
+        assert se.locations is not secopy.locations
+        assert se.constraints is not secopy.constraints
+        assert se.channels is not secopy.channels
+
+        for loc in se.locations:
+            assert se[loc] is not secopy[loc]
+
+    @pytest.mark.parametrize(
+        'waveforms,channels,channel_map',
+        [
+            (
+                ['c1', 's1'],
+                [],
+                dict(
+                    I=[(Location(1), WAVEFORMS['s1'])],
+                    Q=[(Location(1), WAVEFORMS['s1'])],
+                    F1=[(Location(0), WAVEFORMS['c1'])],
+                )
+            ),
+            (
+                ['c1', 'g2', 's1'],
+                ['Q'],
+                dict(
+                    Q=[
+                        (Location(1), WAVEFORMS['g2']),
+                        (Location(2), WAVEFORMS['s1'])
+                    ]
+                )
+            )
+        ]
+    )
+    def test_get_channel_map(self, waveforms, channels, channel_map):
         
+        se = SequenceElement.fromtuples(
+            [(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)]
+        )
+
+        channel_map = {Channel(c): waves for c, waves in channel_map.items()}
+        assert se.get_channel_map(*channels) == channel_map

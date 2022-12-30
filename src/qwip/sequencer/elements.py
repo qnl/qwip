@@ -440,7 +440,38 @@ class SequenceElement:
         """
 
         return deepcopy(self) if deep else copy(self)
+
+    def get_channel_map(
+        self,
+        *channels: str | Channel
+    ) -> dict[Channel, list[tuple[Location, Waveform]]]:
+        """Splits
         
+        Makes a single pass through the location dict.
+
+        Args:
+            channels: The channels to include in the channel map.
+
+        Returns:
+            A dictionary mapping channels to (location, waveform) pairs.
+        """
+
+        if channels:
+            channels = (
+                Channel(c) if isinstance(c, str) else c for c in channels
+            )
+        else:
+            channels = self.channels
+
+        channel_map = {c: [] for c in channels}
+
+        for loc, waves in self.locations.items():
+            for w in waves:
+                for wchan in w.channels:
+                    if wchan in channel_map:
+                        channel_map[wchan].append((loc, w))
+
+        return channel_map
 
     def __getitem__(self, key: LocationLike):
         try:
