@@ -6,7 +6,7 @@ import numpy as np
 import qwip
 
 from numpy.testing import assert_allclose
-
+from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     update_fields,
     Waveform,
@@ -61,7 +61,7 @@ class TestBasicWaveform:
         
         assert w.name == 'BasicWaveform'
         assert w.channels == tuple()
-        assert w.width == 0
+        assert w.width == Location()
         assert w.amplitude == 1
         assert w.t0 == 0
 
@@ -72,15 +72,15 @@ class TestBasicWaveform:
         w = BasicWaveform(channels=(0, 'Q1'), width=1, amplitude='A')
 
         assert w.channels == (Channel('0'), Channel('Q1'))
-        assert w.width == 1.0 and isinstance(w.width, float)
+        assert w.width == Location(1)
         assert w.amplitude == 'A'
 
     @pytest.mark.parametrize(
         'kwargs,expect',
         [
             (dict(), dict(width='w', amplitude='amp', t0=0)),
-            (dict(w=10, amp=20), dict(width=10, amplitude=20, t0=0)),
-            (dict(width=10, amplitude=20, t0=1), dict(width=10, amplitude=20, t0=1)),
+            (dict(w=10, amp=20), dict(width=10.0, amplitude=20, t0=0, w=10)),
+            (dict(width=10, amplitude=20, t0=1), dict(width=10.0, amplitude=20, t0=1)),
             (dict(random=10), dict(width='w', amplitude='amp', t0=0, random=10))
         ]
     )
@@ -242,12 +242,12 @@ class TestModulatedWaveform:
             (
                 dict(t0=1, width=10),
                 dict(amplitude=2),
-                dict(t0=1, width=10, amplitude=2)
+                dict(t0=1, width=Location(10), amplitude=2)
             ),
             (
                 dict(width=20, amplitude=2),
                 dict(amplitude=0.5),
-                dict(t0=0, width=20, amplitude=1)
+                dict(t0=0, width=Location(20), amplitude=1)
             )
         ]
     )
@@ -330,7 +330,7 @@ class TestModulatedWaveform:
                     ),
                     mod_freq=dict(
                         channels=[dict(name='I'), dict(name='Q')],
-                        frequency=dict(offset='f'),
+                        frequency='f',
                         __class__='CWWaveform'
                     ),
                     __class__='ModulatedWaveform'

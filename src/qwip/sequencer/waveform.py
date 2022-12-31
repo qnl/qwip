@@ -15,7 +15,7 @@ import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.defaults import dynamic_default
 from qwip.settings.settings import qdefine, qfrozen
-from qwip.sequencer.utils import LinearExpression
+from qwip.sequencer.utils import LinearExpression, Location
 from qwip.typing import is_union_type
 
 REGISTERED_WAVEFORMS: dict[str, 'Waveform'] = dict()
@@ -42,8 +42,20 @@ def update_fields(inst, /, **kwargs) -> dict:
     for field in attrs.fields(type(inst)):
         if not field.metadata.get('allow_override', True):
             continue
-        
+
         value = getattr(inst, field.name)
+
+        if field.type is Location:
+            value = value.resolve(**kwargs)
+
+            if value.resolved:
+                fields[field.name] = value.offset
+            else:
+                value = value if len(value.references) else value.offset
+                fields[field.name] = kwargs.get(field.name, value)
+
+            continue
+
         fields[field.name] = kwargs.pop(
             value,
             kwargs.pop(
@@ -152,6 +164,8 @@ class Waveform:
 
             if isinstance(var, Waveform):
                 varset.update(var.variables())
+            elif isinstance(var, Location):
+                varset.update(var.variables(return_string=True))
             elif (
                 isinstance(var, str) and
                 is_union_type(f.type)
@@ -173,7 +187,7 @@ class Waveform:
         for f in attrs.fields(type(self)):
             orig = getattr(self, f.name)
 
-            if isinstance(orig, Waveform):
+            if isinstance(orig, (Location, Waveform)):
                 to_update[f.name] = orig.resolve(**variable_map)
             elif (
                 isinstance(orig, str) and
@@ -195,7 +209,7 @@ class BasicWaveform(Waveform):
         factory=tuple,
         metadata=dict(allow_override=False)
     )
-    width: float | str = 0
+    width: Location = Location()
     amplitude: float | str = 1
     t0: float | str = 0
 
