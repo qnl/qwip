@@ -7,7 +7,7 @@ import attrs
 from attrs import field, resolve_types
 
 import qwip
-from qwip._cattr import make_attrs_structure_fn
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.settings.settings import qfrozen
 from qwip.flatdict import FlatDict
 from qwip.settings.validation import resolve_types_with_validation
@@ -401,9 +401,25 @@ def make_linear_expression_structure_fn(cls):
 
     return structure_fn
 
+def make_linear_expression_unstructure_fn(cls):
+    unstructure_attrs = make_attrs_unstructure_fn(cls)
+    
+    def unstructure_fn(obj):
+        if len(obj.references):
+            return unstructure_attrs(obj)
+
+        return obj.offset
+
+    return unstructure_fn
+
 qwip.converter.register_structure_hook_factory(
     lambda cls: issubclass(cls, LinearExpression),
     make_linear_expression_structure_fn
+)
+
+qwip.converter.register_unstructure_hook_factory(
+    lambda cls: issubclass(cls, LinearExpression),
+    make_linear_expression_unstructure_fn
 )
 
 @qfrozen(kw_only=False)
