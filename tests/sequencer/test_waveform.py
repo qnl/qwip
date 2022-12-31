@@ -92,11 +92,13 @@ class TestBasicWaveform:
     def test_variables(self):
         assert BasicWaveform().variables() == frozenset()
 
+        hits = Waveform.variables.cache_info().hits 
+
         wave = BasicWaveform(width='w')
         assert wave.variables() == frozenset({'w'})
         assert wave.variables() is wave.variables()
 
-        assert wave.variables.cache_info().hits == 2
+        assert wave.variables.cache_info().hits == hits + 2
 
     @pytest.mark.parametrize(
         'wave,vmap,new',

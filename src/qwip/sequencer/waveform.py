@@ -174,9 +174,6 @@ class Waveform:
                 to_update[f.name] = updated
 
         return self.evolve(**to_update)
-                
-
-
 
     def __contains__(self, var: str) -> bool:
         """Returns whether a variable is referenced in the waveform."""
@@ -200,8 +197,14 @@ class InfiniteWaveform(BasicWaveform):
 
 @register_waveform
 @qfrozen
-class Marker(BasicWaveform):
-    ...
+class Marker(Waveform):
+    @property
+    def channels(self):
+        return set()
+
+    @property
+    def width(self):
+        return 0
 
 @register_waveform
 @qfrozen
