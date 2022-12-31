@@ -626,7 +626,7 @@ class SequenceElementPlotter:
         sharex: bool = True,
         sharey: bool = True,
         **props
-    ) -> np.ndarray:
+    ) -> Figure:
         """Creates a matplotlib figure and axes.
         
         Args:
@@ -741,6 +741,9 @@ class SequenceElementPlotter:
         if axes is None:
             fig = self.make_axes(len(channels), **fig_props)
             axes = fig.axes
+
+            if isinstance(axes, Axes):
+                axes = np.array([axes])
 
         pulses = {}
 
