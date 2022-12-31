@@ -60,6 +60,15 @@ class Waveform:
 
     evolve = attrs.evolve
 
+    @property
+    def resolved(self) -> bool:
+        """True if a Waveform contains no variables.
+        
+        Returns:
+            A boolean that specifies if a waveform has any variables.
+        """
+        return not bool(self.variables())
+
     @name.default
     def _default_name(self):
         return type(self).__name__
