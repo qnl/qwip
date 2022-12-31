@@ -262,7 +262,7 @@ class WaveformCompiler:
 
         for loc, waves in locations.items():
             for w in waves:
-                start, end = loc.offset, loc.offset + w.width
+                start, end = loc.offset, loc.offset + w.width.offset
 
                 s_idx, e_idx = int(start * sample_rate), int(end * sample_rate) + 1
                 if s_idx == e_idx - 1:

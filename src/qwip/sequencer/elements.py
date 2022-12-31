@@ -390,8 +390,7 @@ class SequenceElement:
                 waveform_dict[wave] = new
                 waves[idx] = new
 
-                if isinstance(wave.width, str) and wave.width in pulse_vars:
-                    self.add_constraints(**{wave.width: new.width})
+                self.add_constraints(**pulse_vars)
 
         return waveform_dict
 
@@ -839,7 +838,7 @@ class SequenceElementPlotter:
         ax: Axes,
         **props
     ) -> None:
-        start, end = loc.offset, loc.offset + wave.width
+        start, end = loc.offset, loc.offset + wave.width.offset
         wfunc = CosineRampWaveform(amplitude=wave.amplitude, width=(end - start))
 
         ts = np.linspace(start, end)
