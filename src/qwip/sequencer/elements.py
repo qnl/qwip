@@ -350,6 +350,38 @@ class SequenceElement:
 
         return result
 
+    def resolve_waveforms(
+        self,
+        update: bool = False,
+        **pulse_vars
+    ) -> dict[Waveform, Waveform]:
+        """Resolves all waveform variables into concrete values.
+        
+        Args:
+            update: Whether to replace the waveforms in the sequence element
+                location dictionary.
+            pulse_vars: A mapping of string variables to variables
+
+        Returns:
+            A mapping of waveforms of original waveforms to resolved waveforms.
+        """
+
+        waveform_dict = {}
+
+        for waves in self.locations.values():
+            for idx, wave in enumerate(waves):
+                new = wave.resolve(**pulse_vars)
+                
+                if new == wave:
+                    continue
+                
+                waveform_dict[wave] = new
+
+                if update:
+                    waves[idx] = new
+
+        return waveform_dict
+
     def resolve_locations(
         self,
         sort: bool = True,
@@ -384,7 +416,10 @@ class SequenceElement:
 
             locations[loc].extend(waves)
 
-            t = loc + max(w.width for w in waves)
+            t = loc + max(
+                self.constraints.get(w.width, w.width) 
+                    for w in waves
+            )
 
             t_max = t if t > t_max else t_max
 
@@ -503,7 +538,8 @@ class SequenceElement:
         constraints: dict[str, Location] = {},
         filter_func: Callable[[Location, Waveform], bool] = None,
         axes: Collection[Axes] = None,
-        fig_props: dict = {}
+        fig_props: dict = {},
+        pulse_vars: dict = {}
     ) -> Figure:
         """Plots the sequence element.
 
@@ -537,7 +573,8 @@ class SequenceElement:
             constraints,
             filter_func,
             axes,
-            fig_props
+            fig_props,
+            pulse_vars,
         )
 
     def __getitem__(self, key: LocationLike):
@@ -696,6 +733,7 @@ class SequenceElementPlotter:
         channel_map: TChannelMap,
         filter_func: Callable[[Location, Waveform], bool] = None,
         pulses: dict[Waveform, int] | None = None,
+        pulse_vars: dict = {}
     ) -> None:
         seen = set()
         for loc_waves in channel_map.values():
@@ -720,6 +758,7 @@ class SequenceElementPlotter:
                     alpha=0.5,
                 )
 
+                wave = wave.resolve(**pulse_vars)
                 self.add_waveform_to_axes(wave, loc, ax, **props)
 
         ax.set_ylabel('\n'.join(ch.name for ch in channel_map if ch))    
@@ -731,10 +770,15 @@ class SequenceElementPlotter:
         constraints: dict[str, Location] = {},
         filter_func: Callable[[Location, Waveform], bool] = None,
         axes: Collection[Axes] = None,
-        fig_props: dict = {}
+        fig_props: dict = {},
+        pulse_vars: dict = {},
     ) -> Figure:
         locations = se.resolve_locations(**constraints)
-        channel_map = SequenceElement.locations_to_channel_map(locations, *se.channels, None)
+        channel_map = SequenceElement.locations_to_channel_map(
+            locations,
+            *se.channels,
+            None
+        )
         
         channels = self.group_channels(channels, channel_map)
 
@@ -753,6 +797,7 @@ class SequenceElementPlotter:
                 {ch: channel_map[ch] for ch in chan_group},
                 filter_func=filter_func,
                 pulses=pulses,
+                pulse_vars=pulse_vars
             )
 
         figwidth, _ = fig.get_size_inches()
