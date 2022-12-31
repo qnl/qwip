@@ -1,8 +1,12 @@
+from collections.abc import Collection
 from typing import Protocol, runtime_checkable
 from typing_extensions import Self
 
 import numpy as np
 from numpy.typing import NDArray
+import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from attrs import field
 from loguru import logger
@@ -20,6 +24,7 @@ from qwip.sequencer.waveform import (
 )
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import Sequence
+from qwip.visualization.utils import all_legend_handles_labels
 
 @runtime_checkable
 class PhaseTracker(Protocol):
@@ -67,6 +72,10 @@ class WaveformData:
     def get_readout_locations(self):
         return self.readout_locations
 
+    @property
+    def shape(self) -> tuple[int, ...]:
+        return self.array.shape
+
 @qfrozen
 class ChannelInfo:
     sample_rate: float
@@ -92,6 +101,10 @@ class CompiledSequence:
     @property
     def _readout(self) -> WaveformData:
         return self.waveforms['readout']
+    
+    @property
+    def shape(self) -> tuple[int,...]:
+        return self.waveforms['seq'].shape
 
     def get_readout_locations(self) -> dict[int, int]:
         return self.waveforms['seq'].get_readout_locations()
@@ -193,6 +206,17 @@ class CompiledSequence:
 
         # Huzzah, we have a nice sequence table and list of unique elements
         return unique_waveforms, seq_table
+
+    def plot(
+        self,
+        element: int,
+        channels: list[tuple[int,...]] | None = None,
+        axes: Collection[Axes] | None = None,
+        fig_props: dict = {}
+    ) -> Figure:
+        plotter = CompiledSequencePlotter()
+
+        return plotter.plot(self, element, channels, axes, fig_props)
 
 @qdefine
 class WaveformCompiler:
@@ -308,7 +332,7 @@ class WaveformCompiler:
                         f'Channel {ch.name} has sample rate {ch_info.sample_rate} that does not match'
                         f'sample rate {next(iter(sample_rate))} for group {group}.'
                     )
-            
+
             if not ch_ids:
                 raise ValueError(
                     f'No channels found for channel group {group}.'
@@ -431,5 +455,109 @@ class WaveformCompiler:
         return cseq
 
 
+@qdefine
+class CompiledSequencePlotter:
+    axsize: tuple[float, float] = (8, 1)
+    
+    def make_axes(
+        self,
+        n: int,
+        axsize: tuple[float, float] | None = None,
+        sharex: bool = True,
+        sharey: bool = True,
+        **props
+    ) -> Figure:
+        """Creates a matplotlib figure and axes.
+        
+        Args:
+            n: Number of axes.
+            axsize: The size (width, height) in inc
+        """
+        if 'figsize' not in props:
+            axsize = axsize or self.axsize
+            width, height = axsize
 
+            if width == height == ...:
+                width, height = (8, 1)
+            elif width is ...:
+                width = 8 / height
+            elif height is ...:
+                height = 1 / 8 * width
+
+            props['figsize'] = (width, n * height)
+
+        fig, _ = plt.subplots(
+            n,
+            1,
+            sharex=sharex,
+            sharey=sharey,
+            **props
+        )
+        
+        return fig
+    
+    def plot(
+        self,
+        cseq: CompiledSequence,
+        element: int,
+        channels: list[tuple[int,...]] | None = None,
+        axes: Collection[Axes] | None = None,
+        fig_props: dict = {}
+    ) -> Figure:
+        tdict = {
+            name: np.arange(waveformdata.array.shape[2]) / waveformdata.sample_rate 
+                for name, waveformdata in cseq.waveforms.items()
+        }
+
+        mainseq = cseq.waveforms['seq']
+        ts = tdict['seq']
+
+        if channels is None:
+            channels = [tuple(ch for ch in range(mainseq.array.shape[0]))]
+
+        if axes is None:
+            fig = self.make_axes(len(channels) + 1, **fig_props)
+            axes = fig.axes
+
+            if isinstance(axes, Axes):
+                axes = np.array([axes])
+
+        for ax_id, ch_group in enumerate(channels):
+            ax = axes[ax_id]
+
+            for ch in ch_group:
+                for marker in range(mainseq.array.shape[3]):
+                    pts = mainseq.array[ch, element, :, marker]
+                    if not pts.any():
+                        continue
+
+                ax.plot(ts, pts, label=f'CH{ch}', color=f'C{ch}')
+
+        readoutseq = cseq.waveforms['readout']
+
+        treadout = mainseq.get_readout_locations()[element] / mainseq.sample_rate
+        for ch in range(readoutseq.array.shape[0]):
+            pts = readoutseq.array[ch, 0, :, 0]
+            props = dict(
+                color=f'C{ch + mainseq.shape[0]}',
+                label=f'Readout CH{ch}'
+            )
+            axes[-1].plot(tdict['readout'] + treadout, pts, **props)
+
+        figwidth, _ = fig.get_size_inches()
+
+        h, l = all_legend_handles_labels(axes)
+        axes[0].legend(
+            h,
+            l,
+            mode='expand',
+            bbox_to_anchor=(0, 1.05, 1, 0.05),
+            loc='lower left',
+            ncols=min(figwidth // 2, len(l)),
+            borderaxespad=0
+        )
+        axes[0].set_ylim(-1, 1)
+        
+        axes[-1].set_xlabel('Time (s)')
+        return fig
 
