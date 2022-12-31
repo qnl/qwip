@@ -216,7 +216,7 @@ class BasicWaveform(Waveform):
 @register_waveform
 @qfrozen
 class InfiniteWaveform(BasicWaveform):
-    width: float | str = np.inf
+    width: Location = Location(np.inf)
 
 @register_waveform
 @qfrozen
@@ -227,7 +227,7 @@ class Marker(Waveform):
 
     @property
     def width(self):
-        return 0
+        return Location()
 
 @register_waveform
 @qfrozen
