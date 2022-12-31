@@ -207,6 +207,16 @@ class TestLocation:
         assert loc.resolve(**variable_map) == result
 
     @pytest.mark.parametrize(
+        'loc,expect',
+        [
+            (Location(), True),
+            (Location('a'), False),
+        ]
+    )
+    def test_resolved(self, loc, expect):
+        assert loc.resolved == expect
+
+    @pytest.mark.parametrize(
         'loc,result,return_string',
         [
             (Location(), set(), False),

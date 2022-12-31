@@ -37,6 +37,15 @@ class LinearExpression:
         factory=frozenset
     )
 
+    @property
+    def resolved(self) -> bool:
+        """True if a LinearExpression contains no variables.
+        
+        Returns:
+            A boolean that specifies if a linear expression has any variables.
+        """
+        return not bool(self.variables())
+
     def substitute(
         self,
         new: Self | Real,
@@ -385,7 +394,7 @@ def make_linear_expression_structure_fn(cls):
     structure_attrs = make_attrs_structure_fn(cls)
 
     def structure_fn(obj, cls):
-        if isinstance(obj, str):
+        if isinstance(obj, (str, Real)):
             return cls(obj)
 
         return structure_attrs(obj, cls)
