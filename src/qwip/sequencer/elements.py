@@ -240,22 +240,37 @@ class SequenceElement:
 
         return self
 
-    def variables(self) -> set[str]:
+    def variables(self, subset: str | None = None) -> set[str]:
         """Returns the set of variables referenced in the sequence element.
+
+        Args:
+            subset: An optional string specifying whether to include just
+                location variables or just waveform variables. Can be 'location'
+                or 'waveform'. All variables are included if subset is None.
 
         Returns:
             A set that contains the names of all variables referenced within the
             location mapping or the constraint mapping.
         """
-        lvars = (
-            loc.variables(return_string=True) for loc in self.locations
-        )
-        cvars = (
-            {k, *loc.variables(return_string=True)} 
-                for k, loc in self.constraints.items()
-        )
+        sets = []
+
+        if subset is None or subset.lower() == 'location':
+            lvars = (
+                loc.variables(return_string=True) for loc in self.locations
+            )
+            cvars = (
+                {k, *loc.variables(return_string=True)} 
+                    for k, loc in self.constraints.items()
+            )
+            sets += list(lvars) + list(cvars)
+
+        if subset is None or subset.lower() == 'waveform':
+            wvars = (
+                w.variables() for waves in self.locations.values() for w in waves
+            )
+            sets += list(wvars)
         
-        return set().union(*cvars, *lvars)
+        return set().union(*sets)
 
     def rename_variables(
         self,
@@ -334,7 +349,7 @@ class SequenceElement:
         """
         self.add_constraints(**kwargs)
 
-        all_vars = self.variables()
+        all_vars = self.variables(subset='location')
 
         if (num_vars := len(all_vars)) > (num_cons := len(self.constraints)):
             raise UnderconstrainedSolveError(
@@ -352,14 +367,11 @@ class SequenceElement:
 
     def resolve_waveforms(
         self,
-        update: bool = False,
         **pulse_vars
     ) -> dict[Waveform, Waveform]:
         """Resolves all waveform variables into concrete values.
         
         Args:
-            update: Whether to replace the waveforms in the sequence element
-                location dictionary.
             pulse_vars: A mapping of string variables to variables
 
         Returns:
@@ -374,11 +386,12 @@ class SequenceElement:
                 
                 if new == wave:
                     continue
-                
-                waveform_dict[wave] = new
 
-                if update:
-                    waves[idx] = new
+                waveform_dict[wave] = new
+                waves[idx] = new
+
+                if isinstance(wave.width, str) and wave.width in pulse_vars:
+                    self.add_constraints(**{wave.width: new.width})
 
         return waveform_dict
 

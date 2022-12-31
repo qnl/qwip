@@ -293,8 +293,68 @@ class Sequence(np.ndarray):
     def sweep(
         cls,
         se: SequenceElement,
+        /,
+        name=None,
+        label=None,
+        **params
     ) -> Self:
-        ...
+        """Create a sequence from the sequence element.
+        """
+
+        shape = min(len(arr) for arr in params.values())
+        name = name or ','.join(params)
+    
+        values = list(zip(*params.values()))
+    
+        if label is None:
+            if len(params) == 1:
+                label = params[name]
+            else:
+                label = np.empty(shape, dtype=object)
+                label[:] = values
+        elif label.shape[0] != len(values):
+            raise ValueError(
+                f'Provided label must have length {len(values)} that matches '
+                f'sequence shape.'
+            )
+        
+        seq = Sequence.empty((shape,), names=(name,), **{name: label})
+    
+        for i, vals in enumerate(values):
+            new = se.copy()
+            
+            update = {n: v for n, v in zip(params, vals)}
+            new.add_constraints(**update)
+            new.resolve_waveforms(**update)
+            
+            seq[i] = new
+
+        return seq
+
+    @classmethod
+    def product(
+        cls,
+        se: SequenceElement,
+        /,
+        **params
+    ) -> Self:
+        """Create a sequence from the sequence element.
+        """
+        shape = tuple(len(arrs) for arrs in params.values())
+        names = tuple(params)
+
+        seq = Sequence.empty(shape, names=names, **params)
+        
+        for i, vals in enumerate(it.product(*params.values())):
+            new = se.copy()
+            
+            update = {n: v for n, v in zip(names, vals)}
+            new.add_constraints(**update)
+            new.resolve_waveforms(**update)
+
+            seq.flat[i] = new
+
+        return seq
 
 
 def _expand_names(names: tuple, shape: tuple[int]) -> tuple:
