@@ -153,16 +153,6 @@ class TestSequenceElement:
             se.add_waveform([], loc) 
 
         se.add_constraints(**constraints)
-        # for loc in locations:
-        # {
-        #     loc if isinstance(loc, Location) else Location(loc): i
-        #         for i, loc in enumerate(locations)
-        # }
-
-        # constraints = {
-        #     k: loc if isinstance(loc, Location) else Location(loc)
-        #         for k, loc in constraints.items()
-        # }
 
         context = expect if hasattr(expect, '__enter__') else noerror()
         with context:
