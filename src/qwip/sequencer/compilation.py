@@ -4,6 +4,7 @@ from typing_extensions import Self
 
 import numpy as np
 from numpy.typing import NDArray
+from scipy.fft import fft, fftfreq, fftshift
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -174,6 +175,27 @@ class WaveformData:
         # Huzzah, we have a nice sequence table and list of unique elements
         return unique_waveforms, seq_table
 
+    def fft(
+        self,
+        include_freqs: bool = True
+    ) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+        """Computes the fourier transform of the waveform data.
+        
+        Args:
+            include_freqs: If true, also returns the frequency array.
+
+        Returns:
+            Either a tuple containing frequency array and the fft data or just
+            the fft data.
+        """
+        ys = fftshift(fft(self.array, axis=2))
+
+        if include_freqs:
+            xs = fftshift(fftfreq(self.shape[2], 1/self.sample_rate))
+            return xs, ys
+
+        return ys
+
 @qfrozen
 class ChannelInfo:
     sample_rate: float
@@ -209,6 +231,20 @@ class CompiledSequence:
 
     def generate_seq_table(self, elem_len=None):
         self.waveforms['seq'].generate_seq_table(elem_len=elem_len)
+
+    def fft(self) -> dict[str, np.ndarray]:
+        """Computes the fourier transform of the CompiledSequence
+
+        Returns:
+            A dictionary mapping sequence groups to their frequency domain
+            representation.
+        """
+        fftdict = {
+            key: wavedata.fft(include_freqs=False) 
+                for key, wavedata in self.waveforms.items()
+        }
+
+        return fftdict
 
     def plot(
         self,
