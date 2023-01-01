@@ -143,25 +143,30 @@ class TestSequenceElement:
                     end='start' - Location(1)
                 ),
                 pytest.raises(np.linalg.LinAlgError)
-            )
+            ),
+            (['a'], dict(a='b', b='c', c=1), dict(a=1, b=1, c=1))
         ]
     )
     def test_solve_constraints(self, locations, constraints, expect):
-        basis_set = {
-            loc if isinstance(loc, Location) else Location(loc): i
-                for i, loc in enumerate(locations)
-        }
+        se = SequenceElement()
+        for loc in locations:
+            se.add_waveform([], loc) 
 
-        constraints = {
-            k: loc if isinstance(loc, Location) else Location(loc)
-                for k, loc in constraints.items()
-        }
+        se.add_constraints(**constraints)
+        # for loc in locations:
+        # {
+        #     loc if isinstance(loc, Location) else Location(loc): i
+        #         for i, loc in enumerate(locations)
+        # }
+
+        # constraints = {
+        #     k: loc if isinstance(loc, Location) else Location(loc)
+        #         for k, loc in constraints.items()
+        # }
 
         context = expect if hasattr(expect, '__enter__') else noerror()
         with context:
-            result = SequenceElement._solve_constraint_matrix(
-                basis_set, constraints
-            )
+            result = se.solve_constraints()
         
             assert result.keys() == expect.keys()
             assert all(

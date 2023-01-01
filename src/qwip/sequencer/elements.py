@@ -26,7 +26,7 @@ SequenceNode = Union[Waveform, ForwardRef('SequenceElement')]
 LocationLike = Location | str | Real
 TChannelMap = dict[Channel, tuple[Location, Waveform]]
 
-class UnderconstrainedSolveError(Exception):
+class UnderconstrainedSolveError(np.linalg.LinAlgError):
     ...
 
 @qdefine
@@ -324,14 +324,21 @@ class SequenceElement:
         for y, xs in constraints.items():
             y = Location(y)
             y_idx = basis_set[y]
-            
-            b[y_idx] = xs.offset
 
+            # Have to handle the case where xs is only a string variable
+            if isinstance(xs.offset, str):
+                b_y = 0
+                coeffients = {(xs, 1)}
+            else:
+                b_y = xs.offset
+                coeffients = xs.references
+
+            b[y_idx] = b_y
             A[y_idx, y_idx] = 1
 
-            for x, coefficient in xs.references:
+            for x, coeff in coeffients:
                 x_idx = basis_set[x]
-                A[y_idx, x_idx] -= coefficient
+                A[y_idx, x_idx] -= coeff
 
         result = np.linalg.solve(A, b)
 
@@ -351,17 +358,20 @@ class SequenceElement:
 
         all_vars = self.variables(subset='location')
 
-        if (num_vars := len(all_vars)) > (num_cons := len(self.constraints)):
-            raise UnderconstrainedSolveError(
-                f'Found {num_vars} variables but only {num_cons} constraints. '
-                f'(variables = {all_vars})'
-            )
-
         basis_set = {
             Location(v): i for i, v in enumerate(all_vars)
         }
 
-        result = type(self)._solve_constraint_matrix(basis_set, self.constraints)
+        try:
+            result = type(self)._solve_constraint_matrix(basis_set, self.constraints)
+        except np.linalg.LinAlgError as e:
+            if (num_vars := len(all_vars)) > (num_cons := len(self.constraints)):
+                raise UnderconstrainedSolveError(
+                    f'Found {num_vars} variables but only {num_cons} constraints. '
+                    f'(variables = {all_vars})'
+                ) from e
+            
+            raise e
 
         return result
 
