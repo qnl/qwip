@@ -439,8 +439,7 @@ class SequenceElement:
             locations[loc].extend(waves)
 
             t = loc + max(
-                self.constraints.get(w.width, w.width) 
-                    for w in waves
+                w.width.resolve(**constraints) for w in waves
             )
 
             t_max = t if t > t_max else t_max
