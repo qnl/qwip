@@ -76,39 +76,6 @@ class WaveformData:
     def shape(self) -> tuple[int, ...]:
         return self.array.shape
 
-@qfrozen
-class ChannelInfo:
-    sample_rate: float
-    index: int
-    group: str
-    subchannel: int = 0 # Use nonzero for markers
-
-@qdefine
-class CompiledSequence:
-    """Compiled sequence.
-
-    Compiled sequences should be specific to the hardware it is meant to be run
-    on. This is meant to plug into existing qtrl code.
-    """
-
-    waveforms: dict[str, WaveformData] = field(factory=dict)
-    sequence: Sequence
-
-    @property
-    def array(self) -> np.ndarray:
-        return self.waveforms['seq'].array
-    
-    @property
-    def _readout(self) -> WaveformData:
-        return self.waveforms['readout']
-    
-    @property
-    def shape(self) -> tuple[int,...]:
-        return self.waveforms['seq'].shape
-
-    def get_readout_locations(self) -> dict[int, int]:
-        return self.waveforms['seq'].get_readout_locations()
-
     def generate_seq_table(self, elem_len=None):
         """ Copied from the old sequencer
 
@@ -206,6 +173,42 @@ class CompiledSequence:
 
         # Huzzah, we have a nice sequence table and list of unique elements
         return unique_waveforms, seq_table
+
+@qfrozen
+class ChannelInfo:
+    sample_rate: float
+    index: int
+    group: str
+    subchannel: int = 0 # Use nonzero for markers
+
+@qdefine
+class CompiledSequence:
+    """Compiled sequence.
+
+    Compiled sequences should be specific to the hardware it is meant to be run
+    on. This is meant to plug into existing qtrl code.
+    """
+
+    waveforms: dict[str, WaveformData] = field(factory=dict)
+    sequence: Sequence
+
+    @property
+    def array(self) -> np.ndarray:
+        return self.waveforms['seq'].array
+    
+    @property
+    def _readout(self) -> WaveformData:
+        return self.waveforms['readout']
+    
+    @property
+    def shape(self) -> tuple[int,...]:
+        return self.waveforms['seq'].shape
+
+    def get_readout_locations(self) -> dict[int, int]:
+        return self.waveforms['seq'].get_readout_locations()
+
+    def generate_seq_table(self, elem_len=None):
+        self.waveforms['seq'].generate_seq_table(elem_len=elem_len)
 
     def plot(
         self,
