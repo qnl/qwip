@@ -3,16 +3,6 @@ site_url: https://qnl.github.io/QWiP
 repo_name: qnl/QWiP
 repo_url: https://github.com/qnl/QWiP
 docs_dir: pages
-nav:
-  - QWiP: index.md
-  - User Guide:
-    - user-guide/user-guide.md
-    - Sequences:
-      - user-guide/sequences/sequences.md
-  - Developer Guide: developer-guide.md 
-  - API Reference:
-    - api/qwip.md
-  - Changelog: CHANGELOG.md
 markdown_extensions:
   - admonition
   - codehilite:
@@ -33,10 +23,17 @@ theme:
     text: Roboto
     code: Fira Code, Inconsolata
   palette:
-    primary: berkeley-blue
-    accent: medalist
+    - scheme: berkeley-light
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
   icon:
     logo: material/home
+    repo: fontawesome/brands/github
   features:
     - navigation.tabs
 watch:
@@ -50,8 +47,31 @@ plugins:
           options:
             show_source: true
       default_handler: python
+  - git-authors
+  - git-revision-date-localized:
+      type: date
 extra_css: 
   - assets/stylesheets/palette.css
   - assets/stylesheets/layout.css
 extra_javascript:
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML
+nav:
+  - QWiP: 
+    - index.md
+  - User Guide:
+    - user-guide/user-guide.md
+    - Sequences:
+      - user-guide/sequences/sequences.md
+  - Developer Guide: 
+    - developer-guide/intro.md
+    - developer-guide/roadmap.md
+    - Guidelines:
+      - developer-guide/guidelines/all-things-git.md
+      - developer-guide/guidelines/coding-guidelines.md
+      - developer-guide/guidelines/testing.md
+      - developer-guide/guidelines/documentation.md
+    - developer-guide/attrs.md
+
+  - API Reference:
+    - api/qwip.md
+  - Changelog: CHANGELOG.md
