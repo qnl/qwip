@@ -60,7 +60,9 @@ nav:
     - index.md
   - User Guide:
     - user-guide/intro.md
-    - Sequences:
+    - Sequencer:
+      - user-guide/sequences/sequencer.md
+      - user-guide/sequences/sequence-elements.md
       - user-guide/sequences/sequences.md
   - Developer Guide: 
     - developer-guide/intro.md
