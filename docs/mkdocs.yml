@@ -59,7 +59,7 @@ nav:
   - QWiP: 
     - index.md
   - User Guide:
-    - user-guide/user-guide.md
+    - user-guide/intro.md
     - Sequences:
       - user-guide/sequences/sequences.md
   - Developer Guide: 
