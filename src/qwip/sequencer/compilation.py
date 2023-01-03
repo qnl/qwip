@@ -457,24 +457,25 @@ class WaveformCompiler:
 
         # Now we move on to actually compiling timepoints and writing them to the 
         # waveform data arrays
-        for i, se_locs in enumerate(locations):
+        for i, (se_locs, se) in enumerate(zip(locations, seq.flat)):
             logger.debug(cseq.waveforms['seq'].sample_rate)
             self.compile_sequence_element(
                 se_locs,
                 # (channel_idx, element_idx, timepoints, num_outports)
                 cseq.waveforms['seq'].array[:, i, :],
                 cseq.waveforms['seq'].sample_rate,
-                pulse_kwargs
+                se.constraints | pulse_kwargs
             )
 
         # Then do the same for triggered sequence_elements
         for trigger, se_locs in triggered_locations.items():
+            se = triggered_elements[trigger]
             self.compile_sequence_element(
                 se_locs,
                 # (channel_idx, element_idx, timepoints, num_outports)
                 cseq.waveforms[trigger].array[:, 0, :],
                 cseq.waveforms[trigger].sample_rate,
-                pulse_kwargs
+                se.constraints | pulse_kwargs
             )
 
         # Finally we pull out all the readout locations in the sequence

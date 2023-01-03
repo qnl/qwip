@@ -388,15 +388,6 @@ class VirtualZWaveform(Marker):
     mod_freq: ModulationFrequency
     phase: float | str = 0
 
-    @dynamic_default(phase_unit='units/phase')
-    def get_phase_jump(self, phase_unit: str = None, **kwargs):
-        phase = kwargs.get(self.phase, self.phase)
-
-        if phase_unit.lower() == 'degrees':
-            phase *= np.pi / 180
-
-        return phase
-
     def update_phase_tracker(
         self,
         time: float,
@@ -407,7 +398,7 @@ class VirtualZWaveform(Marker):
         except KeyError as e:
             raise KeyError(f'Modulation {self.mod_freq} not found!') from e
 
-        phase_entry = (time, phi + self.get_phase_jump())
+        phase_entry = (time, phi + self.phase)
 
         if time == previous_time:
             phase_tracker[self.mod_freq][-1] = phase_entry
