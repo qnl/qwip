@@ -221,6 +221,10 @@ class CompiledSequence:
     @property
     def _readout(self) -> WaveformData:
         return self.waveforms['readout']
+
+    @property
+    def is_array_compiled(self) -> bool:
+        return self.waveforms['seq'].is_array_compiled
     
     @property
     def shape(self) -> tuple[int,...]:
@@ -230,7 +234,7 @@ class CompiledSequence:
         return self.waveforms['seq'].get_readout_locations()
 
     def generate_seq_table(self, elem_len=None):
-        self.waveforms['seq'].generate_seq_table(elem_len=elem_len)
+        return self.waveforms['seq'].generate_seq_table(elem_len=elem_len)
 
     def fft(self) -> dict[str, np.ndarray]:
         """Computes the fourier transform of the CompiledSequence
