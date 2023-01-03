@@ -1,10 +1,12 @@
 import attrs
 from attrs import validators
 import numpy as np
+import itertools as it
 from numbers import Number
 from typing import get_args
 from typing_extensions import Self
 from functools import lru_cache
+from collections import defaultdict
 
 from scipy.fft import fft, fftfreq, fftshift
 from loguru import logger
@@ -69,8 +71,6 @@ def update_fields(inst, /, **kwargs) -> dict:
 @qfrozen
 class Waveform:
     name: str = field(metadata=dict(allow_override=False))
-
-    evolve = attrs.evolve
 
     @property
     def resolved(self) -> bool:
@@ -196,7 +196,45 @@ class Waveform:
             ):
                 to_update[f.name] = updated
 
-        return self.evolve(**to_update)
+        return attrs.evolve(self, **to_update)
+
+    def evolve(self, **updates):
+        # Separate out fields that are also waveforms.
+        groupby = it.groupby(
+            attrs.fields(type(self)),
+            key=lambda f: isinstance(getattr(self, f.name), Waveform)
+        )
+
+        field_names = dict(waveform=[], other=[])
+        for k, fields in groupby:
+            if k:
+                field_names['waveform'] += [f.name for f in fields]
+            else:
+                field_names['other'] += [f.name for f in fields]
+
+        # Pull out nested updates
+        nested_updates = defaultdict(dict)
+        for key in list(updates):
+            if '_' not in key:
+                continue
+            name, subkey = key.split('_', maxsplit=1)
+
+            if name in field_names['waveform']:
+                nested_updates[name][subkey] = updates.pop(key)
+
+        to_update = dict()
+        # First make pass through non-nested attributes
+        for name in field_names['other']:
+            if name in updates:
+                to_update[name] = updates.pop(name)
+
+        for name in field_names['waveform']:
+            old = getattr(self, name)
+            updates_to_wave = updates | nested_updates[name]
+            print(updates_to_wave)
+            to_update[name] = old.evolve(**updates_to_wave)
+
+        return attrs.evolve(self, **to_update)
 
     def __contains__(self, var: str) -> bool:
         """Returns whether a variable is referenced in the waveform."""
@@ -522,8 +560,8 @@ class CosineRampWaveform(BasicWaveform):
 @register_waveform
 @qfrozen
 class DRAG(Waveform):
-    lmbda: float | str
     envelope: Waveform
+    lmbda: float | str = 0
 
     @property
     def width(self) -> float | str:
@@ -542,9 +580,9 @@ class DRAG(Waveform):
 
         Args:
             ts: Time values at which to evaluate the pulse.
+            envelope: The envelope to apply the DRAG correction to.
             lmbda: The DRAG parameter used to control the amplitude of the 
                 quadrature correction.
-            envelope: The envelope to apply the DRAG correction to.
             **kwargs: All keyword arguments are passed to the envelope function.
 
         Returns:

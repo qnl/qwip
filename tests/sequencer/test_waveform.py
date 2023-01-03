@@ -44,6 +44,45 @@ class TestWaveform:
         assert copy(wave) is wave
         assert deepcopy(wave) is wave
 
+    @pytest.mark.parametrize(
+        'wave,updates,expect',
+        [
+            (
+                SquareWaveform(),
+                dict(width=10),
+                SquareWaveform(width=10),
+            ),
+            (
+                DRAG(envelope=SquareWaveform()),
+                dict(width=10, lmbda=1),
+                DRAG(envelope=SquareWaveform(width=10), lmbda=1),
+            ),
+            (
+                DRAG(envelope=SquareWaveform()),
+                dict(name='new_name'),
+                DRAG(name='new_name', envelope=SquareWaveform()),
+            ),
+            (
+                DRAG(envelope=SquareWaveform()),
+                dict(envelope_name='new_name'),
+                DRAG(envelope=SquareWaveform(name='new_name')),
+            ),
+            (
+                ModulatedWaveform(
+                    envelope=DRAG(envelope=SquareWaveform()),
+                    mod_freq=CWWaveform(frequency='f')
+                ),
+                dict(envelope_width=10),
+                ModulatedWaveform(
+                    envelope=DRAG(envelope=SquareWaveform(width=10)),
+                    mod_freq=CWWaveform(frequency='f')
+                ),
+            )
+        ]
+    )
+    def test_evolve(self, wave, updates, expect):
+        assert wave.evolve(**updates) == expect
+
 class TestBasicWaveform:
     @pytest.mark.parametrize(
         'name,expect',
