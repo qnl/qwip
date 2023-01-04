@@ -28,6 +28,15 @@ converter.register_structure_hook(
     lambda v, cls: str(v) if isinstance(v, (int, float, bool)) else v
 )
 
+# Convert sets to lists
+def make_set_unstructure_fn(cls):
+    return lambda obj: list(converter.unstructure(el) for el in obj)
+
+converter.register_unstructure_hook_factory(
+    lambda cls: cls is set or get_origin(cls) is set,
+    make_set_unstructure_fn
+)
+
 # ========== ForwardRef ========== #
 
 def make_forward_ref_structure_fn(cls):

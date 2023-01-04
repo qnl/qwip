@@ -18,9 +18,25 @@ from qwip.typing import NDArray
 # https://docs.python.org/3/library/json.html
 JSON_SERIALIZABLE = (dict, list, tuple, str, int, float, bool, type(None))
 
-class SpecialFlatDict(FlatDict): ...
+class TestBuiltins:
+    @pytest.mark.parametrize(
+        'tp,obj,expected',
+        [
+            (set, {'a', 'b', 'c'}, ['a', 'b', 'c']),
+            (set[str], {'a', 'b', 'c'}, ['a', 'b', 'c']),
+        ]
+    )
+    def test_set(self, tp, obj, expected):
+        unstructured = qwip.converter.unstructure(
+            obj, unstructure_as=tp
+        )
+        assert isinstance(unstructured, list)
+        assert sorted(unstructured) == sorted(expected)
+        assert qwip.converter.structure(unstructured, tp) == obj
 
 class TestFlatDict:
+    class SpecialFlatDict(FlatDict): ...
+
     TYPE_HINTS = [
         (FlatDict, FlatDict, None, None),
         (SpecialFlatDict, SpecialFlatDict, None, None),
