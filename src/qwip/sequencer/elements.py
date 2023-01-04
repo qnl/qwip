@@ -22,7 +22,6 @@ from qwip.sequencer.waveform import (
 )
 from qwip.visualization.utils import all_legend_handles_labels
 
-SequenceNode = Union[Waveform, ForwardRef('SequenceElement')]
 LocationLike = Location | str | Real
 TChannelMap = dict[Channel, tuple[Location, Waveform]]
 
@@ -31,7 +30,7 @@ class UnderconstrainedSolveError(np.linalg.LinAlgError):
 
 @qdefine
 class SequenceElement:
-    locations: dict[Location, list[SequenceNode]] = field(factory=dict)
+    locations: dict[Location, list[Waveform]] = field(factory=dict)
     constraints: dict[str, Location | str] = field(factory=dict)
     channels: set[Channel] = field(factory=set)
 
