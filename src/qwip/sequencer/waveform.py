@@ -30,7 +30,7 @@ def register_waveform(cls) -> type:
 
     return cls
 
-@qfrozen(kw_only=False)
+@qfrozen(kw_only=False, repr=False)
 class ModulationFrequency(LinearExpression):
     ...
 

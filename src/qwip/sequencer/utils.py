@@ -1,3 +1,7 @@
+import ast
+import operator
+import re
+import itertools as it
 from numbers import Real
 from typing import Union, ForwardRef, TypeVar
 from functools import lru_cache
@@ -29,7 +33,47 @@ def _no_refs_in_string_location(inst, attr, value):
             f'is non-empty.'
         )
 
-@qfrozen(kw_only=False)
+@attrs.define(kw_only=False)
+class _ExprParser(ast.NodeVisitor):
+    _cls: type
+    error: str
+    operator_func: dict = {
+        ast.Add: operator.add,
+        ast.Sub: operator.sub,
+        ast.Mult: operator.mul,
+        ast.Div: operator.truediv,
+        ast.UAdd: operator.pos,
+        ast.USub: operator.neg,
+    }
+
+    def generic_visit(self, node):
+        raise ValueError(self.error)
+
+    def visit_Expr(self, node):
+        return self.visit(node.value)
+
+    def visit_Module(self, node):
+        return self.visit(node.body[0])
+
+    def visit_BinOp(self, node):
+        return self.operator_func[type(node.op)](
+            self.visit(node.left),
+            self.visit(node.right)
+        )
+    
+    def visit_UnaryOp(self, node: ast.UnaryOp):
+        return self.operator_func[type(node.op)](self.visit(node.operand))
+
+    def visit_Constant(self, node: ast.Constant):
+        return node.value
+
+    def visit_Name(self, node: ast.Name):
+        return self._cls(node.id)
+
+    def visit_Load(self, node: ast.Load):
+        return self.visit(node)
+
+@qfrozen(kw_only=False, repr=False)
 class LinearExpression:
     offset: float | str = field(converter=_convert_offset, default=0)
     references: frozenset[tuple[Self, float]] = field(
@@ -71,7 +115,7 @@ class LinearExpression:
                 offset=self.offset,
                 reference=frozenset(refs)
             )
-    
+
     def resolve(self, **variable_map):
         """Resolves string variables referenced in a location."""
         cls = type(self)
@@ -108,6 +152,87 @@ class LinearExpression:
         )
         return set().union(*subsets)
 
+    @classmethod
+    def from_string(cls, s: str, /):
+        """Class constructor for a string expression.
+
+        This constructor takes a string and converts it to a LinearExpression
+        by parsing the string into a Python ast.
+
+        Args:
+            s: The string to convert to a LinearExpression.
+        
+        Returns:
+            The resulting LinearExpression.
+
+        Raises:
+            TypeError: If `s` is not a string.
+            ValueError: If the string `s` is not a valid expression.
+        """
+        error_str = f'Unable to convert invalid linear expression: "{s}".'
+
+        try:
+            tree = ast.parse(s)
+        except SyntaxError as e:
+            raise ValueError(error_str) from e
+        except TypeError as e:
+            raise TypeError(f's must be a str, got {s} that is {type(s)}.') from e
+
+        if len(tree.body) != 1 or not isinstance(tree.body[0], ast.Expr):
+            raise ValueError(error_str)
+
+        calc = _ExprParser(cls, error_str)
+        try:
+            expr = calc.visit(tree)
+        except TypeError as e:
+            raise ValueError(error_str) from e
+
+        if not isinstance(expr, cls):
+            expr = cls(expr)
+
+        return expr
+
+    def __repr__(self) -> str:
+        """repr for LinearExpression.
+
+        Returns:
+            A string representation of the expression that specifies the type.
+        """
+        return f'{type(self).__name__}({str(self)})'
+
+    def __str__(self) -> str:
+        """str for LinearExpression.
+        
+        Returns:
+            A string representation of the expression.
+        """
+        def monomial_to_str_tuple(c, l):
+            if c == 1:
+                return (' + ', l)
+
+            if (
+                not (l.startswith('(') and l.endswith(')')) and
+                re.search(r'[\+-]', l) 
+            ):
+                l = f'({l})'
+
+            if c < 0:
+                return (' - ', monomial_to_str_tuple(-c, l)[1])
+
+            return ('+', f'{c:g} * {l}')
+
+        terms = [monomial_to_str_tuple(c, str(loc)) for loc, c in self.references]
+        if self.offset or not terms:
+            constant = self.offset
+            if not isinstance(constant, str):
+                constant = f'{constant:g}'
+            terms = [constant] + terms
+
+        eq_str = ''.join(it.chain(*terms))
+
+        # Necessary to remove white space before unary operators
+        return eq_str.strip()
+
     def __contains__(self, variable: str) -> bool:
         return variable in self.variables(return_string=True)
 
@@ -130,6 +255,10 @@ class LinearExpression:
             offset=offset,
             references=frozenset((loc, -c) for loc, c in self.references if c != 0)
         )
+    
+    def __pos__(self) -> Self:
+        """Identity."""
+        return self
 
     def __add__(self, other) -> Self:
         """Adds two locations."""
@@ -395,7 +524,7 @@ def make_linear_expression_structure_fn(cls):
 
     def structure_fn(obj, cls):
         if isinstance(obj, (str, Real)):
-            return cls(obj)
+            return cls.from_string(str(obj))
 
         return structure_attrs(obj, cls)
 
@@ -406,7 +535,7 @@ def make_linear_expression_unstructure_fn(cls):
     
     def unstructure_fn(obj):
         if len(obj.references):
-            return unstructure_attrs(obj)
+            return str(obj)
 
         return obj.offset
 
@@ -422,6 +551,6 @@ qwip.converter.register_unstructure_hook_factory(
     make_linear_expression_unstructure_fn
 )
 
-@qfrozen(kw_only=False)
+@qfrozen(kw_only=False, repr=False)
 class Location(LinearExpression):
     ...

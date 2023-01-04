@@ -1,10 +1,13 @@
 import pytest
 import attrs
 
+import itertools as it
+from contextlib import nullcontext as noerror
+
 from copy import copy, deepcopy
 
 import qwip
-from qwip.sequencer.utils import Location
+from qwip.sequencer.utils import LinearExpression, Location
 
 class TestLocation:
     def test_create(self):
@@ -289,9 +292,54 @@ class TestLocation:
         assert copy(loc) is loc
         assert deepcopy(loc) is loc
 
-    def test_repr(self):
-        l0 = Location()
-        l1 = Location(5)
-        l2 = Location(10)
+    STR_EXPR_PAIRS = [
+        ('0', Location()),
+        ('1.2', Location(1.2)),
+        ('a', Location('a')),
+        ('+1', Location(1)),
+        ('-a', -Location('a')),
+        ('a + 1', 1 + Location('a')),
+        ('a - 5*b', Location('a') - 5 * Location('b')),
+        ('1 + 5 * (a + b + 2 * c)', 1 + 5 * (Location('a') + Location('b') + 2 * Location('c'))),
+        ('a + ', pytest.raises(ValueError)),
+        ('a * b', pytest.raises(ValueError)),
+        (1, pytest.raises(TypeError))
+    ]
 
-        l3 = Location(1, references={(l1, 0.5), (l2, 1)})
+    @pytest.mark.parametrize('s,loc_or_error',STR_EXPR_PAIRS)
+    def test_from_string(self, s, loc_or_error):
+        context = noerror()
+        if hasattr(loc_or_error, '__enter__'):
+            context = loc_or_error
+
+        with context:
+            assert Location.from_string(s) == loc_or_error
+
+    EXPR_STR_PAIRS = [
+        (Location(), '0'),
+        (Location('a'), 'a'),
+        (Location(1.2), '1.2'),
+        (Location('a') + 1.2, '1.2 + a'),
+        (Location('a') - 1.2, '-1.2 + a'),
+        (1 - 1 * (Location('a') + (Location('b'))), ('1 - a - b', '1 - b - a')),
+        (Location(1, references={(2 + Location('a'), -1)}), '1 - (2 + a)'),
+        (Location(1, references={(3 + Location('a'), -2)}), '1 - 2 * (3 + a)')
+    ]
+
+    @pytest.mark.parametrize('loc,expect', EXPR_STR_PAIRS)
+    def test_str_repr(self, loc, expect):
+        assert str(loc) in expect
+        assert repr(loc) == f'Location({loc})'
+
+    @pytest.mark.parametrize(
+        'loc',
+        it.chain(
+            (exp for exp, _ in EXPR_STR_PAIRS),
+            (exp for _, exp in STR_EXPR_PAIRS if isinstance(exp, LinearExpression))
+        )
+    )
+    def test_serialization(self, loc):
+        unstructured = qwip.converter.unstructure(loc)
+        structured = qwip.converter.structure(unstructured, Location)
+
+        assert loc.resolve() == structured
