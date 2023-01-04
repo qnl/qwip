@@ -1,16 +1,22 @@
 from typing import Any, ForwardRef, get_origin, get_args
 from pathlib import Path
 from numbers import Number
+from collections.abc import Mapping
 
-import attr
+from loguru import logger
+
+import attrs
 import cattr
 from cattr.gen import make_dict_structure_fn, make_dict_unstructure_fn
 import pendulum
 import numpy as np
 from numpy.typing import NDArray
-from cattr import GenConverter
+from cattr import Converter
 
-converter = GenConverter(prefer_attrib_converters=True)
+converter = Converter(
+    prefer_attrib_converters=True,
+    unstruct_collection_overrides={set: list, frozenset: list}
+)
 
 # ========== builtin types ========== #
 converter.register_structure_hook(
@@ -26,15 +32,6 @@ converter.register_structure_hook(
 converter.register_structure_hook(
     str,
     lambda v, cls: str(v) if isinstance(v, (int, float, bool)) else v
-)
-
-# Convert sets to lists
-def make_set_unstructure_fn(cls):
-    return lambda obj: list(converter.unstructure(el) for el in obj)
-
-converter.register_unstructure_hook_factory(
-    lambda cls: cls is set or get_origin(cls) is set,
-    make_set_unstructure_fn
 )
 
 # ========== ForwardRef ========== #
@@ -149,7 +146,7 @@ def make_attrs_structure_fn(cls):
 
     to_structure = {
         f.name: cattr.override(omit=True) 
-            for f in attr.fields(cls) if not should_structure(f)
+            for f in attrs.fields(cls) if not should_structure(f)
     }
 
     structure_from_dict = make_dict_structure_fn(
@@ -174,7 +171,7 @@ def make_attrs_unstructure_fn(cls):
     
     to_unstructure = {
         f.name: cattr.override(omit=True) 
-            for f in attr.fields(cls) if not should_unstructure(f)
+            for f in attrs.fields(cls) if not should_unstructure(f)
     }
 
     unstructure_from_dict = make_dict_unstructure_fn(
@@ -193,12 +190,11 @@ def make_attrs_unstructure_fn(cls):
     return unstructure_fn
 
 converter.register_structure_hook_factory(
-    attr.has,
+    attrs.has,
     make_attrs_structure_fn
 )
 
 converter.register_unstructure_hook_factory(
-    attr.has,
+    attrs.has,
     make_attrs_unstructure_fn
 )
-

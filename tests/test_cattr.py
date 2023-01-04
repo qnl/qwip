@@ -12,6 +12,7 @@ from cattr.converters import GenConverter
 from cattr.gen import make_mapping_structure_fn, make_mapping_unstructure_fn
 
 import qwip
+from qwip.testing import ignore_order
 from qwip.flatdict import FlatDict
 from qwip.typing import NDArray
 
@@ -24,14 +25,15 @@ class TestBuiltins:
         [
             (set, {'a', 'b', 'c'}, ['a', 'b', 'c']),
             (set[str], {'a', 'b', 'c'}, ['a', 'b', 'c']),
+            (frozenset[int], {1, 2, 3}, [1, 2, 3]),
         ]
     )
     def test_set(self, tp, obj, expected):
         unstructured = qwip.converter.unstructure(
             obj, unstructure_as=tp
         )
-        assert isinstance(unstructured, list)
-        assert sorted(unstructured) == sorted(expected)
+
+        assert unstructured == ignore_order(expected)
         assert qwip.converter.structure(unstructured, tp) == obj
 
 class TestFlatDict:
