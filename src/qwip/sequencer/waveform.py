@@ -231,7 +231,6 @@ class Waveform:
         for name in field_names['waveform']:
             old = getattr(self, name)
             updates_to_wave = updates | nested_updates[name]
-            print(updates_to_wave)
             to_update[name] = old.evolve(**updates_to_wave)
 
         return attrs.evolve(self, **to_update)
