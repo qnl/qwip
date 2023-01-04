@@ -3,6 +3,8 @@ import numpy as np
 
 from contextlib import nullcontext as noerror
 
+import qwip
+from qwip.testing import ignore_order
 from qwip.sequencer.utils import Location
 from qwip.sequencer.elements import (
     SequenceElement,
@@ -29,6 +31,15 @@ class TestSequenceElement:
         se = SequenceElement()
         assert se.locations == dict()
         assert se.constraints == dict()
+
+        se = SequenceElement(
+            locations=dict(start=[WAVEFORMS['g1']]),
+            constraints=dict(start=Location()),
+        )
+
+        assert se.locations == {Location('start'): [WAVEFORMS['g1']]}
+        assert se.constraints == dict(start=Location())
+        assert se.channels == set({Channel('I')})
 
     @pytest.mark.parametrize(
         'locations,start',
@@ -309,3 +320,36 @@ class TestSequenceElement:
 
         channel_map = {Channel(c): waves for c, waves in channel_map.items()}
         assert se.get_channel_map(*channels) == channel_map
+
+    @pytest.mark.parametrize(
+        'se,se_dict',
+        [
+            (SequenceElement(), {}),
+            (
+                SequenceElement.fromtuples(
+                    [(1 + Location('width'), WAVEFORMS['s1'])],
+                    width=Location(5)
+                ),
+                dict(
+                    locations={
+                        '1 + width': [
+                            {
+                                'channels': ignore_order([{'name': 'I'}, {'name': 'Q'}]),
+                                'width': 3.2e-8,
+                                '__class__': 'SquareWaveform'
+                            }
+                        ]
+                    },
+                    constraints=dict(width=5.0)
+                )
+            )
+        ]
+    )
+    def test_serialization(self, se, se_dict):
+
+        unstructured = qwip.converter.unstructure(se)
+        restructured = qwip.converter.structure(unstructured, SequenceElement)
+        
+        assert unstructured == se_dict
+        assert se == restructured
+    

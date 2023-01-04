@@ -31,8 +31,18 @@ class UnderconstrainedSolveError(np.linalg.LinAlgError):
 @qdefine
 class SequenceElement:
     locations: dict[Location, list[Waveform]] = field(factory=dict)
-    constraints: dict[str, Location | str] = field(factory=dict)
-    channels: set[Channel] = field(factory=set)
+    constraints: dict[str, Location] = field(factory=dict)
+    channels: set[Channel] = field(
+        factory=set,
+        metadata=dict(serialize=False)
+    )
+
+    def __attrs_post_init__(self):
+        # Update channels from waveforms
+        for waves in self.locations.values():
+            for wave in waves:
+                if wave:
+                    self.channels.update(wave.channels)
 
     @classmethod
     def fromtuples(
