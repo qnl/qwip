@@ -516,9 +516,6 @@ class LinearExpression:
         return self
 
 
-resolve_types_with_validation(LinearExpression, globals(), locals())
-
-
 def make_linear_expression_structure_fn(cls):
     structure_attrs = make_attrs_structure_fn(cls)
 
@@ -531,8 +528,6 @@ def make_linear_expression_structure_fn(cls):
     return structure_fn
 
 def make_linear_expression_unstructure_fn(cls):
-    unstructure_attrs = make_attrs_unstructure_fn(cls)
-    
     def unstructure_fn(obj):
         if len(obj.references):
             return str(obj)
