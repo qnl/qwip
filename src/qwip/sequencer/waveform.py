@@ -212,15 +212,26 @@ class Waveform:
             else:
                 field_names['other'] += [f.name for f in fields]
 
+        wave_name_set = set(field_names['waveform'])
         # Pull out nested updates
         nested_updates = defaultdict(dict)
         for key in list(updates):
             if '_' not in key:
                 continue
-            name, subkey = key.split('_', maxsplit=1)
 
-            if name in field_names['waveform']:
-                nested_updates[name][subkey] = updates.pop(key)
+            # Need to handle field names that also contain '_'
+            tokens = key.split('_')
+            combined_tokens = it.accumulate(tokens, lambda acc, x: f'{acc}_{x}')
+
+            for i, name in enumerate(combined_tokens):
+                if name not in wave_name_set:
+                    continue
+
+                subkey = '_'.join(tokens[i + 1:])
+                if subkey:
+                    nested_updates[name][subkey] = updates.pop(key)
+
+                break
 
         to_update = dict()
         # First make pass through non-nested attributes

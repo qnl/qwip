@@ -17,7 +17,8 @@ from qwip.sequencer.waveform import (
     CWWaveform,
     DRAG,
     SquareWaveform,
-    GaussianWaveform
+    GaussianWaveform,
+    VirtualZWaveform
 )
 
 import matplotlib.pyplot as plt
@@ -82,7 +83,18 @@ class TestWaveform:
                 DRAG(envelope=SquareWaveform()),
                 dict(envelope=GaussianWaveform()),
                 DRAG(envelope=GaussianWaveform())
-            )
+            ),
+            (
+                ModulatedWaveform(
+                    envelope=SquareWaveform(),
+                    mod_freq=CWWaveform(frequency='f')
+                ),
+                dict(mod_freq_frequency='f1'),
+                ModulatedWaveform(
+                    envelope=SquareWaveform(),
+                    mod_freq=CWWaveform(frequency='f1')
+                ),
+            ),
         ]
     )
     def test_evolve(self, wave, updates, expect):
