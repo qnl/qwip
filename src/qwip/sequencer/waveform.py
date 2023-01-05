@@ -229,9 +229,12 @@ class Waveform:
                 to_update[name] = updates.pop(name)
 
         for name in field_names['waveform']:
-            old = getattr(self, name)
-            updates_to_wave = updates | nested_updates[name]
-            to_update[name] = old.evolve(**updates_to_wave)
+            if name in updates:
+                to_update[name] = updates[name]
+            else:
+                old = getattr(self, name)
+                updates_to_wave = updates | nested_updates[name]
+                to_update[name] = old.evolve(**updates_to_wave)
 
         return attrs.evolve(self, **to_update)
 

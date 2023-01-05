@@ -77,6 +77,11 @@ class TestWaveform:
                     envelope=DRAG(envelope=SquareWaveform(width=10)),
                     mod_freq=CWWaveform(frequency='f')
                 ),
+            ),
+            (
+                DRAG(envelope=SquareWaveform()),
+                dict(envelope=GaussianWaveform()),
+                DRAG(envelope=GaussianWaveform())
             )
         ]
     )
