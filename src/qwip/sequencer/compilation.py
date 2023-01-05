@@ -305,7 +305,8 @@ class WaveformCompiler:
 
         for loc, waves in locations.items():
             for w in waves:
-                start, end = loc.offset, loc.offset + w.width.offset
+                width = w.width.resolve(**pulse_kwargs)
+                start, end = loc.offset, loc.offset + width.offset
 
                 s_idx, e_idx = int(start * sample_rate), int(end * sample_rate) + 1
                 if s_idx == e_idx - 1:
@@ -463,6 +464,7 @@ class WaveformCompiler:
         # waveform data arrays
         for i, (se_locs, se) in enumerate(zip(locations, seq.flat)):
             logger.debug(cseq.waveforms['seq'].sample_rate)
+            logger.debug(se.constraints | pulse_kwargs)
             self.compile_sequence_element(
                 se_locs,
                 # (channel_idx, element_idx, timepoints, num_outports)
