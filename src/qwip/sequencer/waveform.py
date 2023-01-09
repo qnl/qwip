@@ -332,7 +332,7 @@ class CWWaveform(InfiniteWaveform):
             phase: The starting phase of the modulation tone.
             phase_tracker: A phase tracking dictionary mapping modulation channels
                 to a ndarray of times and discrete phase jumps.
-            phase_unit: Either degrees or radians, specifies the phase units.
+            phase_unit: Eithe r degrees or radians, specifies the phase units.
                 Defaults to the value set in `qsettings['units/phase']`.
 
         Returns:
@@ -523,7 +523,8 @@ class GaussianWaveform(BasicWaveform):
 @register_waveform
 @qfrozen
 class CosineRampWaveform(BasicWaveform):
-    ramp: float = field(
+    ramp: float | str | None
+    ramp_fraction: float | str | None = field(
         default=0.1,
         validator=[validators.le(0.5), validators.gt(0)]
     )
@@ -534,7 +535,8 @@ class CosineRampWaveform(BasicWaveform):
         width: float,
         amplitude: float,
         t0: float,
-        ramp: float,
+        ramp: float = None,
+        ramp_fraction: float = 0.1,
         **kwargs,
     ) -> np.ndarray:
         """Square pulse with cosine ramps.
@@ -553,7 +555,13 @@ class CosineRampWaveform(BasicWaveform):
             times.
         """
         ts = ts - t0
-        rlen = ramp * width
+        if ramp is not None:
+            rlen = min(ramp, 0.5 * width)
+        elif ramp_fraction is not None:
+            rlen = ramp_fraction * width
+        else:
+            raise ValueError('One of ramp or ramp_fraction must be specified!')
+
         wave = np.zeros_like(ts, dtype=np.float32)
 
         ramp_up = (0 <= ts) & (ts < rlen)
