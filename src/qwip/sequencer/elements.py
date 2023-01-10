@@ -487,7 +487,7 @@ class SequenceElement:
         """
         
         self.locations = {
-            loc + dt: waves for loc, waves in self.locations
+            loc + dt: waves for loc, waves in self.locations.items()
         }
 
         return self
