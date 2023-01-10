@@ -44,17 +44,19 @@ class TestPipeline:
             means=np.array([[-1, 0], [-1, -2]], dtype=float),
             covariances=np.array([0.2, 0.2])
         )
+        n4 = ReadoutBitstring()
 
-        n4 = ReadoutHistogram()
-        n5 = StatePopulations()
+        n5 = ReadoutHistogram()
+        n6 = StatePopulations()
 
         processes = [
             (None, n1),
             ('R1', n2_R1),
             ('R0', n3_R0),
             ('R1', n3_R1),
-            (None, n4),
-            (None, n5)
+            (None, n4)
+            (None, n5),
+            (None, n6)
         ]
 
         for cls, dependencies in DATA_PROCESSOR_LOOKUP.items():
@@ -67,8 +69,8 @@ class TestPipeline:
             processors={(k, type(p).__name__): p for k, p in processes}
         )
 
-        key = 'R1'
-        processor = 'StatePopulations'
+        key = 'R0,R1'
+        processor = 'ReadoutBitstring'
 
         data = np.zeros((2, 10, 15, 1))
 

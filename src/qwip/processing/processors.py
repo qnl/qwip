@@ -143,17 +143,17 @@ class ReadoutBitstring(DataProcessor):
 
     def run(
         self,
-        meas: ClassifiedResult | Collection[ClassifiedResult],
+        meas: Collection[ClassifiedResult],
         **kwargs
     ) -> ClassifiedResult:
-        if isinstance(meas, ClassifiedResult) or len(meas) == 1:
-            return meas
+        if len(meas) == 1:
+            return meas[0]
 
         name = self.delimiter.join(m.name for m in meas)
 
-        bitstrings = meas[0].copy()
+        bitstrings = meas[0].data.copy()
         for m in meas[1:]:
-            bistrings += m
+            bitstrings += m.data
         num_states = max(m.num_states for m in meas)
 
         return ClassifiedResult(

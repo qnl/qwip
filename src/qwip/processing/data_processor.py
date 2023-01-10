@@ -2,6 +2,7 @@ import inspect
 from collections import defaultdict
 import numpy as np
 import pandas as pd
+from collections.abc import Collection
 from typing import get_origin, get_args
 
 from attrs import field, cmp_using
@@ -51,6 +52,12 @@ class MeasurementResult:
         return self.data.loc
 
 
+def is_input_output_compatible(out_type, in_type):
+    if is_generic_type(in_type, Collection):
+        in_type = get_args(in_type)[0]
+
+    return out_type == in_type
+
 def register_data_processor(
     maybe_cls: type[DataProcessor] = None,
     *,
@@ -72,9 +79,6 @@ def register_data_processor(
         in_type = sig.parameters['meas'].annotation
         out_type = sig.return_annotation
 
-        if is_generic_type(in_type):
-            in_type = get_args(in_type)[0]
-
         DATA_PROCESSOR_LOOKUP[cls.__name__] = (
             cls,
             in_type,
@@ -90,9 +94,10 @@ def register_data_processor(
                     f'Pre-processor {pre} is not a registered data processor.'
                 )
 
-            if in_type != (pre_type := DATA_PROCESSOR_LOOKUP[pre][2]):
+            _, _, pre_out_type = DATA_PROCESSOR_LOOKUP[pre]
+            if not is_input_output_compatible(pre_out_type, in_type):
                 raise TypeError(
-                    f'Pre-processor {pre} has output type {pre_type} that '
+                    f'Pre-processor {pre} has output type {pre_out_type} that '
                     f'does not match input type {in_type} for {cls.__name__}.'
                 )
 
@@ -104,9 +109,10 @@ def register_data_processor(
                     f'Post-processor {pre} is not a registered data processor.'
                 )
 
-            if out_type != (post_type:= DATA_PROCESSOR_LOOKUP[post][1]):
+            _, post_in_type, _ = DATA_PROCESSOR_LOOKUP[post]
+            if not is_input_output_compatible(out_type, post_in_type):
                 raise TypeError(
-                    f'Post-processor {post} has input type {post_type} that '
+                    f'Post-processor {post} has input type {post_in_type} that '
                     f'does not match output type {out_type} for {cls.__name__}.'
                 )
 
@@ -128,7 +134,6 @@ def resolve_class_dependencies(
     result = list()
 
     def add_process(name: str) -> None:
-        print(f'Resolving process {name}')
         if name in resolved:
             return
         
@@ -160,14 +165,14 @@ class ReadoutPipeline:
     def process(
         self,
         meas: dict[str, np.ndarray | MeasurementResult],
-        result_type: type,
+        processor_type: type,
         keys: list[str] = None,
         reset_cache: bool = True
     ) -> dict[str, MeasurementResult]:
         results = {}
 
         for key, input in meas.items():
-            results[key] = self.process_key(key, input)
+            results[key] = self.process_key(key, input, processor_type)
 
         return results
 
@@ -191,7 +196,6 @@ class ReadoutPipeline:
         processor_type: str
     ) -> MeasurementResult:
         def _process(key, data, dependencies):
-            print(f'Processing: {dependencies}')
             dep = dependencies.pop()
             dep_cls, in_type, _ =  DATA_PROCESSOR_LOOKUP[dep]
 
