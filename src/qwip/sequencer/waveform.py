@@ -164,7 +164,7 @@ class Waveform:
 
             if isinstance(var, Waveform):
                 varset.update(var.variables())
-            elif isinstance(var, Location):
+            elif isinstance(var, LinearExpression):
                 varset.update(var.variables(return_string=True))
             elif (
                 isinstance(var, str) and
@@ -187,7 +187,7 @@ class Waveform:
         for f in attrs.fields(type(self)):
             orig = getattr(self, f.name)
 
-            if isinstance(orig, (Location, Waveform)):
+            if isinstance(orig, (LinearExpression, Waveform)):
                 to_update[f.name] = orig.resolve(**variable_map)
             elif (
                 isinstance(orig, str) and
@@ -366,7 +366,10 @@ class CWWaveform(InfiniteWaveform):
         self,
         ts: np.ndarray,
         phase_tracker: dict[ModulationFrequency, np.ndarray],
-    ):
+    ) -> np.ndarray:
+        if self.frequency not in phase_tracker:
+            return np.zeros_like(ts)
+
         phase_jumps = phase_tracker[self.frequency]
 
         # Find phase_jumps that are relevant for the time slice
