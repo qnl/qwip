@@ -282,6 +282,11 @@ class Marker(Waveform):
 
 @register_waveform
 @qfrozen
+class CompositeWidthMarker(Marker):
+    ...
+
+@register_waveform
+@qfrozen
 class TriggerMarker(Marker):
     ...
 
@@ -526,7 +531,7 @@ class GaussianWaveform(BasicWaveform):
 @register_waveform
 @qfrozen
 class CosineRampWaveform(BasicWaveform):
-    ramp: float | str | None
+    ramp: float | str | None = None
     ramp_fraction: float | str | None = field(
         default=0.1,
         validator=[validators.le(0.5), validators.gt(0)]

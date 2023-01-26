@@ -16,6 +16,7 @@ from qwip.sequencer.waveform import (
     GaussianWaveform,
     SquareWaveform,
     CosineRampWaveform,
+    CompositeWidthMarker,
     Channel
 )
 
@@ -187,22 +188,21 @@ class TestSequenceElement:
         assert se1.locations == {Location(l): [] for l in 'abcd'}
 
     @pytest.mark.parametrize(
-        'vars1,vars2,name,shared,expect',
+        'vars1,vars2,name,expect',
         [
-            (['a', 'b', 'c'], ['b', 'c', 'd'], None, set(), pytest.raises(ValueError)),
-            (['a', 'b', 'c'], ['b', 'c', 'd'], None, set('bc'), set('abcd')),
+            (['a', 'b', 'c'], ['b', 'c', 'd'], None, set('abcd')),
 
         ]
     )
-    def test_append_shared_variables(self, vars1, vars2, name, shared, expect):
+    def test_append_shared_variables(self, vars1, vars2, name, expect):
         se1 = SequenceElement.fromtuples([(v, None) for v in vars1])
         se2 = SequenceElement.fromtuples([(v, None) for v in vars2])
 
         if hasattr(expect, '__enter__'):
             with expect:
-                se1.append(se2, name=name, shared=shared)
+                se1.append(se2, name=name)
         else:
-            se1.append(se2, name=name, shared=shared)
+            se1.append(se2, name=name)
             se1.variables() == expect
 
     @pytest.mark.parametrize(
@@ -353,3 +353,12 @@ class TestSequenceElement:
         assert unstructured == se_dict
         assert se == restructured
     
+    def test_width(self):
+        se = SequenceElement()
+
+        with pytest.raises(AttributeError):
+            se.width
+
+        se.add_waveform(CompositeWidthMarker(), Location('width'))
+
+        assert se.width == Location('width')

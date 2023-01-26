@@ -1,4 +1,5 @@
 from typing import Callable, Union, ForwardRef
+from functools import cache
 from numbers import Real
 from attrs import field
 from collections.abc import Collection, Callable
@@ -16,6 +17,7 @@ from qwip.settings.settings import qdefine
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     Waveform,
+    CompositeWidthMarker,
     Channel,
     CosineRampWaveform,
     Marker,
@@ -81,6 +83,15 @@ class SequenceElement:
         }
 
         return cls(locations=locations, constraints=constraints, channels=channels)
+
+    @property
+    def width(self) -> Location:
+        """Returns the width of a sequence element."""
+        for loc, waves in self.locations.items():
+            if CompositeWidthMarker() in waves:
+                return loc
+
+        raise AttributeError('Width is undefined unless a CompositeWidthMarker is specified.')
 
     def add_waveform(
         self,
@@ -183,7 +194,6 @@ class SequenceElement:
         other: 'SequenceElement',
         self_loc: LocationLike = Location(),
         other_loc: LocationLike = Location(),
-        shared: set[str] = set(),
         name: str | None = None,
     ) -> 'SequenceElement':
         """Appends a sequence element.
@@ -197,34 +207,17 @@ class SequenceElement:
                 the location in the `other` sequence element.
             other_loc: The location in the `other` sequence element to line up with
                 the location in the current sequence element.
-            shared: The set of variables that are shared between the two sequence
-                elements.
 
         Raises:
-            ValueError: If the two sequence elements share any variables that are not
-                explicitly declared in `shared`, or if `name` conflicts with any
-                existing variables.
+            ValueError: If any constraints that are declared in both sequence 
+                elements and differ from each other.
         """
         if not isinstance(self_loc, Location):
             self_loc = Location(self_loc)
         
         if not isinstance(other_loc, Location):
             other_loc = Location(other_loc)
-        
-        conflict = (self.variables() & other.variables()) - shared
-        if conflict:
-            errorstring = '\n\t' + '\n\t'.join(f'- {v}' for v in conflict)
-            raise ValueError(
-                f'The following variables exist in both sequence elements. Rename '
-                f'the variables in one sequence to avoid conflicts or declare them '
-                f'as shared variables.{errorstring}'
-            )
 
-        if name in (self.variables() | other.variables()):
-            raise ValueError(
-                f'Variable name \'{name}\' is already in use.'
-            )
-        
         dt = self_loc - other_loc
         if name is not None:
             self.constraints[name] = dt
@@ -235,7 +228,7 @@ class SequenceElement:
             self.locations[loc] = self.locations.get(loc, [])
             self.locations[loc].extend(waves)
 
-        for var, loc in other.constraints:
+        for var, loc in other.constraints.items():
             if var in self.constraints and self.constraints[var] != loc:
                 raise ValueError(
                     f'Conflicting constraints:\n'
