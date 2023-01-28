@@ -32,8 +32,8 @@ class NestedSettings(SimpleSettings):
 
     setting_field: ChildSetting
     param_field: FlatDict[str, str]
-    list_field: List[int]
-    optional_str: Optional[str]
+    list_field: list[int]
+    optional_str: str | None
 
 @qdefine
 class NumpySettings(Settings):
