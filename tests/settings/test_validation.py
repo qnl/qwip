@@ -316,6 +316,14 @@ class TestAddTypeValidator:
 
         field = attrs.fields(A).attr
         assert field.type._evaluate(globals(), locals(), set()) == A
+    
+    def test_optional_nullvalidator(self):
+        @qdefine
+        class A:
+            attr: Self | None
+
+        field = attrs.fields(A).attr
+        assert field.validator is None
 
 def test_resolve_types_with_validation():
     @qdefine

@@ -215,7 +215,9 @@ def get_iterable_validator(tps: Type, cls: type | None = None) -> Callable:
 
 def get_optional_validator(tps: Type, cls: type | None = None) -> Callable:
     args = tuple(tp for tp in get_args(tps) if tp is not type(None))
-    return optional(get_type_validator(args, cls))
+
+    validator = get_type_validator(args, cls)
+    return optional(validator) if validator else None
 
 @get_validator.register(Union)
 @get_validator.register(UnionType)
