@@ -9,6 +9,7 @@ import attrs
 import cattr
 from cattr.gen import make_dict_structure_fn, make_dict_unstructure_fn
 import pendulum
+import datetime as dt
 import numpy as np
 from numpy.typing import NDArray
 from cattr import Converter
@@ -116,10 +117,18 @@ converter.register_unstructure_hook_factory(
 
 # ========== pendulum types ========== #
 
+def pendulum_structure_fn(val, cls):
+    if isinstance(val, str):
+        return pendulum.parse(val)
+    elif isinstance(val, dt.datetime):
+        return pendulum.instance(val)
+    
+    return val
+
 # Pendulum parse only accepts strings.
 converter.register_structure_hook(
     pendulum.DateTime,
-    lambda v, cls: pendulum.parse(v) if isinstance(v, str) else v
+    pendulum_structure_fn
 )
 
 converter.register_unstructure_hook(
