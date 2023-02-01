@@ -15,6 +15,7 @@ from qwip.config.database import (
 )
 from qwip.config.models import(
     Parameter,
+    Folder,
 )
 from qwip.config.dolt import(
     DoltLog,
@@ -80,10 +81,6 @@ def models(configdb):
     yield QWIP_DB_METADATA
 
     with configdb.engine.begin() as connection:
-        stmt = sa.text('ALTER TABLE `parameters` DROP FOREIGN KEY `fk_parameters_parameters`')
-        connection.execute(stmt)
-
-    with configdb.engine.begin() as connection:
         dolt_reset(connection, commit_hash, hard=True)
 
     QWIP_DB_METADATA.drop_all(configdb.engine, tables=tables)
@@ -123,16 +120,14 @@ class TestDolt:
             metadata.drop_all(configdb.engine, tables=[test_table])
 
     def test_new_table(self, session, new_table):
-        log = session.execute(sa.select(DoltLog)).scalars().one()
+        log = session.execute(sa.select(DoltLog)).scalars().first()
         assert log.message == 'Initialize data repository'
 
         branch = session.execute(sa.select(DoltBranch)).scalars().one()
+        commit = session.execute(sa.select(DoltCommit)).scalars().first()
+        
         assert branch.name == 'main'
-        assert branch.hash == log.commit_hash
-
-        commit = session.execute(sa.select(DoltCommit)).scalars().one()
-
-        assert commit.commit_hash == log.commit_hash
+        assert branch.hash == log.commit_hash == commit.commit_hash
 
         nrows = session.execute(sa.select(new_table)).rowcount
         assert nrows == 0
@@ -206,26 +201,28 @@ class TestConfigDB:
         configdb.branch('new', action='delete')
 
 
-class TestParameter:
+class TestFolder:
     def test_select(self, configdb, session, models):
-        params = session.execute(sa.select(Parameter)).scalar_one_or_none()
-        assert params is None
-    
+        folders = session.execute(sa.select(Folder)).scalar_one_or_none()
+        assert folders is None
+
     def test_insert(self, configdb, session, models):
-        hardware = Parameter(name='hardware')
-        Parameter(name='qubit_LO', value=5.4e9, parent=hardware)
-        Parameter(name='readout_LO', value=6.2e9, parent=hardware)
+        hardware = Folder(name='hardware')
+        lo = Folder(name='local_oscillators', parent=hardware)
+        dc = Folder(name='dc_sources', parent=hardware)
 
         session.add(hardware)
         session.flush()
 
-        results = session.execute(sa.select(Parameter)).scalars().all()
+        results = session.execute(sa.select(Folder)).scalars().all()
 
         assert len(results) == 3
-        assert results == [hardware, hardware.parameters['qubit_LO'], hardware.parameters['readout_LO']]
+        assert results == [hardware, hardware.subfolders['local_oscillators'], hardware.subfolders['dc_sources']]
 
         dolt_reset(session, 'main', hard=True)
 
-    def test_update(self, configdb, session, models):
-        params = session.execute(sa.select(Parameter)).scalars().all()
+class TestParameter:
+    def test_select(self, configdb, session, models):
+        params = session.execute(sa.select(Parameter)).scalar_one_or_none()
+        assert params is None
         

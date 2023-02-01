@@ -65,29 +65,50 @@ class VersionControlled:
 
         return obj_results
 
+@qdefine(slots=False)
+class Folder(VersionControlled):
+    name: str
+    parent: Self | None = None
 
 @qdefine(slots=False)
 class Parameter(VersionControlled):
     name: str
-    parent: Self | None = None
+    folder: Folder | None
     timestamp: pendulum.DateTime | None = field(
         repr=lambda dt: dt.in_tz('local').isoformat() if isinstance(dt, pendulum.DateTime) else repr(dt),
         default=None
     )
     value: JSONTypes = None
 
+folder_table = DoltTable(
+    'folders',
+    QWIP_DB_METADATA,
+    Column('folder_id', sa.Integer, primary_key=True, autoincrement=True),
+    Column('name', sa.String(255), nullable=False),
+    Column(
+        'parent_id',
+        sa.Integer,
+        ForeignKey(
+            'folders.folder_id',
+            name='fk_folders_folders',
+            onupdate='CASCADE',
+            ondelete='CASCADE'
+        )
+    ),
+    UniqueConstraint('name', 'folder_id', name='uq_folders_name_folder_id')
+)
 
 parameter_table = DoltTable(
     'parameters',
     QWIP_DB_METADATA,
     Column('parameter_id', sa.Integer, primary_key=True, autoincrement=True),
-    Column('name', sa.String(50), nullable=False),
+    Column('name', sa.String(255), nullable=False),
     Column(
-        'parent_id',
+        'folder_id',
         sa.Integer,
         ForeignKey(
-            'parameters.parameter_id',
-            name='fk_parameters_parameters',
+            'folders.folder_id',
+            name='fk_parameters_folders',
             onupdate='CASCADE',
             ondelete='CASCADE'
         ),
@@ -98,25 +119,43 @@ parameter_table = DoltTable(
         onupdate=func.utc_timestamp()
     ),
     Column('value', sa.JSON),
-    UniqueConstraint('name', 'parent_id', name='uq_parameters_name_parent_id')
+    UniqueConstraint('name', 'folder_id', name='uq_parameters_name_folder_id')
 )
 
 parameter_table.create_system_tables()
+folder_table.create_system_tables()
 
 QWIP_DB_REGISTRY.map_imperatively(
-    Parameter,
-    parameter_table,
+    Folder,
+    folder_table,
     properties=dict(
-        parameters=relationship(
-            Parameter,
+        subfolders=relationship(
+            Folder,
             cascade='all, delete-orphan',
             back_populates='parent',
             collection_class=attribute_mapped_collection('name')
         ),
         parent=relationship(
+            Folder,
+            back_populates='subfolders',
+            remote_side=[folder_table.c.folder_id]
+        ),
+        parameters=relationship(
             Parameter,
+            cascade='all, delete-orphan',
+            back_populates='folder',
+            collection_class=attribute_mapped_collection('name')
+        ),
+    ),
+)
+
+QWIP_DB_REGISTRY.map_imperatively(
+    Parameter,
+    parameter_table,
+    properties=dict(
+        folder=relationship(
+            Folder,
             back_populates='parameters',
-            remote_side=[parameter_table.c.parameter_id]
         ),
         timestamp=parameter_table.c.last_modified
     ),

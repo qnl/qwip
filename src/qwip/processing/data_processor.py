@@ -171,8 +171,10 @@ class ReadoutPipeline:
     ) -> dict[str, MeasurementResult]:
         results = {}
 
-        for key, input in meas.items():
-            results[key] = self.process_key(key, input, processor_type)
+        for key, inp in meas.items():
+            if keys and key not in keys:
+                continue
+            results[key] = self.process_key(key, inp, processor_type)
 
         return results
 
