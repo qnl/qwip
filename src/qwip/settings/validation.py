@@ -268,7 +268,9 @@ def get_type_validator(tps: Type | tuple[Type], cls: type | None = None):
         logger.warning(f'No validator added for forward reference {repr(tps)}.')
         return None
     elif isinstance(tps, TypeVar):
-        return get_type_validator(tps.__bound__, cls)
+        if tps.__bound__:
+            return get_type_validator(tps.__bound__, cls)
+        return None
     else:
         return get_validator(tps, cls)
 
