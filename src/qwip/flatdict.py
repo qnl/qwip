@@ -120,37 +120,7 @@ class FlatMapping(Mapping):
         else:
             return True
 
-    # def __flatiter__(self, base=None):
-    #     def flat_enumerate(maybe_lst, index=()):
-    #         if isinstance(maybe_lst, list):
-    #             for i, nxt in enumerate(maybe_lst):
-    #                 yield from flat_enumerate(nxt, index=(*index, i))
-    #         else:
-    #             yield index, maybe_lst
-
-    #     for k, v in self.items():
-    #         if hasattr(v, '__flatiter__') and v:
-    #             next_base = k if base is None else  f'{base}{self._delim}{k}'
-    #             yield from v.__flatiter__(base=next_base)
-    #         elif isinstance(v, list) and v:
-    #             for idx, next_v in flat_enumerate(v):
-    #                 listkey = self._delim.join(str(i) for i in idx)
-    #                 if hasattr(next_v, '__flatiter__') and next_v:
-    #                     next_base = f'{k}{self._delim}{listkey}'
-    #                     if base:
-    #                         next_base = f'{base}{self._delim}{next_base}'
-    #                     yield from next_v.__flatiter__(base=next_base)
-    #                 else:
-    #                     yield f'{k}{self._delim}{listkey}' if base is None else f'{base}{self._delim}{k}{self._delim}{listkey}'
-    #         else:
-    #             yield k if base is None else f'{base}{self._delim}{k}'
-
     def __flatiter__(self, levels=None, base=None):
-        def flat_enumerate(maybe_lst, index=(), levels=None):
-            
-            next_levels = levels - 1 if levels is not None and levels > 0 else levels
-            yield index, maybe_lst, next_levels
-
         if levels == 0:
             return
         
