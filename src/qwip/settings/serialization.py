@@ -14,7 +14,7 @@ class _TypeConverter:
         try:
             return qwip.converter.structure(v, self.fieldtype)
         except Exception as e:
-            logger.debug(f'Conversion failed due to {e}.')
+            logger.debug(f'Conversion failed due to {type(e)}: {e}.')
             return v
 
 def add_type_converters(cls, fields):

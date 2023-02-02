@@ -177,7 +177,6 @@ class TestNumpy:
         np.complex64,
         np.complex128,
         np.bool_,
-        np.bool8
     ]
 
     @pytest.fixture
@@ -223,7 +222,7 @@ class TestNumpy:
 
     @pytest.mark.parametrize('size', SIZES)
     @pytest.mark.parametrize('dtype', [
-        np.float64, np.int32, np.bool8
+        np.float64, np.int32, np.bool_
     ])
     def test_unstructure(self, rng, size, dtype):
         from itertools import product
@@ -241,7 +240,7 @@ class TestNumpy:
 
     @pytest.mark.parametrize('size', SIZES)
     @pytest.mark.parametrize('dtype', [
-        np.float64, np.int32, np.bool8
+        np.float64, np.int32, np.bool_
     ])
     def test_round_trip(self, rng, size, dtype):
         arr = rng.integers(10, size=size).astype(dtype)
@@ -351,8 +350,8 @@ class TestAttrs:
 
     def test_numpy_fields(self):
         from typing import Annotated
-        from qwip.settings.settings import Settings
-        @define
+        from qwip.settings.settings import Settings, qdefine
+        @qdefine
         class A(Settings):
             a: NDArray[np.float32]
 

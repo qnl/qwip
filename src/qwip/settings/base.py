@@ -1,4 +1,4 @@
-from qwip.flatdict import FlatMapping
+from qwip.flatdict import FlatDict, FlatMapping
 
-class SettingsBase(FlatMapping):
+class SettingsBase(FlatDict):
     __slots__ = tuple()

@@ -110,11 +110,11 @@ def test_simple_attr_get_nonexistent(simple_flatdict):
 def test_simple_attr_set(simple_flatdict):
     p = simple_flatdict
 
-    p.str_val = 'newstring'
-    assert p['str_val'] == 'newstring'
-
     p.int_val = 2
     assert p['int_val'] == 2
+
+    p.str_val = 'newstring'
+    assert p['str_val'] == 'newstring'
 
 def test_nested_key_get(nested_flatdict):
     p = nested_flatdict

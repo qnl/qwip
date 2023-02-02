@@ -9,12 +9,14 @@ import attr, cattr
 
 from attrs import define, frozen
 
+import qwip
 from qwip import yaml
 from qwip.settings.base import SettingsBase
 from qwip.flatdict import FlatDict
 from qwip.settings.validation import add_type_validators
 from qwip.settings.serialization import add_type_converters
 from qwip.settings.schema import schema
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 
 def qwip_field_transform(cls, fields):
     fields = add_type_converters(cls, fields)
@@ -51,34 +53,29 @@ danger = disable_validation
 class Settings(SettingsBase):
     """A validated dataclass object."""
 
-    def __setitem__(self, key, val):
-        keys = key.strip(self._delim).split(self._delim)
+    def _get_mapping_type(self, key) -> type:
+        field = getattr(attr.fields(type(self)), key, None)
+        print(f'Getting mapping type for field {field}')
+        return field.type if field else FlatDict
 
-        if len(keys) == 1:
-            setattr(self, keys[0], val)
-        else:
-            subgroup = self
-            remainder = keys
-            for i, subkey in enumerate(keys[:-1]):
-                base = remainder[0]
-                remainder = keys[i+1:]
+    def __proxy_setitem__(self, key, val):
+        if not hasattr(self, key):
+            raise AttributeError(
+                f"'{type(self).__name__}' object has no attribute '{key}'"
+            )
 
-                if subkey in subgroup:
-                    subgroup = getattr(subgroup, subkey)
-                else:
-                    break
-            else:
-                base = remainder[0]
+        setattr(self, key, val)
 
-                if isinstance(subgroup, (Settings, FlatDict)):
-                    subgroup.__setitem__(base, val)
-                else:
-                    setattr(subgroup, base, val)
+    def __proxy_getitem__(self, key):
+        return object.__getattribute__(self, key)
 
-                return
-
-            key = self._delim.join(remainder)
-            setattr(subgroup, base, FlatDict({key: val}))
+    def __iter__(self):
+        for name in self.__slots__.__iter__():
+            if not name.startswith('_'):
+                yield name
+        
+    def __len__(self):
+        return len(self.__slots__)
 
     def update(self, *args, **kwargs):
         if len(args) > 1:
@@ -164,3 +161,8 @@ class Settings(SettingsBase):
 
     def save(self, file, file_fmt='yaml'):
         pass
+
+qwip.converter.register_structure_hook(
+    Settings,
+    lambda v, cls: make_attrs_structure_fn(cls)(v, cls)
+)

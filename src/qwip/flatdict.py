@@ -101,7 +101,7 @@ class FlatMapping(Mapping):
             try:
                 val = getattr(val, subkey)
             except AttributeError as e:
-                raise KeyError(str(e).rsplit(' ', maxsplit=1)[-1].strip('\'')) from AttributeError
+                raise KeyError(str(e).rsplit(' ', maxsplit=1)[-1].strip('\'')) from e
         return val
 
     def __iter__(self):
@@ -223,9 +223,39 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
         _delim (str): A class variable that specifies the character used to
             separate nested mappings.
     """
+    __slots__ = tuple()
 
     def  __init__(self, *args, **kwargs):
         self.update(*args, **kwargs)
+
+    def __getattr__(self, key):
+        try:
+            return self.__getitem__(key)
+        except KeyError as e:
+            raise AttributeError(
+                f"'{type(self).__name__} object has no attribute '{key}'"
+            ) from e
+
+    def __getitem__(self, key):
+        """Returns the item stored at `key`.
+        
+        Example:
+            ```
+            x.__getitem__(y) <==> x[y]
+            x['one/two/three'] <==> x['one']['two']['three']
+            ```
+        """
+        subkeys = self.split(self.strip(key))
+        val = self
+        for subkey in subkeys:
+            try:
+                val = object.__getattribute__(val, '__proxy_getitem__')(subkey)
+            except AttributeError as e:
+                try:
+                    val = dict.__getitem__(val, subkey)
+                except TypeError as e:
+                    raise KeyError(key) from e
+        return val
 
     def __setattr__(self, name, value):
         if isinstance(value, dict):
@@ -233,7 +263,16 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
             new_value.update(value)
             value = new_value
 
-        object.__setattr__(self, name, value)
+        if hasattr(self, name) and name not in self:
+            object.__setattr__(self, name, value)
+        else:
+            self.__setitem__(name, value)
+
+    def __proxy_setitem__(self, key, val):
+        dict.__setitem__(self, key, val)
+
+    def _get_mapping_type(self, key: str) -> type:
+        return type(self)
 
     def __setitem__(self, key, val):
         keys = key.strip(self._delim).split(self._delim)
@@ -244,7 +283,7 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
             val = new_val
 
         if len(keys) == 1:
-            setattr(self, keys[0], val)
+            self.__proxy_setitem__(keys[0], val)
             return
 
         subgroup = self
@@ -278,22 +317,22 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
         
         # need to create parameters
         key = self._delim.join(remainder)
-        subgroup.__setitem__(base, type(self)({key: val}))
+        subgroup.__setitem__(base, self._get_mapping_type(key=key)({key: val}))
 
     def __delitem__(self, key):
         key = key.split(self._delim) if isinstance(key, str) else [key]
         
         val = self
         for subkey in key[:-1]:
-            val = getattr(val, subkey)
+            val = val.__getitem__(subkey)
         
-        delattr(val, key[-1])
+        dict.__delitem__(val, key[-1])
 
     def __iter__(self):
-        yield from self.__dict__.__iter__()
+        yield from dict.__iter__(self)
 
     def __len__(self):
-        return self.__dict__.__len__()
+        return dict.__len__(self)
 
     def todict(self) -> dict:
         """Recursively converts the `FlatDict` object to a dictionary.
