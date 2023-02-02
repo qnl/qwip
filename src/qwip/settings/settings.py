@@ -67,7 +67,12 @@ class Settings(SettingsBase):
         setattr(self, key, val)
 
     def __proxy_getitem__(self, key):
-        return object.__getattribute__(self, key)
+        try:
+            return object.__getattribute__(self, key)
+        except AttributeError:
+            pass
+
+        raise KeyError(f"'{key}'")
 
     def __iter__(self):
         for name in self.__slots__.__iter__():

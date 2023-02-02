@@ -95,14 +95,35 @@ class FlatMapping(Mapping):
             x['one/two/three'] <==> x['one']['two']['three']
             ```
         """
-        key = self.split(self.strip(key))
+        subkeys = self.split(self.strip(key))
         val = self
-        for subkey in key:
+        for subkey in subkeys:
+            # First we check if val has a defined non-nested get
             try:
-                val = getattr(val, subkey)
+                val = object.__getattribute__(val, '__proxy_getitem__')(subkey)
+                continue
             except AttributeError as e:
-                raise KeyError(str(e).rsplit(' ', maxsplit=1)[-1].strip('\'')) from e
+                pass
+
+            # If val is self it should always have a defined non-nested get function
+            # so we raise a key error.
+            if val is self:
+                raise KeyError(f"'{key}'")
+
+            # Otherwise val may be some other dictionary-like object so we check if
+            # it has a __getitem__ defined.
+            try:
+                val = object.__getattribute__(val, '__getitem__')(subkey)
+                continue
+            except AttributeError as e:
+                pass
+
+            raise KeyError(f"'{key}'")
+
         return val
+
+    def __proxy_getitem__(self, key):
+        raise NotImplementedError()
 
     def __iter__(self):
         for name in self.__slots__.__iter__():
@@ -236,30 +257,12 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
                 f"'{type(self).__name__} object has no attribute '{key}'"
             ) from e
 
-    def __getitem__(self, key):
-        """Returns the item stored at `key`.
-        
-        Example:
-            ```
-            x.__getitem__(y) <==> x[y]
-            x['one/two/three'] <==> x['one']['two']['three']
-            ```
-        """
-        subkeys = self.split(self.strip(key))
-        val = self
-        for subkey in subkeys:
-            try:
-                val = object.__getattribute__(val, '__proxy_getitem__')(subkey)
-            except AttributeError as e:
-                try:
-                    val = dict.__getitem__(val, subkey)
-                except TypeError as e:
-                    raise KeyError(key) from e
-        return val
+    def __proxy_getitem__(self, key):
+        return dict.__getitem__(self, key)
 
     def __setattr__(self, name, value):
         if isinstance(value, dict):
-            new_value = self.__class__()
+            new_value = self._get_mapping_type(name)()
             new_value.update(value)
             value = new_value
 
