@@ -201,6 +201,12 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
 
         del val[subkeys[-1]]
 
+    def __delattr__(self, name: str):
+        if hasattr(self, name) and name not in self:
+            object.__delattr__(self, name)
+        else:
+            self.__delitem__(name)
+
     def __proxy_getitem__(self, key):
         raise NotImplementedError()
 

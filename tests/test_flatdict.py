@@ -258,6 +258,13 @@ def test_simple_delete(simple_flatdict):
 
     assert 'str_val' not in p
 
+def test_delete_attr(simple_flatdict):
+    p = simple_flatdict
+
+    del p.str_val
+
+    assert 'str_val' not in p
+
 def test_nested_delete(nested_flatdict):
     p = nested_flatdict
 
