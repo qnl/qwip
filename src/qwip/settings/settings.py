@@ -140,8 +140,3 @@ class Settings(SettingsBase):
 
     def save(self, file, file_fmt='yaml'):
         pass
-
-qwip.converter.register_structure_hook(
-    Settings,
-    lambda v, cls: make_attrs_structure_fn(cls)(v, cls)
-)
