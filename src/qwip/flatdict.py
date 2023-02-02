@@ -126,12 +126,10 @@ class FlatMapping(Mapping):
         raise NotImplementedError()
 
     def __iter__(self):
-        for name in self.__slots__.__iter__():
-            if not name.startswith('_'):
-                yield name
+        raise NotImplementedError()
 
     def __len__(self):
-        return self.__slots__.__len__()
+        raise NotImplementedError()
 
     def __contains__(self, key):
         try:

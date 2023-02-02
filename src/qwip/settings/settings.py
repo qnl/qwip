@@ -55,7 +55,6 @@ class Settings(SettingsBase):
 
     def _get_mapping_type(self, key) -> type:
         field = getattr(attr.fields(type(self)), key, None)
-        print(f'Getting mapping type for field {field}')
         return field.type if field else FlatDict
 
     def __proxy_setitem__(self, key, val):
@@ -81,29 +80,6 @@ class Settings(SettingsBase):
         
     def __len__(self):
         return len(self.__slots__)
-
-    def update(self, *args, **kwargs):
-        if len(args) > 1:
-            raise TypeError(f'update expected at most 1 argument, got {len(args)}')
-        
-        def _update(key, value):
-            if isinstance(value, Mapping):
-                self[key].update(value)
-            else:
-                self[key] = value
-
-        if args:
-            other = args[0]
-            
-            if isinstance(other, Mapping):
-                for key, value in other.items():
-                    _update(key, value)
-            else:
-                for key, value in other:
-                    _update(key, value)
-
-        for key, value in kwargs.items():
-            _update(key, value)
 
     def validate(self) -> None:
         """Calls all validators attached to field attributes."""
