@@ -13,6 +13,9 @@ from cattr.gen import make_mapping_structure_fn, make_mapping_unstructure_fn
 import qwip
 from qwip.typing import is_annotated_type, is_optional_type, is_generic_type, issubtype
 
+KT = TypeVar('KT', bound=str)
+VT = TypeVar('VT')
+
 class FlatKeysView(KeysView):
     """A flattened key view."""
     __slots__ = ('_levels',)
@@ -71,8 +74,7 @@ class FlatItemsView(ItemsView):
     def __repr__(self):
         return f'{self.__class__.__name__}({list(self.__iter__())})'
 
-
-class FlatMapping(Mapping):
+class FlatMapping(MutableMapping, Generic[KT, VT]):
     """A base class for a mapping object that allows "flat" access.
 
     Values can be accessed like `flatmap['one/two/three']` or
@@ -122,7 +124,77 @@ class FlatMapping(Mapping):
 
         return val
 
+    def __getattr__(self, key):
+        try:
+            return self.__getitem__(key)
+        except KeyError as e:
+            raise AttributeError(
+                f"'{type(self).__name__} object has no attribute '{key}'"
+            ) from e
+
+    def __setitem__(self, key, val):
+        keys = key.strip(self._delim).split(self._delim)
+
+        if isinstance(val, Mapping) and not isinstance(val, FlatMapping):
+            new_val = self.__class__()
+            new_val.update(val)
+            val = new_val
+
+        if len(keys) == 1:
+            self.__proxy_setitem__(keys[0], val)
+            return
+
+        subgroup = self
+        remainder = keys
+        for i, subkey in enumerate(keys[:-1]):
+            base = remainder[0]
+            remainder = keys[i+1:]
+
+            if isinstance(subgroup, FlatMapping):
+                if subkey in subgroup:
+                    subgroup = getattr(subgroup, subkey)
+                else:
+                    break
+            else:
+                raise TypeError(
+                    f'Cannot assign key {keys[i] + self._delim + remainder} to base {subgroup} of type {type(subgroup).__name__}.'
+                )
+        else: # Finished for loop
+            base = remainder[0]
+            if isinstance(subgroup, FlatMapping):
+                subgroup.__setitem__(base, val)
+            else:
+                try:
+                    setattr(subgroup, base, val)
+                except AttributeError as e:
+                    raise TypeError(
+                        f'Cannot assign key {base} to base {repr(subgroup)} of type {type(subgroup).__name__}'
+                    ) from e
+
+            return
+        
+        # need to create parameters
+        key = self._delim.join(remainder)
+        subgroup.__setitem__(base, self._get_mapping_type(key=key)({key: val}))
+
+    def __setattr__(self, name, value):
+        if isinstance(value, dict):
+            new_value = self._get_mapping_type(name)()
+            new_value.update(value)
+            value = new_value
+
+        if hasattr(self, name) and name not in self:
+            object.__setattr__(self, name, value)
+        else:
+            self.__setitem__(name, value)
+
     def __proxy_getitem__(self, key):
+        raise NotImplementedError()
+
+    def __proxy_setitem__(self, key):
+        raise NotImplementedError()
+
+    def __delitem__(self, key):
         raise NotImplementedError()
 
     def __iter__(self):
@@ -229,10 +301,7 @@ class FlatMapping(Mapping):
     def rsplit(self, key, maxsplit=-1):
         return key.rsplit(self._delim, maxsplit)
 
-KT = TypeVar('KT', bound=str)
-VT = TypeVar('VT')
-
-class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignore
+class FlatDict(FlatMapping, dict): # type:ignore
     """A mapping object that supports key chaining and attribute access.
 
     Values can be accessed like `params['one/two/three']` or
@@ -247,78 +316,14 @@ class FlatDict(FlatMapping, MutableMapping, dict, Generic[KT, VT]): # type:ignor
     def  __init__(self, *args, **kwargs):
         self.update(*args, **kwargs)
 
-    def __getattr__(self, key):
-        try:
-            return self.__getitem__(key)
-        except KeyError as e:
-            raise AttributeError(
-                f"'{type(self).__name__} object has no attribute '{key}'"
-            ) from e
-
     def __proxy_getitem__(self, key):
         return dict.__getitem__(self, key)
-
-    def __setattr__(self, name, value):
-        if isinstance(value, dict):
-            new_value = self._get_mapping_type(name)()
-            new_value.update(value)
-            value = new_value
-
-        if hasattr(self, name) and name not in self:
-            object.__setattr__(self, name, value)
-        else:
-            self.__setitem__(name, value)
 
     def __proxy_setitem__(self, key, val):
         dict.__setitem__(self, key, val)
 
     def _get_mapping_type(self, key: str) -> type:
         return type(self)
-
-    def __setitem__(self, key, val):
-        keys = key.strip(self._delim).split(self._delim)
-
-        if isinstance(val, Mapping) and not isinstance(val, FlatMapping):
-            new_val = self.__class__()
-            new_val.update(val)
-            val = new_val
-
-        if len(keys) == 1:
-            self.__proxy_setitem__(keys[0], val)
-            return
-
-        subgroup = self
-        remainder = keys
-        for i, subkey in enumerate(keys[:-1]):
-            base = remainder[0]
-            remainder = keys[i+1:]
-
-            if isinstance(subgroup, FlatMapping):
-                if subkey in subgroup:
-                    subgroup = getattr(subgroup, subkey)
-                else:
-                    break
-            else:
-                raise TypeError(
-                    f'Cannot assign key {keys[i] + self._delim + remainder} to base {subgroup} of type {type(subgroup).__name__}.'
-                )
-        else: # Finished for loop
-            base = remainder[0]
-            if isinstance(subgroup, FlatMapping):
-                subgroup.__setitem__(base, val)
-            else:
-                try:
-                    setattr(subgroup, base, val)
-                except AttributeError as e:
-                    raise TypeError(
-                        f'Cannot assign key {base} to base {repr(subgroup)} of type {type(subgroup).__name__}'
-                    ) from e
-
-            return
-        
-        # need to create parameters
-        key = self._delim.join(remainder)
-        subgroup.__setitem__(base, self._get_mapping_type(key=key)({key: val}))
 
     def __delitem__(self, key):
         key = key.split(self._delim) if isinstance(key, str) else [key]

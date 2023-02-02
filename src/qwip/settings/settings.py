@@ -74,9 +74,7 @@ class Settings(SettingsBase):
         raise KeyError(f"'{key}'")
 
     def __iter__(self):
-        for name in self.__slots__.__iter__():
-            if not name.startswith('_'):
-                yield name
+        yield from (k for k in iter(self.__slots__) if not k.startswith('_'))
         
     def __len__(self):
         return len(self.__slots__)
