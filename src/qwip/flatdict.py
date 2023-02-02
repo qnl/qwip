@@ -188,13 +188,26 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         else:
             self.__setitem__(name, value)
 
+    def __delitem__(self, key):
+        subkeys = key.rsplit(self._delim, maxsplit=1)
+
+        val = self
+        for subkey in subkeys[:-1]:
+            val = val[subkey]
+
+        if hasattr(val, '__proxy_delitem__'):
+            val.__proxy_delitem__(subkeys[-1])
+            return
+
+        del val[subkeys[-1]]
+
     def __proxy_getitem__(self, key):
         raise NotImplementedError()
 
     def __proxy_setitem__(self, key):
         raise NotImplementedError()
 
-    def __delitem__(self, key):
+    def __proxy_delitem__(self, key):
         raise NotImplementedError()
 
     def __iter__(self):
@@ -322,17 +335,11 @@ class FlatDict(FlatMapping, dict): # type:ignore
     def __proxy_setitem__(self, key, val):
         dict.__setitem__(self, key, val)
 
+    def __proxy_delitem__(self, key):
+        dict.__delitem__(self, key)
+
     def _get_mapping_type(self, key: str) -> type:
         return type(self)
-
-    def __delitem__(self, key):
-        key = key.split(self._delim) if isinstance(key, str) else [key]
-        
-        val = self
-        for subkey in key[:-1]:
-            val = val.__getitem__(subkey)
-        
-        dict.__delitem__(val, key[-1])
 
     def __iter__(self):
         yield from dict.__iter__(self)
