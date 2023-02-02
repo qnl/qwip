@@ -73,6 +73,14 @@ class Settings(SettingsBase):
 
         raise KeyError(f"'{key}'")
 
+    def __proxy_delitem__(self, key):
+        try:
+            return object.__delattr__(self, key)
+        except AttributeError:
+            pass
+
+        raise KeyError(f"'{key}'")
+
     def __iter__(self):
         yield from (k for k in iter(self.__slots__) if not k.startswith('_'))
         
