@@ -206,6 +206,9 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
             object.__delattr__(self, name)
         else:
             self.__delitem__(name)
+    
+    def _get_mapping_type(self, key: str) -> type:
+        return type(self)
 
     def __proxy_getitem__(self, key):
         raise NotImplementedError()
@@ -320,6 +323,22 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
     def rsplit(self, key, maxsplit=-1):
         return key.rsplit(self._delim, maxsplit)
 
+    def todict(self) -> dict:
+        """Recursively converts the `FlatDict` object to a dictionary.
+
+        Returns:
+            dict: The converted `FlatDict`.
+        """
+        return {k: v.todict() if isinstance(v, FlatMapping) else v for k, v in self.items()}
+
+    def toflatdict(self, levels=None) -> dict:
+        """Converts the flattenned `FlatDict` object to a dictionary.
+
+        Returns:
+            dict: The flattened `FlatDict`.
+        """
+        return {k: v for k, v in self.flatitems(levels=levels)}
+
 class FlatDict(FlatMapping, dict): # type:ignore
     """A mapping object that supports key chaining and attribute access.
 
@@ -344,30 +363,11 @@ class FlatDict(FlatMapping, dict): # type:ignore
     def __proxy_delitem__(self, key):
         dict.__delitem__(self, key)
 
-    def _get_mapping_type(self, key: str) -> type:
-        return type(self)
-
     def __iter__(self):
         yield from dict.__iter__(self)
 
     def __len__(self):
         return dict.__len__(self)
-
-    def todict(self) -> dict:
-        """Recursively converts the `FlatDict` object to a dictionary.
-
-        Returns:
-            dict: The converted `FlatDict`.
-        """
-        return {k: v.todict() if isinstance(v, FlatDict) else v for k, v in self.items()}
-
-    def toflatdict(self, levels=None) -> dict:
-        """Converts the flattenned `FlatDict` object to a dictionary.
-
-        Returns:
-            dict: The flattened `FlatDict`.
-        """
-        return {k: v for k, v in self.flatitems(levels=levels)}
     
     @contextmanager
     def context(self, update=None):
