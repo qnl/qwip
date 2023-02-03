@@ -5,12 +5,16 @@ from sqlalchemy.engine import make_url, URL
 import re
 import pendulum
 import functools
+import itertools as it
+from pathlib import Path
 from pendulum import DateTime
 from attrs import field
 from typing import TypeVar, Generic, Any
 from typing_extensions import Self
-from qwip.settings.settings import Settings, qdefine, qfrozen
 
+import qwip
+from qwip.settings.settings import Settings, qdefine, qfrozen
+from qwip.flatdict import FlatDict, FlatMapping
 from qwip.config.dolt import (
     DoltBranch,
     DoltCommit,
@@ -20,7 +24,7 @@ from qwip.config.dolt import (
     dolt_checkout,
     dolt_commit,
 )
-from qwip.config.models import Parameter
+from qwip.config.models import Folder, Parameter, JSONTypes
 
 SHORT_HASH_LEN = 8
 
@@ -48,7 +52,7 @@ class Branch:
     latest: Commit
 
     @classmethod
-    def from_orm(cls, model: DoltBranch):
+    def from_orm(cls, model: DoltBranch) -> Self:
         commit = Commit(
             hash=model.hash,
             committer=model.latest_committer,
@@ -62,6 +66,26 @@ class Branch:
             latest=commit
         )
 
+@qfrozen
+class ReadOnlyParameter:
+    name: str
+    value: JSONTypes | None = None
+    folder: str = '/'
+    timestamp: pendulum.DateTime | None = field(
+        repr=lambda dt: dt.in_tz('local').isoformat() if dt else repr(dt),
+        default=None
+    )
+    parameter_id: int = field(repr=False)
+
+    @classmethod
+    def from_orm(cls, model: Parameter) -> Self:
+        return cls(
+            name=model.name,
+            value=model.value,
+            folder=model.folder.path() if model.folder else '/',
+            timestamp=model.timestamp,
+            parameter_id=model.parameter_id
+        )
 
 @qdefine
 class ConfigDB:
@@ -91,10 +115,10 @@ class ConfigDB:
 
     def current_branch(self) -> Branch:
         with self.session.begin() as session:
-            name = session.execute(sa.func.active_branch()).scalar_one()
+            name = session.scalars(sa.func.active_branch()).one()
             stmt = sa.select(DoltBranch).where(DoltBranch.name == name)
 
-            result = session.execute(stmt).scalar_one()
+            result = session.scalars(stmt).one()
             branch = Branch.from_orm(result)
 
         return branch
@@ -176,3 +200,333 @@ class ConfigDB:
             host=url.host,
             port=url.port
         )
+
+def get_folder_list(name: str) -> list[Path | str]:
+    path = Path(name)
+
+    folders = []
+    while path.parent != path:
+        folders.append(path.name)
+        path = path.parent
+    
+    folders.append(path)
+    
+    return folders[::-1]
+
+@qdefine(repr=False)
+class SettingsFolder(FlatMapping):
+    session: sa.orm.Session
+    folder: Folder | None = field(default=None)
+
+    @property
+    def folder_id(self):
+        return self.folder.folder_id if self.folder else None
+
+    @classmethod
+    def from_folder_id(cls, session: sa.orm.Session, folder_id: int) -> Self:
+        folder = session.scalars(
+            sa.select(Folder).where(Folder.folder_id == folder_id)
+        ).one()
+
+        return cls(session=session, folder=folder)
+
+    @classmethod
+    def from_name(cls, session: sa.orm.Session, name: str) -> Self:
+        if name == '/':
+            return cls(session=session)
+
+        breadcrumbs = name.strip(cls._delim).split(cls._delim)
+        stmt = sa.select(Folder).where(Folder.name == breadcrumbs[0])
+
+        if name.startswith(cls._delim):
+            stmt = stmt.where(Folder.parent_id == None)
+
+        folders = session.scalars(stmt).all()
+
+        if not len(folders):
+            raise KeyError(f'Folder {name} does not exist.')
+
+        for name in breadcrumbs[1:]:
+            subfolders = [sub for f in folders if (sub := f.subfolders.get(name))]
+
+            if not len(subfolders):
+                raise KeyError(f'Folder {name} does not exist.')
+            
+            folders = subfolders
+        
+        if len(folders) > 1:
+            raise KeyError(f'Found multiple folders with name {name}')
+        
+        return cls(session=session, folder=folders[0])
+
+    def __dictrepr__(self):
+        return (
+            "{" +
+            ", ".join([f"{repr(k)}: {getattr(v, '__dictrepr__', v.__repr__)()}" for k, v in self.items()]) +
+            "}"
+        )
+
+    def __repr__(self) -> str:
+        return f'{type(self).__name__}(path={self.path()}, contents={self.__dictrepr__()})'
+
+    def __rich_repr__(self):
+        yield 'path', self.path()
+        yield 'contents', self.todict()
+
+    @staticmethod
+    def _get_folders_from_db(session, name=None, parent_id=None):
+        stmt = sa.select(Folder)
+        
+        if parent_id is not ...:
+            stmt = stmt.where(Folder.parent_id == parent_id)
+        
+        if name is not None:
+            stmt = stmt.where(Folder.name == name)
+
+        return session.scalars(stmt)
+
+    @staticmethod
+    def _get_parameters_from_db(session, name=None, folder_id=None):
+        stmt = sa.select(Parameter)
+        
+        if folder_id is not ...:
+            stmt = stmt.where(Parameter.folder_id == folder_id)
+
+        if name is not None:
+            stmt = stmt.where(Parameter.name == name)
+
+        return session.scalars(stmt)
+
+    def _get_mapping_type(self, key: str) -> type:
+        return FlatDict
+
+    def __proxy_setitem__(self, name, value):
+        # First we check if we're trying to write to an actual attribute.
+        if name not in self:
+            raise KeyError(
+                f"'{name}' does not exist. Use create_parameter to or create_folder to "
+                f"create a new parameter or folder."
+            )
+        
+        existing_value = self[name]
+        if isinstance(existing_value, SettingsFolder):
+            raise KeyError(f"'{name}' is a folder.")
+
+        param = type(self)._get_parameters_from_db(self.session, name, self.folder_id).one()
+        param.value = qwip.converter.unstructure(value)
+        self.session.flush()
+
+    def create_parameter(self, name, value=None):
+        splitname = name.rsplit(self._delim, maxsplit=1)
+
+        if len(splitname) == 1:
+            folder_name = None
+            param_name = splitname[0]
+        else:
+            folder_name, param_name = splitname
+
+        folderproxy = self
+        if folder_name:
+            folderproxy = self.get(folder_name)
+            if folderproxy is None:
+                raise AttributeError(f'Folder {folder_name} does not exist in {self}.')
+
+        if param_name in folderproxy:
+            raise AttributeError(f'Parameter {param_name} already exists in {self}.')
+
+        param = Parameter(
+            name=param_name,
+            value=qwip.converter.unstructure(value),
+            folder=folderproxy.folder
+        )
+
+        self.session.add(param)
+        self.session.flush()
+        return param.value
+
+    def create_folder(self, name, parents=True, exist_ok=False):
+        folder_list = get_folder_list(name.replace(self._delim, '/'))
+
+        if folder_list[0] == Path('/') and self.folder is not None:
+            self_path = self.path()
+            self_folder_list = get_folder_list(self_path.replace(self._delim, '/'))
+
+            if folder_list[:len(self_folder_list)] != self_folder_list:
+                raise ValueError(
+                    f'Folder path {name} is not a subfolder of {self_path}.'
+                )
+            
+            folder_list = folder_list[len(self_folder_list):]
+        else:
+            folder_list = folder_list[1:]
+
+        folders_to_add = []
+        folder = self.folder
+        for i, sub in enumerate(folder_list):
+            if folder is not None and sub in folder.subfolders:
+                folder = folder[sub]
+            elif folder is None and sub in self:
+                folder = self[sub].folder
+            elif i == len(folder_list) - 1:
+                folder = Folder(name=sub, parent=folder)
+                folders_to_add.append(folder)
+                break
+            elif parents:
+                folder = Folder(name=sub, parent=folder)
+                folders_to_add.append(folder)
+            else:
+                raise FileNotFoundError(
+                    f"Path '{name}' does not exist. Use parents=True to create all parent folders."
+                )
+        else:
+            if not exist_ok:
+                raise FileExistsError(
+                    f'Cannot create folder {name} that exists already.'
+                )
+
+        self.session.add_all(folders_to_add)
+        self.session.flush()
+        
+        return type(self)(session=self.session, folder=folder)
+
+    def path(self) -> str:
+        if self.folder is None:
+            return self._delim
+
+        return self.folder.path().replace('/', self._delim)
+
+    def __proxy_getitem__(self, name):
+        # Look for subfolder with name first
+        if self.folder:
+            subfolder = self.folder.subfolders.get(name)
+        else:
+            subfolder = type(self)._get_folders_from_db(
+                self.session, name, None
+            ).one_or_none()
+        
+        if subfolder:
+            return type(self)(session=self.session, folder=subfolder)
+
+        # Then look for parameter with name
+        if self.folder:
+            parameter = self.folder.parameters.get(name)
+        else:
+            parameter = type(self)._get_parameters_from_db(self.session, name, None).one_or_none()
+        
+        if parameter:
+            return parameter.value
+
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def search(self, name: str = None, sort = True):
+        return self.search_folders(name, sort) + self.search_parameters(name, sort)
+
+    def search_folders(self, name: str = None, sort=True):
+        """Searches for all subfolders.
+
+        See https://www.mysqltutorial.org/mysql-adjacency-list-tree/
+
+        Args:
+            name: 
+        """
+        folder_path = (
+            sa.select(Folder.folder_id, Folder.name, Folder.name.label('path'))
+            .where(Folder.parent_id == self.folder_id)
+            .cte(name='folder_path', recursive=True)
+        )
+
+        fp = sa.orm.aliased(folder_path, name='fp')
+        f = sa.orm.aliased(Folder, name='f')
+
+        subquery = folder_path.union_all(
+            sa.select(f.folder_id, f.name, sa.func.concat(fp.c.path, '/', f.name))
+            .select_from(
+                sa.join(fp, f, fp.c.folder_id == f.parent_id)
+            )
+        )
+
+        stmt = sa.select(subquery)
+        
+        if name: stmt = stmt.where(subquery.c.name == name)
+        if sort: stmt = stmt.order_by(subquery.c.path)
+
+        return [
+            type(self).from_folder_id(session=self.session, folder_id=fid) 
+                for fid in self.session.scalars(stmt)
+        ]
+
+    def search_parameters(self, name: str = None, sort=True):
+        """Searches for all parameters.
+
+        See https://www.mysqltutorial.org/mysql-adjacency-list-tree/
+
+        Args:
+            name: 
+        """
+        folder_path = (
+            sa.select(Folder.folder_id, Folder.name, Folder.name.label('path'))
+            .where(Folder.parent_id == self.folder_id)
+            .cte(name='folder_path', recursive=True)
+        )
+
+        fp = sa.orm.aliased(folder_path, name='fp')
+        f = sa.orm.aliased(Folder, name='f')
+
+        subquery = folder_path.union_all(
+            sa.select(f.folder_id, f.name, sa.func.concat(fp.c.path, '/', f.name))
+            .select_from(
+                sa.join(fp, f, fp.c.folder_id == f.parent_id)
+            )
+        )
+
+        # This first statement gets all Parameters in nested subfolders
+        stmt = (
+            sa.select(Parameter)
+            .select_from(
+                sa.join(subquery, Parameter, subquery.c.folder_id == Parameter.folder_id)
+            )
+        )
+        # This second statement gets all Parameters in this folder
+        non_nested = sa.select(Parameter).where(Parameter.folder_id == self.folder_id)
+        
+        if name: 
+            stmt = stmt.where(Parameter.name == name)
+            non_nested = non_nested.where(Parameter.name == name)
+        if sort: 
+            stmt = stmt.order_by(subquery.c.path)
+
+        all_parameters = it.chain(self.session.scalars(stmt), self.session.scalars(non_nested))
+
+        return [ReadOnlyParameter.from_orm(p) for p in all_parameters]
+
+    def __iter__(self):
+        if self.folder:
+            subfolders = self.folder.subfolders
+            parameters = self.folder.parameters
+        else:
+            subfolders = (
+                f.name for f in type(self)._get_folders_from_db(self.session).all()
+            )
+            parameters = (
+                p.name for p in type(self)._get_parameters_from_db(self.session).all()
+            )
+        
+        return it.chain(subfolders, parameters)
+
+    def __len__(self):
+        if self.folder:
+            return len(self.folder.subfolders) + len(self.folder.parameters)
+        else:
+            num_root_folders =  self.session.scalar(
+                sa.select(sa.func.count())
+                .select_from(Folder)
+                .where(Folder.parent_id == None)
+            )
+
+            num_parameters = self.session.scalar(
+                sa.select(sa.func.count())
+                .select_from(Parameter)
+                .where(Parameter.folder_id == None)
+            )
+
+            return num_root_folders + num_parameters

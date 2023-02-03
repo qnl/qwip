@@ -68,17 +68,35 @@ class VersionControlled:
 @qdefine(slots=False)
 class Folder(VersionControlled):
     name: str
-    parent: Self | None = None
+    parent: Self | None = field(
+        repr=lambda f: f.path() if f else repr(f),
+        default=None
+    )
+
+    def path(self) -> str:
+        if self.parent is None:
+            return f'/{self.name}/'
+
+        return f'{self.parent.path()}{self.name}/'
 
 @qdefine(slots=False)
 class Parameter(VersionControlled):
     name: str
-    folder: Folder | None
+    folder: Folder | None = field(
+        repr=lambda f: f.path() if f else repr(f),
+        default=None
+    )
     timestamp: pendulum.DateTime | None = field(
         repr=lambda dt: dt.in_tz('local').isoformat() if isinstance(dt, pendulum.DateTime) else repr(dt),
         default=None
     )
-    value: JSONTypes = None
+    value: JSONTypes | None = None
+
+    def path(self) -> str:
+        if self.folder is None:
+            return f'/{self.name}'
+
+        return f'{self.folder.path()}{self.name}'
 
 folder_table = DoltTable(
     'folders',
