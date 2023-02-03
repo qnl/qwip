@@ -12,6 +12,7 @@ from qwip.config.database import (
     ConfigDB,
     Commit,
     Branch,
+    SettingsFolder
 )
 from qwip.config.models import(
     Parameter,
@@ -67,10 +68,10 @@ def branch_name():
 
 @pytest.fixture(scope='module')
 def models(configdb):
-    with configdb.engine.begin() as connection:
-        commit_hash = connection.execute(
+    with configdb.session.begin():
+        commit_hash = configdb.session.scalars(
             sa.func.HASHOF('main')
-        ).scalars().one()
+        ).one()
 
     tables = [t for n, t in QWIP_DB_METADATA.tables.items() if not n.startswith('dolt')]
     
@@ -80,15 +81,22 @@ def models(configdb):
 
     yield QWIP_DB_METADATA
 
-    with configdb.engine.begin() as connection:
-        dolt_reset(connection, commit_hash, hard=True)
+    with configdb.session.begin():
+        dolt_reset(configdb.session, commit_hash, hard=True)
 
     QWIP_DB_METADATA.drop_all(configdb.engine, tables=tables)
 
 @pytest.fixture
+def reset_models(session, models):
+    yield models
+
+    dolt_reset(session, 'main', hard=True)
+
+
+@pytest.fixture
 def session(configdb):
-    with configdb.session.begin() as session:
-        yield session
+    with configdb.session.begin():
+        yield configdb.session
 
 class TestDolt:
     @pytest.fixture
@@ -186,7 +194,7 @@ class TestConfigDB:
         branch = configdb.get_branch('new')
         assert branch.name == 'new'
 
-        configdb.branch('new', action='delete')
+        configdb.branch('new', action='delete', force=True)
         assert configdb.get_branch('new') is None
 
     def test_checkout_branch(self, configdb):
@@ -198,15 +206,10 @@ class TestConfigDB:
         assert branch == current
 
         configdb.checkout('main')
-        configdb.branch('new', action='delete')
-
+        configdb.branch('new', action='delete', force=True)
 
 class TestFolder:
-    def test_select(self, configdb, session, models):
-        folders = session.execute(sa.select(Folder)).scalar_one_or_none()
-        assert folders is None
-
-    def test_insert(self, configdb, session, models):
+    def test_select_insert(self, session, reset_models):
         hardware = Folder(name='hardware')
         lo = Folder(name='local_oscillators', parent=hardware)
         dc = Folder(name='dc_sources', parent=hardware)
@@ -214,15 +217,72 @@ class TestFolder:
         session.add(hardware)
         session.flush()
 
-        results = session.execute(sa.select(Folder)).scalars().all()
+        results = session.scalars(sa.select(Folder)).all()
 
         assert len(results) == 3
-        assert results == [hardware, hardware.subfolders['local_oscillators'], hardware.subfolders['dc_sources']]
+        assert results == [hardware, lo, dc]
 
-        dolt_reset(session, 'main', hard=True)
+    def test_select_none(self, session, reset_models):
+        folders = session.scalars(sa.select(Folder)).one_or_none()
+        assert folders is None
 
-class TestParameter:
-    def test_select(self, configdb, session, models):
-        params = session.execute(sa.select(Parameter)).scalar_one_or_none()
-        assert params is None
+    def test_select_condition(self, session, reset_models):
+        hardware = Folder(name='hardware')
+        lo = Folder(name='local_oscillators', parent=hardware)
+        dc = Folder(name='dc_sources', parent=hardware)
+        yoko = Folder(name='yokos', parent=dc)
+        qubits = Folder(name='qubits')
+
+        session.add_all([hardware, qubits])
+        session.flush()
+
+        assert session.scalars(sa.select(Folder)).all() == [hardware, qubits, lo, dc, yoko]
+
+        assert session.scalars(
+            sa.select(Folder)
+            .where(Folder.parent_id == None)
+        ).all() == [hardware, qubits]
+        assert session.scalars(
+            sa.select(Folder)
+            .where(Folder.parent_id == hardware.folder_id)
+        ).all() == [lo, dc]
         
+class TestParameter:
+    def test_select(self, session, reset_models):
+        params = session.scalars(sa.select(Parameter)).one_or_none()
+        assert params is None
+
+class TestSettingsInDB:
+    def test_settings(self, session, reset_models):
+        params = SettingsFolder(session=session)
+
+        hardware = Folder(name='hardware')
+        lo = Folder(name='local_oscillators', parent=hardware)
+        dc = Folder(name='dc_sources', parent=hardware)
+
+        session.add(hardware)
+        session.flush()
+
+        stmt = sa.select(Folder).where(Folder.parent_id == None)
+        result = session.scalars(stmt).all()
+        print(result)
+
+        # print(params.folder_id)
+        # print(params['hardware'])
+        print(params)
+        print(params['hardware/local_oscillators'])
+
+        print(list(params.flatitems()))
+        print('hardware/local_oscillators' in params)
+
+        # print(list(params.items()))
+        # stmt = sa.select(sa.func.count()).select_from(Folder)
+
+        # result = session.scalar(
+        #     stmt
+        # )
+        # print(result)
+
+        # print(params['hardware'].folder.subfolders)
+        # result = type(params)._get_root_folders(session).all()
+        # print(result)

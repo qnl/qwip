@@ -1,5 +1,5 @@
 import sqlalchemy as sa
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import Session
 from sqlalchemy.engine import make_url, URL
 
 import re
@@ -87,6 +87,19 @@ class ReadOnlyParameter:
             parameter_id=model.parameter_id
         )
 
+import functools
+
+def session_context(func):
+    @functools.wraps(func)
+    def decorated(inst, *args, **kwargs):
+        if inst.session.in_transaction():
+            return func(inst, *args, **kwargs)
+        else:
+            with inst.session.begin():
+                return func(inst, *args, **kwargs)
+
+    return decorated
+
 @qdefine
 class ConfigDB:
     database: str | None = None
@@ -96,7 +109,7 @@ class ConfigDB:
     port: int = 3306
 
     engine: sa.engine.Engine | None = None
-    session: sa.orm.sessionmaker | None = None
+    session: sa.orm.Session | None = None
 
     def connect(self):
         url = URL.create(
@@ -109,38 +122,40 @@ class ConfigDB:
         )
         engine = sa.create_engine(url)
         self.engine = engine
-        self.session = sessionmaker(engine)
+        self.session = Session(engine, autobegin=False, expire_on_commit=False)
         
         return engine
-
+    
+    @session_context
     def current_branch(self) -> Branch:
-        with self.session.begin() as session:
-            name = session.scalars(sa.func.active_branch()).one()
-            stmt = sa.select(DoltBranch).where(DoltBranch.name == name)
+        # with self.session.begin():
+        name = self.session.scalars(sa.func.active_branch()).one()
+        stmt = sa.select(DoltBranch).where(DoltBranch.name == name)
 
-            result = session.scalars(stmt).one()
-            branch = Branch.from_orm(result)
+        result = self.session.scalars(stmt).one()
+        branch = Branch.from_orm(result)
 
         return branch
 
+    @session_context
     def get_branch(self, name: str) -> Branch | None:
-        with self.session.begin() as session:
-            stmt = sa.select(DoltBranch).where(DoltBranch.name == name)
+        stmt = sa.select(DoltBranch).where(DoltBranch.name == name)
 
-            result = session.execute(stmt).scalar_one_or_none()
+        result = self.session.execute(stmt).scalar_one_or_none()
 
-            if result is None:
-                return result
+        if result is None:
+            return result
 
-            return Branch.from_orm(result)
+        return Branch.from_orm(result)
 
+    @session_context
     def add(
         self,
         tables: list[str] | None = None
     ) -> None:
-        with self.session.begin() as connection:
-            dolt_add(connection, tables=tables)
+        dolt_add(self.session, tables=tables)
 
+    @session_context
     def branch(
         self,
         branch: str | None = None,
@@ -148,15 +163,15 @@ class ConfigDB:
         action: str = 'create',
         force: bool = False,
     ) -> None:
-        with self.session.begin() as connection:
-            dolt_branch(connection, branch, other_branch, action, force)
+        dolt_branch(self.session, branch, other_branch, action, force)
 
+    @session_context
     def checkout(self, name: str, new_branch: bool = False) -> Branch:
-        with self.session.begin() as connection:
-            dolt_checkout(connection, name, new_branch=new_branch)
+        dolt_checkout(self.session, name, new_branch=new_branch)
 
         return self.get_branch(name)
 
+    @session_context
     def commit(
         self,
         message: str,
@@ -165,29 +180,28 @@ class ConfigDB:
         author: str | None = None,
         allow_empty: bool = False
     ) -> Commit:
-        with self.session.begin() as session:
-            dolt_commit(session, message, add, date, author, allow_empty)
+        dolt_commit(self.session, message, add, date, author, allow_empty)
 
-            result = session.execute(
-                sa.select(DoltLog).where(
-                    DoltLog.commit_hash == sa.func.hashof('HEAD')
-                )
-            ).scalar_one()
+        result = self.session.execute(
+            sa.select(DoltLog).where(
+                DoltLog.commit_hash == sa.func.hashof('HEAD')
+            )
+        ).scalar_one()
 
-            return Commit.from_orm(result)
+        return Commit.from_orm(result)
 
+    @session_context
     def get_commit(
         self,
         commit_hash: str
     ) -> Commit | None:
-        with self.session.begin() as session:
-            result = session.execute(
-                sa.select(DoltLog).where(
-                    DoltLog.commit_hash == commit_hash
-                )
-            ).scalar_one()
+        result = self.session.execute(
+            sa.select(DoltLog).where(
+                DoltLog.commit_hash == commit_hash
+            )
+        ).scalar_one()
 
-            return Commit.from_orm(result)
+        return Commit.from_orm(result)
 
     @classmethod
     def from_url(cls, db_url: str) -> Self:
@@ -266,6 +280,7 @@ class SettingsFolder(FlatMapping):
             "}"
         )
 
+    @session_context
     def __repr__(self) -> str:
         return f'{type(self).__name__}(path={self.path()}, contents={self.__dictrepr__()})'
 
@@ -300,6 +315,7 @@ class SettingsFolder(FlatMapping):
     def _get_mapping_type(self, key: str) -> type:
         return FlatDict
 
+    @session_context
     def __proxy_setitem__(self, name, value):
         # First we check if we're trying to write to an actual attribute.
         if name not in self:
@@ -315,7 +331,8 @@ class SettingsFolder(FlatMapping):
         param = type(self)._get_parameters_from_db(self.session, name, self.folder_id).one()
         param.value = qwip.converter.unstructure(value)
         self.session.flush()
-
+    
+    @session_context
     def create_parameter(self, name, value=None):
         splitname = name.rsplit(self._delim, maxsplit=1)
 
@@ -344,6 +361,7 @@ class SettingsFolder(FlatMapping):
         self.session.flush()
         return param.value
 
+    @session_context
     def create_folder(self, name, parents=True, exist_ok=False):
         folder_list = get_folder_list(name.replace(self._delim, '/'))
 
@@ -389,12 +407,14 @@ class SettingsFolder(FlatMapping):
         
         return type(self)(session=self.session, folder=folder)
 
+    @session_context
     def path(self) -> str:
         if self.folder is None:
             return self._delim
 
         return self.folder.path().replace('/', self._delim)
 
+    @session_context
     def __proxy_getitem__(self, name):
         # Look for subfolder with name first
         if self.folder:
@@ -418,9 +438,11 @@ class SettingsFolder(FlatMapping):
 
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
+    @session_context
     def search(self, name: str = None, sort = True):
         return self.search_folders(name, sort) + self.search_parameters(name, sort)
-
+    
+    @session_context
     def search_folders(self, name: str = None, sort=True):
         """Searches for all subfolders.
 
@@ -455,6 +477,7 @@ class SettingsFolder(FlatMapping):
                 for fid in self.session.scalars(stmt)
         ]
 
+    @session_context
     def search_parameters(self, name: str = None, sort=True):
         """Searches for all parameters.
 
@@ -499,6 +522,7 @@ class SettingsFolder(FlatMapping):
 
         return [ReadOnlyParameter.from_orm(p) for p in all_parameters]
 
+    @session_context
     def __iter__(self):
         if self.folder:
             subfolders = self.folder.subfolders
@@ -513,6 +537,7 @@ class SettingsFolder(FlatMapping):
         
         return it.chain(subfolders, parameters)
 
+    @session_context
     def __len__(self):
         if self.folder:
             return len(self.folder.subfolders) + len(self.folder.parameters)
