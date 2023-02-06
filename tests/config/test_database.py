@@ -1,9 +1,6 @@
 import pytest
 import sqlalchemy as sa
 
-from sqlalchemy import MetaData, Table, Column, String, Integer
-from sqlalchemy.orm import registry, Session
-
 import attrs
 import pendulum
 

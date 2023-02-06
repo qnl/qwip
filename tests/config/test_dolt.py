@@ -1,3 +1,8 @@
+import pytest
+
+import sqlalchemy as sa
+from sqlalchemy import MetaData, Table, Column, String, Integer
+
 from qwip.config.dolt import(
     DoltLog,
     DoltBranch,
@@ -10,6 +15,7 @@ from qwip.config.dolt import(
     dolt_commit,
     dolt_reset
 )
+from qwip.config.database import Branch, Commit
 
 from .fixtures import (
     configdb,
