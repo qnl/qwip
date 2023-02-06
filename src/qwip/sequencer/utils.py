@@ -219,7 +219,7 @@ class LinearExpression:
             if c < 0:
                 return (' - ', monomial_to_str_tuple(-c, l)[1])
 
-            return ('+', f'{c:g} * {l}')
+            return (' + ', f'{c:g} * {l}')
 
         terms = [monomial_to_str_tuple(c, str(loc)) for loc, c in self.references]
         if self.offset or not terms:
@@ -231,7 +231,7 @@ class LinearExpression:
         eq_str = ''.join(it.chain(*terms))
 
         # Necessary to remove white space before unary operators
-        return eq_str.strip()
+        return eq_str.strip(' +')
 
     def __contains__(self, variable: str) -> bool:
         return variable in self.variables(return_string=True)
