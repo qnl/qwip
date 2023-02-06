@@ -32,28 +32,6 @@ from qwip.config.dolt import(
 )
 from qwip.config.metadata import QWIP_DB_METADATA
 
-@pytest.fixture(scope='module')
-def engine():
-    engine = ConfigDB(
-        database='acadia_v0p1',
-        username='qnl',
-        password='database',
-        host='192.168.1.5'
-    ).connect()
-
-    QWIP_DB_METADATA.create_all(engine)
-
-    yield engine
-
-
-@pytest.fixture
-def db_session(engine):
-    session = Session(engine)
-
-    yield session
-
-    session.rollback()
-    session.close()
 
 @pytest.fixture(scope='module')
 def configdb(db_url, test_db):
@@ -194,19 +172,22 @@ class TestConfigDB:
         branch = configdb.get_branch('new')
         assert branch.name == 'new'
 
-        configdb.branch('new', action='delete', force=True)
+        configdb.branch('new', action='delete')
         assert configdb.get_branch('new') is None
 
     def test_checkout_branch(self, configdb):
-        configdb.branch('new')
-        branch = configdb.get_branch('new')
+        import time
 
+        configdb.branch('new')
+        new = configdb.get_branch('new')
         current = configdb.checkout('new')
 
-        assert branch == current
+        assert new == current
+        main = configdb.get_branch('main')
+        current = configdb.checkout('main')
 
-        configdb.checkout('main')
-        configdb.branch('new', action='delete', force=True)
+        assert main == current
+        configdb.branch('new', action='delete')
 
 class TestFolder:
     def test_select_insert(self, session, reset_models):
@@ -252,37 +233,16 @@ class TestParameter:
         params = session.scalars(sa.select(Parameter)).one_or_none()
         assert params is None
 
-class TestSettingsInDB:
-    def test_settings(self, session, reset_models):
-        params = SettingsFolder(session=session)
+class TestSettingsFolder:
+    def test_init(self, session, reset_models):
+        settings = SettingsFolder(session=session)
+        assert list(settings.keys()) == []
 
-        hardware = Folder(name='hardware')
-        lo = Folder(name='local_oscillators', parent=hardware)
-        dc = Folder(name='dc_sources', parent=hardware)
-
-        session.add(hardware)
+        a = Parameter(name='a')
+        b = Parameter(name='b')
+        session.add_all([a, b])
         session.flush()
 
-        stmt = sa.select(Folder).where(Folder.parent_id == None)
-        result = session.scalars(stmt).all()
-        print(result)
-
-        # print(params.folder_id)
-        # print(params['hardware'])
-        print(params)
-        print(params['hardware/local_oscillators'])
-
-        print(list(params.flatitems()))
-        print('hardware/local_oscillators' in params)
-
-        # print(list(params.items()))
-        # stmt = sa.select(sa.func.count()).select_from(Folder)
-
-        # result = session.scalar(
-        #     stmt
-        # )
-        # print(result)
-
-        # print(params['hardware'].folder.subfolders)
-        # result = type(params)._get_root_folders(session).all()
-        # print(result)
+        settings = SettingsFolder(session=session)
+        assert list(settings.keys()) == ['a', 'b']
+    

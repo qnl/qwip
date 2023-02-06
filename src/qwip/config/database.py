@@ -7,9 +7,8 @@ import pendulum
 import functools
 import itertools as it
 from pathlib import Path
-from pendulum import DateTime
+import attrs
 from attrs import field
-from typing import TypeVar, Generic, Any
 from typing_extensions import Self
 
 import qwip
@@ -141,7 +140,7 @@ class ConfigDB:
     def get_branch(self, name: str) -> Branch | None:
         stmt = sa.select(DoltBranch).where(DoltBranch.name == name)
 
-        result = self.session.execute(stmt).scalar_one_or_none()
+        result = self.session.scalars(stmt).one_or_none()
 
         if result is None:
             return result
@@ -169,7 +168,24 @@ class ConfigDB:
     def checkout(self, name: str, new_branch: bool = False) -> Branch:
         dolt_checkout(self.session, name, new_branch=new_branch)
 
-        return self.get_branch(name)
+        return self.current_branch()
+
+    @session_context
+    def log(
+        self,
+        committer: str | None = None,
+        date: pendulum.DateTime | None = None,
+        date_filter: str = 'after'
+    ) -> list[Commit]:
+        stmt = sa.select(DoltLog).order_by(DoltLog.date)
+
+        if committer:
+            stmt = stmt.where(DoltLog.committer == committer)
+
+        results = self.session.scalars(stmt)
+
+        commits = [Commit.from_orm(commit) for commit in results]
+        return commits
 
     @session_context
     def commit(
@@ -323,13 +339,22 @@ class SettingsFolder(FlatMapping):
                 f"'{name}' does not exist. Use create_parameter to or create_folder to "
                 f"create a new parameter or folder."
             )
-        
-        existing_value = self[name]
-        if isinstance(existing_value, SettingsFolder):
-            raise KeyError(f"'{name}' is a folder.")
 
-        param = type(self)._get_parameters_from_db(self.session, name, self.folder_id).one()
-        param.value = qwip.converter.unstructure(value)
+        existing_value = self[name]
+        value = qwip.converter.unstructure(value)
+        if isinstance(existing_value, SettingsFolder):
+            try:
+                existing_value.update(**value)
+            except Exception as e:
+                raise KeyError(f"'{name}' is a folder.") from e
+        else:
+            param = type(self)._get_parameters_from_db(
+                self.session,
+                name,
+                self.folder_id
+            ).one()
+            param.value = value
+
         self.session.flush()
     
     @session_context
@@ -437,6 +462,52 @@ class SettingsFolder(FlatMapping):
             return parameter.value
 
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    @session_context
+    def _get_parameter(self, name):
+        subkeys = self.rsplit(self.strip(name), maxsplit=1)
+
+        last_folder = self.folder if len(subkeys) == 1 else self[subkeys[0]].folder
+        
+        if last_folder:
+            db_param = last_folder.parameters.get(subkeys[-1])
+        else:
+            db_param = type(self)._get_parameters_from_db(
+                self.session,
+                subkeys[-1],
+                None
+            ).one_or_none()
+
+        return db_param
+
+    @session_context
+    def get_parameter(self, name):
+        db_param = self._get_parameter(name)
+
+        return ReadOnlyParameter.from_orm(model=db_param)
+
+    @session_context
+    def get_parameter_history(self, name):
+        db_param = self._get_parameter(name)
+
+        history = db_param.history(self.session)
+
+        return [(cmt, ReadOnlyParameter.from_orm(model=p)) for cmt, p in history]
+
+    @session_context
+    def __proxy_delitem__(self, name):
+        obj = self.__proxy_getitem__(name)
+
+        if isinstance(obj, SettingsFolder):
+            self.session.delete(obj.folder)
+            return 
+
+        if self.folder:
+            parameter = self.folder.parameters.get(name)
+        else:
+            parameter = type(self)._get_parameters_from_db(self.session, name, None).one_or_none()
+       
+        self.session.delete(parameter)
 
     @session_context
     def search(self, name: str = None, sort = True):
@@ -555,3 +626,57 @@ class SettingsFolder(FlatMapping):
             )
 
             return num_root_folders + num_parameters
+
+
+def unstructure_SettingsFolder(settings: SettingsFolder) -> dict:
+    return {k: qwip.converter.unstructure(v) for k, v in settings.items()}
+
+qwip.converter.register_unstructure_hook(
+    SettingsFolder,
+    unstructure_SettingsFolder
+)
+
+@qdefine
+class ValidatedSettingsFolder(SettingsFolder):
+    _schema: type | None = field()
+
+    @_schema.validator
+    def _schema_validator(self, attr, value):
+        if not attrs.has(value):
+            raise ValueError(f"'_schema' must be an attrs clas, got {value}")
+
+    # def __proxy_setitem__(self, key, val):
+    @classmethod
+    def from_settings_folder(cls, settings, schema) -> Self:
+        return cls(
+            session=settings.session,
+            folder=settings.folder,
+            schema=schema
+        )
+
+    def __proxy_setitem__(self, name, value):
+        # First we check if we're trying to write to an actual attribute.
+        if name not in self:
+            raise KeyError(
+                f"'{name}' does not exist. Use create_parameter to or create_folder to "
+                f"create a new parameter or folder."
+            )
+
+        field = getattr(attrs.fields(self._schema), name)
+
+        convert = field.converter
+        validate = field.validator
+
+        new_value = convert(value)
+        validate(self, field, new_value)
+
+        super().__proxy_setitem__(name, new_value)
+
+    def __proxy_getitem__(self, name):
+        value = super().__proxy_getitem__(name)
+
+        if isinstance(value, SettingsFolder):
+            schema = getattr(attrs.fields(self._schema), name).type
+            value = type(self).from_settings_folder(value, schema=schema)
+        
+        return value
