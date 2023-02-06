@@ -265,7 +265,7 @@ def get_type_validator(tps: Type | tuple[Type], cls: type | None = None):
         # Need to filter out special types
         return get_tuple_of_types_validator(tps, cls)
     elif isinstance(tps, (str, ForwardRef)):
-        logger.warning(f'No validator added for forward reference {repr(tps)}.')
+        logger.info(f'No validator added for forward reference {repr(tps)}.')
         return None
     elif isinstance(tps, TypeVar):
         if tps.__bound__:

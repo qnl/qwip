@@ -22,7 +22,7 @@ import sys
 from loguru import logger
 
 logger.remove()
-logger.add(sys.stdout, level='INFO')
+logger.add(sys.stdout, level='WARNING')
 
 from qwip._qsettings import default_qsettings
 
