@@ -33,8 +33,14 @@ def is_callable_type(tp):
 def is_union_type(tp):
     return get_origin(tp) in {Union, UnionType}
 
-def is_optional_type(tp):
-    return is_union_type(tp) and type(None) in get_args(tp)
+def is_optional_type(tp, arg_tp=None):
+    args = get_args(tp)
+    is_opt = is_union_type(tp) and type(None) in args
+
+    if arg_tp is None:
+        return is_opt
+    else:
+        return is_opt and all(issubtype(a, arg_tp) for a in args if a is not None)
 
 def is_generic_type(tp, origin_tp=None):
     if origin_tp is None:
