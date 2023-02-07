@@ -37,6 +37,7 @@ class ModulationFrequency(LinearExpression):
 @qfrozen(kw_only=False)
 class Channel:
     name: str
+    subchannel: int | None = None
 
 def update_fields(inst, /, **kwargs) -> dict:
     fields = {}

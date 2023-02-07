@@ -8,24 +8,25 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import (
     relationship,
+    Mapped,
+    mapped_column
 )
 from sqlalchemy.orm.collections import attribute_mapped_collection
 
 import pendulum
+import attrs
 from attrs import field
 from typing_extensions import Self
 
+import qwip
 from qwip.settings.settings import qdefine
 from qwip.config.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
 from qwip.config.dolt import (
     DoltTable
 )
+from qwip.sequencer.waveform import REGISTERED_WAVEFORMS
 
 JSONTypes = dict | list | bool | float | int | str | None
-
-
-from qwip.config.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
-import attrs
 
 @qdefine(slots=False)
 class VersionControlled:
@@ -177,4 +178,249 @@ QWIP_DB_REGISTRY.map_imperatively(
         ),
         timestamp=parameter_table.c.last_modified
     ),
+)
+
+## =============== Waveforms =============== ##
+
+waveform_table = DoltTable(
+    'waveforms',
+    QWIP_DB_METADATA,
+    Column('waveform_id', sa.Integer, primary_key=True, autoincrement=True),
+    Column('classname', sa.String(255), nullable=False),
+    Column('properties', sa.JSON, nullable=False, default=dict),
+    Column('key', sa.String(255)),
+    Column(
+        'parent_id',
+        sa.Integer,
+        ForeignKey(
+            'waveforms.waveform_id',
+            name='fk_waveforms_waveforms',
+            onupdate='CASCADE',
+            ondelete='CASCADE',
+        )
+    )
+)
+
+
+@qdefine(slots=False)
+class WaveformModel(VersionControlled):
+    classname: str
+    properties: dict[str] = field(factory=dict)
+    key: str | None = None
+    parent: Self | None = field(default=None, repr=False)
+
+    @classmethod
+    def from_unstructured_wave(cls, wave_dict, parent=None, key=None):
+        properties = {}
+        children = {}
+        for k, val in wave_dict.items():
+            if isinstance(val, dict) and '__class__' in val:
+                children[k] = val
+            elif k != '__class__':
+                properties[k] = val
+
+        wave_model = cls(
+            classname=wave_dict['__class__'],
+            properties=properties,
+            key=key,
+            parent=parent
+        )
+
+        for key, child_dict in children.items():
+            cls.from_unstructured_wave(
+                child_dict, parent=wave_model, key=key
+            )
+
+        return wave_model
+
+    @classmethod
+    def from_waveform(cls, wave):
+        wave_dict = qwip.converter.unstructure(wave)
+        return cls.from_unstructured_wave(wave_dict)
+
+    def to_unstructured_waveform(self):
+        unstructured = dict(
+            __class__=self.classname,
+            **self.properties
+        )
+
+        for k, wave_model in self.children.items():
+            unstructured[k] = wave_model.to_unstructured_waveform()
+
+        return unstructured
+
+    def to_waveform(self):
+        from qwip.sequencer.waveform import Waveform
+        
+        return qwip.converter.structure(
+            self.to_unstructured_waveform(),
+            Waveform
+        )
+
+QWIP_DB_REGISTRY.map_imperatively(
+    WaveformModel,
+    waveform_table,
+    properties=dict(
+        children=relationship(
+            WaveformModel,
+            cascade='all, delete-orphan',
+            back_populates='parent',
+            collection_class=attribute_mapped_collection('key')
+        ),
+        parent=relationship(
+            WaveformModel,
+            back_populates='children',
+            remote_side=[waveform_table.c.waveform_id]
+        ),
+    ),
+)
+
+
+@qdefine(slots=False)
+class WaveformLocationModel(VersionControlled):
+    location: str
+    waveform: WaveformModel
+    sequence_element: "SequenceElementModel" = field(repr=False)
+
+@qdefine(slots=False)
+class ConstraintModel(VersionControlled):
+    name: str
+    location: str
+    sequence_element: "SequenceElementModel" = field(repr=False)
+
+@qdefine(slots=False)
+class SequenceElementModel(VersionControlled):
+    name: str
+    locations: list[WaveformLocationModel] = field(factory=list)
+    constraints: dict[str, ConstraintModel] = field(factory=dict)
+
+    @classmethod
+    def from_sequence_element(cls, se, name):
+        se_model = cls(name=name)
+
+        for loc, wave in se.get_location_pairs():
+            wave_model = WaveformModel.from_waveform(wave)
+            pair = WaveformLocationModel(
+                location=str(loc),
+                waveform=wave_model,
+                sequence_element=se_model
+            )
+
+        for name, expr in se.constraints.items():
+            constraint = ConstraintModel(
+                name=name,
+                location=str(expr),
+                sequence_element=se_model
+            )
+
+        return se_model
+
+    def to_sequence_element(self):
+        from qwip.sequencer.elements import SequenceElement
+        from qwip.sequencer.utils import Location
+
+        constraints = {
+            n: Location.from_string(c.location) for n, c in self.constraints.items()
+        }
+
+        pairs = [
+            (Location.from_string(waveloc.location), waveloc.waveform.to_waveform())
+                for waveloc in self.locations 
+        ]
+
+        return SequenceElement.fromtuples(pairs, **constraints)
+
+waveform_location_table = DoltTable(
+    "waveform_locations",
+    QWIP_DB_METADATA,
+    Column("location", sa.String(255), nullable=False),
+    Column(
+        "waveform_id",
+        sa.Integer,
+        ForeignKey(
+            "waveforms.waveform_id",
+            name="fk_waveform_locations_waveforms",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    ),
+    Column(
+        "sequence_element_id",
+        sa.Integer,
+        ForeignKey(
+            "sequence_elements.sequence_element_id",
+            name="fk_waveform_locations_sequence_elements",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        primary_key=True,
+    )
+)
+
+constraint_table = DoltTable(
+    "constraints",
+    QWIP_DB_METADATA,
+    Column("constraint_id", sa.Integer, primary_key=True, autoincrement=True),
+    Column("name", sa.String(255)),
+    Column("location", sa.String(255)),
+    Column(
+        "sequence_element_id",
+        sa.Integer,
+        ForeignKey(
+            "sequence_elements.sequence_element_id",
+            name="fk_constraints_sequence_elements",
+            onupdate="CASCADE",
+            ondelete="CASCADE"
+        )
+    )
+)
+
+sequence_element_table = DoltTable(
+    "sequence_elements",
+    QWIP_DB_METADATA,
+    Column("sequence_element_id", sa.Integer, primary_key=True, autoincrement=True),
+    Column("name", sa.String(255), primary_key=True)
+)
+
+
+QWIP_DB_REGISTRY.map_imperatively(
+    WaveformLocationModel,
+    waveform_location_table,
+    properties=dict(
+        waveform=relationship(WaveformModel),
+        sequence_element=relationship(
+            SequenceElementModel,
+            back_populates="locations",
+        )
+    )
+)
+
+QWIP_DB_REGISTRY.map_imperatively(
+    ConstraintModel,
+    constraint_table,
+    properties=dict(
+        sequence_element=relationship(
+            SequenceElementModel,
+            back_populates="constraints"
+        )
+    )
+)
+
+QWIP_DB_REGISTRY.map_imperatively(
+    SequenceElementModel,
+    sequence_element_table,
+    properties=dict(
+        locations=relationship(
+            WaveformLocationModel,
+            back_populates="sequence_element",
+            cascade='all, delete-orphan',
+        ),
+        constraints=relationship(
+            ConstraintModel,
+            back_populates="sequence_element",
+            collection_class=attribute_mapped_collection("name"),
+            cascade='all, delete-orphan',
+        )
+    )
 )

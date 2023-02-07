@@ -450,7 +450,7 @@ class SettingsFolder(FlatMapping):
             ).one_or_none()
         
         if subfolder:
-            return type(self)(session=self.session, folder=subfolder)
+            return SettingsFolder(session=self.session, folder=subfolder)
 
         # Then look for parameter with name
         if self.folder:
@@ -636,7 +636,7 @@ qwip.converter.register_unstructure_hook(
     unstructure_SettingsFolder
 )
 
-@qdefine
+@qdefine(repr=False)
 class ValidatedSettingsFolder(SettingsFolder):
     _schema: type | None = field()
 

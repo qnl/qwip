@@ -1,3 +1,4 @@
+import itertools as it
 from typing import Callable, Union, ForwardRef
 from functools import cache
 from numbers import Real
@@ -599,6 +600,15 @@ class SequenceElement:
             fig_props,
             pulse_vars,
         )
+
+    def get_location_pairs(self) -> list[tuple[Location, Waveform]]:
+        """Returns a list of all `(loc, wave)` pairs in the location mapping.
+        """
+        chained = it.chain.from_iterable(
+            ((loc, w) for w in waves) for loc, waves in self.locations.items()
+        )
+
+        return list(chained)
 
     def __getitem__(self, key: LocationLike):
         try:
