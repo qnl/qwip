@@ -18,7 +18,6 @@ markdown_extensions:
       permalink: true
 theme:
   name: material
-  custom_dir: overrides
   font:
     text: Roboto
     code: Fira Code, Inconsolata
@@ -46,7 +45,6 @@ plugins:
         python:
           options:
             show_source: true
-      default_handler: python
   - git-authors
   - git-revision-date-localized:
       type: date
@@ -60,6 +58,8 @@ nav:
     - index.md
   - User Guide:
     - user-guide/intro.md
+    - Configuration Management:
+      - user-guide/configuration/configuration.md
     - Sequencer:
       - user-guide/sequences/sequencer.md
       - user-guide/sequences/sequence-elements.md
