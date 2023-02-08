@@ -104,6 +104,17 @@ def session_context(func):
 
 @qdefine
 class ConfigDB:
+    """An interface to the configuration database.
+    
+    Attributes:
+        database: The name of the dolt database.
+        username: The database server username.
+        password: The database server password.
+        host: The IP address or url for the database server.
+        port: The port on which the database server is listening.
+        engine: The SQLAlchemy engine that maintains the database connection.
+        session: The database session associated with the engine.
+    """
     database: str | None = None
     username: str 
     password: str
@@ -113,18 +124,21 @@ class ConfigDB:
     engine: sa.engine.Engine | None = None
     session: sa.orm.Session | None = None
 
-    def connect(self):
+    def connect(self, test: bool = True, timeout: int = 2):
         url = URL.create(
-            drivername='mysql',
+            drivername='mysql+mysqldb',
             username=self.username,
             password=self.password,
             host=self.host,
             port=self.port,
             database=self.database
         )
-        engine = sa.create_engine(url)
+        engine = sa.create_engine(url, connect_args=dict(connect_timeout=timeout))
         self.engine = engine
         self.session = Session(engine, autobegin=False, expire_on_commit=False)
+
+        if test:
+            with self.engine.begin(): ...
         
         return engine
     
@@ -701,7 +715,7 @@ class ValidatedSettingsFolder(SettingsFolder):
     def create_all(self):
         for attr in type(self).fields():
             name = attr.name
-            if name in ('session', 'folder') or if name in self:
+            if name in ('session', 'folder') or name in self:
                 continue
             
             if issubtype(attr.type, SettingsFolder):
@@ -726,3 +740,13 @@ configschema = functools.partial(
     repr=False,
     on_setattr=[attrs.setters.convert, attrs.setters.validate, set_in_db]
 )
+
+__all__ = [
+    "Branch",
+    "Commit",
+    "ReadOnlyParameter",
+    "ConfigDB",
+    "SettingsFolder",
+    "ValidatedSettingsFolder",
+    "configschema",
+]

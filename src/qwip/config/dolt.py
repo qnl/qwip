@@ -246,3 +246,18 @@ class DoltTable(Table):
             Column('message', sa.Text, system=True),
             *pk_columns
         )
+
+__all__ = [
+    "dolt_procedure",
+    "dolt_add",
+    "dolt_branch",
+    "dolt_checkout",
+    "dolt_commit",
+    "dolt_reset",
+    "DoltLog",
+    "DoltCommit",
+    "DoltDiff",
+    "DoltBranch",
+    "DoltStatus",
+    "DoltTable",
+]

@@ -424,3 +424,19 @@ QWIP_DB_REGISTRY.map_imperatively(
         )
     )
 )
+
+__all__ = [
+    "VersionControlled",
+    "Folder",
+    "Parameter",
+    "WaveformModel",
+    "WaveformLocationModel",
+    "ConstraintModel",
+    "SequenceElementModel",
+    "folder_table",
+    "parameter_table",
+    "waveform_table",
+    "waveform_location_table",
+    "constraint_table",
+    "sequence_element_table",
+]
