@@ -178,7 +178,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         subgroup.__setitem__(base, self._get_mapping_type(key=key)({key: val}))
 
     def __setattr__(self, name, value):
-        if isinstance(value, dict):
+        if isinstance(value, Mapping):
             new_value = self._get_mapping_type(name)()
             new_value.update(value)
             value = new_value
