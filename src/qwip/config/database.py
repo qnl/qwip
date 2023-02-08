@@ -141,6 +141,11 @@ class ConfigDB:
             with self.engine.begin(): ...
         
         return engine
+
+    def disconnect(self):
+        self.session.close()
+        self.engine.dispose()
+        self.engine = self.session = None
     
     @session_context
     def current_branch(self) -> Branch:

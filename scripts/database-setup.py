@@ -1,0 +1,166 @@
+import re
+import functools
+import time
+import typer
+import sqlalchemy as sa
+
+from rich import print
+from rich.console import Text
+from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
+
+from qwip.config.database import ConfigDB
+from qwip.config.models import *
+from qwip.config.metadata import QWIP_DB_METADATA 
+
+app = typer.Typer(no_args_is_help=True)
+
+def add_progress(maybe_func=None, *, description: str = "Processing...", sleep: int = 0):
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapped(*args, **kwargs):
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True
+            ) as progress:
+                progress.add_task(description=description)
+                if sleep:
+                    time.sleep(sleep)
+                return func(*args, **kwargs)
+
+        return wrapped
+
+    return decorator if maybe_func is None else decorator(maybe_func)
+
+@add_progress(description="Testing database connection...", sleep=1)
+def test_connection(configdb: ConfigDB):
+    try:
+        configdb.connect(test=False)
+        return True
+    except sa.exc.OperationalError as e:
+        print(e)
+        return False
+
+@add_progress(description="Creating database...", sleep=1)
+def create_database(configdb: ConfigDB, name: str):
+    stmt = sa.text(f"CREATE DATABASE {name}")
+    try:
+        with configdb.session.begin():
+            configdb.session.execute(stmt)
+        print("Successfully created database!")
+        return True
+
+    except (sa.exc.ProgrammingError, sa.exc.OperationalError) as e:
+        if (db_exc := e.orig):
+            code = db_exc.args[0]
+            if code == 1007:
+                print(f"Database {name} already exists!")
+                return True
+
+        print(e)
+        return False
+
+@add_progress(description="Adding tables to database...", sleep=1)
+def create_tables(configdb: ConfigDB, database: str):
+    table = Table(title=database)
+    table.add_column("Table")
+    table.add_column("Columns")
+
+    user_tables = {
+        k: t for k, t in QWIP_DB_METADATA.tables.items() if not k.startswith("dolt")
+    }
+
+    QWIP_DB_METADATA.create_all(configdb.engine)
+
+    with configdb.session.begin():
+        in_db = configdb.session.scalars(sa.text("SHOW TABLES")).all()
+
+    if (missing := set(user_tables) - set(in_db)):
+        for name in missing:
+            table.add_row(name, str(len(user_tables[name].columns)))
+        
+        print("ERROR: Missing tables!")
+        print(table)
+        raise typer.Exit()
+
+    for db_table in user_tables.values():
+        table.add_row(db_table.name, str(len(db_table.columns)))
+
+    print("Successfully created tables!")
+    print(table)
+
+@add_progress(description="Getting all databases..", sleep=1)
+def get_databases(configdb: ConfigDB):
+    stmt = sa.text("SHOW DATABASES")
+    with configdb.session.begin():
+        dbs = configdb.session.scalars(stmt).all()
+
+    table = Table()
+    table.add_column("Databases")
+    
+    for db_name in dbs:
+        if db_name in ("information_schema", "mysql"):
+            continue
+        table.add_row(db_name)
+
+    print(table)
+
+@app.command()
+def create(
+    ctx: typer.Context,
+    hostname: str = typer.Option(..., prompt=True),
+    username: str = typer.Option(..., prompt=True),
+    password: str = typer.Option(..., prompt=True, hide_input=True),
+    database: str = typer.Option(..., prompt="Select a name for the new database", confirmation_prompt=True)
+):
+    configdb = ConfigDB(
+        username=username,
+        host=hostname,
+        password=password
+    )
+
+    if not test_connection(configdb): raise typer.Exit()
+
+    DB_NAME_REGEX = r"[a-zA-Z0-9_]+"
+
+    if not re.fullmatch(DB_NAME_REGEX, database):
+        print(Text(f"{database} is not a valid database name. Must match r\"{DB_NAME_REGEX}\""))
+
+    if not create_database(configdb, database): raise typer.Exit()
+
+    configdb.database = database
+    configdb.disconnect()
+    configdb.connect()
+
+    create_tables(configdb, database)
+
+@app.command()
+def show(
+    ctx: typer.Context,
+    hostname: str = typer.Option(..., prompt=True),
+    username: str = typer.Option(..., prompt=True),
+    password: str = typer.Option(..., prompt=True, hide_input=True),
+):
+    configdb = ConfigDB(
+        username=username,
+        host=hostname,
+        password=password
+    )
+
+    if not test_connection(configdb): raise typer.Exit()
+
+    get_databases(configdb)
+
+@app.command()
+def upgrade(
+    ctx: typer.Context,
+    host: str = typer.Argument(...),
+    username: str = typer.Argument(...),
+    password: str = typer.Argument(...),
+    database: str = typer.Argument(...),
+):
+    ...
+
+if __name__ == "__main__":
+    app()
