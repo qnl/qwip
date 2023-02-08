@@ -22,10 +22,12 @@ from qwip.config.dolt import (
     dolt_branch,
     dolt_checkout,
     dolt_commit,
+    dolt_reset
 )
 from qwip.config.models import Folder, Parameter, JSONTypes
 
 SHORT_HASH_LEN = 8
+USERNAME_REGEX = re.compile(r'(?P<name>[^@]*)(?P<domain>@.*)?')
 
 @qfrozen
 class Commit:
@@ -74,7 +76,7 @@ class ReadOnlyParameter:
         repr=lambda dt: dt.in_tz('local').isoformat() if dt else repr(dt),
         default=None
     )
-    parameter_id: int = field(repr=False)
+    parameter_id: int | None = field(repr=False)
 
     @classmethod
     def from_orm(cls, model: Parameter) -> Self:
@@ -196,6 +198,8 @@ class ConfigDB:
         author: str | None = None,
         allow_empty: bool = False
     ) -> Commit:
+        author = author or self.author
+
         dolt_commit(self.session, message, add, date, author, allow_empty)
 
         result = self.session.execute(
@@ -209,8 +213,9 @@ class ConfigDB:
     @session_context
     def get_commit(
         self,
-        commit_hash: str
+        commit_hash: str | None = None
     ) -> Commit | None:
+        commit_hash = commit_hash or sa.func.hashof('HEAD')
         result = self.session.execute(
             sa.select(DoltLog).where(
                 DoltLog.commit_hash == commit_hash
@@ -218,6 +223,16 @@ class ConfigDB:
         ).scalar_one()
 
         return Commit.from_orm(result)
+
+    @session_context
+    def reset(
+        self,
+        branch_or_commit: str | None = None,
+        hard: bool = False
+    ) -> None:
+        dolt_reset(self.session, branch_or_commit, hard)
+
+        return self.get_commit()
 
     @classmethod
     def from_url(cls, db_url: str) -> Self:
@@ -230,6 +245,15 @@ class ConfigDB:
             host=url.host,
             port=url.port
         )
+
+    @property
+    def author(self) -> str:
+        groups = USERNAME_REGEX.match(self.username).groupdict()
+
+        name = groups['name']
+        domain = groups['domain'] or '@qnl'
+
+        return f'{name} <{name}{domain}>'
 
 def get_folder_list(name: str) -> list[Path | str]:
     path = Path(name)
