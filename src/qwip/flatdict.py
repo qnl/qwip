@@ -213,7 +213,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
     def __proxy_getitem__(self, key):
         raise NotImplementedError()
 
-    def __proxy_setitem__(self, key):
+    def __proxy_setitem__(self, key, value):
         raise NotImplementedError()
 
     def __proxy_delitem__(self, key):

@@ -19,7 +19,7 @@ from numpy.typing import NDArray as _NDArray
 NDArray = Annotated[_NDArray, '']
 
 def issubtype(tp, cls):
-    return isclass(tp) and issubclass(tp, cls)
+    return isclass(tp) and issubclass(get_origin(tp) or tp, cls)
 
 def is_annotated_type(tp):
     return get_origin(tp) is Annotated

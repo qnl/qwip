@@ -12,6 +12,7 @@ from attrs import field
 from typing_extensions import Self
 
 import qwip
+from qwip.typing import issubtype
 from qwip.settings.settings import Settings, qdefine, qfrozen
 from qwip.flatdict import FlatDict, FlatMapping
 from qwip.config.dolt import (
@@ -431,7 +432,7 @@ class SettingsFolder(FlatMapping):
         folder = self.folder
         for i, sub in enumerate(folder_list):
             if folder is not None and sub in folder.subfolders:
-                folder = folder[sub]
+                folder = folder.subfolders[sub]
             elif folder is None and sub in self:
                 folder = self[sub].folder
             elif i == len(folder_list) - 1:
@@ -662,21 +663,16 @@ qwip.converter.register_unstructure_hook(
 
 @qdefine(repr=False)
 class ValidatedSettingsFolder(SettingsFolder):
-    _schema: type | None = field()
 
-    @_schema.validator
-    def _schema_validator(self, attr, value):
-        if not attrs.has(value):
-            raise ValueError(f"'_schema' must be an attrs clas, got {value}")
+    def __getattribute__(self, name):
+        try:
+            getattr(attrs.fields(type(self)), name)
+            if name not in ('session', 'folder'):
+                return self.__proxy_getitem__(name)
+        except AttributeError:
+            ...
 
-    # def __proxy_setitem__(self, key, val):
-    @classmethod
-    def from_settings_folder(cls, settings, schema) -> Self:
-        return cls(
-            session=settings.session,
-            folder=settings.folder,
-            schema=schema
-        )
+        return super().__getattribute__(name)
 
     def __proxy_setitem__(self, name, value):
         # First we check if we're trying to write to an actual attribute.
@@ -686,21 +682,47 @@ class ValidatedSettingsFolder(SettingsFolder):
                 f"create a new parameter or folder."
             )
 
-        field = getattr(attrs.fields(self._schema), name)
-
-        convert = field.converter
-        validate = field.validator
-
-        new_value = convert(value)
-        validate(self, field, new_value)
-
-        super().__proxy_setitem__(name, new_value)
+        setattr(self, name, value)
 
     def __proxy_getitem__(self, name):
         value = super().__proxy_getitem__(name)
 
         if isinstance(value, SettingsFolder):
-            schema = getattr(attrs.fields(self._schema), name).type
-            value = type(self).from_settings_folder(value, schema=schema)
+            schema = getattr(type(self).fields(), name).type
+            value = schema(session=value.session, folder=value.folder)
         
         return value
+
+    @classmethod
+    @functools.cache
+    def fields(cls):
+        return attrs.fields(cls)
+
+    def create_all(self):
+        for attr in type(self).fields():
+            name = attr.name
+            if name in ('session', 'folder') or if name in self:
+                continue
+            
+            if issubtype(attr.type, SettingsFolder):
+                self.create_folder(name)
+                
+                if issubtype(attr.type, ValidatedSettingsFolder):
+                    self[name].create_all()
+                
+            else:
+                if (default := attr.default) == attrs.NOTHING:
+                    default = None
+
+                self.create_parameter(name, value=default)
+
+def set_in_db(inst, attr, value):
+    super(ValidatedSettingsFolder, inst).__proxy_setitem__(attr.name, value)
+    return value
+
+configschema = functools.partial(
+    qdefine,
+    init=False,
+    repr=False,
+    on_setattr=[attrs.setters.convert, attrs.setters.validate, set_in_db]
+)
