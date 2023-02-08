@@ -16,6 +16,7 @@ from ruamel.yaml import YAML
 yaml = YAML(typ='safe')
 
 from qwip._cattr import converter
+from qwip.flatdict import FlatDict
 
 import sys
 
@@ -28,3 +29,9 @@ from qwip._qsettings import default_qsettings
 
 qsettings = default_qsettings()
 """The global QWiP Settings object"""
+
+__all__ = [
+    "converter",
+    "FlatDict",
+    "qsettings",
+]
