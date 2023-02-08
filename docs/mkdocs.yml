@@ -44,6 +44,7 @@ plugins:
       handlers:
         python:
           options:
+            paths: ../src/qwip
             show_source: true
   - git-authors
   - git-revision-date-localized:
@@ -51,7 +52,10 @@ plugins:
 extra_css: 
   - assets/stylesheets/palette.css
   - assets/stylesheets/layout.css
+  - assets/stylesheets/termynal.css
 extra_javascript:
+  - assets/js/termynal.js
+  - assets/js/setup.js
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML
 nav:
   - QWiP: 
@@ -60,6 +64,7 @@ nav:
     - user-guide/intro.md
     - Configuration Management:
       - user-guide/configuration/configuration.md
+      - user-guide/configuration/first-steps.md
     - Sequencer:
       - user-guide/sequences/sequencer.md
       - user-guide/sequences/sequence-elements.md

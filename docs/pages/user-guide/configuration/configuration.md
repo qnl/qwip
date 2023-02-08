@@ -11,7 +11,7 @@ Database interactions are simplified via a ConfigDB object, which provides a dic
 
 ## Why not YAML?
 
-Historically, system configuration was persisted to disk via a set of YAML files. While simple, this implementation came with several shortcomings that QWiP aims to address.
+Historically, system configuration was persisted to disk via a set of unvalidated YAML files. While simple, this implementation came with several shortcomings that QWiP aims to address.
 
 1. **Direct file-based persistence does not ensure data integrity.**
 
@@ -21,6 +21,16 @@ Historically, system configuration was persisted to disk via a set of YAML files
 
     The old YAML-based configuration system forces you to overwrite old parameter values each time a parameter is updated. While one could in principle version control these yaml files with git, it would stil be difficult to query the parameter value over the entire commit history.
 
+3. **Lack of validation leads to easily preventable errors.**
 
+    With unvalidated YAML's, the system configuration is simply a nested mapping of keys to values in memory. This carries no information about what values are actually allowed by the application code which expects a specific set of keys and value types. Without validation, it is easy to mistype a parameter name or value, leading to a confusing error message that takes much longer to debug.
+
+The configuration database aims to address by storing all system parameters in a database, which is designed for data integrity even in the presence of many concurrent reads and writes. Dolt supports commits, branching, and merging, in a way that makes history queryable. This enables easier collaboration and versioning of the system configuration. 
+
+To improve the user experience, QWiP also provides a validated class-based[^1] interface to the configuration database, which makes it clear what keys and values are expected by the application code. Unlike a dictionary, new keys must be explicitly added, and all values are type checked when set.
+
+[^1]: To quote the [attrs](https://www.attrs.org/en/stable/why.html#dicts) documentation:
+
+    >  Dictionaries are not for fixed fields... If your dict has a fixed and known set of keys, it is an object, not a hash. So if you never iterate over the keys of a dict, you should use a proper class.
 
 
