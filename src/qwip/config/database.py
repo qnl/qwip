@@ -49,6 +49,10 @@ class Commit:
             message=model.message
         )
 
+    @property
+    def short_hash(self):
+        return self.hash[:SHORT_HASH_LEN]
+
 @qfrozen
 class Branch:
     name: str

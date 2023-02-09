@@ -93,6 +93,17 @@ def create_tables(configdb: ConfigDB, database: str):
     print("Successfully created tables!")
     print(table)
 
+    if (status := configdb.status(status="new table")):
+        configdb.add([s.table for s in status])
+        new_tables = ", ".join((s.table for s in status))
+        
+        commit = configdb.commit(f"Created tables: {new_tables}")
+        branch = configdb.current_branch()
+
+        print(Text(f"[{branch.name} {commit.short_hash}] {commit.message}"))
+        print(f"{len(status)} tables added")
+
+
 @add_progress(description="Getting all databases..", sleep=1)
 def get_databases(configdb: ConfigDB):
     stmt = sa.text("SHOW DATABASES")
