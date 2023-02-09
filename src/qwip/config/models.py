@@ -141,8 +141,6 @@ parameter_table = DoltTable(
     UniqueConstraint('name', 'folder_id', name='uq_parameters_name_folder_id')
 )
 
-parameter_table.create_system_tables()
-folder_table.create_system_tables()
 
 QWIP_DB_REGISTRY.map_imperatively(
     Folder,
@@ -424,6 +422,13 @@ QWIP_DB_REGISTRY.map_imperatively(
         )
     )
 )
+
+user_tables = list(QWIP_DB_METADATA.tables.values())
+
+for table in user_tables:
+    if isinstance(table, DoltTable):
+        table.create_system_tables()
+
 
 __all__ = [
     "VersionControlled",

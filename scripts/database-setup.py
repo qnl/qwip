@@ -71,7 +71,10 @@ def create_tables(configdb: ConfigDB, database: str):
         k: t for k, t in QWIP_DB_METADATA.tables.items() if not k.startswith("dolt")
     }
 
-    QWIP_DB_METADATA.create_all(configdb.engine)
+    QWIP_DB_METADATA.create_all(
+        configdb.engine,
+        tables=user_tables.values()
+    )
 
     with configdb.session.begin():
         in_db = configdb.session.scalars(sa.text("SHOW TABLES")).all()
