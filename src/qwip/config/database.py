@@ -19,6 +19,7 @@ from qwip.config.dolt import (
     DoltBranch,
     DoltCommit,
     DoltLog,
+    DoltStatus,
     dolt_add,
     dolt_branch,
     dolt_checkout,
@@ -66,6 +67,20 @@ class Branch:
         return cls(
             name=model.name,
             latest=commit
+        )
+
+@qfrozen
+class Status:
+    table: str
+    staged: bool
+    status: str
+
+    @classmethod
+    def from_orm(cls, model: DoltStatus) -> Self:
+        return cls(
+            table=model.table_name,
+            staged=model.staged,
+            status=model.status
         )
 
 @qfrozen
@@ -222,11 +237,11 @@ class ConfigDB:
 
         dolt_commit(self.session, message, add, date, author, allow_empty)
 
-        result = self.session.execute(
+        result = self.session.scalars(
             sa.select(DoltLog).where(
                 DoltLog.commit_hash == sa.func.hashof('HEAD')
             )
-        ).scalar_one()
+        ).one()
 
         return Commit.from_orm(result)
 
@@ -236,11 +251,11 @@ class ConfigDB:
         commit_hash: str | None = None
     ) -> Commit | None:
         commit_hash = commit_hash or sa.func.hashof('HEAD')
-        result = self.session.execute(
+        result = self.session.scalars(
             sa.select(DoltLog).where(
                 DoltLog.commit_hash == commit_hash
             )
-        ).scalar_one()
+        ).one()
 
         return Commit.from_orm(result)
 
@@ -253,6 +268,24 @@ class ConfigDB:
         dolt_reset(self.session, branch_or_commit, hard)
 
         return self.get_commit()
+
+    @session_context
+    def status(
+        self,
+        staged: bool | None = None,
+        status: str | None = None,
+    ) -> list[Status]:
+        stmt = sa.select(DoltStatus)
+
+        if staged is not None:
+            stmt = stmt.where(DoltStatus.staged == staged)
+
+        if status:
+            stmt = stmt.where(DoltStatus.status == status)
+
+        results = self.session.scalars(stmt)
+
+        return [Status.from_orm(s) for s in results]
 
     @classmethod
     def from_url(cls, db_url: str) -> Self:
