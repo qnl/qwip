@@ -1,7 +1,7 @@
 from qwip.config.database import (
     configschema,
-    SettingsFolder,
-    ValidatedSettingsFolder
+    ConfigFolder,
+    ValidatedConfigFolder
 )
 
 @configschema

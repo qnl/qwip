@@ -9,7 +9,7 @@ from qwip.config.database import (
     ConfigDB,
     Commit,
     Branch,
-    SettingsFolder
+    ConfigFolder
 )
 from qwip.config.models import(
     Parameter,
@@ -96,9 +96,9 @@ class TestParameter:
         params = session.scalars(sa.select(Parameter)).one_or_none()
         assert params is None
 
-class TestSettingsFolder:
+class TestConfigFolder:
     def test_init(self, session, reset_models):
-        settings = SettingsFolder(session=session)
+        settings = ConfigFolder(session=session)
         assert list(settings.keys()) == []
 
         a = Parameter(name='a')
@@ -106,6 +106,6 @@ class TestSettingsFolder:
         session.add_all([a, b])
         session.flush()
 
-        settings = SettingsFolder(session=session)
+        settings = ConfigFolder(session=session)
         assert list(settings.keys()) == ['a', 'b']
     
