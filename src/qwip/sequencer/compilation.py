@@ -202,6 +202,7 @@ class ChannelInfo:
     index: int
     group: str
     subchannel: int = 0 # Use nonzero for markers
+    delay: float = 0
 
 @qdefine
 class CompiledSequence:
@@ -262,7 +263,7 @@ class CompiledSequence:
         return plotter.plot(self, element, channels, axes, fig_props)
 
 @qdefine
-class WaveformCompiler:
+class WaveformSequencer:
     channels: dict[Channel, ChannelInfo] = field(factory=dict)
     modulations: dict[str, ModulationFrequency] = field(factory=dict)
     readout_qubits: list[int] = field(factory=list)
