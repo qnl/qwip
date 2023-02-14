@@ -108,7 +108,8 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
                 pass
 
             # If val is self it should always have a defined non-nested get function
-            # so we raise a key error.
+            # so the AttributeError must be due to a non-existent attribute. Thus, we 
+            # raise a key error.
             if val is self:
                 raise KeyError(f"'{key}'")
 
