@@ -9,6 +9,7 @@ import itertools as it
 from pathlib import Path
 import attrs
 from attrs import field
+from typing import get_args
 from typing_extensions import Self
 
 import qwip
@@ -136,12 +137,29 @@ def get_folder_list(name: str) -> list[Path | str]:
 
 @qdefine(repr=False)
 class ConfigFolder(FlatMapping):
-    session: sa.orm.Session
-    folder: Folder | None = field(default=None)
+    __orig_class__: type = field(init=False, metadata=dict(validate=False, db=False))
+    session: sa.orm.Session = field(metadata=dict(db=False))
+    folder: Folder | None = field(default=None, metadata=dict(db=False))
 
     @property
     def folder_id(self):
         return self.folder.folder_id if self.folder else None
+
+    @property
+    def subfolder_class(self):
+        try:
+            self_cls = object.__getattribute__(self, "__orig_class__")
+            match get_args(self_cls):
+                case (kt, vt):
+                    if issubtype(vt, ConfigFolder): return vt
+                case _:
+                    ...
+            return vt
+
+        except AttributeError:
+            ...
+
+        return ConfigFolder
 
     @classmethod
     def from_folder_id(cls, session: sa.orm.Session, folder_id: int) -> Self:
@@ -341,7 +359,8 @@ class ConfigFolder(FlatMapping):
             ).one_or_none()
         
         if subfolder:
-            return ConfigFolder(session=self.session, folder=subfolder)
+            subfolder_cls = object.__getattribute__(self, "subfolder_class")
+            return subfolder_cls(session=self.session, folder=subfolder)
 
         # Then look for parameter with name
         if self.folder:
@@ -484,6 +503,37 @@ class ConfigFolder(FlatMapping):
 
         return [ReadOnlyParameter.from_orm(p) for p in all_parameters]
 
+    def create_all(self, **keys):
+        if not keys:
+            return
+        
+        generic = getattr(self, "__orig_class__", None)
+        if not generic:
+            return
+
+        match get_args(generic):
+            case (kt, vt):
+                value_class = vt
+            case _:
+                value_class = None
+
+        if not value_class:
+            raise TypeError(f"Cannot autopopulate {keys} without a specified type hint.")
+
+        print(f"Creating {keys} in {self.path()} of type {value_class}")
+
+        for key, subfolder_keys in keys.items():
+            if key not in self:
+                if issubtype(value_class, ConfigFolder):
+                    self.create_folder(key)
+                else:
+                    self.create_parameter(key)
+                    continue
+            
+            if issubtype(value_class, ConfigFolder):
+                self[key].create_all(**subfolder_keys)
+
+
     @session_context
     def __iter__(self):
         if self.folder:
@@ -532,8 +582,8 @@ class ValidatedConfigFolder(ConfigFolder):
 
     def __getattribute__(self, name):
         try:
-            getattr(attrs.fields(type(self)), name)
-            if name not in ('session', 'folder'):
+            field = getattr(attrs.fields(type(self)), name)
+            if field.metadata.get("db", True):
                 return self.__proxy_getitem__(name)
         except AttributeError:
             ...
@@ -551,34 +601,75 @@ class ValidatedConfigFolder(ConfigFolder):
         setattr(self, name, value)
 
     def __proxy_getitem__(self, name):
-        value = super().__proxy_getitem__(name)
+        return super().__proxy_getitem__(name)
+
+    #     if isinstance(value, ConfigFolder):
+    #         schema = getattr(type(self).fields(), name).type
+    #         value = schema(session=value.session, folder=value.folder)
+        
+    #     return value
+
+    def __getitem__(self, name):
+        value = super().__getitem__(name)
 
         if isinstance(value, ConfigFolder):
-            schema = getattr(type(self).fields(), name).type
-            value = schema(session=value.session, folder=value.folder)
-        
+            return type(self).get_key_type(name)(session=value.session, folder=value.folder)
+
         return value
+            
+
+    @classmethod
+    def get_key_type(cls, key):
+        subkeys = key.split(cls._delim)
+
+        fieldtype = cls
+
+        for subkey in subkeys:
+            if issubtype(fieldtype, ValidatedConfigFolder):
+                fieldtype = getattr(fieldtype.fields(), subkey, ...)
+
+                fieldtype = getattr(fieldtype, 'type', ...)
+
+            elif issubtype(fieldtype, dict):
+                match get_args(fieldtype):
+                    case (kt, vt):
+                        fieldtype = vt
+                    case _:
+                        raise KeyError(f"'{key}' has no specified type.")
+
+            if fieldtype is ...:
+                raise KeyError(f"'{key}' has no specified type.")
+
+        return fieldtype
 
     @classmethod
     @functools.cache
     def fields(cls):
         return attrs.fields(cls)
 
-    def create_all(self):
-        for attr in type(self).fields():
-            name = attr.name
-            if name in ('session', 'folder') or name in self:
+    def create_all(self, **dict_keys):
+        for field in type(self).fields():
+            name = field.name
+            if not field.metadata.get("db", True):
                 continue
-            
-            if issubtype(attr.type, ConfigFolder):
-                self.create_folder(name)
-                
-                if issubtype(attr.type, ValidatedConfigFolder):
-                    self[name].create_all()
-                
+
+            subfolder_keys = dict_keys.get(name, {})
+    
+            if issubtype(field.type, ConfigFolder):
+                if name not in self:
+                    self.create_folder(name)
+
+                self[name].create_all(**subfolder_keys)
             else:
-                if (default := attr.default) == attrs.NOTHING:
-                    default = None
+                if name in self:
+                    continue
+
+                match field.default:
+                    case attrs.NOTHING:
+                        default = None
+                    case attrs.Factory(factory=f):
+                        default = f()
+                    case default: ...
 
                 self.create_parameter(name, value=default)
 
