@@ -26,7 +26,7 @@ from qwip.sequencer.waveform import (
     Marker,
     ReadoutMarker,
 )
-from qwip.sequencer.phase_tracker improt (
+from qwip.sequencer.phase_tracker import (
     PhaseTracker,
     PhaseUpdater,
     ModulationFrequency
