@@ -272,10 +272,8 @@ class WaveformSequencer:
     def compile_phases(
         self,
         locations: dict[Location, list[Waveform]]
-    ) -> dict[ModulationFrequency, np.ndarray]:
-        phase_tracker = {
-            ModulationFrequency(name): [(0, 0)] for name in self.modulations
-        }
+    ) -> PhaseTracker:
+        phase_tracker = PhaseTracker.from_modulations(self.modulations)
 
         for loc, waves in locations.items():
             loc = loc.offset
@@ -286,17 +284,14 @@ class WaveformSequencer:
                 
                 w.update_phase_tracker(loc, phase_tracker)
 
-        return {
-            mod_freq: np.array(phase_jumps)
-                for mod_freq, phase_jumps in phase_tracker.items()
-        }
+        return phase_tracker
 
     def compile_timepoints(
         self,
         locations: dict[Location, list[Waveform]],
         waveform_array: NDArray[np.float32],
         sample_rate: float,
-        phase_tracker: dict[ModulationFrequency, tuple[float, float]],
+        phase_tracker: PhaseTracker,
         pulse_kwargs: dict = {},
     ):
         num_timepoints = waveform_array.shape[1]        
