@@ -38,7 +38,7 @@ def register_waveform(cls) -> type:
 @qfrozen(kw_only=False)
 class Channel:
     name: str
-    subchannel: int | None = None
+    subchannel: int = 0
 
 def update_fields(inst, /, **kwargs) -> dict:
     fields = {}
