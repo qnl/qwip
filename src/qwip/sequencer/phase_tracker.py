@@ -6,6 +6,7 @@ from collections import defaultdict
 from typing import Protocol, runtime_checkable
 from typing_extensions import Self
 
+import numpy as np
 from attrs import field, evolve
 
 from qwip.settings.settings import qdefine, qfrozen
@@ -18,7 +19,10 @@ class ModulationFrequency(LinearExpression):
 
 @qfrozen(kw_only=False, order=True)
 class PhaseJump:
-    """"""
+    """A discrete phase jump.
+    
+    A phase jump specifies a time t and a phase phi.
+    """
     t: float
     phi: float = field(order=False)
 
@@ -107,6 +111,52 @@ class PhaseTracker:
     def compress(phases: Iterable[PhaseJump]) -> list[PhaseJump]:
         """Returns a list of phases with a single entry per timepoint."""
         return [sum(tphis) for _, tphis in it.groupby(phases, key=lambda pt: pt.t)]
+
+    def compressed(self, modkey: ModulationFrequency) -> list[PhaseJump]:
+        return type(self).compress(self[modkey])
+
+    def accumulated(self, modkey: ModulationFrequency) -> list[PhaseJump]:
+        phis = type(self).compress(self[modkey])
+
+        return list(it.accumulate(
+            phis,
+            func=lambda pj1, pj2: evolve(pj2, phi=pj1.phi + pj2.phi)
+        ))
+
+    def compute_integrated_phase(
+        self,
+        modkey: ModulationFrequency,
+        ts: np.ndarray,
+    ) -> np.ndarray:
+        if modkey not in self:
+            return np.zeros_like(ts)
+
+        phase_jumps = self.compressed(modkey)
+        t_jump, phase_jumps = np.array([(pj.t, pj.phi) for pj in phase_jumps]).T
+        accumulated_phase = np.cumsum(phase_jumps)
+
+        # Find phase_jumps that are relevant for the time slice
+        s = np.searchsorted(t_jump, ts[0])
+        e = np.searchsorted(t_jump, ts[-1], side='right')
+
+        idx = np.searchsorted(ts, t_jump[s:e])
+
+        # Set phis equal to last phase before or equal to ts[0]
+        phis = accumulated_phase[max(s - 1, 0)]*np.ones_like(ts)
+
+        N = phis.shape[0]
+
+        for i, (left, right) in enumerate(zip(idx, idx[1:])):
+            phis[left:right] = accumulated_phase[s + i]
+
+            if right >= N:
+                break
+        else:
+            # Handle any remaining bit
+            if len(idx):
+                phis[idx[-1]:] = accumulated_phase[s + len(idx) - 1]
+
+        return phis
 
 
 @runtime_checkable
