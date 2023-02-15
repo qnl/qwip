@@ -18,7 +18,11 @@ from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.defaults import dynamic_default
 from qwip.settings.settings import qdefine, qfrozen
 from qwip.sequencer.utils import LinearExpression, Location
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import (
+    ModulationFrequency,
+    PhaseTracker,
+    PhaseJump,
+)
 from qwip.typing import is_union_type
 
 REGISTERED_WAVEFORMS: dict[str, 'Waveform'] = dict()
@@ -310,6 +314,7 @@ class DCWaveform(InfiniteWaveform):
 class CWWaveform(InfiniteWaveform):
     frequency: ModulationFrequency
     phase: float | str = 0
+    phase_key: ModulationFrequency | None = None
 
     @dynamic_default(phase_unit='units/phase')
     def evaluate_timepoints(
@@ -317,7 +322,7 @@ class CWWaveform(InfiniteWaveform):
         ts: np.ndarray,
         amplitude: float,
         phase: float,
-        phase_tracker: dict[ModulationFrequency, np.ndarray] | None = None,
+        phase_tracker: PhaseTracker | None = None,
         modulations: dict[str, ModulationFrequency] = {},
         phase_unit: str = None,
         complex_out: str = False,
@@ -345,7 +350,10 @@ class CWWaveform(InfiniteWaveform):
         freq = 2*np.pi*self.frequency.resolve(**modulations).offset
 
         if phase_tracker:
-            phis = self.compute_integrated_phase(ts, phase_tracker)
+            phis = phase_tracker.compute_integrated_phase(
+                self.phase_key or self.frequency,
+                ts
+            )
         else:
             phis = np.zeros_like(ts)
 
@@ -365,38 +373,6 @@ class CWWaveform(InfiniteWaveform):
             shape = (max(1, len(self.channels)), len(wave))
             return np.broadcast_to(wave.real, shape)
 
-    def compute_integrated_phase(
-        self,
-        ts: np.ndarray,
-        phase_tracker: dict[ModulationFrequency, np.ndarray],
-    ) -> np.ndarray:
-        if self.frequency not in phase_tracker:
-            return np.zeros_like(ts)
-
-        phase_jumps = phase_tracker[self.frequency]
-
-        # Find phase_jumps that are relevant for the time slice
-        s = np.searchsorted(phase_jumps[:, 0], ts[0])
-        e = np.searchsorted(phase_jumps[:, 0], ts[-1], side='right')
-
-        idx = np.searchsorted(ts, phase_jumps[s:e, 0])
-
-        # Set phis equal to last phase before or equal to ts[0]
-        phis = phase_jumps[max(s - 1, 0), 1]*np.ones_like(ts)
-
-        N = phis.shape[0]
-
-        for i, (left, right) in enumerate(zip(idx, idx[1:])):
-            phis[left:right] = phase_jumps[s + i, 1]
-
-            if right >= N:
-                break
-        else:
-            # Handle any remaining bit
-            if len(idx):
-                phis[idx[-1]:] = phase_jumps[s + len(idx) - 1, 1]
-
-        return phis
 
 @register_waveform
 @qfrozen
@@ -448,19 +424,9 @@ class VirtualZWaveform(Marker):
     def update_phase_tracker(
         self,
         time: float,
-        phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]],
+        phase_tracker: PhaseTracker,
     ) -> None:
-        try:
-            previous_time, phi = phase_tracker[self.mod_freq][-1]
-        except KeyError as e:
-            raise KeyError(f'Modulation {self.mod_freq} not found!') from e
-
-        phase_entry = (time, phi + self.phase)
-
-        if time == previous_time:
-            phase_tracker[self.mod_freq][-1] = phase_entry
-        else:
-            phase_tracker[self.mod_freq].append(phase_entry)
+        phase_tracker.append(self.mod_freq, PhaseJump(time, self.phase))
 
 @register_waveform
 @qfrozen

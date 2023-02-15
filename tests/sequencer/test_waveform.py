@@ -7,7 +7,11 @@ import qwip
 
 from numpy.testing import assert_allclose
 from qwip.sequencer.utils import Location
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import (
+    ModulationFrequency,
+    PhaseTracker,
+    PhaseJump
+)
 from qwip.sequencer.waveform import (
     update_fields,
     Waveform,
@@ -181,68 +185,10 @@ class TestBasicWaveform:
 
 class TestCWWaveform:
     @pytest.mark.parametrize(
-        'ts,phase_jumps,expected',
-        [
-            (
-                np.arange(10),
-                np.array([(0, 0), (4.5, 1)]),
-                np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
-            ),
-            (
-                np.arange(10) / 2,
-                np.array([(0, 0), (3, 1)]),
-                np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1])
-            ),
-            (
-                np.arange(10) * 5,
-                np.array([(0, 0), (51, 1)]),
-                np.zeros(10)
-            ),
-            (
-                np.arange(5),
-                np.array([(0, 0), (4, 1)]),
-                np.array([0, 0, 0, 0, 1])
-            ),
-            (
-                np.arange(10),
-                np.array([(0, 0), (1.9, 1), (4.7, -1), (20, -2)]),
-                np.array([0, 0, 1, 1, 1, -1, -1, -1, -1, -1])
-            ),
-            (
-                np.arange(10) + 10,
-                np.array([(0, 0), (9, 1), (10, -1), (15, 1), (19, -2)]),
-                np.array([-1, -1, -1, -1, -1, 1, 1, 1, 1, -2])
-            ),
-            (
-                np.arange(10) + 10,
-                np.array([(0, 0), (9, 1), (14.5, -1), (20, -2)]),
-                np.array([1, 1, 1, 1, 1, -1, -1, -1, -1, -1])
-            ),
-            (
-                np.arange(10) + 10,
-                np.array([(0, 0), (9, 1), (20, -2)]),
-                np.ones(10)
-            )
-        ]
-    )
-    def test_integrated_phase(self, ts, phase_jumps, expected):
-        modwave = CWWaveform(
-            frequency='Q0'
-        )
-
-        phase_tracker = {
-            ModulationFrequency('Q0'): phase_jumps
-        }
-
-        integrated_phase = modwave.compute_integrated_phase(ts, phase_tracker)
-
-        assert_allclose(integrated_phase, expected)
-
-    @pytest.mark.parametrize(
         'ts,phase_jumps',
         [
             (np.linspace(0, 5, 21), np.array([(0, 0)])),
-            (np.linspace(0, 5, 21), np.array([(0, 0), (1.25, 90), (2.5, -90)])),
+            (np.linspace(0, 5, 21), np.array([(0, 0), (1.25, 90), (2.5, -180)])),
             (np.linspace(1.25, 6.25, 21), np.array([(0, 0), (1, -90)]))
         ]
     )
@@ -254,9 +200,11 @@ class TestCWWaveform:
             channels=('I', 'Q')
         )
 
-        phase_tracker = {
-            ModulationFrequency(0.2): phase_jumps
-        }
+        phase_tracker = PhaseTracker(phases={
+            ModulationFrequency(0.2): [
+                PhaseJump(t, pj) for t, pj in phase_jumps
+            ]
+        })
 
         wave = w(ts, phase_tracker=phase_tracker, phase_unit='degrees')
         assert_allclose(wave, expected)
@@ -281,13 +229,25 @@ class TestCWWaveform:
 
         mod_freq = ModulationFrequency(0.5)
 
+        phase_tracker_deg = PhaseTracker(phases={
+            mod_freq: [
+                PhaseJump(t, pj) for t, pj in pj_deg
+            ]
+        })
+
+        phase_tracker_rad = PhaseTracker(phases={
+            mod_freq: [
+                PhaseJump(t, pj) for t, pj in pj_rad
+            ]
+        })
+
         w = CWWaveform(
             frequency=mod_freq,
             channels=('I', 'Q')
         )
 
-        wave_d = w(ts, phase_tracker={mod_freq: pj_deg}, phase_unit='degrees')
-        wave_r = w(ts, phase_tracker={mod_freq: pj_rad}, phase_unit='radians')
+        wave_d = w(ts, phase_tracker=phase_tracker_deg, phase_unit='degrees')
+        wave_r = w(ts, phase_tracker=phase_tracker_rad, phase_unit='radians')
 
         assert_allclose(wave_d, wave_r)
 
@@ -354,9 +314,9 @@ class TestModulatedWaveform:
             channels=('I', 'Q')
         )
 
-        phase_tracker = {
-            freq: phase_jumps
-        }
+        phase_tracker = PhaseTracker(phases={
+            freq: [PhaseJump(t, pj) for t, pj in phase_jumps]
+        })
 
         w = ModulatedWaveform(envelope=env, mod_freq=mod)
 
@@ -429,4 +389,45 @@ class TestDRAGWaveform:
         
         assert (np.abs(fs_drag[window]) < np.abs(fs_nodrag[window])).all()
 
-        
+class TestVirtualZWaveform:
+    @pytest.mark.parametrize(
+        'mod_key,z_gates,phase_jumps',
+        [
+            (
+                'mod_Q0',
+                [
+                    (0, VirtualZWaveform(mod_freq='mod_Q0', phase=45)),
+                    (0, VirtualZWaveform(mod_freq='mod_Q0', phase=45)),
+                    (1.5, VirtualZWaveform(mod_freq='mod_Q1', phase=-90)),
+                    (2, VirtualZWaveform(mod_freq='mod_Q0', phase=-180))
+                ],
+                [
+                    PhaseJump(0, 90),
+                    PhaseJump(2, -180)
+                ]
+            ),
+            (
+                'mod_Q0 - mod_Q1',
+                [
+                    (0, VirtualZWaveform(mod_freq='mod_Q0', phase=45)),
+                    (0, VirtualZWaveform(mod_freq='mod_Q0', phase=45)),
+                    (1.5, VirtualZWaveform(mod_freq='mod_Q1', phase=-90)),
+                    (2, VirtualZWaveform(mod_freq='mod_Q0', phase=-180))
+                ],
+                [
+                    PhaseJump(0, 90),
+                    PhaseJump(1.5, 90),
+                    PhaseJump(2, -180)
+                ]
+            )
+        ]
+    )
+    def test_update_phase_tracker(self, mod_key, z_gates, phase_jumps):
+        phase_tracker = PhaseTracker.from_modulations(
+            ['mod_Q0', 'mod_Q1']
+        )
+
+        for t, z in z_gates:
+            z.update_phase_tracker(t, phase_tracker)
+
+        assert phase_tracker.compressed(mod_key) == phase_jumps
