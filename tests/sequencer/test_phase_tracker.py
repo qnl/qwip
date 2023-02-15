@@ -96,42 +96,67 @@ class TestPhaseTracker:
         [
             (
                 np.arange(10),
-                np.array([(0, 0), (4.5, 1)]),
+                [],
+                np.zeros(10)
+            ),
+            (
+                np.arange(10),
+                [PhaseJump(0, 0), PhaseJump(4.5, 1)],
                 np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1])
             ),
             (
                 np.arange(10) / 2,
-                np.array([(0, 0), (3, 1)]),
+                [PhaseJump(0, 0), PhaseJump(3, 1)],
                 np.array([0, 0, 0, 0, 0, 0, 1, 1, 1, 1])
             ),
             (
                 np.arange(10) * 5,
-                np.array([(0, 0), (51, 1)]),
+                [PhaseJump(0, 0), PhaseJump(51, 1)],
                 np.zeros(10)
             ),
             (
                 np.arange(5),
-                np.array([(0, 0), (4, 1)]),
+                [PhaseJump(0, 0), PhaseJump(4, 1)],
                 np.array([0, 0, 0, 0, 1])
             ),
             (
                 np.arange(10),
-                np.array([(0, 0), (1.9, 1), (4.7, -2), (20, -1)]),
+                [
+                    PhaseJump(0, 0),
+                    PhaseJump(1.9, 1),
+                    PhaseJump(4.7, -2),
+                    PhaseJump(20, -1)
+                ],
                 np.array([0, 0, 1, 1, 1, -1, -1, -1, -1, -1])
             ),
             (
                 np.arange(10) + 10,
-                np.array([(0, 0), (9, 1), (10, -2), (15, 2), (19, -3)]),
+                [
+                    PhaseJump(0, 0),
+                    PhaseJump(9, 1),
+                    PhaseJump(10, -2),
+                    PhaseJump(15, 2),
+                    PhaseJump(19, -3)
+                ],
                 np.array([-1, -1, -1, -1, -1, 1, 1, 1, 1, -2])
             ),
             (
                 np.arange(10) + 10,
-                np.array([(0, 0), (9, 1), (14.5, -2), (20, -1)]),
+                [
+                    PhaseJump(0, 0),
+                    PhaseJump(9, 1),
+                    PhaseJump(14.5, -2),
+                    PhaseJump(20, -1)
+                ],
                 np.array([1, 1, 1, 1, 1, -1, -1, -1, -1, -1])
             ),
             (
                 np.arange(10) + 10,
-                np.array([(0, 0), (9, 1), (20, -3)]),
+                [
+                    PhaseJump(0, 0),
+                    PhaseJump(9, 1),
+                    PhaseJump(20, -3)
+                ],
                 np.ones(10)
             )
         ]
@@ -139,8 +164,8 @@ class TestPhaseTracker:
     def test_integrated_phase(self, ts, phase_jumps, expected):
         phase_tracker = PhaseTracker.from_modulations(['Q0'])
 
-        for t, phi in phase_jumps:
-            phase_tracker.append('Q0', PhaseJump(t, phi))
+        for pj in phase_jumps:
+            phase_tracker.append('Q0', pj)
 
         integrated_phase = phase_tracker.compute_integrated_phase('Q0', ts)
 

@@ -132,7 +132,10 @@ class PhaseTracker:
             return np.zeros_like(ts)
 
         phase_jumps = self.compressed(modkey)
-        t_jump, phase_jumps = np.array([(pj.t, pj.phi) for pj in phase_jumps]).T
+        if phase_jumps:
+            t_jump, phase_jumps = np.array([(pj.t, pj.phi) for pj in phase_jumps]).T
+        else:
+            t_jump = phase_jumps = np.zeros(1)
         accumulated_phase = np.cumsum(phase_jumps)
 
         # Find phase_jumps that are relevant for the time slice
