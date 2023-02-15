@@ -1,4 +1,8 @@
-from collections.abc import Collection
+import functools
+import itertools as it
+from collections.abc import Collection, Iterable
+from collections.abc import Sequence as TSequence
+from collections import defaultdict
 from typing import Protocol, runtime_checkable
 from typing_extensions import Self
 
@@ -21,20 +25,16 @@ from qwip.sequencer.waveform import (
     Channel,
     Marker,
     ReadoutMarker,
+)
+from qwip.sequencer.phase_tracker improt (
+    PhaseTracker,
+    PhaseUpdater,
     ModulationFrequency
 )
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import Sequence
 from qwip.visualization.utils import all_legend_handles_labels
 
-@runtime_checkable
-class PhaseTracker(Protocol):
-    def update_phase_tracker(
-        self,
-        time: float,
-        phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]]
-    ) -> None:
-        ...
 
 def find_end_marker(locations, name='end') -> Location | None:
     for loc, waves in locations.items():
@@ -281,7 +281,7 @@ class WaveformSequencer:
             loc = loc.offset
 
             for w in waves:
-                if not isinstance(w, PhaseTracker):
+                if not isinstance(w, PhaseUpdater):
                     continue
                 
                 w.update_phase_tracker(loc, phase_tracker)

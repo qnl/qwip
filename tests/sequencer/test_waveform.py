@@ -7,12 +7,12 @@ import qwip
 
 from numpy.testing import assert_allclose
 from qwip.sequencer.utils import Location
+from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.waveform import (
     update_fields,
     Waveform,
     BasicWaveform,
     Channel,
-    ModulationFrequency,
     ModulatedWaveform,
     CWWaveform,
     DRAG,

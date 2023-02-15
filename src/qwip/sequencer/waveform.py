@@ -18,6 +18,7 @@ from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.defaults import dynamic_default
 from qwip.settings.settings import qdefine, qfrozen
 from qwip.sequencer.utils import LinearExpression, Location
+from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.typing import is_union_type
 
 REGISTERED_WAVEFORMS: dict[str, 'Waveform'] = dict()
@@ -29,10 +30,6 @@ def register_waveform(cls) -> type:
     REGISTERED_WAVEFORMS[cls.__name__] = cls
 
     return cls
-
-@qfrozen(kw_only=False, repr=False)
-class ModulationFrequency(LinearExpression):
-    ...
 
 @qfrozen(kw_only=False)
 class Channel:
