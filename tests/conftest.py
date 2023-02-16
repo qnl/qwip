@@ -25,10 +25,12 @@ def data_file(request):
     fspath = Path(request.fspath)
 
     file = fspath.name
-    name = re.match(r'test_(?P<name>.*)\.py', str(file)).group('name')
+    name = re.match(r"test_(?P<name>.*)\.py", str(file)).group("name")
     datadir = fspath.parent / name
 
     if request.cls:
         datadir = datadir / request.cls.__name__.lstrip('Test')
+    
+    filename = re.match(r"test_(.*)", request.node.name).groups()[0]
 
-    return datadir / f'{request.node.name.lstrip("test_")}.txt'
+    return datadir / f"{filename}.txt"

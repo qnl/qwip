@@ -1,5 +1,7 @@
 import pytest
 
+from numpy.testing import assert_array_almost_equal
+
 from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.elements import SequenceElement
@@ -149,8 +151,9 @@ class TestWaveformSequencer:
 
         return dict(Q0_X90=Q0_X90, Q1_X90=Q1_X90, Q0_Z90=Q0_Z90, Q1_Z90=Q1_Z90, R0=R0, R1=R1)
 
-    def test_end_to_end(self, sequencer, pulses):
+    def test_end_to_end(self, sequencer, pulses, data_file):
         import matplotlib.pyplot as plt
+        import numpy as np
         ro_se = SequenceElement()
         ro_se.add_waveform([pulses[f"R{r}"] for r in range(2)])
 
@@ -166,5 +169,8 @@ class TestWaveformSequencer:
         seq = Sequence([se_0, se_1])
 
         cseq = sequencer.compile(seq, readout=ro_se)
-        
-        
+
+        expected = np.loadtxt(data_file).reshape(cseq.array.shape)
+
+        assert_array_almost_equal(expected, cseq.array)
+    
