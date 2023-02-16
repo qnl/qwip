@@ -314,7 +314,7 @@ class DCWaveform(InfiniteWaveform):
 class CWWaveform(InfiniteWaveform):
     frequency: ModulationFrequency
     phase: float | str = 0
-    phase_key: ModulationFrequency | None = None
+    mod_key: ModulationFrequency | None = None
 
     @dynamic_default(phase_unit='units/phase')
     def evaluate_timepoints(
@@ -351,7 +351,7 @@ class CWWaveform(InfiniteWaveform):
 
         if phase_tracker:
             phis = phase_tracker.compute_integrated_phase(
-                self.phase_key or self.frequency,
+                self.mod_key or self.frequency,
                 ts
             )
         else:
@@ -378,7 +378,7 @@ class CWWaveform(InfiniteWaveform):
 @qfrozen
 class ModulatedWaveform(Waveform):
     envelope: Waveform
-    mod_freq: CWWaveform
+    modulation: CWWaveform
 
     @property
     def width(self) -> float | str:
@@ -391,7 +391,7 @@ class ModulatedWaveform(Waveform):
     @property
     def amplitude(self) -> float | str:
         A_e = self.envelope.amplitude
-        A_f = self.mod_freq.amplitude
+        A_f = self.modulation.amplitude
         try:
             return A_e * A_f
         except TypeError:
@@ -399,10 +399,10 @@ class ModulatedWaveform(Waveform):
 
     @property
     def channels(self) -> tuple[Channel]:
-        return self.mod_freq.channels
+        return self.modulation.channels
 
     def evaluate_timepoints(self, ts, **kwargs) -> np.ndarray:
-        modulation = self.mod_freq(ts, complex_out=True, **kwargs)
+        modulation = self.modulation(ts, complex_out=True, **kwargs)
         envelope = self.envelope(ts, **kwargs)
 
         wave = envelope * modulation
@@ -418,7 +418,7 @@ class ModulatedWaveform(Waveform):
 @register_waveform
 @qfrozen
 class VirtualZWaveform(Marker):
-    mod_freq: ModulationFrequency
+    mod_key: ModulationFrequency
     phase: float | str = 0
 
     def update_phase_tracker(
@@ -426,7 +426,7 @@ class VirtualZWaveform(Marker):
         time: float,
         phase_tracker: PhaseTracker,
     ) -> None:
-        phase_tracker.append(self.mod_freq, PhaseJump(time, self.phase))
+        phase_tracker.append(self.mod_key, PhaseJump(time, self.phase))
 
 @register_waveform
 @qfrozen

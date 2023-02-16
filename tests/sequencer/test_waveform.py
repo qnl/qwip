@@ -75,12 +75,12 @@ class TestWaveform:
             (
                 ModulatedWaveform(
                     envelope=DRAG(envelope=SquareWaveform()),
-                    mod_freq=CWWaveform(frequency='f')
+                    modulation=CWWaveform(frequency='f')
                 ),
                 dict(envelope_width=10),
                 ModulatedWaveform(
                     envelope=DRAG(envelope=SquareWaveform(width=10)),
-                    mod_freq=CWWaveform(frequency='f')
+                    modulation=CWWaveform(frequency='f')
                 ),
             ),
             (
@@ -91,12 +91,12 @@ class TestWaveform:
             (
                 ModulatedWaveform(
                     envelope=SquareWaveform(),
-                    mod_freq=CWWaveform(frequency='f')
+                    modulation=CWWaveform(frequency='f')
                 ),
-                dict(mod_freq_frequency='f1'),
+                dict(modulation_frequency='f1'),
                 ModulatedWaveform(
                     envelope=SquareWaveform(),
-                    mod_freq=CWWaveform(frequency='f1')
+                    modulation=CWWaveform(frequency='f1')
                 ),
             ),
         ]
@@ -271,7 +271,7 @@ class TestModulatedWaveform:
         env = SquareWaveform(**env)
         mod = CWWaveform(frequency='f', **mod)
 
-        wave = ModulatedWaveform(envelope=env, mod_freq=mod)
+        wave = ModulatedWaveform(envelope=env, modulation=mod)
 
         assert dict((p, getattr(wave, p)) for p in expected.keys()) == expected
 
@@ -291,8 +291,8 @@ class TestModulatedWaveform:
 
         mod = CWWaveform(frequency='f')
 
-        wave = ModulatedWaveform(envelope=env, mod_freq=mod)
-        expected = ModulatedWaveform(envelope=new_env, mod_freq=mod)
+        wave = ModulatedWaveform(envelope=env, modulation=mod)
+        expected = ModulatedWaveform(envelope=new_env, modulation=mod)
 
         assert wave.resolve(**vmap) == expected
 
@@ -318,7 +318,7 @@ class TestModulatedWaveform:
             freq: [PhaseJump(t, pj) for t, pj in phase_jumps]
         })
 
-        w = ModulatedWaveform(envelope=env, mod_freq=mod)
+        w = ModulatedWaveform(envelope=env, modulation=mod)
 
         ts = np.arange(240) / 2.4e9
         wave = w(ts, t0=40e-9, phase_tracker=phase_tracker)
@@ -332,7 +332,7 @@ class TestModulatedWaveform:
                 ModulatedWaveform(
                     name='X90',
                     envelope=GaussianWaveform(width=40e-9, amplitude=0.5),
-                    mod_freq=CWWaveform(
+                    modulation=CWWaveform(
                         frequency='f',
                         channels=('I', 'Q')
                     )
@@ -344,7 +344,7 @@ class TestModulatedWaveform:
                         amplitude=0.5,
                         __class__='GaussianWaveform'
                     ),
-                    mod_freq=dict(
+                    modulation=dict(
                         channels=[dict(name='I'), dict(name='Q')],
                         frequency='f',
                         __class__='CWWaveform'
@@ -375,8 +375,8 @@ class TestDRAGWaveform:
             channels=('I', 'Q')
         )
 
-        wave_drag = ModulatedWaveform(envelope=env, mod_freq=freq)
-        wave_nodrag = ModulatedWaveform(envelope=env.envelope, mod_freq=freq)
+        wave_drag = ModulatedWaveform(envelope=env, modulation=freq)
+        wave_nodrag = ModulatedWaveform(envelope=env.envelope, modulation=freq)
 
         ts = np.arange(480) / 2.4e9
 
@@ -396,10 +396,10 @@ class TestVirtualZWaveform:
             (
                 'mod_Q0',
                 [
-                    (0, VirtualZWaveform(mod_freq='mod_Q0', phase=45)),
-                    (0, VirtualZWaveform(mod_freq='mod_Q0', phase=45)),
-                    (1.5, VirtualZWaveform(mod_freq='mod_Q1', phase=-90)),
-                    (2, VirtualZWaveform(mod_freq='mod_Q0', phase=-180))
+                    (0, VirtualZWaveform(mod_key='mod_Q0', phase=45)),
+                    (0, VirtualZWaveform(mod_key='mod_Q0', phase=45)),
+                    (1.5, VirtualZWaveform(mod_key='mod_Q1', phase=-90)),
+                    (2, VirtualZWaveform(mod_key='mod_Q0', phase=-180))
                 ],
                 [
                     PhaseJump(0, 90),
@@ -409,10 +409,10 @@ class TestVirtualZWaveform:
             (
                 'mod_Q0 - mod_Q1',
                 [
-                    (0, VirtualZWaveform(mod_freq='mod_Q0', phase=45)),
-                    (0, VirtualZWaveform(mod_freq='mod_Q0', phase=45)),
-                    (1.5, VirtualZWaveform(mod_freq='mod_Q1', phase=-90)),
-                    (2, VirtualZWaveform(mod_freq='mod_Q0', phase=-180))
+                    (0, VirtualZWaveform(mod_key='mod_Q0', phase=45)),
+                    (0, VirtualZWaveform(mod_key='mod_Q0', phase=45)),
+                    (1.5, VirtualZWaveform(mod_key='mod_Q1', phase=-90)),
+                    (2, VirtualZWaveform(mod_key='mod_Q0', phase=-180))
                 ],
                 [
                     PhaseJump(0, 90),
