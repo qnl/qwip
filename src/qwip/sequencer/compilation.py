@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from attrs import field
+from attrs import field, evolve
 from loguru import logger
 
 from qtrl.sequence_utils.readout import _ReadoutInfo
@@ -198,6 +198,15 @@ class WaveformData:
 
 @qfrozen(kw_only=False)
 class ChannelInfo:
+    """Holds information mapping a logical channel name to a physical channel index.
+    
+    Attributes:
+        name: The logical channel name.
+        index: The physical channel index (0-indexed) corresponding to the hardware channel.
+        group: The name of the channel group this channel belongs to.
+        subchannel: The subchannel (used for markers) that this channel name refers to.
+        delay: A channel delay in ns to add to all waves on this channel.
+    """
     name: str
     index: int
     group: str | None = None
@@ -206,6 +215,16 @@ class ChannelInfo:
 
 @qfrozen
 class ChannelGroup:
+    """Holds information about a group of logical channels.
+
+    A channel group typically corresponds to a single hardware box or set of boxes that are
+    addressed together. They should all share the same sample rate.
+    
+    Attributes:
+        name: The name of the channel group.
+        channels: A tuple of all channels that belong to this group.
+        sample_rate: The sampling rate of the channel group in samples/second.
+    """
     name: str
     channels: tuple[ChannelInfo, ...] = field(
         repr=lambda channels: repr(tuple(ch.name for ch in channels))
@@ -228,12 +247,32 @@ class ChannelGroup:
     def max_subchannel_index(self) -> int:
         return max(ch.subchannel for ch in self)
 
+    def get_max_channel_delay(self) -> int:
+        """Returns the largest channel delay specified within the channel group."""
+        return max(ch.delay for ch in self)
+
     @classmethod
-    def from_channels(self, channels: Iterable[ChannelInfo], sample_rate: float, name: str | None = None) -> Self:
+    def from_channels(
+        self,
+        channels: Iterable[ChannelInfo],
+        sample_rate: float,
+        name: str | None = None
+    ) -> Self:
+        """Constructs a channel group from a list of channels.
+        
+        Args:
+            channels: The channels that belong to the group. They must all have unique names,
+                and should not have conflicting groups. If the group attribute for all the
+                channels is None, then name must be provided.
+            sample_rate: The sampling rate for the channel group.
+            name: The name of the channel group. This can be inferred from the channels if
+                they specify a group. Otherwise, name must be provided.
+
+        Returns:
+            The channel group.
+        """
         group = name
         names = set()
-
-        channels = tuple(channels)
 
         for ch in channels:
             if group and ch.group and ch.group != group:
@@ -245,6 +284,8 @@ class ChannelGroup:
                 raise ValueError("Channels must all have unique names!")
             
             names.add(ch.name)
+
+        channels = tuple(ch if ch.group else evolve(ch, group=group) for ch in channels)
 
         return ChannelGroup(name=group, channels=channels, sample_rate=sample_rate)
 
@@ -317,6 +358,22 @@ class CompiledSequence:
 
 @qdefine
 class WaveformSequencer:
+    """A waveform sequencer.
+
+    The waveform sequencer is responsible for compiling sequences into concrete timepoints
+    that can then be uploaded to the measurement hardware (DAC/ADC).
+
+    Attributes:
+        channels: A mapping from channel group names to `ChannelGroup` instances that
+            contain information about the channels.
+        modulations: A mapping from modulation keys for phase tracking to concrete
+            modulation frequencies.
+        readout_qubits: The list of qubits that should be included in the hardware
+            demodulation weights that are uploaded to the ADC. This is a legacy
+            parameter necessary for the ZI UHFQA's.
+        end_marker: A string specifying the marker name that is used to specify the 
+            end of a sequence element.
+    """
     channels: dict[str, ChannelGroup] = field(factory=dict)
     modulations: dict[str, ModulationFrequency] = field(factory=dict)
     readout_qubits: list[int] = field(factory=list)
@@ -328,6 +385,17 @@ class WaveformSequencer:
         channel_groups: Iterable[ChannelGroup],
         **kwargs
     ) -> Self:
+        """Contruct the waveform sequencer from a list of `ChannelGroup`.
+        
+        Args:
+            channel_groups: A list of `ChannelGroup` instances representing the
+                measurement hardware.
+            **kwargs: Remaining keyworad arguments are passed to the `__init__`
+                function.
+
+        Returns:
+            A new WaveformSequencer instance.
+        """
         channels = {ch_group.name: ch_group for ch_group in channel_groups}
 
         return WaveformSequencer(channels=channels, **kwargs)
@@ -336,6 +404,17 @@ class WaveformSequencer:
         self,
         locations: dict[Location, list[Waveform]]
     ) -> PhaseTracker:
+        """Returns a new phase tracker instance with all virtual phase updates.
+
+        Every waveform that has an `update_phase_tracker` method will be called
+        on the `PhaseTracker`.
+
+        Args:
+            locations: A dictionary mapping locations to waveforms.
+
+        Returns:
+            An updated phase tracker.
+        """
         phase_tracker = PhaseTracker.from_modulations(self.modulations)
 
         for loc, waves in locations.items():
@@ -356,7 +435,24 @@ class WaveformSequencer:
         channel_group: ChannelGroup,
         phase_tracker: PhaseTracker,
         pulse_kwargs: dict = {},
-    ):
+    ) -> None:
+        """Compiles a single timeline of pulses into concrete timepoints.
+
+        Each element represents a DAC amplitude (normalized between -1 and 1)
+        on a specific channel/subchannel for a given sample timestep.
+
+        Args:
+            locations: A dictionary mapping locations to waveforms. The locations
+                should be time ordered.
+            waveform_array: A numpy array with shape `(channels, timepoints, subchannels)`
+                that will hold the compiled timepoints
+            channel_group: The channel group that corresponds to this location
+                map.
+            phase_tracker: A phase tracker instance that holds all phase jumps for
+                this timeline of pulses.
+            pulse_kwargs: A mapping of variable names to resolved values to pass to
+                all pulses.
+        """
         sample_rate = channel_group.sample_rate
         num_timepoints = waveform_array.shape[1]        
 
@@ -399,6 +495,23 @@ class WaveformSequencer:
         channel_group: ChannelGroup,
         pulse_kwargs: dict = {}
     ):
+        """Compiles a single sequence elements.
+        
+        This method makes two passes through location waveform mapping. The
+        first pass compiles all phase jumps and the second pass evaluates the
+        pulse timepoints.
+
+        Args:
+            locations: A dictionary mapping locations to waveforms. The locations
+                should be time ordered.
+            waveform_array: A numpy array with shape `(channels, timepoints, subchannels)`
+                that will hold the compiled timepoints
+            channel_group: The channel group that corresponds to this location
+                map.
+            pulse_kwargs: A mapping of variable names to resolved values to pass to
+                all pulses.
+        
+        """
         # Compile phases
         phase_tracker = self.compile_phases(locations)
 
@@ -415,8 +528,21 @@ class WaveformSequencer:
         seq: Sequence,
         max_times: dict[str, float]
     ) -> CompiledSequence:
-        # channel_groups = tuple(max_times)
-        # channel_group_info = self.get_channel_group_info(channel_groups)
+        """Creates a new `CompiledSequence` instance.
+
+        This function allocates the waveform arrays that will hold all the waveform
+        data for the given sequence.
+        
+        Args:
+            seq: The sequence to be compiled.
+            max_times: A dictionary mapping channel group keys to the latest timepoint
+                played on any channel accross all sequence elements. Times are specified
+                in seconds.
+
+        Returns:
+            A new `CompiledSequence` instance with the waveform data arrays initialized
+            to all zeros.
+        """
 
         waveform_arrs = dict()
         for key, group in self.channels.items():
@@ -450,7 +576,20 @@ class WaveformSequencer:
         pulse_kwargs: dict = {},
         **triggered_elements
     ) -> CompiledSequence:
+        """Compiles a sequence.
 
+        This function takes an abstract sequence and compiles it into a concrete
+        set of timepoints.
+
+        Args:
+            seq: The sequence to compile.
+            location_kwargs: Any location constraints to add to the sequence
+                before compilation.
+            pulse_kwargs: A mapping of variables names to resolved pulse parameters.
+
+        Returns:
+            A `CompiledSequence` instance.
+        """
         # First resolve all locations in the main sequence
         locations = [
             se.resolve_locations(
