@@ -196,13 +196,66 @@ class WaveformData:
 
         return ys
 
-@qfrozen
+@qfrozen(kw_only=False)
 class ChannelInfo:
-    sample_rate: float
+    name: str
     index: int
-    group: str
+    group: str | None = None
     subchannel: int = 0 # Use nonzero for markers
     delay: float = 0
+
+@qfrozen
+class ChannelGroup:
+    name: str
+    channels: tuple[ChannelInfo, ...] = field(
+        repr=lambda channels: repr(tuple(ch.name for ch in channels))
+    )
+    sample_rate: float
+
+    @property
+    def num_channels(self) -> int:
+        return len(self.channels)
+
+    @property
+    def num_subchannels(self) -> int:
+        return len(set(ch.subchannel for ch in self))
+
+    @property
+    def max_channel_index(self) -> int:
+        return max(ch.index for ch in self)
+    
+    @property
+    def max_subchannel_index(self) -> int:
+        return max(ch.subchannel for ch in self)
+
+    @classmethod
+    def from_channels(self, channels: Iterable[ChannelInfo], sample_rate: float, name: str | None = None) -> Self:
+        group = name
+        names = set()
+
+        channels = tuple(channels)
+
+        for ch in channels:
+            if group and ch.group and ch.group != group:
+                raise ValueError("Cannot create channel group from channels with different group names.")
+
+            group = group or ch.group
+            
+            if ch.name in names:
+                raise ValueError("Channels must all have unique names!")
+            
+            names.add(ch.name)
+
+        return ChannelGroup(name=group, channels=channels, sample_rate=sample_rate)
+
+    def __iter__(self):
+        yield from self.channels.__iter__()
+
+    def __getitem__(self, channel_name: str):
+        try:
+            return next(ch for ch in self if ch.name == channel_name)
+        except StopIteration as e:
+            raise KeyError(f"'{channel_name}'") from e
 
 @qdefine
 class CompiledSequence:
@@ -264,10 +317,20 @@ class CompiledSequence:
 
 @qdefine
 class WaveformSequencer:
-    channels: dict[Channel, ChannelInfo] = field(factory=dict)
+    channels: dict[str, ChannelGroup] = field(factory=dict)
     modulations: dict[str, ModulationFrequency] = field(factory=dict)
     readout_qubits: list[int] = field(factory=list)
     end_marker: str = 'end'
+
+    @classmethod
+    def from_channel_groups(
+        cls,
+        channel_groups: Iterable[ChannelGroup],
+        **kwargs
+    ) -> Self:
+        channels = {ch_group.name: ch_group for ch_group in channel_groups}
+
+        return WaveformSequencer(channels=channels, **kwargs)
     
     def compile_phases(
         self,
@@ -290,10 +353,11 @@ class WaveformSequencer:
         self,
         locations: dict[Location, list[Waveform]],
         waveform_array: NDArray[np.float32],
-        sample_rate: float,
+        channel_group: ChannelGroup,
         phase_tracker: PhaseTracker,
         pulse_kwargs: dict = {},
     ):
+        sample_rate = channel_group.sample_rate
         num_timepoints = waveform_array.shape[1]        
 
         ts = np.arange(num_timepoints) / sample_rate
@@ -322,8 +386,8 @@ class WaveformSequencer:
                     w_t = w_t[np.newaxis, :]
                 
                 for i, c in enumerate(w.channels):
-                    ch_idx = self.channels[c].index,
-                    subchannel = self.channels[c].subchannel
+                    ch_idx = channel_group[c.name].index,
+                    subchannel = c.subchannel
                     waveform_array[ch_idx, s_idx:e_idx, subchannel] += w_t[i]
 
         return waveform_array
@@ -332,7 +396,7 @@ class WaveformSequencer:
         self,
         locations: dict[Location, list[Waveform]],
         waveform_array: np.ndarray,
-        sample_rate: float,
+        channel_group: ChannelGroup,
         pulse_kwargs: dict = {}
     ):
         # Compile phases
@@ -341,64 +405,25 @@ class WaveformSequencer:
         return self.compile_timepoints(
             locations=locations,
             waveform_array=waveform_array,
-            sample_rate=sample_rate,
+            channel_group=channel_group,
             phase_tracker=phase_tracker,
             pulse_kwargs=pulse_kwargs,
         )
-
-    def get_channel_group_info(
-        self,
-        groups: tuple[str, ...]
-    ) -> dict[str, tuple[float, int]]:
-        channel_groups = dict()
-
-        ## This would ideally be cached for a given set of channel groups
-        for group in groups:
-            sample_rate = set()
-            ch_ids = set()
-            num_subchannels = 1
-
-            # Look through all channels
-            for ch, ch_info in self.channels.items():
-                if group != ch_info.group:
-                    continue
-
-                sample_rate.add(ch_info.sample_rate)
-                ch_ids.add(ch_info.index)
-                num_subchannels = max(num_subchannels, ch_info.subchannel + 1)
-
-                if len(sample_rate) > 1:
-                    raise ValueError(
-                        f'Channel {ch.name} has sample rate {ch_info.sample_rate} that does not match'
-                        f'sample rate {next(iter(sample_rate))} for group {group}.'
-                    )
-
-            if not ch_ids:
-                raise ValueError(
-                    f'No channels found for channel group {group}.'
-                )
-
-            if (sorted_ids := sorted(ch_ids))[-1] != len(ch_ids) - 1:
-                raise ValueError(
-                    f'All physical channel indices should be specified. Channel group {group} has '
-                    f'physical indices: {sorted_ids}.'
-                )
-
-            channel_groups[group] = (next(iter(sample_rate)), len(sorted_ids), num_subchannels)
-
-        return channel_groups
 
     def initialize_compiled_sequence(
         self,
         seq: Sequence,
         max_times: dict[str, float]
     ) -> CompiledSequence:
-        channel_groups = tuple(max_times)
-        channel_group_info = self.get_channel_group_info(channel_groups)
+        # channel_groups = tuple(max_times)
+        # channel_group_info = self.get_channel_group_info(channel_groups)
 
         waveform_arrs = dict()
-        for key in channel_groups:
-            sample_rate, num_channels, num_subchannels = channel_group_info[key]
+        for key, group in self.channels.items():
+            sample_rate = group.sample_rate
+            num_channels = group.max_channel_index + 1
+            num_subchannels = group.max_subchannel_index + 1
+
             num_elements = np.product(seq.shape) if key == 'seq' else 1
             num_timepoints = int(max_times[key].offset * sample_rate)
 
@@ -465,7 +490,7 @@ class WaveformSequencer:
                 se_locs,
                 # (channel_idx, element_idx, timepoints, num_outports)
                 cseq.waveforms['seq'].array[:, i, :],
-                cseq.waveforms['seq'].sample_rate,
+                self.channels['seq'],
                 se.constraints | pulse_kwargs
             )
 
@@ -476,7 +501,7 @@ class WaveformSequencer:
                 se_locs,
                 # (channel_idx, element_idx, timepoints, num_outports)
                 cseq.waveforms[trigger].array[:, 0, :],
-                cseq.waveforms[trigger].sample_rate,
+                self.channels[trigger],
                 se.constraints | pulse_kwargs
             )
 
