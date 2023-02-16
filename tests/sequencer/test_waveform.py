@@ -1,6 +1,4 @@
-import re
 from copy import copy, deepcopy
-from pathlib import Path
 import pytest
 import numpy as np
 import qwip
@@ -26,19 +24,6 @@ from qwip.sequencer.waveform import (
 )
 
 import matplotlib.pyplot as plt
-
-@pytest.fixture
-def data_file(request):
-    fspath = Path(request.fspath)
-
-    file = fspath.name
-    name = re.match(r'test_(?P<name>.*)\.py', str(file)).group('name')
-    datadir = fspath.parent / name
-
-    if request.cls:
-        datadir = datadir / request.cls.__name__.lstrip('Test')
-
-    return datadir / f'{request.node.name.lstrip("test_")}.txt'
 
 class TestWaveform:
     @pytest.mark.parametrize(
