@@ -875,3 +875,9 @@ class SequenceElementPlotter:
     ) -> None:
         start = loc.offset
         ax.axvline(start, **props)
+
+__all__ = [
+    "SequenceElement",
+    "SequenceElementPlotter",
+    "UnderconstrainedSolveError"
+]

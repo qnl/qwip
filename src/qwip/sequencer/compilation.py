@@ -767,3 +767,11 @@ class CompiledSequencePlotter:
         axes[-1].set_xlabel('Time (s)')
         return fig
 
+__all__ = [
+    "ChannelInfo",
+    "ChannelGroup",
+    "CompiledSequence",
+    "CompiledSequencePlotter",
+    "WaveformData",
+    "WaveformSequencer",
+]

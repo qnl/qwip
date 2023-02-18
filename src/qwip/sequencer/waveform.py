@@ -669,3 +669,23 @@ qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, Waveform),
     make_waveform_unstructure_fn
 )
+
+__all__ = [
+    "register_waveform",
+    "Channel",
+    "Waveform",
+    "BasicWaveform",
+    "InfiniteWaveform",
+    "Marker",
+    "CompositeWidthMarker",
+    "TriggerMarker",
+    "ReadoutMarker",
+    "DCWaveform",
+    "CWWaveform",
+    "ModulatedWaveform",
+    "VirtualZWaveform",
+    "SquareWaveform",
+    "GaussianWaveform",
+    "CosineRampWaveform",
+    "DRAG",
+]

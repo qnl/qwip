@@ -170,3 +170,10 @@ class PhaseUpdater(Protocol):
         phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]]
     ) -> None:
         ...
+
+__all__ = [
+    "ModulationFrequency",
+    "PhaseJump",
+    "PhaseTracker",
+    "PhaseUpdater",
+]
