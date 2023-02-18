@@ -112,7 +112,8 @@ class TestSequenceElements:
         )
         se = SequenceElement.fromtuples(
             [('t0', z_correction), ('t0', x90), ('t0' + x90.width, z_correction)],
-            t0=0
+            width=x90.width,
+            constraints=dict(t0=0)
         )
         return se
 

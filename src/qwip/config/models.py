@@ -289,12 +289,13 @@ class ConstraintModel(VersionControlled):
 @qdefine(slots=False)
 class SequenceElementModel(VersionControlled):
     name: str
+    width: str | None = None
     locations: list[WaveformLocationModel] = field(factory=list)
     constraints: dict[str, ConstraintModel] = field(factory=dict)
 
     @classmethod
     def from_sequence_element(cls, se, name):
-        se_model = cls(name=name)
+        se_model = cls(name=name, width=str(se.width))
 
         for loc, wave in se.get_location_pairs():
             wave_model = WaveformModel.from_waveform(wave)
@@ -326,7 +327,11 @@ class SequenceElementModel(VersionControlled):
                 for waveloc in self.locations 
         ]
 
-        return SequenceElement.fromtuples(pairs, **constraints)
+        return SequenceElement.fromtuples(
+            pairs,
+            width=self.width,
+            constraints=constraints
+        )
 
 waveform_location_table = DoltTable(
     "waveform_locations",
@@ -378,7 +383,8 @@ sequence_element_table = DoltTable(
     "sequence_elements",
     QWIP_DB_METADATA,
     Column("sequence_element_id", sa.Integer, primary_key=True, autoincrement=True),
-    Column("name", sa.String(255), primary_key=True)
+    Column("name", sa.String(255), primary_key=True),
+    Column("width", sa.String(255))
 )
 
 

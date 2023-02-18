@@ -32,15 +32,19 @@ class TestSequenceElement:
         se = SequenceElement()
         assert se.locations == dict()
         assert se.constraints == dict()
+        assert se.channels == set()
+        assert se.width == None
 
         se = SequenceElement(
             locations=dict(start=[WAVEFORMS['g1']]),
             constraints=dict(start=Location()),
+            width='width'
         )
 
         assert se.locations == {Location('start'): [WAVEFORMS['g1']]}
         assert se.constraints == dict(start=Location())
         assert se.channels == set({Channel('I')})
+        assert se.width == Location('width')
 
     @pytest.mark.parametrize(
         'locations,start',
@@ -56,7 +60,7 @@ class TestSequenceElement:
 
         se = SequenceElement.fromtuples(
             [(l, s) for l in locations],
-            **constraints
+            constraints=constraints
         )
 
         variables= {v for v in locations if isinstance(v, str)} | set(constraints)
@@ -115,7 +119,7 @@ class TestSequenceElement:
         
         se = SequenceElement.fromtuples(
             [(l, s) for l in locations],
-            **constraints
+            constraints=constraints
         )
 
         assert se.variables() == expect
@@ -234,27 +238,25 @@ class TestSequenceElement:
                     [
                         (Location('start'), SquareWaveform(channels=['a']))
                     ],
-                    start=Location()
+                    constraints=dict(start=Location())
                 ),
                 SequenceElement.fromtuples(
                     [
                         (Location('start'), SquareWaveform(channels=['b']))
                     ],
-                    start=Location(),
-                    width=Location(10)
+                    constraints=dict(start=Location(), width=Location(10))
                 ),
                 SequenceElement.fromtuples(
                     [
                         (Location('start'), SquareWaveform(channels=['a'])),
                         (Location('start'), SquareWaveform(channels=['b'])),
                     ],
-                    start=Location(),
-                    width=Location(10)
+                    constraints=dict(start=Location(), width=Location(10))
                 )
             ),
             (
-                SequenceElement.fromtuples([], start=Location()),
-                SequenceElement.fromtuples([], start=Location(1)),
+                SequenceElement.fromtuples([], constraints=dict(start=Location())),
+                SequenceElement.fromtuples([], constraints=dict(start=Location(1))),
                 pytest.raises(ValueError)
             )
         ]
@@ -273,7 +275,7 @@ class TestSequenceElement:
             ),
             SequenceElement.fromtuples(
                 [('a', WAVEFORMS['c1']), ('a', WAVEFORMS['g1'])],
-                a=Location()
+                constraints=dict(a=Location())
             )
         ]
     )
@@ -328,7 +330,7 @@ class TestSequenceElement:
             (
                 SequenceElement.fromtuples(
                     [(1 + Location('width'), WAVEFORMS['s1'])],
-                    width=Location(5)
+                    constraints=dict(width=Location(5))
                 ),
                 dict(
                     locations={
@@ -352,13 +354,3 @@ class TestSequenceElement:
         
         assert unstructured == se_dict
         assert se == restructured
-    
-    def test_width(self):
-        se = SequenceElement()
-
-        with pytest.raises(AttributeError):
-            se.width
-
-        se.add_waveform(CompositeWidthMarker(), Location('width'))
-
-        assert se.width == Location('width')

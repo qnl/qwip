@@ -34,6 +34,7 @@ class UnderconstrainedSolveError(np.linalg.LinAlgError):
 @qdefine
 class SequenceElement:
     locations: dict[Location, list[Waveform]] = field(factory=dict)
+    width: Location | None = None
     constraints: dict[str, Location] = field(factory=dict)
     channels: set[Channel] = field(
         factory=set,
@@ -51,7 +52,8 @@ class SequenceElement:
     def fromtuples(
         cls,
         pulse_locations: list[tuple[LocationLike, Waveform | None]],
-        **constraints
+        width: LocationLike | None = None,
+        constraints: dict[str, Location] = {}
     ) -> 'SequenceElement':
         """Constructs a sequence from a tuple of locations and waveforms.
         
@@ -83,16 +85,7 @@ class SequenceElement:
             k: Location(l) if isinstance(l, str) else l for k, l in constraints.items()
         }
 
-        return cls(locations=locations, constraints=constraints, channels=channels)
-
-    @property
-    def width(self) -> Location:
-        """Returns the width of a sequence element."""
-        for loc, waves in self.locations.items():
-            if CompositeWidthMarker() in waves:
-                return loc
-
-        raise AttributeError('Width is undefined unless a CompositeWidthMarker is specified.')
+        return cls(locations=locations, width=width, constraints=constraints, channels=channels)
 
     def add_waveform(
         self,
