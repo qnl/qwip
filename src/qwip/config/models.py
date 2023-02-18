@@ -384,7 +384,8 @@ sequence_element_table = DoltTable(
     QWIP_DB_METADATA,
     Column("sequence_element_id", sa.Integer, primary_key=True, autoincrement=True),
     Column("name", sa.String(255), primary_key=True),
-    Column("width", sa.String(255))
+    Column("width", sa.String(255)),
+    UniqueConstraint('name', name='uq_sequence_elements_name')
 )
 
 
@@ -392,7 +393,10 @@ QWIP_DB_REGISTRY.map_imperatively(
     WaveformLocationModel,
     waveform_location_table,
     properties=dict(
-        waveform=relationship(WaveformModel),
+        waveform=relationship(
+            WaveformModel,
+            cascade="all",
+        ),
         sequence_element=relationship(
             SequenceElementModel,
             back_populates="locations",

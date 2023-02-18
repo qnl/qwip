@@ -141,6 +141,10 @@ class TestSequenceElements:
 
     def test_delete(self, session, reset_models, x90_se):
         se_model = SequenceElementModel.from_sequence_element(x90_se, name='x90')
+        extra_wave = WaveformModel.from_waveform(
+            CosineRampWaveform(amplitude=0.5, width=20e-9)
+        )
+        session.add(extra_wave)
         session.add(se_model)
         session.flush()
 
@@ -157,5 +161,5 @@ class TestSequenceElements:
             .select_from(WaveformLocationModel)
         )
 
-        assert num_waves == 3
+        assert num_waves == 1
         assert num_pairs == 0
