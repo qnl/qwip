@@ -52,8 +52,8 @@ class ReadoutSchema(ValidatedConfigFolder):
 
     
 @configschema
-class QuantumModelSchema(ValidatedConfigFolder):
-    model_class: str
+class QuantumSystemSchema(ValidatedConfigFolder):
+    system_class: str
     parameters: ConfigFolder[str, Any]
 
 @configschema
@@ -63,22 +63,36 @@ class PulsesSchema(ValidatedConfigFolder):
     variables: ConfigFolder[str, float]
     
 @configschema
-class NativeGate(ValidatedConfigFolder):
+class NativeGateSchema(ValidatedConfigFolder):
     pulse_key: str
     parametrizable: bool = False
     dimensions: list[int] = field(factory=lambda: [2])
     unitary: Callable[..., np.ndarray]
 
 @configschema
+class ChannelInfoSchema(ValidatedConfigFolder):
+    name: str
+    index: int
+    group: str
+    subchannel: int = 0
+    delay: float = 0
+
+@configschema
+class ChannelGroupSchema(ValidatedConfigFolder):
+    name: str
+    channels: list[str]
+    sample_rate: float
+
+@configschema
 class CompilationSchema(ValidatedConfigFolder):
-    channel_map: ConfigFolder[str, int]
-    channel_delays: ConfigFolder[str, float]
-    X90: ConfigFolder[Target, NativeGate]
-    EF_X90: ConfigFolder[Target, NativeGate]
-    Z: ConfigFolder[Target, NativeGate]
-    EF_Z: ConfigFolder[Target, NativeGate]
-    CZ: ConfigFolder[Target, NativeGate]
-    iSWAP: ConfigFolder[Target, NativeGate]
+    channels: ConfigFolder[str, ChannelInfoSchema]
+    channel_groups: ConfigFolder[str, ChannelGroupSchema]
+    X90: ConfigFolder[Target, NativeGateSchema]
+    EF_X90: ConfigFolder[Target, NativeGateSchema]
+    Z: ConfigFolder[Target, NativeGateSchema]
+    EF_Z: ConfigFolder[Target, NativeGateSchema]
+    CZ: ConfigFolder[Target, NativeGateSchema]
+    iSWAP: ConfigFolder[Target, NativeGateSchema]
 
 
 @configschema
@@ -102,7 +116,7 @@ class ConfigSchema(ValidatedConfigFolder):
 
     hardware: HardwareSchema
     readout: ConfigFolder[str, ReadoutSchema]
-    models: ConfigFolder[Target, QuantumModelSchema]
+    subsystems: ConfigFolder[Target, QuantumSystemSchema]
     pulses: ConfigFolder[str, PulsesSchema]
     compilation: CompilationSchema
     extra: ConfigFolder

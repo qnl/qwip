@@ -11,6 +11,7 @@ import attrs
 from attrs import field
 from typing import get_args
 from typing_extensions import Self
+from loguru import logger
 
 import qwip
 from qwip.typing import issubtype
@@ -28,6 +29,11 @@ from qwip.config.dolt import (
     dolt_reset
 )
 from qwip.config.models import Folder, Parameter, JSONTypes
+
+try:
+    from IPython.display import display, JSON
+except ImportError:
+    logger.info("Unable to import IPython.")
 
 SHORT_HASH_LEN = 8
 USERNAME_REGEX = re.compile(r'(?P<name>[^@]*)(?P<domain>@.*)?')
@@ -208,6 +214,12 @@ class ConfigFolder(FlatMapping):
     @session_context
     def __repr__(self) -> str:
         return f'{type(self).__name__}(path={self.path()}, contents={self.__dictrepr__()})'
+
+    def _ipython_display_(self):
+        with self.session.begin():
+            json = JSON(self.todict(), root=type(self).__name__)
+
+        display(json)
 
     def __rich_repr__(self):
         yield 'path', self.path()
@@ -700,13 +712,13 @@ class ConfigDB:
     """
     database: str | None = None
     username: str 
-    password: str
+    password: str = field(repr=lambda pw: "*****")
     host: str
     port: int = 3306
 
     engine: sa.engine.Engine | None = field(init=False, default=None)
     session: sa.orm.Session | None = field(init=False, default=None)
-    settings: ConfigFolder | None = field(init=False, default=None)
+    config: ConfigFolder | None = field(init=False, default=None)
 
     def connect(self, test: bool = True, timeout: int = 2):
         url = URL.create(
