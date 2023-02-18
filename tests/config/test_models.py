@@ -35,7 +35,7 @@ class TestWaveformModel:
                 ramp=2.5e-9,
                 amplitude=0.15
             ),
-            mod_freq=CWWaveform(
+            modulation=CWWaveform(
                 channels=('I', 'Q'),
                 frequency='mod_GE'
             )
@@ -92,12 +92,12 @@ class TestWaveformModel:
             .order_by(WaveformModel.waveform_id)
         )
 
-        assert [w.key for w in results] == ['envelope', 'mod_freq', 'envelope']
+        assert [w.key for w in results] == ['envelope', 'modulation', 'envelope']
 
 class TestSequenceElements:
     @pytest.fixture
     def x90_se(self):
-        z_correction = VirtualZWaveform(mod_freq='mod_GE', phase='z_phase')
+        z_correction = VirtualZWaveform(mod_key='mod_GE', phase='z_phase')
         x90 = ModulatedWaveform(
             name='X90',
             envelope=CosineRampWaveform(
@@ -105,7 +105,7 @@ class TestSequenceElements:
                 ramp=2.5e-9,
                 amplitude=0.15
             ),
-            mod_freq=CWWaveform(
+            modulation=CWWaveform(
                 channels=('I', 'Q'),
                 frequency='mod_GE'
             )
