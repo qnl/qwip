@@ -9,6 +9,7 @@ import itertools as it
 from pathlib import Path
 import attrs
 from attrs import field
+from collections.abc import Mapping
 from typing import get_args
 from typing_extensions import Self
 from loguru import logger
@@ -17,6 +18,8 @@ import qwip
 from qwip.typing import issubtype
 from qwip.settings.settings import Settings, qdefine, qfrozen
 from qwip.flatdict import FlatDict, FlatMapping
+from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.waveform import Waveform
 from qwip.config.dolt import (
     DoltBranch,
     DoltCommit,
@@ -28,7 +31,13 @@ from qwip.config.dolt import (
     dolt_commit,
     dolt_reset
 )
-from qwip.config.models import Folder, Parameter, JSONTypes
+from qwip.config.models import (
+    Folder,
+    Parameter,
+    JSONTypes,
+    SequenceElementModel,
+    WaveformModel,
+)
 
 try:
     from IPython.display import display, JSON
@@ -613,22 +622,12 @@ class ValidatedConfigFolder(ConfigFolder):
         setattr(self, name, value)
 
     def __proxy_getitem__(self, name):
-        return super().__proxy_getitem__(name)
-
-    #     if isinstance(value, ConfigFolder):
-    #         schema = getattr(type(self).fields(), name).type
-    #         value = schema(session=value.session, folder=value.folder)
+        value = super().__proxy_getitem__(name)
         
-    #     return value
-
-    def __getitem__(self, name):
-        value = super().__getitem__(name)
-
         if isinstance(value, ConfigFolder):
             return type(self).get_key_type(name)(session=value.session, folder=value.folder)
 
         return value
-            
 
     @classmethod
     def get_key_type(cls, key):
@@ -642,7 +641,7 @@ class ValidatedConfigFolder(ConfigFolder):
 
                 fieldtype = getattr(fieldtype, 'type', ...)
 
-            elif issubtype(fieldtype, dict):
+            elif issubtype(fieldtype, Mapping):
                 match get_args(fieldtype):
                     case (kt, vt):
                         fieldtype = vt
@@ -696,9 +695,96 @@ configschema = functools.partial(
     on_setattr=[attrs.setters.convert, attrs.setters.validate, set_in_db]
 )
 
+@qdefine
+class SequenceElementFolder:
+    session: sa.orm.Session
+
+    def _get_sequence_element_model(self, name: str) -> SequenceElementModel:
+        se_model = self.session.scalar(
+            sa.select(SequenceElementModel)
+            .where(SequenceElementModel.name == name)
+        )
+
+        return se_model
+
+    @property
+    @session_context
+    def names(self) -> tuple[str]:
+        names = self.session.scalars(sa.select(SequenceElementModel.name))
+        return tuple(n for n in names)
+
+    @session_context
+    def add(self, name: str, se: SequenceElement):
+        if name in self.names:
+            raise ValueError(
+                f"SequenceElement '{name}' already exists. Use `update` to modify "
+                f"an existing SequenceElement in the database."
+            )
+        se_model = SequenceElementModel.from_sequence_element(se, name)
+        self.session.add(se_model)
+        self.session.flush()
+
+    @session_context
+    def get(self, name: str) -> SequenceElement | None:
+        se_model = self._get_sequence_element_model(name)
+
+        if se_model:
+            return se_model.to_sequence_element()
+        
+        return None
+    
+    @session_context
+    def update(self, name: str, new_se: SequenceElement) -> None:
+        se_model = self._get_sequence_element_model(name)
+        
+        if se_model is None:
+            self.add(name, new_se)
+            return
+
+        old_se = se_model.to_sequence_element()
+
+        if new_se == old_se:
+            return
+
+        self.session.delete(se_model)
+        self.add(name, new_se)        
+
+    @session_context
+    def delete(self, name: str) -> None:
+        se_model = self._get_sequence_element_model(name)
+
+        if se_model is None:
+            raise KeyError(f"SequenceElement '{name}' not found.")
+
+        self.session.delete(se_model)
+        self.session.flush()
+
+    @session_context
+    def search(self, key: str) -> dict[str, SequenceElement]:
+        """Searches for sequence elements by name."""
+
+        results = self.session.scalars(
+            sa.select(SequenceElementModel).where(
+                SequenceElementModel.name.icontains(key)
+            )
+        )
+
+        return {s.name: s.to_sequence_element() for s in results}
+
+
+    def __getitem__(self, key: str) -> SequenceElement:
+        se = self.get(key)
+
+        if se:
+            return se
+
+        raise KeyError(f"'{key}' does not exist in the SequenceElement table.")
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.names
 
 @qdefine
-class ConfigDB:
+class DoltDB:
     """An interface to the configuration database.
     
     Attributes:
@@ -718,7 +804,6 @@ class ConfigDB:
 
     engine: sa.engine.Engine | None = field(init=False, default=None)
     session: sa.orm.Session | None = field(init=False, default=None)
-    config: ConfigFolder | None = field(init=False, default=None)
 
     def connect(self, test: bool = True, timeout: int = 2):
         url = URL.create(
@@ -735,7 +820,7 @@ class ConfigDB:
 
         if test:
             with self.engine.begin(): ...
-        
+
         return engine
 
     def disconnect(self):
@@ -877,7 +962,7 @@ class ConfigDB:
             username=url.username,
             password=url.password,
             host=url.host,
-            port=url.port
+            port=url.port,
         )
 
     @property
@@ -889,18 +974,79 @@ class ConfigDB:
 
         return f"{name} <{name}{domain}>"
 
+
+@qdefine
+class ConfigDB(DoltDB):
+    """An interface to the configuration database.
+    
+    Attributes:
+        database: The name of the dolt database.
+        username: The database server username.
+        password: The database server password.
+        host: The IP address or url for the database server.
+        port: The port on which the database server is listening.
+        engine: The SQLAlchemy engine that maintains the database connection.
+        session: The database session associated with the engine.
+    """
+    schema: type = ConfigFolder
+
+    config: ConfigFolder | None = field(init=False, default=None)
+
+    def connect(self, test: bool = True, timeout: int = 2):
+        engine = super().connect(test=test, timeout=timeout)
+        
+        self.config = self.schema.from_name(self.session, '/')
+
+        try:
+            if (c := self.config["version"]) != (q := qwip.qsettings["version"]):
+                logger.warning(
+                    f"Config database was last used with QWiP version {c} which differs "
+                    f"from current QWiP version {q}! Call ConfigDB.update_db_version() to "
+                    f"update database to current version, or revert QWiP to {c}."
+                )
+            if (c := self.config["qwip_commit"]) != (q := qwip.qsettings["src/commit"]):
+                logger.warning(
+                    f"Config database was last used with QWiP source commit {c[:SHORT_HASH_LEN]} "
+                    f"which differs from current source commit {q[:SHORT_HASH_LEN]}! Call "
+                    f"ConfigDB.update_db_version() to update database to current version or "
+                    f"revert source to {c[:SHORT_HASH_LEN]}"
+                )
+        except (KeyError, sa.exc.ProgrammingError):
+            ...
+        
+        return engine
+
+    def update_db_version(self):
+        self.config["version"] = qwip.qsettings["version"]
+        self.config["qwip_commit"] = qwip.qsettings["src/commit"] or self.config["qwip_commit"]
+
     def __getitem__(self, name):
-        if self.settings is None:
+        if self.config is None:
             raise ValueError("No settings folder object.")
 
-        return self.settings[name]
+        return self.config[name]
+
+    @classmethod
+    def from_url(cls, db_url: str, schema: type = ConfigFolder) -> Self:
+        url = make_url(db_url)
+
+        return cls(
+            database=url.database,
+            username=url.username,
+            password=url.password,
+            host=url.host,
+            port=url.port,
+            schema=schema,
+        )
 
 __all__ = [
     "Branch",
     "Commit",
     "ReadOnlyParameter",
+    "DoltDB",
     "ConfigDB",
     "ConfigFolder",
     "ValidatedConfigFolder",
     "configschema",
+    "SequenceElementFolder",
 ]

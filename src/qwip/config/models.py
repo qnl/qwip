@@ -206,6 +206,7 @@ class WaveformModel(VersionControlled):
     properties: dict[str] = field(factory=dict)
     key: str | None = None
     parent: Self | None = field(default=None, repr=False)
+    children: dict[str, Self] = field(factory=dict)
 
     @classmethod
     def from_unstructured_wave(cls, wave_dict, parent=None, key=None):

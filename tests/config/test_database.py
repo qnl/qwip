@@ -7,6 +7,7 @@ import pendulum
 from qwip.settings.settings import qdefine, Settings
 from qwip.config.database import (
     ConfigDB,
+    DoltDB,
     Commit,
     Branch,
     ConfigFolder
@@ -17,40 +18,33 @@ from qwip.config.models import(
 )
 from qwip.config.metadata import QWIP_DB_METADATA
 
-from .fixtures import (
-    configdb,
-    models,
-    session,
-    reset_models
-)
 
-
-class TestConfigDB:
-    def test_current_branch(self, configdb):
-        branch = configdb.current_branch()
+class TestDoltDB:
+    def test_current_branch(self, doltdb):
+        branch = doltdb.current_branch()
         assert branch.name == 'main'
 
-    def test_create_delete_branch(self, configdb):
-        configdb.branch('new')
-        branch = configdb.get_branch('new')
+    def test_create_delete_branch(self, doltdb):
+        doltdb.branch('new')
+        branch = doltdb.get_branch('new')
         assert branch.name == 'new'
 
-        configdb.branch('new', action='delete')
-        assert configdb.get_branch('new') is None
+        doltdb.branch('new', action='delete')
+        assert doltdb.get_branch('new') is None
 
-    def test_checkout_branch(self, configdb):
+    def test_checkout_branch(self, doltdb):
         import time
 
-        configdb.branch('new')
-        new = configdb.get_branch('new')
-        current = configdb.checkout('new')
+        doltdb.branch('new')
+        new = doltdb.get_branch('new')
+        current = doltdb.checkout('new')
 
         assert new == current
-        main = configdb.get_branch('main')
-        current = configdb.checkout('main')
+        main = doltdb.get_branch('main')
+        current = doltdb.checkout('main')
 
         assert main == current
-        configdb.branch('new', action='delete')
+        doltdb.branch('new', action='delete')
 
 class TestFolder:
     def test_select_insert(self, session, reset_models):

@@ -9,7 +9,7 @@ from rich.console import Text
 from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
-from qwip.config.database import ConfigDB
+from qwip.config.database import DoltDB
 from qwip.config.models import *
 from qwip.config.metadata import QWIP_DB_METADATA 
 
@@ -34,20 +34,20 @@ def add_progress(maybe_func=None, *, description: str = "Processing...", sleep: 
     return decorator if maybe_func is None else decorator(maybe_func)
 
 @add_progress(description="Testing database connection...", sleep=1)
-def test_connection(configdb: ConfigDB):
+def test_connection(db: DoltDB):
     try:
-        configdb.connect(test=False)
+        db.connect(test=False)
         return True
     except sa.exc.OperationalError as e:
         print(e)
         return False
 
 @add_progress(description="Creating database...", sleep=1)
-def create_database(configdb: ConfigDB, name: str):
+def create_database(db: DoltDB, name: str):
     stmt = sa.text(f"CREATE DATABASE {name}")
     try:
-        with configdb.session.begin():
-            configdb.session.execute(stmt)
+        with db.session.begin():
+            db.session.execute(stmt)
         print("Successfully created database!")
         return True
 
@@ -62,7 +62,7 @@ def create_database(configdb: ConfigDB, name: str):
         return False
 
 @add_progress(description="Adding tables to database...", sleep=1)
-def create_tables(configdb: ConfigDB, database: str):
+def create_tables(db: DoltDB, database: str):
     table = Table(title=database)
     table.add_column("Table")
     table.add_column("Columns")
@@ -72,12 +72,12 @@ def create_tables(configdb: ConfigDB, database: str):
     }
 
     QWIP_DB_METADATA.create_all(
-        configdb.engine,
+        db.engine,
         tables=user_tables.values()
     )
 
-    with configdb.session.begin():
-        in_db = configdb.session.scalars(sa.text("SHOW TABLES")).all()
+    with db.session.begin():
+        in_db = db.session.scalars(sa.text("SHOW TABLES")).all()
 
     if (missing := set(user_tables) - set(in_db)):
         for name in missing:
@@ -93,22 +93,22 @@ def create_tables(configdb: ConfigDB, database: str):
     print("Successfully created tables!")
     print(table)
 
-    if (status := configdb.status(status="new table")):
-        configdb.add([s.table for s in status])
+    if (status := db.status(status="new table")):
+        db.add([s.table for s in status])
         new_tables = ", ".join((s.table for s in status))
         
-        commit = configdb.commit(f"Created tables: {new_tables}")
-        branch = configdb.current_branch()
+        commit = db.commit(f"Created tables: {new_tables}")
+        branch = db.current_branch()
 
         print(Text(f"[{branch.name} {commit.short_hash}] {commit.message}"))
         print(f"{len(status)} tables added")
 
 
 @add_progress(description="Getting all databases..", sleep=1)
-def get_databases(configdb: ConfigDB):
+def get_databases(db: DoltDB):
     stmt = sa.text("SHOW DATABASES")
-    with configdb.session.begin():
-        dbs = configdb.session.scalars(stmt).all()
+    with db.session.begin():
+        dbs = db.session.scalars(stmt).all()
 
     table = Table()
     table.add_column("Databases")
@@ -128,26 +128,26 @@ def create(
     password: str = typer.Option(..., prompt=True, hide_input=True),
     database: str = typer.Option(..., prompt="Select a name for the new database", confirmation_prompt=True)
 ):
-    configdb = ConfigDB(
+    db = DoltDB(
         username=username,
         host=hostname,
         password=password
     )
 
-    if not test_connection(configdb): raise typer.Exit()
+    if not test_connection(db): raise typer.Exit()
 
     DB_NAME_REGEX = r"[a-zA-Z0-9_]+"
 
     if not re.fullmatch(DB_NAME_REGEX, database):
         print(Text(f"{database} is not a valid database name. Must match r\"{DB_NAME_REGEX}\""))
 
-    if not create_database(configdb, database): raise typer.Exit()
+    if not create_database(db, database): raise typer.Exit()
 
-    configdb.database = database
-    configdb.disconnect()
-    configdb.connect()
+    db.database = database
+    db.disconnect()
+    db.connect()
 
-    create_tables(configdb, database)
+    create_tables(db, database)
 
 @app.command()
 def show(
@@ -156,15 +156,15 @@ def show(
     username: str = typer.Option(..., prompt=True),
     password: str = typer.Option(..., prompt=True, hide_input=True),
 ):
-    configdb = ConfigDB(
+    db = DoltDB(
         username=username,
         host=hostname,
         password=password
     )
 
-    if not test_connection(configdb): raise typer.Exit()
+    if not test_connection(db): raise typer.Exit()
 
-    get_databases(configdb)
+    get_databases(db)
 
 @app.command()
 def upgrade(

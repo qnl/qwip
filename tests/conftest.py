@@ -1,7 +1,12 @@
 import re
 from pathlib import Path
 
+import sqlalchemy as sa
 import pytest
+
+from qwip.config.dolt import dolt_reset
+from qwip.config.database import DoltDB
+from qwip.config.metadata import QWIP_DB_METADATA
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -34,3 +39,41 @@ def data_file(request):
     filename = re.match(r"test_(.*)", request.node.name).groups()[0]
 
     return datadir / f"{filename}.txt"
+
+@pytest.fixture(scope='module')
+def doltdb(db_url, test_db):
+    doltdb = DoltDB.from_url(f'{db_url}/{test_db}')
+    engine = doltdb.connect()
+
+    yield doltdb
+
+@pytest.fixture(scope='module')
+def models(doltdb):
+    with doltdb.session.begin():
+        commit_hash = doltdb.session.scalars(
+            sa.func.HASHOF('main')
+        ).one()
+
+    tables = [t for n, t in QWIP_DB_METADATA.tables.items() if not n.startswith('dolt')]
+    
+    QWIP_DB_METADATA.create_all(doltdb.engine, tables=tables)
+
+    doltdb.commit('Created models.', add='all')
+
+    yield QWIP_DB_METADATA
+
+    with doltdb.session.begin():
+        dolt_reset(doltdb.session, commit_hash, hard=True)
+
+    QWIP_DB_METADATA.drop_all(doltdb.engine, tables=tables)
+
+@pytest.fixture
+def session(doltdb):
+    with doltdb.session.begin():
+        yield doltdb.session
+
+@pytest.fixture
+def reset_models(session, models):
+    yield models
+
+    dolt_reset(session, 'main', hard=True)

@@ -17,14 +17,10 @@ from qwip.config.dolt import(
 )
 from qwip.config.database import Branch, Commit
 
-from .fixtures import (
-    configdb,
-    session,
-)
 
 class TestDolt:
     @pytest.fixture
-    def new_table(self, configdb):
+    def new_table(self, doltdb):
         metadata = MetaData()
 
         test_table = DoltTable(
@@ -38,18 +34,18 @@ class TestDolt:
 
         test_table.create_system_tables()
         try:
-            with configdb.engine.begin() as connection:
+            with doltdb.engine.begin() as connection:
                 commit_hash = connection.execute(
                     sa.func.HASHOF('main')
                 ).scalars().one()
 
-            metadata.create_all(configdb.engine, tables=[test_table])
+            metadata.create_all(doltdb.engine, tables=[test_table])
             yield test_table
         finally:
-            with configdb.engine.begin() as connection:
+            with doltdb.engine.begin() as connection:
                 dolt_reset(connection, commit_hash, hard=True)
 
-            metadata.drop_all(configdb.engine, tables=[test_table])
+            metadata.drop_all(doltdb.engine, tables=[test_table])
 
     def test_new_table(self, session, new_table):
         log = session.execute(sa.select(DoltLog)).scalars().first()

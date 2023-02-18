@@ -19,12 +19,6 @@ from qwip.config.models import (
     SequenceElementModel,
 )
 
-from .fixtures import (
-    configdb,
-    models,
-    session,
-    reset_models
-)
 
 class TestWaveformModel:
     WAVEFORMS = dict(
