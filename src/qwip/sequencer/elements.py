@@ -251,14 +251,15 @@ class SequenceElement:
         sets = []
 
         if subset is None or subset.lower() == 'location':
-            lvars = (
+            lvars = [
                 loc.variables(return_string=True) for loc in self.locations
-            )
-            cvars = (
+            ]
+            cvars = [
                 {k, *loc.variables(return_string=True)} 
                     for k, loc in self.constraints.items()
-            )
-            sets += list(lvars) + list(cvars)
+            ]
+            wvars = [] if self.width is None else [self.width.variables(return_string=True)]
+            sets += lvars + cvars + wvars
 
         if subset is None or subset.lower() == 'waveform':
             wvars = (
@@ -287,8 +288,9 @@ class SequenceElement:
         
         self.locations = {loc.resolve(**varmap): waves for loc, waves in self.locations.items()}
         self.constraints = {
-            varmap.get(name, name): loc.resolve(**varmap) for name, loc in self.constraints
+            varmap.get(name, name): loc.resolve(**varmap) for name, loc in self.constraints.items()
         }
+        self.width = self.width.resolve(**varmap)
 
         return set(varmap.items())
 
@@ -398,13 +400,15 @@ class SequenceElement:
 
                 self.add_constraints(**pulse_vars)
 
+        self.width = self.width.resolve(**pulse_vars)
+
         return waveform_dict
 
     def resolve_locations(
         self,
         sort: bool = True,
         reset_zero: str | None = 'neg',
-        end_marker: str = 'end',
+        end_marker: str | None = 'end',
         **kwargs
     ) -> dict[Location, list[Waveform]]:
         """Resolves all locations into concrete times.
@@ -440,8 +444,9 @@ class SequenceElement:
 
             t_max = t if t > t_max else t_max
 
-        locations[t_max] = locations.get(t_max, [])
-        locations[t_max] += [Marker(name=end_marker)]
+        if end_marker:
+            locations[t_max] = locations.get(t_max, [])
+            locations[t_max] += [Marker(name=end_marker)]
 
         if sort:
             locations = dict(sorted(locations.items(), key=lambda l: l[0]))
