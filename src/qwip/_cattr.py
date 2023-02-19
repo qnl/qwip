@@ -1,4 +1,10 @@
-from typing import Any, ForwardRef, get_origin, get_args
+from typing import (
+    Any,
+    ForwardRef,
+    TypeVar,
+    get_origin,
+    get_args,
+)
 from pathlib import Path
 from numbers import Number
 from collections.abc import Mapping
@@ -50,6 +56,23 @@ def is_forward_ref(cls):
 converter.register_structure_hook_factory(
     is_forward_ref,
     make_forward_ref_structure_fn
+)
+
+# ========== TypeVar ========== #
+
+def make_type_var_structure_fn(cls):
+    def type_var_structure_fn(obj, cls):
+        cls = cls.__bound__ or Any
+        return converter.structure(obj, cls)
+
+    return type_var_structure_fn
+
+def is_type_var(cls):
+    return isinstance(cls, TypeVar)
+
+converter.register_structure_hook_factory(
+    is_type_var,
+    make_type_var_structure_fn
 )
 
 # ========== stdlib types ========== #

@@ -1,6 +1,6 @@
 import pytest
 
-from typing import Any, Annotated, Optional, Union
+from typing import Any, Annotated, Optional, TypeVar
 
 import attr
 import numpy as np
@@ -35,6 +35,24 @@ class TestBuiltins:
 
         assert unstructured == ignore_order(expected)
         assert qwip.converter.structure(unstructured, tp) == obj
+
+class TestSpecialTyping:
+    T = TypeVar('T')
+    B = TypeVar('B', bound=str)
+
+    def test_forward_ref(self):
+        ...
+    
+    @pytest.mark.parametrize(
+        'tp,obj,expected',
+        [
+            (T, [1, 2, 3], [1, 2, 3]),
+            (B, 1, '1')
+        ]
+    )
+    def test_type_var_structure(self, tp, obj, expected):
+        structured = qwip.converter.structure(obj, tp)
+        assert structured == expected
 
 class TestFlatDict:
     class SpecialFlatDict(FlatDict): ...
