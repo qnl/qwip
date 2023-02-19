@@ -60,7 +60,7 @@ class QuantumSystemSchema(ValidatedConfigFolder):
 class PulsesSchema(ValidatedConfigFolder):
     targets: tuple[Target]
     pulse_key: str
-    variables: ConfigFolder[str, float]
+    variables: ConfigFolder[str, str | float]
     
 @configschema
 class NativeGateSchema(ValidatedConfigFolder):
