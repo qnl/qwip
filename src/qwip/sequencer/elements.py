@@ -292,6 +292,9 @@ class SequenceElement:
         }
         self.width = self.width.resolve(**varmap)
 
+        for waves in self.locations.values():
+            waves[:] = [w.resolve(**varmap) for w in waves]
+
         return set(varmap.items())
 
     @staticmethod
