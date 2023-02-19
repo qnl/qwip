@@ -136,10 +136,10 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
     def __setitem__(self, key, val):
         keys = key.strip(self._delim).split(self._delim)
 
-        if isinstance(val, Mapping) and not isinstance(val, FlatMapping):
-            new_val = self.__class__()
-            new_val.update(val)
-            val = new_val
+        # if isinstance(val, Mapping) and not isinstance(val, FlatMapping):
+        #     new_val = self.__class__()
+        #     new_val.update(val)
+        #     val = new_val
 
         if len(keys) == 1:
             self.__proxy_setitem__(keys[0], val)
@@ -359,6 +359,16 @@ class FlatDict(FlatMapping, dict): # type:ignore
         return dict.__getitem__(self, key)
 
     def __proxy_setitem__(self, key, val):
+        # It is important that we only check for the base type of FlatMapping here.
+        # Otherwise, this will greedily convert everything to FlatDict, since most
+        # of the other "flat-access" types subclass FlatMapping and not FlatDict.
+        if (
+            isinstance(val, Mapping) and not
+            isinstance(val, FlatMapping)
+        ):  
+            mapping = self._get_mapping_type(key=key)
+            val = mapping(**val)
+
         dict.__setitem__(self, key, val)
 
     def __proxy_delitem__(self, key):
