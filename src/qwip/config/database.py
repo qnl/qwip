@@ -10,7 +10,7 @@ from pathlib import Path
 import attrs
 from attrs import field
 from collections.abc import Mapping
-from typing import get_args
+from typing import get_args, Callable
 from typing_extensions import Self
 from loguru import logger
 
@@ -38,6 +38,7 @@ from qwip.config.models import (
     SequenceElementModel,
     WaveformModel,
 )
+from qwip.config.metadata import QWIP_DB_METADATA
 
 try:
     from IPython.display import display, JSON
@@ -226,7 +227,8 @@ class ConfigFolder(FlatMapping):
 
     def _ipython_display_(self):
         with self.session.begin():
-            json = JSON(self.todict(), root=type(self).__name__)
+            root = f"{type(self).__name__}(path={self.path()})"
+            json = JSON(self.todict(), root=root)
 
         display(json)
 
@@ -275,7 +277,7 @@ class ConfigFolder(FlatMapping):
         if isinstance(existing_value, ConfigFolder):
             try:
                 existing_value.update(**value)
-            except Exception as e:
+            except ValueError as e:
                 raise KeyError(f"'{name}' is a folder.") from e
         else:
             param = type(self)._get_parameters_from_db(
@@ -368,6 +370,13 @@ class ConfigFolder(FlatMapping):
             return self._delim
 
         return self.folder.path().replace('/', self._delim)
+
+    @session_context
+    def folder_name(self) -> str:
+        if self.folder is None:
+            return None
+
+        return self.folder.name
 
     @session_context
     def __proxy_getitem__(self, name):
@@ -541,8 +550,6 @@ class ConfigFolder(FlatMapping):
         if not value_class:
             raise TypeError(f"Cannot autopopulate {keys} without a specified type hint.")
 
-        print(f"Creating {keys} in {self.path()} of type {value_class}")
-
         for key, subfolder_keys in keys.items():
             if key not in self:
                 if issubtype(value_class, ConfigFolder):
@@ -618,6 +625,13 @@ class ValidatedConfigFolder(ConfigFolder):
                 f"'{name}' does not exist. Use create_parameter to or create_folder to "
                 f"create a new parameter or folder."
             )
+
+        if issubtype(getattr(type(self).fields(), name).type, ConfigFolder):
+            try:
+                self[name].update(value)
+                return
+            except ValueError:
+                pass
 
         setattr(self, name, value)
 
@@ -707,15 +721,14 @@ class SequenceElementFolder:
 
         return se_model
 
-    @property
     @session_context
-    def names(self) -> tuple[str]:
-        names = self.session.scalars(sa.select(SequenceElementModel.name))
-        return tuple(n for n in names)
+    def keys(self) -> tuple[str]:
+        keys = self.session.scalars(sa.select(SequenceElementModel.name))
+        return tuple(k for k in keys)
 
     @session_context
     def add(self, name: str, se: SequenceElement):
-        if name in self.names:
+        if name in self.keys():
             raise ValueError(
                 f"SequenceElement '{name}' already exists. Use `update` to modify "
                 f"an existing SequenceElement in the database."
@@ -781,7 +794,7 @@ class SequenceElementFolder:
         raise KeyError(f"'{key}' does not exist in the SequenceElement table.")
 
     def __contains__(self, key: str) -> bool:
-        return key in self.names
+        return key in self.keys()
 
 @qdefine
 class DoltDB:
@@ -827,6 +840,10 @@ class DoltDB:
         self.session.close()
         self.engine.dispose()
         self.engine = self.session = None
+
+    @session_context
+    def tables(self) -> set[str]:
+        return set(self.session.scalars(sa.text("SHOW TABLES")))
     
     @session_context
     def current_branch(self) -> Branch:
@@ -974,7 +991,6 @@ class DoltDB:
 
         return f"{name} <{name}{domain}>"
 
-
 @qdefine
 class ConfigDB(DoltDB):
     """An interface to the configuration database.
@@ -988,13 +1004,26 @@ class ConfigDB(DoltDB):
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
+    database: str
     schema: type = ConfigFolder
 
     config: ConfigFolder | None = field(init=False, default=None)
+    pulses: SequenceElementFolder | None = field(init=False, default=None)
 
-    def connect(self, test: bool = True, timeout: int = 2):
-        engine = super().connect(test=test, timeout=timeout)
-        
+    @classmethod
+    def from_url(cls, db_url: str, schema: type = ConfigFolder) -> Self:
+        url = make_url(db_url)
+
+        return cls(
+            database=url.database,
+            username=url.username,
+            password=url.password,
+            host=url.host,
+            port=url.port,
+            schema=schema,
+        )
+
+    def init_config(self):
         self.config = self.schema.from_name(self.session, '/')
 
         try:
@@ -1011,8 +1040,27 @@ class ConfigDB(DoltDB):
                     f"ConfigDB.update_db_version() to update database to current version or "
                     f"revert source to {c[:SHORT_HASH_LEN]}"
                 )
-        except (KeyError, sa.exc.ProgrammingError):
+        except KeyError:
             ...
+
+    def init_pulses(self):
+        self.pulses = SequenceElementFolder(session=self.session)
+
+    def connect(self, test: bool = True, timeout: int = 2):
+        engine = super().connect(test=test, timeout=timeout)
+
+        reflected_tables = self.tables()
+        expected_tables = set(t for t in QWIP_DB_METADATA.tables if not t.startswith("dolt"))
+
+        if reflected_tables != expected_tables:
+            raise ValueError(
+                f"Database {self.database} has tables {reflected_tables} that do not match "
+                f"the expected tables {expected_tables} for version {qwip.qsettings.version}. "
+                f"Use the 'database-setup.py' script to upgrade or downgrade the database."
+            )
+        
+        self.init_config()
+        self.init_pulses()
         
         return engine
 
@@ -1026,18 +1074,111 @@ class ConfigDB(DoltDB):
 
         return self.config[name]
 
-    @classmethod
-    def from_url(cls, db_url: str, schema: type = ConfigFolder) -> Self:
-        url = make_url(db_url)
+    @session_context
+    def add_pulse(self,
+        name: str,
+        targets: tuple[str],
+        pulse_key: str = None,
+        se: SequenceElement | None = None,
+        include_var: Callable[[str], bool] = lambda v: True
+    ):
+        """Adds a pulse to the config database.
 
-        return cls(
-            database=url.database,
-            username=url.username,
-            password=url.password,
-            host=url.host,
-            port=url.port,
-            schema=schema,
-        )
+        A pulse is stored as a sequence element along with some metadata in the
+        configuration table. To faciliate tracking of calibration parameters,
+        the sequence element can act as a pulse "prototype" with string parameters 
+        whose concrete values are referenced in the configuration database.
+
+        Args:
+            name: The name of the pulse to add.
+            targets: The targets on which this pulse acts.
+            pulse_key: The name of the sequence element that this pulse refers to.
+                If `None`, the pulse key is assumed to be the same as `name`.
+            se: The sequence element pulse prototype to add to the database. If 
+                `None`, the pulse key must refer to an existing sequence element
+                in the database.
+
+        Returns:
+            The pulse configuration.
+        """
+        if name in self.config["pulses"]:
+            raise KeyError(f"Pulse '{name}' already exists.")
+
+        if (extra := set(targets) - set(self.config["targets"])):
+            raise ValueError(f"Targets {extra} are not registered in '/targets/'.")
+        
+        pulse_key = pulse_key or name
+
+        if se is None:
+            se = self.pulses[pulse_key]
+        else:
+            self.pulses.add(pulse_key, se)
+
+        parameters = {
+            name: dict(
+                variables={v: v for v in se.variables() if include_var(v)},
+                targets=targets,
+                pulse_key=pulse_key
+            )
+        }
+        self.config["pulses"].create_all(**parameters)
+        # create_all leaves parameter values as null so we must call update
+        self.config["pulses"].update(parameters)
+
+        return self.config["pulses"][name]
+
+    def load_pulse(
+        self,
+        name: str,
+        variables: dict[str, str | float | int] = {},
+        rename_func: Callable[[str, "PulsesSchema"], str] = lambda v, pm: f"{pm.folder_name()}_{v}"
+    ) -> SequenceElement:
+        """Loads a SequenceElement from the database.
+
+        This method loads the pulse prototype specified by the pulse metadata and
+        replaces all variables specified in the pulse metadata. These variables
+        can be overridden by passing in a variables dictionary.
+
+        Additionally all variables that remain unchanged are automatically renamed
+        to avoid collisions. This can be customized by specifying a `rename_func`.
+
+        Args:
+            name: The name of the pulse to load
+            variables: A dictionary mapping variables to values. These will override
+                any variables in the pulse metadata. Values can be renamed variables
+                in addition to concrete values.
+            rename_func: A callable that takes in a variable `str` and the pulse
+                metadata `PulsesSchema` and returns the renamed variable `str`.
+
+        Returns:
+            A `SequenceElement` representing the pulse.
+
+        Raises:
+            `ValueError`: If any variables are specified but not present in the loaded
+                `SequenceElement` from the database.
+
+        """
+        pulse_metadata = self.config["pulses"][name]
+        se = self.pulses[pulse_metadata["pulse_key"]]
+
+        to_replace = pulse_metadata["variables"].todict() | variables
+
+        if (extra := set(to_replace) - se.variables()):
+            raise ValueError(
+                f"Found extra variables {extra} when loading pulse '{name}'"
+            )
+
+        def replace(v):
+            if v not in to_replace:
+                return v
+            elif v == to_replace[v]:
+                return rename_func(v, pulse_metadata)
+            else:
+                return to_replace[v]
+
+        se.rename_variables(replace)
+        
+        return se
 
 __all__ = [
     "Branch",
