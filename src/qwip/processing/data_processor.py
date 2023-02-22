@@ -278,6 +278,7 @@ class KeyProcessorNode:
 
 @qdefine(eq=False)
 class ReadoutPipeline:
+    name: str = "default"
     processors: tuple[DataProcessor, ...] = field(
         factory=tuple
     )
