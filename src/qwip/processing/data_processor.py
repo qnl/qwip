@@ -1,9 +1,13 @@
 import inspect
+import functools
 from collections import defaultdict
+import rustworkx as rx
 import numpy as np
 import pandas as pd
+import itertools as it
 from collections.abc import Collection
-from typing import get_origin, get_args
+from typing import get_origin, get_args, Type
+from loguru import logger
 
 from attrs import field, cmp_using
 
@@ -25,7 +29,7 @@ def _dataframe_equals(a: pd.DataFrame, b: pd.DataFrame) -> bool:
 
 @qdefine
 class DataProcessor:
-    name: str | None = None
+    measurement_key: str | None = None
 
     def __call__(self, meas: 'MeasurementResult', /, **kwargs) -> 'MeasurementResult':
         result = self.run(meas, **kwargs)
@@ -51,181 +55,399 @@ class MeasurementResult:
     def loc(self):
         return self.data.loc
 
+@qdefine
+class DataProcessorMetadata:
+    """An edge payload for the data processing dependency graph.
 
-def is_input_output_compatible(out_type, in_type):
-    if is_generic_type(in_type, Collection):
-        in_type = get_args(in_type)[0]
+    """
+    cls: type[DataProcessor] = field(repr=lambda c: c.__name__)
+    before: type[DataProcessor] | None = None
+    after: type[DataProcessor] | None = None
+    index: int | None = None
 
-    return out_type == in_type
+GRAPH_IN = True
+GRAPH_OUT = False
 
-def register_data_processor(
-    maybe_cls: type[DataProcessor] = None,
-    *,
-    pre: type['DataProcessor'] | str | None = None,
-    post: type['DataProcessor'] | str | None = None,
-):
-    if pre and not isinstance(pre, str):
-        pre = pre.__name__
+TMeasurementOrProcessor = type[DataProcessor] | type[MeasurementResult] | type[np.ndarray]
+@qdefine
+class DataProcessorGraph:
+    """A data structure for managing the data processing dependency graph.
     
-    if post and not isinstance(post, str):
-        pre = pre.__name__
+    """
+    graph: rx.PyDiGraph = field(
+        factory=lambda: rx.PyDiGraph(check_cycle=True)
+    )
+    registered: dict[TMeasurementOrProcessor, str] = field(factory=dict)
+    index_map: dict[str, int] = field(factory=dict)
 
-    def decorate(cls: type[DataProcessor]) -> type[DataProcessor]:
-        if not issubclass(cls, DataProcessor):
-            raise TypeError(f'{cls} is not a subclass of {DataProcessor}.')
-
+    @staticmethod
+    def get_types_from_signature(
+        cls: type[DataProcessor],
+        replace_generic: bool = False
+    ) -> tuple[type[MeasurementResult], type[MeasurementResult]]:
         sig = inspect.signature(cls.run)
-
+        
         in_type = sig.parameters['meas'].annotation
         out_type = sig.return_annotation
+        
+        match get_args(in_type):
+            case arg, if replace_generic:
+                in_type = arg
+            case _: ...
 
-        DATA_PROCESSOR_LOOKUP[cls.__name__] = (
-            cls,
-            in_type,
-            out_type,
+        return in_type, out_type
+
+    def replace_input_node(self, original: int, new: int) -> None:
+        """Replaces the original input node for all associated edges.
+        
+        Original: 
+            original =edge=> v_out 
+
+        New:
+            new =edge=> v_out
+        """
+
+        v_outs = self.graph.adj_direction(original, GRAPH_OUT)
+
+        for v_out, edge in v_outs:
+            self.graph.remove_edge(original, v_out)
+            index = self.graph.add_edge(new, v_out, edge)
+            self.index_map[edge.cls.__name__] = index
+            edge.index = index
+
+    def replace_output_node(self, original: int, new: int) -> None:
+        """Replaces the original output node for all associated edges.
+        
+        Original: v_in =edge=> original
+        New: v_in =edge=> new
+
+        Args:
+            original: The graph node index of the original output node.
+            new: The graph node index of the new output node
+        """
+
+        v_ins = self.graph.adj_direction(original, GRAPH_IN)
+
+        for v_in, edge in v_ins:
+            self.graph.remove_edge(v_in, original)
+            index = self.graph.add_edge(v_in, new, edge)
+            self.index_map[edge.cls.__name__] = index
+            edge.index = index
+
+    def register(
+        self,
+        maybe_cls: type[DataProcessor] | None = None,
+        *,
+        before: type[DataProcessor] | None = None,
+        after: type[DataProcessor] | None = None,
+    ):
+        def decorate(cls: type[DataProcessor]) -> Type[DataProcessor]:
+            if not issubclass(cls, DataProcessor):
+                raise TypeError(f"'{cls}' is not a subclass of {DataProcessor}.")
+                
+            if cls.__name__ in self.index_map:
+                return cls
+            
+            in_type, out_type = DataProcessorGraph.get_types_from_signature(
+                cls,
+                replace_generic=True
+            )
+
+            # We need to unroll the loop to preserve the DAG if the processor
+            # outputs the same type as it takes in.
+            if in_type == out_type:
+                name = in_type.__name__
+                if name in self.index_map:
+                    match self.index_map[name]:
+                        case tuple(nodes):
+                            raise NotImplementedError()
+                        case prev_v: ...
+
+                    self.index_map[name] = (
+                        prev_v, new_v := self.graph.add_node(in_type)
+                    )
+
+                    self.replace_input_node(prev_v, new_v)
+
+                else:
+                    self.registered[name] = in_type
+                    self.index_map[name] = (
+                        self.graph.add_node(in_type),
+                        self.graph.add_node(out_type)
+                    )
+
+                v_in, v_out = prev_v, new_v
+
+            else:
+                # If processor connects two different result types
+                if in_type.__name__ not in self.index_map:
+                    self.registered[in_type.__name__] = in_type
+                    self.index_map[in_type.__name__] = self.graph.add_node(in_type)
+
+                if out_type.__name__ not in self.index_map:
+                    self.registered[out_type.__name__] = out_type
+                    self.index_map[out_type.__name__] = self.graph.add_node(out_type)
+
+                match self.index_map[in_type.__name__]:
+                    case (*vs, v_in): ...
+                    case v_in: ...
+
+                match self.index_map[out_type.__name__]:
+                    case (v_out, *vs): ...
+                    case v_out: ...
+
+            self.registered[cls.__name__] = cls
+            index = self.index_map[cls.__name__] = self.graph.add_edge(
+                v_in,
+                v_out,
+                DataProcessorMetadata(cls=cls, before=before, after=after)
+            )
+            _, _, metadata = self.graph.edge_index_map()[index]
+            metadata.index = index
+            
+            return cls
+        
+        if maybe_cls:
+            return decorate(maybe_cls)
+        
+        return decorate
+
+    def get_result_type(self, processor_cls: str | type[DataProcessor]) -> type[MeasurementResult]:
+        if isinstance(processor_cls, str):
+            processor_cls = self.registered[processor_cls]
+
+        _, out_type = DataProcessorGraph.get_types_from_signature(processor_cls)
+
+        return out_type
+
+    def get_input_type(self,
+        processor_cls: str | type[DataProcessor],
+        replace_generic: bool = False
+    ) -> type[MeasurementResult]:
+        if isinstance(processor_cls, str):
+            processor_cls = self.registered[processor_cls]
+
+        in_type, _ = DataProcessorGraph.get_types_from_signature(processor_cls, replace_generic)
+
+        return in_type
+
+    def get_dependencies(
+        self,
+        processor_type: type[DataProcessor],
+        input_type: type[MeasurementResult] | type[np.ndarray] = np.ndarray
+    ) -> tuple[type[DataProcessor], ...]:
+        edge_index = self.index_map[processor_type.__name__]
+        _, result_idx, _ = self.graph.edge_index_map()[edge_index]
+
+        input_idx = self.index_map[input_type.__name__]
+        
+        try:
+            path = rx.dijkstra_shortest_paths(
+                self.graph,
+                input_idx,
+                target=result_idx,
+            )[result_idx]
+        except IndexError:
+            raise ValueError(
+                f"Path from input '{input_type.__name__}' to final data processor "
+                f"'{processor_type.__name__}' does not exist."
+            )
+
+        return [self.graph.get_edge_data(i, o).cls for  i, o in it.pairwise(path)]
+
+    def measurement_results(self) -> set[MeasurementResult]:
+        """Returns the set of all MeasurementResult classes that have been registered."""
+        return set(
+            cls for cls in self.registered.values()
+                if issubclass(cls, MeasurementResult | np.ndarray)
         )
 
-        if cls.__name__ not in DATA_PROCESSOR_DEPENDENCIES:
-            DATA_PROCESSOR_DEPENDENCIES[cls.__name__] = []
+    def data_processors(self) -> set[DataProcessor]:
+        """Returns the set of all DataProcessor classes that have been registered."""
 
-        if pre:
-            if pre not in DATA_PROCESSOR_DEPENDENCIES:
-                raise KeyError(
-                    f'Pre-processor {pre} is not a registered data processor.'
-                )
+        return set(cls for cls in self.registered.values() if issubclass(cls, DataProcessor))
 
-            _, _, pre_out_type = DATA_PROCESSOR_LOOKUP[pre]
-            if not is_input_output_compatible(pre_out_type, in_type):
-                raise TypeError(
-                    f'Pre-processor {pre} has output type {pre_out_type} that '
-                    f'does not match input type {in_type} for {cls.__name__}.'
-                )
-
-            DATA_PROCESSOR_DEPENDENCIES[cls.__name__].append(pre)
-
-        if post:
-            if post not in DATA_PROCESSOR_DEPENDENCIES:
-                raise KeyError(
-                    f'Post-processor {pre} is not a registered data processor.'
-                )
-
-            _, post_in_type, _ = DATA_PROCESSOR_LOOKUP[post]
-            if not is_input_output_compatible(out_type, post_in_type):
-                raise TypeError(
-                    f'Post-processor {post} has input type {post_in_type} that '
-                    f'does not match output type {out_type} for {cls.__name__}.'
-                )
-
-            DATA_PROCESSOR_DEPENDENCIES[post].append(cls.__name__)
-
-        return cls
-
-    if maybe_cls:
-        return decorate(maybe_cls)
-
-    return decorate
-
-def resolve_class_dependencies(
-    name: str
-) -> tuple['str']:
-    resolved = set()
-    visiting = set()
-
-    result = list()
-
-    def add_process(name: str) -> None:
-        if name in resolved:
-            return
-        
-        if name in visiting:
-            raise ValueError(f'Circular dependency found! {name}')
-        
-        visiting.add(name)
-
-        for pre in DATA_PROCESSOR_DEPENDENCIES[name]:
-            add_process(pre)
-
-        visiting.remove(name)
-        resolved.add(name)
-        result.append(name)
-
-    add_process(name)
-
-    return tuple(result)
+DATA_PROCESSORS = DataProcessorGraph()
 
 @qdefine
+class KeyProcessorNode:
+    """Payload data for a graph node when building out the dependency graph."""
+    key: str
+    processor: DataProcessor
+    index: int | None = None
+
+@qdefine(eq=False)
 class ReadoutPipeline:
-    processors: dict[tuple[str | None, str], DataProcessor] = field(
-        factory=dict
+    processors: tuple[DataProcessor, ...] = field(
+        factory=tuple
     )
     dependency_cache: dict[tuple[str, type], MeasurementResult] = field(
         factory=dict
     )
 
-    def process(
-        self,
-        meas: dict[str, np.ndarray | MeasurementResult],
-        processor_type: type,
-        keys: list[str] = None,
-        reset_cache: bool = True
-    ) -> dict[str, MeasurementResult]:
-        results = {}
+    def result_types(self) -> set[Type[MeasurementResult]]:
+        """Returns the set of all MeasurementResult subclasses that could be output.
+        
+        """
+        return set(DATA_PROCESSORS.get_result_type(p) for p in self.processors)
 
-        for key, inp in meas.items():
-            if keys and key not in keys:
-                continue
-            results[key] = self.process_key(key, inp, processor_type)
-
-        return results
-
+    @functools.lru_cache
     def get_processor(
         self,
+        processor_type: type | str,
         key: str,
-        processor_type: type | str
     ) -> DataProcessor:
+        """Returns a processor with a matching type and compatible measurement key.
+        """
         if not isinstance(processor_type, str):
             processor_type = processor_type.__name__
-        
-        return self.processors.get(
-            (key, processor_type),
-            self.processors.get((None, processor_type))
-        )
 
-    def process_key(
+        processor = None
+        for p in self.processors:
+            if type(p).__name__ != processor_type:
+                continue
+            
+            if p.measurement_key == key:
+                return p
+            elif p.measurement_key is None:
+                # We must continue checking if a more specific processor applies
+                processor = p
+
+        return processor
+
+    def _build_processor_graph(
         self,
+        graph: rx.PyDiGraph,
         key: str,
-        data: MeasurementResult | np.ndarray,
-        processor_type: str
-    ) -> MeasurementResult:
-        def _process(key, data, dependencies):
-            dep = dependencies.pop()
-            dep_cls, in_type, _ =  DATA_PROCESSOR_LOOKUP[dep]
-
-            # Already a processed result
-            history = getattr(data, 'processors', tuple())
-            if history and isinstance(history[-1], dep_cls):
-                return data
-
-            if not (processor := self.get_processor(key, dep_cls)):
-                # No matching processor, could be an optional processor
-                # so we keep going.
-                return _process(key, data, dependencies)
-
-            # Reached root dependency
-            if not dependencies:
-                # If input datatype doesn't match, raise an error
-                if not isinstance(data, in_type):
-                    raise TypeError('Wrong type!')
-
-                return processor(data)
-
-            subresult = _process(key, data, dependencies)
-
-            if not isinstance(subresult, in_type):
-                raise TypeError('')
-
-            return processor(subresult)
+        prev: int | None = None,
+        dependencies=[],
+        index_map={}
+    ) -> None:
+        """A helper function for building the processing chain.
         
-        dependencies = list(resolve_class_dependencies(processor_type))
+        
+        """
+        if not dependencies:
+            return
 
-        return _process(key, data, dependencies)
+        dep = dependencies.pop()
+
+        in_result = DATA_PROCESSORS.get_input_type(dep)
+        out_result = DATA_PROCESSORS.get_result_type(dep)
+            
+        processor = self.get_processor(dep, key)    
+        if not processor:
+            # No matching processor, so we skip b/c it could be an optional dependency
+            return self._build_processor_graph(graph, key, prev, dependencies, index_map)
+        
+        if (key, type(processor)) in index_map:
+            index = index_map[(key, type(processor))]
+        else:
+            logger.debug(f"Adding node ({key}, {type(processor).__name__})")
+            index = graph.add_node(KeyProcessorNode(key=key, processor=processor))
+            graph[index].index = index
+            index_map[(key, type(processor))] = index
+
+        out_node = graph[index]
+        
+        if prev:
+            prev_in = DATA_PROCESSORS.get_input_type(type(prev.processor), replace_generic=True)
+            
+            if prev_in != out_result:
+                raise ValueError(
+                    f"Input result type for {type(prev.processor).__name__} "
+                    f"does not match output result type for {dep.__name__ }. "
+                    f"This is likely due to a missing processor for key '{key}''."
+                )
+            
+            graph.add_edge(
+                out_node.index,
+                prev.index,
+                None
+            )
+        
+        if is_generic_type(in_result):
+            next_keys = key.split(processor.delimiter)
+        else:
+            next_keys = [key]
+
+        for key in next_keys:
+            self._build_processor_graph(
+                graph,
+                key=key,
+                prev=out_node,
+                dependencies=[d for d in dependencies],
+                index_map=index_map
+            )
+
+    def resolve_dependencies(
+        self,
+        output_types: dict[str, type[DataProcessor]]
+    ) -> list[DataProcessor]:
+        def _sort_predecessors(predecessors, keys):
+            index = {k: i for i, k in enumerate(keys)}
+
+            return tuple(sorted(predecessors, key=lambda p: index[p[0]]))
+
+        graph = rx.PyDiGraph()
+        index_map = dict()
+
+        for key, processor_type in output_types.items():
+            dependencies = DATA_PROCESSORS.get_dependencies(processor_type)
+
+            self._build_processor_graph(
+                graph,
+                key,
+                prev=None,
+                dependencies=dependencies,
+                index_map=index_map
+            )
+
+        resolved_pipeline = []
+        for node in rx.topological_sort(graph):
+            predecessors = tuple(
+                (p.key, type(p.processor)) for p in graph.predecessors(node)
+            )
+
+            ## Sort is necessary to match input order to key order.
+            if len(predecessors) > 1:
+                keys = graph[node].key.split(graph[node].processor.delimiter)
+                predecessors = _sort_predecessors(predecessors, keys)
+
+            resolved_pipeline.append(
+                (graph[node].key, graph[node].processor, predecessors)
+            )
+
+        return resolved_pipeline
+    
+    def process_results(
+        self,
+        input_data: dict[str, MeasurementResult | np.ndarray],
+        output_types: dict[str, type[DataProcessor]],
+        clear_cache: bool = True
+    ) -> dict[str, MeasurementResult]:
+        if clear_cache:
+            self.dependency_cache.clear()
+        
+        resolved_pipeline = self.resolve_dependencies(output_types=output_types)
+
+        for key, result in input_data.items():
+            self.dependency_cache[(key, None)] = result
+
+        for key, processor, predecessors in resolved_pipeline:
+            match predecessors:
+                case ():
+                    inputs = self.dependency_cache[(key, None)]
+                case (pred,) if is_generic_type(DATA_PROCESSORS.get_input_type(type(processor)), Collection):
+                    inputs = [self.dependency_cache[pred]]
+                case (pred,):
+                    inputs = self.dependency_cache[pred]
+                case (*pred,):
+                    inputs = [self.dependency_cache[key] for key in pred]
+
+            self.dependency_cache[(key, type(processor))] = processor(inputs)
+
+        return {
+            key: self.dependency_cache[(key, processor_type)]
+                for key, processor_type in output_types.items()
+        }

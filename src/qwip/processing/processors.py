@@ -11,7 +11,8 @@ from qwip.settings.settings import qdefine
 from qwip.processing.data_processor import (
     MeasurementResult,
     DataProcessor,
-    register_data_processor
+    DATA_PROCESSORS
+    # register_data_processor
 )
 
 
@@ -19,7 +20,7 @@ from qwip.processing.data_processor import (
 class IQResult(MeasurementResult):
     ...
 
-@register_data_processor
+@DATA_PROCESSORS.register
 @qdefine
 class FormatLegacyIQ(DataProcessor):
     """A data processor to reformat legacy QTRL IQ data.
@@ -62,7 +63,7 @@ class FormatLegacyIQ(DataProcessor):
             data=df
         )
 
-@register_data_processor(pre=FormatLegacyIQ)
+@DATA_PROCESSORS.register(after=FormatLegacyIQ)
 @qdefine
 class IQRotation(DataProcessor):
     """A data processor for rotating IQ data points.
@@ -79,14 +80,26 @@ class IQRotation(DataProcessor):
 
         return attrs.evolve(meas, data=meas.data * rotation)
 
+# @DATA_PROCESSORS.register
+# @qdefine
+# class AverageIQ(DataProcessor):
+#     """A data processor for averaging IQ data points.
+
+#     Attributes:
+#         axis (int): The axes along which to average.
+#     """
+#     axis: int = -1
+
+#     def run(self, meas: IQResult, **kwargs) -> IQResult:
+#         raise NotImplementedError()
 
 @qdefine
 class ClassifiedResult(MeasurementResult):
     num_states: int = 2
     num_qudits: int = 1
 
-@register_data_processor(pre=FormatLegacyIQ)
-@register_data_processor(pre=IQRotation)
+
+@DATA_PROCESSORS.register
 @qdefine
 class GMMClassification(DataProcessor):
     num_states: int = 2
@@ -136,7 +149,7 @@ class GMMClassification(DataProcessor):
             processors=meas.processors
         )
 
-@register_data_processor(pre=GMMClassification)
+@DATA_PROCESSORS.register
 @qdefine
 class ReadoutBitstring(DataProcessor):
     delimiter: str = ','
@@ -169,7 +182,7 @@ class HistogramResult(MeasurementResult):
     num_states: int = 2
     num_qudits: int = 1
 
-@register_data_processor(pre=ReadoutBitstring)
+@DATA_PROCESSORS.register
 @qdefine
 class ReadoutHistogram(DataProcessor):
     fill_missing: bool | None = None
@@ -221,7 +234,7 @@ class PopulationResult(MeasurementResult):
     num_qudits: int = 1
     num_shots: int | None = None
 
-@register_data_processor(pre=ReadoutHistogram)
+@DATA_PROCESSORS.register
 @qdefine
 class StatePopulations(DataProcessor):
     fill_missing: bool | None = None
