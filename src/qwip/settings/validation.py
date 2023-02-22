@@ -233,7 +233,7 @@ def get_union_validator(tps: Type, cls: type | None = None) -> Callable:
 
         return (isinstance(tp, special_types) or get_origin(tp) or tp == ...)
 
-    combined = (tp for tp in args if not is_special_type(tp))
+    combined = tuple(tp for tp in args if not is_special_type(tp))
     special = (tp for tp in args if is_special_type(tp))
 
     validators = []

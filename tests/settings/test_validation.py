@@ -169,6 +169,7 @@ class TestGetTypeValidators():
         'tp,value,expect',
         [
             (int | dict[str, int], {}, does_not_raise()),
+            (list[int] | dict[str, int], {}, does_not_raise()),
             (int | dict[str, int], 'string', pytest.raises(TypeError)),
             (int | dict[str, int | dict], dict(test=dict()), does_not_raise()),
         ]
