@@ -43,13 +43,12 @@ class ClassificationSchema(ValidatedConfigFolder):
     means: np.ndarray
     covariances: np.ndarray
     rotation: float = 0
+    excited_state_promotion: bool = False
 
 @configschema
 class ReadoutSchema(ValidatedConfigFolder):
     drives: ConfigFolder[Target, str]
     classification: ConfigFolder[Target, ClassificationSchema]
-    excited_state_promotion: bool = False
-
     
 @configschema
 class QuantumSystemSchema(ValidatedConfigFolder):

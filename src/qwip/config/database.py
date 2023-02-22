@@ -640,6 +640,10 @@ class ValidatedConfigFolder(ConfigFolder):
         
         if isinstance(value, ConfigFolder):
             return type(self).get_key_type(name)(session=value.session, folder=value.folder)
+        
+        field = getattr(type(self).fields(), name, None)
+        if field and field.converter:
+            value = field.converter(value)
 
         return value
 
@@ -1005,7 +1009,7 @@ class ConfigDB(DoltDB):
         session: The database session associated with the engine.
     """
     database: str
-    schema: type = ConfigFolder
+    schema: type[ConfigFolder] = ConfigFolder
 
     config: ConfigFolder | None = field(init=False, default=None)
     pulses: SequenceElementFolder | None = field(init=False, default=None)
