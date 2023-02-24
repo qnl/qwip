@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_array_equal
 
 from qwip.testing import UnorderedList
 from qwip.sequencer.phase_tracker import (
@@ -168,6 +168,8 @@ class TestPhaseTracker:
             phase_tracker.append('Q0', pj)
 
         integrated_phase = phase_tracker.compute_integrated_phase('Q0', ts)
-
         assert_allclose(integrated_phase, expected)
 
+        mod = ModulationFrequency(0)
+        integrated_phase = phase_tracker.compute_integrated_phase(mod, ts)
+        assert_allclose(integrated_phase, np.zeros_like(expected))

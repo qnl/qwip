@@ -93,7 +93,11 @@ class PhaseTracker:
         if isinstance(val, str):
             val = ModulationFrequency.from_string(val)
 
-        return all(v in self.phases for v in val.variables())
+        deps = val.variables()
+        if val.offset or not val.variables():
+            deps.add(ModulationFrequency(val.offset))
+
+        return all(v in self.phases for v in deps)
 
     def append(self, modkey: ModulationFrequency | str, phase: PhaseJump):
         """Adds a phase jump."""
