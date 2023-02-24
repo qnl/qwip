@@ -39,7 +39,7 @@ class HardwareSchema(ValidatedConfigFolder):
 
 @configschema
 class ClassificationSchema(ValidatedConfigFolder):
-    n_states: int
+    num_states: int
     means: np.ndarray
     covariances: np.ndarray
     rotation: float = 0
