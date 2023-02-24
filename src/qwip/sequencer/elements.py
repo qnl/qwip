@@ -403,7 +403,8 @@ class SequenceElement:
 
                 self.add_constraints(**pulse_vars)
 
-        self.width = self.width.resolve(**pulse_vars)
+        if self.width:
+            self.width = self.width.resolve(**pulse_vars)
 
         return waveform_dict
 
