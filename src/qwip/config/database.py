@@ -122,9 +122,6 @@ class ReadOnlyParameter:
         )
 
 
-import functools
-
-
 def session_context(func):
     @functools.wraps(func)
     def decorated(inst, *args, **kwargs):
