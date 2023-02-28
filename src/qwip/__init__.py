@@ -3,27 +3,28 @@
 A python library for running experiments with superconducting quantum devices.
 """
 try:
-    from importlib.metadata import version, PackageNotFoundError # type:ignore
+    from importlib.metadata import PackageNotFoundError, version  # type:ignore
 except ImportError:
-    from importlib_metadata import version, PackageNotFoundError
+    from importlib_metadata import PackageNotFoundError, version
 
 try:
     __version__ = version(__name__)
 except PackageNotFoundError:
-    __version__ = ''
+    __version__ = ""
 
 from ruamel.yaml import YAML
-yaml = YAML(typ='safe')
 
-from qwip._cattr import converter
-from qwip.flatdict import FlatDict
+yaml = YAML(typ="safe")
 
 import sys
 
 from loguru import logger
 
+from qwip._cattr import converter
+from qwip.flatdict import FlatDict
+
 logger.remove()
-logger.add(sys.stdout, level='WARNING')
+logger.add(sys.stdout, level="WARNING")
 
 from qwip._qsettings import default_qsettings
 

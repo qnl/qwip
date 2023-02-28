@@ -1,23 +1,23 @@
 """Processing blocks related to classification"""
 
-from typing import Mapping, Optional, Set, Union, Annotated
+from typing import Annotated, Mapping, Optional, Set, Union
 
 import numpy as np
-
-from loguru import logger
 from attr import field
+from loguru import logger
 from sklearn.mixture import GaussianMixture
 
-from qwip.typing import NDArray
 from qwip.defaults import dynamic_default
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qdefine, Settings
 from qwip.processing.process import Process
+from qwip.settings.settings import Settings, qdefine
+from qwip.typing import NDArray
+
 
 @qdefine
 class IQRotation(Process):
     """A processing block for rotating heterodyne data in the IQ plane.
-    
+
     This process expects a mapping (dict) of strings to ndarays as its input. The
     keys are typically of the form R(\\d+), but can be anything. Each ndarray is
     expected to have the shape `(..., IQ)`.
@@ -28,12 +28,13 @@ class IQRotation(Process):
             to `run()`.
 
     """
+
     angles: dict[str, float] = field(factory=dict)
 
-    @dynamic_default(unit='units/phase')
+    @dynamic_default(unit="units/phase")
     def run(self, data, /, unit: str = None):
         """Rotates the data by the specified angle.
-        
+
         Args:
             data (dict): a mapping of names to numpy arrays containing the
                 heterodyne data.
@@ -47,14 +48,15 @@ class IQRotation(Process):
 
             angle = self.angles.get(key, 0)
 
-            if unit == 'degrees':
+            if unit == "degrees":
                 angle *= np.pi / 180
-        
-            rotation = np.exp(1j*angle)
+
+            rotation = np.exp(1j * angle)
 
             output[key] = (rotation * IQ.view(complex)).view(float)
 
         return output
+
 
 @qdefine
 class GMMData(Settings):
@@ -65,7 +67,7 @@ class GMMData(Settings):
     def gmm_model(self):
         n_states = self.means.shape[0]
 
-        mix = GaussianMixture(n_components=n_states, covariance_type='spherical') 
+        mix = GaussianMixture(n_components=n_states, covariance_type="spherical")
         mix.means_ = self.means
         mix.covariances_ = self.covariances
         mix.precisions_cholesky_ = 0.01
@@ -73,17 +75,20 @@ class GMMData(Settings):
 
         return mix
 
+
 @qdefine
 class GMM(Process):
     """A processing block for GMM classficiation of heterodyne data.
-    
+
     This process expects a mapping (dict) of strings to ndarrays as its input. The
     keys are typically of the form R(\\d+), but can be anything. Each ndarray is
     expected to have the shape `(..., IQ)`.
     """
 
     gmms: FlatDict[str, GMMData]
-    mixes: FlatDict[str, GaussianMixture] = field(init=False, metadata=dict(serialize=False))
+    mixes: FlatDict[str, GaussianMixture] = field(
+        init=False, metadata=dict(serialize=False)
+    )
 
     def run(self, data, /):
         """Classifies the data using a Gaussian Mixture model.
@@ -105,7 +110,6 @@ class GMM(Process):
                 self.mixes = self.generate_mixes()
 
             mix = self.mixes[key]
-            
 
             # These reshapes only create views of the data where memory is
             # still contiguous
@@ -148,6 +152,7 @@ class GMM(Process):
     #                 f"shape {self.covariances[key].shape}"
     #             )
 
+
 @qdefine
 class StatePopulations(Process):
     """A processing block for getting state populations from classified data.
@@ -157,7 +162,9 @@ class StatePopulations(Process):
     expected to have the shape `(n_shots, ...)`.
     """
 
-    states: Union[int, dict[str, int]] = field(default=2, metadata=dict(auto_convert=False))
+    states: Union[int, dict[str, int]] = field(
+        default=2, metadata=dict(auto_convert=False)
+    )
     axis: int = 0
 
     def run(self, data, /):
@@ -168,28 +175,31 @@ class StatePopulations(Process):
         """
 
         outputs = {}
-        
+
         for key, classified in data.items():
             default_n = max(2, np.max(classified) + 1)
 
             if isinstance(self.states, int):
                 n = self.states
             else:
-                n = self.states.get(key, default=self.states.get('default'))
+                n = self.states.get(key, default=self.states.get("default"))
                 if n is None:
                     n = default_n
                     logger.warning(
                         f"'{key}' is not in states. Inferring number of states "
                         f"from classified data."
                     )
-            
+
             if n < default_n:
                 logger.warning(
                     f"Getting state populations for {n} states but '{key}' has "
                     f"classified data for more than {n} states"
                 )
 
-            shape = tuple(n if axis == self.axis else dim for axis, dim in enumerate(classified.shape))
+            shape = tuple(
+                n if axis == self.axis else dim
+                for axis, dim in enumerate(classified.shape)
+            )
             outputs[key] = np.empty(shape=shape)
 
             for i in range(n):

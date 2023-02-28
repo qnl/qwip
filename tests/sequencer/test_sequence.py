@@ -1,65 +1,60 @@
-import pytest
-import numpy as np
-from numpy.testing import assert_array_equal
-
 from contextlib import nullcontext as noerror
+
+import numpy as np
+import pytest
+from numpy.testing import assert_array_equal
 
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import (
     Sequence,
-    stack,
     _is_advanced_index,
-    broadcast_names_and_labels
+    broadcast_names_and_labels,
+    stack,
 )
+
 
 class TestSequenceConstruction:
     @pytest.mark.parametrize(
-        'elements,names,labels,shape,error',
+        "elements,names,labels,shape,error",
         [
             ([], None, dict(), (0,), noerror()),
-            (
-                [SequenceElement() for _ in range(10)],
-                None,
-                dict(),
-                (10,),
-                noerror()
-            ),
+            ([SequenceElement() for _ in range(10)], None, dict(), (10,), noerror()),
             (
                 [[SequenceElement() for _ in range(4)] for _ in range(3)],
                 (None, None),
                 dict(),
                 (3, 4),
-                noerror()
+                noerror(),
             ),
             (
                 [[SequenceElement() for _ in range(4)] for _ in range(15)],
-                ('a', 'b'),
+                ("a", "b"),
                 dict(a=np.arange(15), b=np.arange(4)),
                 (15, 4),
-                noerror()
+                noerror(),
             ),
             (
                 [SequenceElement() for _ in range(10)],
-                ('a', 'b'),
+                ("a", "b"),
                 dict(),
                 (10,),
                 pytest.raises(ValueError),
             ),
             (
                 [SequenceElement() for _ in range(5)],
-                ('a',),
+                ("a",),
                 dict(a=np.arange(10)),
                 (5),
                 pytest.raises(ValueError),
             ),
             (
                 [[SequenceElement() for _ in range(5)] for _ in range(4)],
-                ('a', 'a'),
+                ("a", "a"),
                 dict(),
                 (4, 5),
                 pytest.raises(ValueError),
-            )
-        ]
+            ),
+        ],
     )
     def test_explicit_constructor(self, elements, names, labels, shape, error):
         with error:
@@ -78,54 +73,42 @@ class TestSequenceConstruction:
                     assert l1 is l2
 
     def test_label_conversion(self):
-        s = Sequence(
-            [SequenceElement() for _ in range(3)],
-            names=('a',),
-            a=[1, 2, 3]
-        )
+        s = Sequence([SequenceElement() for _ in range(3)], names=("a",), a=[1, 2, 3])
 
-        assert isinstance(s.labels['a'], np.ndarray)
-        assert_array_equal(s.labels['a'], np.array([1, 2, 3]))
+        assert isinstance(s.labels["a"], np.ndarray)
+        assert_array_equal(s.labels["a"], np.array([1, 2, 3]))
 
     @pytest.mark.parametrize(
-        'arr',
+        "arr",
         [
             np.array(
                 [[SequenceElement() for _ in range(3)] for _ in range(2)],
             ),
-            Sequence.empty((2, 3), names=('a', 'b'), a=np.arange(2))
-        ]
+            Sequence.empty((2, 3), names=("a", "b"), a=np.arange(2)),
+        ],
     )
     def test_constructor_pass_through(self, arr):
-        s = Sequence(
-            arr,
-            names=('c', 'd'),
-            c=np.zeros(2),
-            d=np.ones(3)
-        )
+        s = Sequence(arr, names=("c", "d"), c=np.zeros(2), d=np.ones(3))
 
-        assert s.names == ('c', 'd')
-        assert_array_equal(s.labels['c'], np.zeros(2))
-        assert_array_equal(s.labels['d'], np.ones(3))
-        
+        assert s.names == ("c", "d")
+        assert_array_equal(s.labels["c"], np.zeros(2))
+        assert_array_equal(s.labels["d"], np.ones(3))
+
         assert_array_equal(s, arr)
         assert s.base is arr
 
     @pytest.mark.parametrize(
-        'sequence',
+        "sequence",
         [
             Sequence.empty((1, 2, 3, 4)),
             Sequence.empty(
-                (4, 5),
-                names=('a', 'b'),
-                a=np.linspace(0, 1, 4),
-                b=np.zeros(5)
+                (4, 5), names=("a", "b"), a=np.linspace(0, 1, 4), b=np.zeros(5)
             ),
             Sequence.empty(
                 10,
-                names=('d0',),
-            )
-        ]
+                names=("d0",),
+            ),
+        ],
     )
     def test_view(self, sequence):
         s1 = sequence.view()
@@ -138,15 +121,19 @@ class TestSequenceConstruction:
             # Labels are not copied
             assert l1 is l2
 
-        assert s1.base is sequence            
+        assert s1.base is sequence
 
     @pytest.mark.parametrize(
-        'shape,names,labels',
+        "shape,names,labels",
         [
             (10, None, dict()),
-            ((3, 4, 5), ('a', 'b', 'c'), dict(a=np.arange(3), b=np.arange(4), c=np.arange(5))),
-            ((1, 1), None, dict())
-        ]
+            (
+                (3, 4, 5),
+                ("a", "b", "c"),
+                dict(a=np.arange(3), b=np.arange(4), c=np.arange(5)),
+            ),
+            ((1, 1), None, dict()),
+        ],
     )
     def test_empty(self, shape, names, labels):
         sequence = Sequence.empty(shape, names=names, **labels)
@@ -155,7 +142,7 @@ class TestSequenceConstruction:
             shape = (shape,)
 
         assert sequence.shape == shape
-        
+
         obj_ids = set()
         for index in np.ndindex(*shape):
             se = sequence[index]
@@ -163,10 +150,10 @@ class TestSequenceConstruction:
 
         # Checks that all sequence elements are unique/separate objects
         assert len(obj_ids) == np.product(shape)
-        
+
         if names:
             assert sequence.names == names
-        
+
         if labels:
             for v1, v2 in zip(sequence.labels.values(), labels.values()):
                 assert v1 is v2
@@ -174,25 +161,25 @@ class TestSequenceConstruction:
 
 class TestSequenceIndexing:
     @pytest.mark.parametrize(
-        'index,is_advanced',
+        "index,is_advanced",
         [
             ((1, 2, 3), False),
             (((1, 2, 3),), True),
             ((slice(None), ..., np.newaxis), False),
-            (np.arange(10), True)
-        ]
+            (np.arange(10), True),
+        ],
     )
     def test_is_advanced_index(self, index, is_advanced):
         assert _is_advanced_index(index) == is_advanced
 
     @pytest.mark.parametrize(
-        'start_shape,index,expected_shape',
+        "start_shape,index,expected_shape",
         [
             ((3, 4, 5), np.s_[0, :, :], (4, 5)),
             ((3, 4, 5), np.s_[:2, ...], (2, 4, 5)),
             ((3, 4, 5), np.s_[..., np.newaxis, ::2], (3, 4, 1, 3)),
-            ((3, 4, 5), np.s_[..., :, :, :],  (3, 4, 5)),
-        ]
+            ((3, 4, 5), np.s_[..., :, :, :], (3, 4, 5)),
+        ],
     )
     def test_basic_indexing(self, start_shape, index, expected_shape):
         s = Sequence.empty(start_shape)
@@ -201,12 +188,17 @@ class TestSequenceIndexing:
         assert s.labels == dict()
 
     @pytest.mark.parametrize(
-        'shape,names,index,expected',
+        "shape,names,index,expected",
         [
-            ((3, 4, 5), ('a', 'b', 'c'), np.s_[0, :, :], ('b', 'c')),
-            ((3, 4), ('a', 'b'), np.s_[:, np.newaxis, :], ('a', None, 'b')),
-            ((3, 4, 5), ('a', 'b', 'c'), np.s_[np.newaxis, 0, ..., :], (None, 'b', 'c'))
-        ]
+            ((3, 4, 5), ("a", "b", "c"), np.s_[0, :, :], ("b", "c")),
+            ((3, 4), ("a", "b"), np.s_[:, np.newaxis, :], ("a", None, "b")),
+            (
+                (3, 4, 5),
+                ("a", "b", "c"),
+                np.s_[np.newaxis, 0, ..., :],
+                (None, "b", "c"),
+            ),
+        ],
     )
     def test_names_from_index(self, shape, names, index, expected):
         s = Sequence.empty(shape, names=names)
@@ -217,36 +209,25 @@ class TestSequenceIndexing:
         assert updated_names == expected
 
     @pytest.mark.parametrize(
-        'shape,names,index,expected',
+        "shape,names,index,expected",
         [
+            ((5,), ("a",), np.s_[:2], dict(a=np.arange(5)[:2])),
             (
-                (5,), ('a',), np.s_[:2], dict(a=np.arange(5)[:2])
+                (1, 2, 10),
+                (None, None, "c"),
+                np.s_[:, :, 1::2],
+                dict(c=np.arange(10)[1::2]),
             ),
-            (
-                (1, 2, 10), (None, None, 'c'), np.s_[:, :, 1::2], dict(c=np.arange(10)[1::2])
-            ),
-            (
-                (5, 4, 3), ('a', 'b', 'c'), np.s_[-3:, 1, 1], dict(a=np.arange(5)[-3:])
-            ),
-            (
-                (10, 10, 5),
-                ('a', None, 'c'),
-                np.s_[0],
-                dict(c=np.arange(5))
-            ),
+            ((5, 4, 3), ("a", "b", "c"), np.s_[-3:, 1, 1], dict(a=np.arange(5)[-3:])),
+            ((10, 10, 5), ("a", None, "c"), np.s_[0], dict(c=np.arange(5))),
             (
                 (10, 11, 12),
-                ('a', 'b', 'c'),
+                ("a", "b", "c"),
                 np.s_[...],
-                dict(a=np.arange(10), b=np.arange(11), c=np.arange(12))
+                dict(a=np.arange(10), b=np.arange(11), c=np.arange(12)),
             ),
-            (
-                (3, 4, 5),
-                ('a', 'b', 'c'),
-                np.s_[:, 2, ..., 3],
-                dict(a=np.arange(3))
-            ),
-        ]
+            ((3, 4, 5), ("a", "b", "c"), np.s_[:, 2, ..., 3], dict(a=np.arange(3))),
+        ],
     )
     def test_basic_indexing_with_names_and_labels(self, shape, names, index, expected):
         labels = {n: np.arange(dim) for n, dim in zip(names, shape) if n}
@@ -262,29 +243,30 @@ class TestSequenceIndexing:
         for n in view.labels:
             assert s.labels[n] is view.labels[n].base
 
+
 class TestSequenceShaping:
     def test_reshape(self):
-        s = Sequence.empty((4, 5, 3), names=('a','b','c'), a=np.arange(4))
+        s = Sequence.empty((4, 5, 3), names=("a", "b", "c"), a=np.arange(4))
 
         r = s.reshape(4, -1)
         # print(r.shape, r.names, r.labels, r.base is s)
 
     @pytest.mark.parametrize(
-        'seq,axes,shape,names',
+        "seq,axes,shape,names",
         [
             (
-                Sequence.empty((1, 2, 3, 4), ('a', 'b', 'c', 'd')),
+                Sequence.empty((1, 2, 3, 4), ("a", "b", "c", "d")),
                 None,
                 (4, 3, 2, 1),
-                ('d', 'c', 'b', 'a')
+                ("d", "c", "b", "a"),
             ),
             (
-                Sequence.empty((1, 2, 3, 4), ('a', 'b', 'c', 'd')),
+                Sequence.empty((1, 2, 3, 4), ("a", "b", "c", "d")),
                 (2, 0, 1, 3),
                 (3, 1, 2, 4),
-                ('c', 'a', 'b', 'd')
-            )
-        ]
+                ("c", "a", "b", "d"),
+            ),
+        ],
     )
     def test_transpose(self, seq, axes, shape, names):
         r = seq.transpose(axes)
@@ -296,11 +278,7 @@ class TestSequenceShaping:
         assert r1.shape == shape
 
     @pytest.mark.parametrize(
-        'shape,names',
-        [
-            ((2,), ('a',)),
-            ((1, 2, 3), ('a', 'b', 'c'))
-        ]
+        "shape,names", [((2,), ("a",)), ((1, 2, 3), ("a", "b", "c"))]
     )
     def test_T(self, shape, names):
         s = Sequence.empty(shape, names=names)
@@ -309,64 +287,67 @@ class TestSequenceShaping:
         assert s.T.names == tuple(reversed(names))
 
     def test_broadcast(self):
-        s = Sequence.empty((2, 4), names=('x', 'a'), a=np.arange(4), x=np.arange(2))
-        r = Sequence.empty((4, 1, 1), names=('b', 'x', ...), x=np.arange(1))
+        s = Sequence.empty((2, 4), names=("x", "a"), a=np.arange(4), x=np.arange(2))
+        r = Sequence.empty((4, 1, 1), names=("b", "x", ...), x=np.arange(1))
 
         broadcast_names_and_labels(s, r)
 
+
 class TestSequenceJoins:
     @pytest.mark.parametrize(
-        'seqs,axis,names,labels,error',
+        "seqs,axis,names,labels,error",
         [
             (
                 [Sequence.empty(5), Sequence.empty(6), Sequence.empty(7)],
                 0,
                 (None,),
                 dict(),
-                noerror()
+                noerror(),
             ),
             (
                 [
-                    Sequence.empty((5, 2), names=('d0', ...), d0=np.arange(5)),
+                    Sequence.empty((5, 2), names=("d0", ...), d0=np.arange(5)),
                     Sequence.empty((5, 3)),
                 ],
                 1,
-                ('d0', None),
+                ("d0", None),
                 dict(d0=np.arange(5)),
-                noerror()
+                noerror(),
             ),
             (
                 [
-                    Sequence.empty((5, 2), names=(..., 'd1'), d1=np.arange(2)),
-                    Sequence.empty((5, 3), names=('d0', 'd1'), d1=np.arange(2, 5)),
+                    Sequence.empty((5, 2), names=(..., "d1"), d1=np.arange(2)),
+                    Sequence.empty((5, 3), names=("d0", "d1"), d1=np.arange(2, 5)),
                 ],
                 1,
-                ('d0', 'd1'),
+                ("d0", "d1"),
                 dict(d1=np.arange(5)),
-                noerror()
+                noerror(),
             ),
             (
                 [
-                    Sequence.empty((5, 1, 2), names=('d0', ..., 'd2'), d0=np.arange(5)),
-                    Sequence.empty((5, 1, 3), names=('d0', 'd1', 'd2'), d0=np.arange(5)),
-                    Sequence.empty((5, 1, 4), names=('d0', ...), d0=np.arange(5)),
+                    Sequence.empty((5, 1, 2), names=("d0", ..., "d2"), d0=np.arange(5)),
+                    Sequence.empty(
+                        (5, 1, 3), names=("d0", "d1", "d2"), d0=np.arange(5)
+                    ),
+                    Sequence.empty((5, 1, 4), names=("d0", ...), d0=np.arange(5)),
                 ],
                 2,
-                ('d0', 'd1', 'd2'),
+                ("d0", "d1", "d2"),
                 dict(d0=np.arange(5)),
-                noerror()
+                noerror(),
             ),
             (
                 [
-                    Sequence.empty((5, 2), names=('d0', 'd1'), d1=np.arange(2)),
-                    Sequence.empty((5, 3), names=('d0', 'd1'), d1=np.arange(2, 5)),
+                    Sequence.empty((5, 2), names=("d0", "d1"), d1=np.arange(2)),
+                    Sequence.empty((5, 3), names=("d0", "d1"), d1=np.arange(2, 5)),
                 ],
                 -1,
-                ('d0', 'd1'),
+                ("d0", "d1"),
                 dict(d1=np.arange(5)),
-                noerror()
+                noerror(),
             ),
-        ]
+        ],
     )
     def test_concatenate(self, seqs, axis, names, labels, error):
         with error:
@@ -384,35 +365,32 @@ class TestSequenceJoins:
             assert c.shape == tuple(shape)
             assert c.names == names
             assert c.labels.keys() == labels.keys()
-            
+
             for v1, v2 in zip(c.labels.values(), labels.values()):
                 assert_array_equal(v1, v2)
 
     @pytest.mark.parametrize(
-        'seqs,axis,names,labels,error',
+        "seqs,axis,names,labels,error",
         [
             (
-                [
-                    Sequence.empty(10, names=('a',), a=np.arange(10)),
-                    Sequence.empty(10)
-                ],
+                [Sequence.empty(10, names=("a",), a=np.arange(10)), Sequence.empty(10)],
                 -1,
-                ('a', None),
+                ("a", None),
                 dict(a=np.arange(10)),
-                noerror()
+                noerror(),
             ),
             (
                 [
-                    Sequence.empty((2, 4, 5), names=('a', ...), a=np.arange(2)),
-                    Sequence.empty((2, 4, 5), names=(..., 'd'), d=np.arange(5)),
-                    Sequence.empty((2, 4, 5), names=(None, 'c', None), c=np.arange(4))
+                    Sequence.empty((2, 4, 5), names=("a", ...), a=np.arange(2)),
+                    Sequence.empty((2, 4, 5), names=(..., "d"), d=np.arange(5)),
+                    Sequence.empty((2, 4, 5), names=(None, "c", None), c=np.arange(4)),
                 ],
                 1,
-                ('a', None, 'c', 'd'),
+                ("a", None, "c", "d"),
                 dict(a=np.arange(2), c=np.arange(4), d=np.arange(5)),
-                noerror()
-            )
-        ]
+                noerror(),
+            ),
+        ],
     )
     def test_stack(self, seqs, axis, names, labels, error):
         with error:
@@ -421,7 +399,7 @@ class TestSequenceJoins:
             shape = list(seqs[0].shape)
             axis = len(shape) + 1 + axis if axis < 0 else axis
             shape.insert(axis, len(seqs))
-            
+
             assert c.shape == tuple(shape)
             assert c.names == names
 
@@ -432,30 +410,27 @@ class TestSequenceJoins:
                 assert_array_equal(label, labels[n])
 
     @pytest.mark.parametrize(
-        'seqs,axis,names,labels,error',
+        "seqs,axis,names,labels,error",
         [
             (
-                [
-                    Sequence.empty(10, names=('a',), a=np.arange(10)),
-                    Sequence.empty(10)
-                ],
+                [Sequence.empty(10, names=("a",), a=np.arange(10)), Sequence.empty(10)],
                 -1,
-                ('a', None),
+                ("a", None),
                 dict(a=np.arange(10)),
-                noerror()
+                noerror(),
             ),
             (
                 [
-                    Sequence.empty((2, 4, 5), names=('a', ...), a=np.arange(2)),
-                    Sequence.empty((2, 4, 5), names=(..., 'd'), d=np.arange(5)),
-                    Sequence.empty((2, 4, 5), names=(None, 'c', None), c=np.arange(4))
+                    Sequence.empty((2, 4, 5), names=("a", ...), a=np.arange(2)),
+                    Sequence.empty((2, 4, 5), names=(..., "d"), d=np.arange(5)),
+                    Sequence.empty((2, 4, 5), names=(None, "c", None), c=np.arange(4)),
                 ],
                 1,
-                ('a', None, 'c', 'd'),
+                ("a", None, "c", "d"),
                 dict(a=np.arange(2), c=np.arange(4), d=np.arange(5)),
-                noerror()
-            )
-        ]
+                noerror(),
+            ),
+        ],
     )
     def test_stack(self, seqs, axis, names, labels, error):
         with error:
@@ -464,7 +439,7 @@ class TestSequenceJoins:
             shape = list(seqs[0].shape)
             axis = len(shape) + 1 + axis if axis < 0 else axis
             shape.insert(axis, len(seqs))
-            
+
             assert c.shape == tuple(shape)
             assert c.names == names
             # Ordering is not guaranteed
@@ -474,52 +449,52 @@ class TestSequenceJoins:
                 assert_array_equal(label, labels[n])
 
     def test_stack_with_sequence_data(self):
-        a = Sequence.empty((3, 4), names=('b', 'c'), b=np.arange(3), c=np.arange(4))
-        b = Sequence.empty((3, 4), names=('b', 'c'), c=np.arange(4))
-        
-        c = stack((a, b), axis=-3, name='a', label=np.arange(2))
+        a = Sequence.empty((3, 4), names=("b", "c"), b=np.arange(3), c=np.arange(4))
+        b = Sequence.empty((3, 4), names=("b", "c"), c=np.arange(4))
+
+        c = stack((a, b), axis=-3, name="a", label=np.arange(2))
 
         assert c.shape == (2, 3, 4)
-        assert c.names == ('a', 'b', 'c')
-        assert set(c.labels.keys()) == set('abc')
+        assert c.names == ("a", "b", "c")
+        assert set(c.labels.keys()) == set("abc")
 
-        for i, n in enumerate('abc'):
+        for i, n in enumerate("abc"):
             assert_array_equal(c.labels[n], np.arange(i + 2))
 
 
 class TestSequenceUniversalFunctions:
     @pytest.mark.parametrize(
-        'a,b,shape,names,labels',
+        "a,b,shape,names,labels",
         [
             (
-                Sequence.empty((10,), names=('a',), a=np.arange(10)),
+                Sequence.empty((10,), names=("a",), a=np.arange(10)),
                 Sequence.empty((10,)),
                 (10,),
-                ('a',),
-                dict(a=np.arange(10))
+                ("a",),
+                dict(a=np.arange(10)),
             ),
             (
-                Sequence.empty((3, 2, 1), names=('a', ...), a=np.arange(3)),
-                Sequence.empty((1, 2, 3), names=(...,'b','c'), c=np.arange(3)),
+                Sequence.empty((3, 2, 1), names=("a", ...), a=np.arange(3)),
+                Sequence.empty((1, 2, 3), names=(..., "b", "c"), c=np.arange(3)),
                 (3, 2, 3),
-                ('a', 'b', 'c'),
-                dict(a=np.arange(3), c=np.arange(3))
+                ("a", "b", "c"),
+                dict(a=np.arange(3), c=np.arange(3)),
             ),
             (
-                Sequence.empty((2, 3, 1), names=(..., 'b', 'c'), c=np.ones(1)),
-                Sequence.empty((4,), names=('c',), c=np.ones(4)),
+                Sequence.empty((2, 3, 1), names=(..., "b", "c"), c=np.ones(1)),
+                Sequence.empty((4,), names=("c",), c=np.ones(4)),
                 (2, 3, 4),
-                (None, 'b', 'c'),
-                dict(c=np.ones(4))
+                (None, "b", "c"),
+                dict(c=np.ones(4)),
             ),
             (
-                Sequence.empty(4, names=('a',), a=np.arange(4)),
-                Sequence.empty(4, names=('a',), a=np.ones(4)),
+                Sequence.empty(4, names=("a",), a=np.arange(4)),
+                Sequence.empty(4, names=("a",), a=np.ones(4)),
                 (4,),
-                ('a',),
-                dict()
-            )
-        ]
+                ("a",),
+                dict(),
+            ),
+        ],
     )
     def test_ufunc_call(self, a, b, shape, names, labels):
         c = a + b
@@ -532,40 +507,34 @@ class TestSequenceUniversalFunctions:
             assert_array_equal(label, labels[n])
 
     @pytest.mark.parametrize(
-        'seq,kwargs,shape,names,labels',
+        "seq,kwargs,shape,names,labels",
         [
             (
-                Sequence.empty((10,), names=('a',), a=np.arange(10)),
+                Sequence.empty((10,), names=("a",), a=np.arange(10)),
                 {},
                 tuple(),
                 tuple(),
-                {}
+                {},
             ),
             (
                 Sequence.empty(
-                    (3, 2, 1),
-                    names=('a', 'b', 'c'),
-                    a=np.arange(3),
-                    b=np.arange(2)
+                    (3, 2, 1), names=("a", "b", "c"), a=np.arange(3), b=np.arange(2)
                 ),
                 dict(axis=1),
                 (3, 1),
-                ('a', 'c'),
-                dict(a=np.arange(3))
+                ("a", "c"),
+                dict(a=np.arange(3)),
             ),
             (
                 Sequence.empty(
-                    (3, 2),
-                    names=('a', 'b'),
-                    a=np.arange(3),
-                    b=np.arange(2)
+                    (3, 2), names=("a", "b"), a=np.arange(3), b=np.arange(2)
                 ),
                 dict(axis=1, keepdims=True),
                 (3, 1),
-                ('a', 'b'),
-                dict(a=np.arange(3))
+                ("a", "b"),
+                dict(a=np.arange(3)),
             ),
-        ]
+        ],
     )
     def test_ufunc_reduce(self, seq, kwargs, shape, names, labels):
         result = np.sum(seq, **kwargs)

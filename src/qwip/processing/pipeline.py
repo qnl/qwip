@@ -1,14 +1,14 @@
 from importlib import import_module
-from typing import Optional, Callable, Any, Set
+from typing import Any, Callable, Optional, Set
 
 import attr
-
 from attr import field
 from loguru import logger
 
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qdefine, Settings
 from qwip.processing.process import Process, ProcessSettings
+from qwip.settings.settings import Settings, qdefine
+
 
 @qdefine
 class Pipeline:
@@ -17,7 +17,7 @@ class Pipeline:
 
     def reset(self):
         self.dependency_cache = dict()
-    
+
     def solve_dependencies(self, name):
         resolved = set()
         visiting = set()
@@ -25,19 +25,19 @@ class Pipeline:
         solved_dependencies = list()
 
         def add_process(name):
-            logger.debug(f'Resolving process {name}.')
+            logger.debug(f"Resolving process {name}.")
             process = self.processes[name]
             if name in resolved:
                 return
             if name in visiting:
-                logger.error('Circular dependency found!')
+                logger.error("Circular dependency found!")
                 raise Exception
 
             visiting.add(name)
 
             for input_name in process.settings.inputs:
                 if input_name not in self.processes:
-                    logger.error('Dependency not found')
+                    logger.error("Dependency not found")
                     raise KeyError(f"'{input_name}' is not in pipeline.processes!")
 
                 add_process(input_name)
@@ -45,11 +45,10 @@ class Pipeline:
             visiting.remove(name)
             resolved.add(name)
             solved_dependencies.append(process)
-        
+
         add_process(name)
 
         return solved_dependencies
-        
 
     def run(self, input_data, process_name, reset=False):
         processes_to_run = self.solve_dependencies(process_name)
@@ -67,9 +66,7 @@ class Pipeline:
 
     @classmethod
     def from_process_settings(cls, process_list: list[ProcessSettings]):
-        return cls(
-            processes=FlatDict((p.name, p.get_process()) for p in process_list)
-        )
+        return cls(processes=FlatDict((p.name, p.get_process()) for p in process_list))
 
     def to_process_settings(self) -> list[ProcessSettings]:
         psettings = []
@@ -78,6 +75,7 @@ class Pipeline:
             psettings.append(p.settings)
 
         return psettings
+
 
 @qdefine
 class PipelineSettings(Settings):

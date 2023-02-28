@@ -8,3 +8,8 @@ build-backend="setuptools.build_meta"
 [pytest]
 log_cli = true
 log_cli_level = "DEBUG"
+
+[tool.isort]
+profile = "black"
+skip_gitignore = true
+py_version = 310

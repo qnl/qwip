@@ -1,34 +1,38 @@
+from collections.abc import Callable, Iterable, Mapping
 from functools import reduce
-from types import UnionType, GenericAlias
+from types import GenericAlias, UnionType
 from typing import (
-    Any,
     Annotated,
+    Any,
+    ForwardRef,
     Type,
     TypeVar,
-    Union, 
+    Union,
     _SpecialForm,
-    ForwardRef,
+    get_args,
     get_origin,
-    get_args
 )
-
-from typing_extensions import Self
-from collections.abc import Callable, Iterable, Mapping
 
 import attrs
 import numpy as np
-from numpy.typing import NDArray
-from attrs import frozen, field, resolve_types
 from attr._make import _obj_setattr
+from attrs import field, frozen, resolve_types
 from attrs.validators import (
-    instance_of, is_callable, deep_iterable, deep_mapping, optional, and_
+    and_,
+    deep_iterable,
+    deep_mapping,
+    instance_of,
+    is_callable,
+    optional,
 )
-
-from qwip.typing import typedispatch, replace_self_type
-
 from loguru import logger
+from numpy.typing import NDArray
+from typing_extensions import Self
+
+from qwip.typing import replace_self_type, typedispatch
 
 ScalarType = get_args(get_args(NDArray)[1])[0]
+
 
 @frozen(repr=False)
 class _NullValidator:
@@ -40,6 +44,7 @@ class _NullValidator:
 
     def __repr__(self):
         return "<Null validator>"
+
 
 @frozen(repr=False)
 class _NumpyTypeValidator:
@@ -60,7 +65,9 @@ class _NumpyTypeValidator:
                     dtype=self.dtype,
                     actual=value.__class__,
                     value=value,
-                    optional_dtype=f' with dtype {value.dtype}' if isinstance(value, np.ndarray) else ''
+                    optional_dtype=f" with dtype {value.dtype}"
+                    if isinstance(value, np.ndarray)
+                    else "",
                 ),
                 attr,
                 self.dtype,
@@ -69,6 +76,7 @@ class _NumpyTypeValidator:
 
     def __repr__(self):
         return "<Numpy validator>"
+
 
 @frozen(repr=False)
 class _DeepTupleValidator:
@@ -91,13 +99,13 @@ class _DeepTupleValidator:
                     type=attr.type,
                     length=len(self.member_validators),
                     value=value,
-                    actual=len(value)
+                    actual=len(value),
                 ),
                 attr,
                 attr.type,
-                value
+                value,
             )
-        
+
         for validator, member in zip(self.member_validators, value):
             if validator:
                 validator(inst, attr, member)
@@ -111,6 +119,7 @@ class _UnionValidator:
     """
     Tries all validators and only raises type error if all validators do.
     """
+
     _validators = field()
 
     def __call__(self, inst, attr, value):
@@ -140,23 +149,28 @@ class _UnionValidator:
 
 @typedispatch
 def get_validator(tps: Type | tuple[Type], cls: type | None = None) -> Callable:
-    raise NotImplementedError(f'Type validator for {tps} is not implemented.')
+    raise NotImplementedError(f"Type validator for {tps} is not implemented.")
+
 
 @get_validator.register(Any)
 def get_any_validator(tps: Type, cls: type | None = None) -> Callable:
     return None
 
+
 @get_validator.register(Self)
 def get_self_validator(tps: Type, cls: type | None = None) -> Callable:
     return get_type_validator(ForwardRef(cls.__name__), cls)
+
 
 @get_validator.register(Annotated)
 def get_annotated_validator(tps: Type, cls: type | None = None) -> Callable:
     return get_type_validator(get_args(tps)[0], cls)
 
+
 @get_validator.register(Callable)
 def get_annotated_validator(tps: Type, cls: type | None = None) -> Callable:
     return is_callable()
+
 
 @get_validator.register(tuple)
 def get_tuple_validator(tps: Type, cls: type | None = None) -> Callable:
@@ -165,7 +179,7 @@ def get_tuple_validator(tps: Type, cls: type | None = None) -> Callable:
 
     if ... in args:
         if len(args) != 2:
-            raise ValueError(f'{tps} is not a sensible type.')
+            raise ValueError(f"{tps} is not a sensible type.")
 
         member_validator = get_type_validator(args[0], cls)
         if member_validator:
@@ -177,12 +191,14 @@ def get_tuple_validator(tps: Type, cls: type | None = None) -> Callable:
         validators = tuple(get_type_validator(a, cls) for a in args)
         return _DeepTupleValidator(validators, tuple_validator)
 
+
 @get_validator.register(np.ndarray)
 def get_numpy_validator(tps: Type, cls: type | None = None) -> Callable:
     _, dtype = get_args(tps)
 
     dtype = get_args(dtype)[0]
     return _NumpyTypeValidator(dtype=dtype)
+
 
 @get_validator.register(Mapping)
 def get_mapping_validator(tps: Type, cls: type | None = None) -> Callable:
@@ -197,10 +213,13 @@ def get_mapping_validator(tps: Type, cls: type | None = None) -> Callable:
     value_validator = value_validator or _NullValidator()
 
     # Necessary to handle pathological case where mapping[Any, Any] is used
-    if isinstance(key_validator, _NullValidator) and isinstance(value_validator, _NullValidator):
+    if isinstance(key_validator, _NullValidator) and isinstance(
+        value_validator, _NullValidator
+    ):
         return mapping_validator
     else:
         return deep_mapping(key_validator, value_validator, mapping_validator)
+
 
 @get_validator.register(Iterable)
 def get_iterable_validator(tps: Type, cls: type | None = None) -> Callable:
@@ -213,11 +232,13 @@ def get_iterable_validator(tps: Type, cls: type | None = None) -> Callable:
     else:
         return iterable_validator
 
+
 def get_optional_validator(tps: Type, cls: type | None = None) -> Callable:
     args = tuple(tp for tp in get_args(tps) if tp is not type(None))
 
     validator = get_type_validator(args, cls)
     return optional(validator) if validator else None
+
 
 @get_validator.register(Union)
 @get_validator.register(UnionType)
@@ -231,7 +252,7 @@ def get_union_validator(tps: Type, cls: type | None = None) -> Callable:
         """Determines if a type can be directly handled within a union"""
         special_types = (_SpecialForm, GenericAlias, UnionType, ForwardRef, str)
 
-        return (isinstance(tp, special_types) or get_origin(tp) or tp == ...)
+        return isinstance(tp, special_types) or get_origin(tp) or tp == ...
 
     combined = tuple(tp for tp in args if not is_special_type(tp))
     special = (tp for tp in args if is_special_type(tp))
@@ -246,6 +267,7 @@ def get_union_validator(tps: Type, cls: type | None = None) -> Callable:
 
     return _UnionValidator(validators)
 
+
 def get_tuple_of_types_validator(tps: tuple[Type], cls: type | None = None) -> Callable:
     if len(tps) == 0:
         return None
@@ -253,6 +275,7 @@ def get_tuple_of_types_validator(tps: tuple[Type], cls: type | None = None) -> C
         return get_type_validator(tps[0], cls)
     else:
         return get_union_validator(reduce(lambda a, b: a | b, tps), cls)
+
 
 def get_type_validator(tps: Type | tuple[Type], cls: type | None = None):
     try:
@@ -265,7 +288,7 @@ def get_type_validator(tps: Type | tuple[Type], cls: type | None = None):
         # Need to filter out special types
         return get_tuple_of_types_validator(tps, cls)
     elif isinstance(tps, (str, ForwardRef)):
-        logger.info(f'No validator added for forward reference {repr(tps)}.')
+        logger.info(f"No validator added for forward reference {repr(tps)}.")
         return None
     elif isinstance(tps, TypeVar):
         if tps.__bound__:
@@ -274,11 +297,12 @@ def get_type_validator(tps: Type | tuple[Type], cls: type | None = None):
     else:
         return get_validator(tps, cls)
 
+
 def add_type_validators(cls, fields):
     new_fields = []
 
     for field in fields:
-        if not field.metadata.get('validate', True):
+        if not field.metadata.get("validate", True):
             new_fields.append(field)
             continue
 
@@ -291,7 +315,7 @@ def add_type_validators(cls, fields):
             else:
                 new_fields.append(field.evolve(type=updated_type))
             continue
-    
+
         if field.validator is not None:
             # Put type validation before additional validators
             type_validator = and_(type_validator, field.validator)
@@ -300,28 +324,35 @@ def add_type_validators(cls, fields):
 
     return new_fields
 
+
 from functools import wraps
+
 
 def resolve_types_with_validation(maybe_cls=None, globalns=None, localns=None):
     def wrapper(cls):
-        forward_ref_fields = [f.name for f in attrs.fields(cls) if isinstance(f.type, str)]
+        forward_ref_fields = [
+            f.name for f in attrs.fields(cls) if isinstance(f.type, str)
+        ]
         cls = resolve_types(cls, globalns=globalns, localns=localns)
 
         # Now we add validators that weren't previously added
         for field in attrs.fields(cls):
             # Don't add a duplicate validator if one was already added
             # Or if auto-validation is turned off.
-            if not (field.name in forward_ref_fields and field.metadata.get('validate', True)):
+            if not (
+                field.name in forward_ref_fields
+                and field.metadata.get("validate", True)
+            ):
                 continue
 
             type_validator = get_type_validator(field.type, cls)
             if type_validator is None:
                 continue
-        
+
             if field.validator is not None:
                 type_validator = and_(type_validator, field.validator)
 
-            _obj_setattr(field, 'validator', type_validator)
+            _obj_setattr(field, "validator", type_validator)
 
         return __build_class__
 

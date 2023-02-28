@@ -1,25 +1,20 @@
-import sqlalchemy as sa
-from sqlalchemy.orm import Session
-from sqlalchemy.engine import make_url, URL
-
-import re
-import pendulum
 import functools
 import itertools as it
-from pathlib import Path
-import attrs
-from attrs import field
+import re
 from collections.abc import Mapping
-from typing import get_args, Callable
-from typing_extensions import Self
+from pathlib import Path
+from typing import Callable, get_args
+
+import attrs
+import pendulum
+import sqlalchemy as sa
+from attrs import field
 from loguru import logger
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.orm import Session
+from typing_extensions import Self
 
 import qwip
-from qwip.typing import issubtype
-from qwip.settings.settings import Settings, qdefine, qfrozen
-from qwip.flatdict import FlatDict, FlatMapping
-from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.waveform import Waveform
 from qwip.config.dolt import (
     DoltBranch,
     DoltCommit,
@@ -29,31 +24,37 @@ from qwip.config.dolt import (
     dolt_branch,
     dolt_checkout,
     dolt_commit,
-    dolt_reset
+    dolt_reset,
 )
+from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.config.models import (
     Folder,
-    Parameter,
     JSONTypes,
+    Parameter,
     SequenceElementModel,
     WaveformModel,
 )
-from qwip.config.metadata import QWIP_DB_METADATA
+from qwip.flatdict import FlatDict, FlatMapping
+from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.waveform import Waveform
+from qwip.settings.settings import Settings, qdefine, qfrozen
+from qwip.typing import issubtype
 
 try:
-    from IPython.display import display, JSON
+    from IPython.display import JSON, display
 except ImportError:
     logger.info("Unable to import IPython.")
 
 SHORT_HASH_LEN = 8
-USERNAME_REGEX = re.compile(r'(?P<name>[^@]*)(?P<domain>@.*)?')
+USERNAME_REGEX = re.compile(r"(?P<name>[^@]*)(?P<domain>@.*)?")
+
 
 @qfrozen
 class Commit:
     hash: str = field(repr=lambda h: h[:SHORT_HASH_LEN])
     committer: str
     email: str
-    date: pendulum.DateTime = field(repr=lambda dt: dt.in_tz('local').isoformat())
+    date: pendulum.DateTime = field(repr=lambda dt: dt.in_tz("local").isoformat())
     message: str
 
     @classmethod
@@ -63,12 +64,13 @@ class Commit:
             committer=model.committer,
             email=model.email,
             date=model.date,
-            message=model.message
+            message=model.message,
         )
 
     @property
     def short_hash(self):
         return self.hash[:SHORT_HASH_LEN]
+
 
 @qfrozen
 class Branch:
@@ -82,13 +84,11 @@ class Branch:
             committer=model.latest_committer,
             email=model.latest_committer_email,
             date=model.latest_commit_date,
-            message=model.latest_commit_message
+            message=model.latest_commit_message,
         )
 
-        return cls(
-            name=model.name,
-            latest=commit
-        )
+        return cls(name=model.name, latest=commit)
+
 
 @qfrozen
 class Status:
@@ -98,20 +98,16 @@ class Status:
 
     @classmethod
     def from_orm(cls, model: DoltStatus) -> Self:
-        return cls(
-            table=model.table_name,
-            staged=model.staged,
-            status=model.status
-        )
+        return cls(table=model.table_name, staged=model.staged, status=model.status)
+
 
 @qfrozen
 class ReadOnlyParameter:
     name: str
     value: JSONTypes | None = None
-    folder: str = '/'
+    folder: str = "/"
     timestamp: pendulum.DateTime | None = field(
-        repr=lambda dt: dt.in_tz('local').isoformat() if dt else repr(dt),
-        default=None
+        repr=lambda dt: dt.in_tz("local").isoformat() if dt else repr(dt), default=None
     )
     parameter_id: int | None = field(repr=False)
 
@@ -120,12 +116,14 @@ class ReadOnlyParameter:
         return cls(
             name=model.name,
             value=model.value,
-            folder=model.folder.path() if model.folder else '/',
+            folder=model.folder.path() if model.folder else "/",
             timestamp=model.timestamp,
-            parameter_id=model.parameter_id
+            parameter_id=model.parameter_id,
         )
 
+
 import functools
+
 
 def session_context(func):
     @functools.wraps(func)
@@ -146,10 +144,11 @@ def get_folder_list(name: str) -> list[Path | str]:
     while path.parent != path:
         folders.append(path.name)
         path = path.parent
-    
+
     folders.append(path)
-    
+
     return folders[::-1]
+
 
 @qdefine(repr=False)
 class ConfigFolder(FlatMapping):
@@ -167,7 +166,8 @@ class ConfigFolder(FlatMapping):
             self_cls = object.__getattribute__(self, "__orig_class__")
             match get_args(self_cls):
                 case (kt, vt):
-                    if issubtype(vt, ConfigFolder): return vt
+                    if issubtype(vt, ConfigFolder):
+                        return vt
                 case _:
                     ...
             return vt
@@ -187,7 +187,7 @@ class ConfigFolder(FlatMapping):
 
     @classmethod
     def from_name(cls, session: sa.orm.Session, name: str) -> Self:
-        if name == '/':
+        if name == "/":
             return cls(session=session)
 
         breadcrumbs = name.strip(cls._delim).split(cls._delim)
@@ -199,31 +199,38 @@ class ConfigFolder(FlatMapping):
         folders = session.scalars(stmt).all()
 
         if not len(folders):
-            raise KeyError(f'Folder {name} does not exist.')
+            raise KeyError(f"Folder {name} does not exist.")
 
         for name in breadcrumbs[1:]:
             subfolders = [sub for f in folders if (sub := f.subfolders.get(name))]
 
             if not len(subfolders):
-                raise KeyError(f'Folder {name} does not exist.')
-            
+                raise KeyError(f"Folder {name} does not exist.")
+
             folders = subfolders
-        
+
         if len(folders) > 1:
-            raise KeyError(f'Found multiple folders with name {name}')
-        
+            raise KeyError(f"Found multiple folders with name {name}")
+
         return cls(session=session, folder=folders[0])
 
     def __dictrepr__(self):
         return (
-            "{" +
-            ", ".join([f"{repr(k)}: {getattr(v, '__dictrepr__', v.__repr__)()}" for k, v in self.items()]) +
-            "}"
+            "{"
+            + ", ".join(
+                [
+                    f"{repr(k)}: {getattr(v, '__dictrepr__', v.__repr__)()}"
+                    for k, v in self.items()
+                ]
+            )
+            + "}"
         )
 
     @session_context
     def __repr__(self) -> str:
-        return f'{type(self).__name__}(path={self.path()}, contents={self.__dictrepr__()})'
+        return (
+            f"{type(self).__name__}(path={self.path()}, contents={self.__dictrepr__()})"
+        )
 
     def _ipython_display_(self):
         with self.session.begin():
@@ -233,16 +240,16 @@ class ConfigFolder(FlatMapping):
         display(json)
 
     def __rich_repr__(self):
-        yield 'path', self.path()
-        yield 'contents', self.todict()
+        yield "path", self.path()
+        yield "contents", self.todict()
 
     @staticmethod
     def _get_folders_from_db(session, name=None, parent_id=None):
         stmt = sa.select(Folder)
-        
+
         if parent_id is not ...:
             stmt = stmt.where(Folder.parent_id == parent_id)
-        
+
         if name is not None:
             stmt = stmt.where(Folder.name == name)
 
@@ -251,7 +258,7 @@ class ConfigFolder(FlatMapping):
     @staticmethod
     def _get_parameters_from_db(session, name=None, folder_id=None):
         stmt = sa.select(Parameter)
-        
+
         if folder_id is not ...:
             stmt = stmt.where(Parameter.folder_id == folder_id)
 
@@ -280,15 +287,15 @@ class ConfigFolder(FlatMapping):
             except ValueError as e:
                 raise KeyError(f"'{name}' is a folder.") from e
         else:
-            param = type(self)._get_parameters_from_db(
-                self.session,
-                name,
-                self.folder_id
-            ).one()
+            param = (
+                type(self)
+                ._get_parameters_from_db(self.session, name, self.folder_id)
+                .one()
+            )
             param.value = value
 
         self.session.flush()
-    
+
     @session_context
     def create_parameter(self, name, value=None):
         splitname = name.rsplit(self._delim, maxsplit=1)
@@ -303,15 +310,15 @@ class ConfigFolder(FlatMapping):
         if folder_name:
             folderproxy = self.get(folder_name)
             if folderproxy is None:
-                raise AttributeError(f'Folder {folder_name} does not exist in {self}.')
+                raise AttributeError(f"Folder {folder_name} does not exist in {self}.")
 
         if param_name in folderproxy:
-            raise AttributeError(f'Parameter {param_name} already exists in {self}.')
+            raise AttributeError(f"Parameter {param_name} already exists in {self}.")
 
         param = Parameter(
             name=param_name,
             value=qwip.converter.unstructure(value),
-            folder=folderproxy.folder
+            folder=folderproxy.folder,
         )
 
         self.session.add(param)
@@ -320,18 +327,18 @@ class ConfigFolder(FlatMapping):
 
     @session_context
     def create_folder(self, name, parents=True, exist_ok=False):
-        folder_list = get_folder_list(name.replace(self._delim, '/'))
+        folder_list = get_folder_list(name.replace(self._delim, "/"))
 
-        if folder_list[0] == Path('/') and self.folder is not None:
+        if folder_list[0] == Path("/") and self.folder is not None:
             self_path = self.path()
-            self_folder_list = get_folder_list(self_path.replace(self._delim, '/'))
+            self_folder_list = get_folder_list(self_path.replace(self._delim, "/"))
 
-            if folder_list[:len(self_folder_list)] != self_folder_list:
+            if folder_list[: len(self_folder_list)] != self_folder_list:
                 raise ValueError(
-                    f'Folder path {name} is not a subfolder of {self_path}.'
+                    f"Folder path {name} is not a subfolder of {self_path}."
                 )
-            
-            folder_list = folder_list[len(self_folder_list):]
+
+            folder_list = folder_list[len(self_folder_list) :]
         else:
             folder_list = folder_list[1:]
 
@@ -356,12 +363,12 @@ class ConfigFolder(FlatMapping):
         else:
             if not exist_ok:
                 raise FileExistsError(
-                    f'Cannot create folder {name} that exists already.'
+                    f"Cannot create folder {name} that exists already."
                 )
 
         self.session.add_all(folders_to_add)
         self.session.flush()
-        
+
         return type(self)(session=self.session, folder=folder)
 
     @session_context
@@ -369,7 +376,7 @@ class ConfigFolder(FlatMapping):
         if self.folder is None:
             return self._delim
 
-        return self.folder.path().replace('/', self._delim)
+        return self.folder.path().replace("/", self._delim)
 
     @session_context
     def folder_name(self) -> str:
@@ -384,10 +391,10 @@ class ConfigFolder(FlatMapping):
         if self.folder:
             subfolder = self.folder.subfolders.get(name)
         else:
-            subfolder = type(self)._get_folders_from_db(
-                self.session, name, None
-            ).one_or_none()
-        
+            subfolder = (
+                type(self)._get_folders_from_db(self.session, name, None).one_or_none()
+            )
+
         if subfolder:
             subfolder_cls = object.__getattribute__(self, "subfolder_class")
             return subfolder_cls(session=self.session, folder=subfolder)
@@ -396,27 +403,33 @@ class ConfigFolder(FlatMapping):
         if self.folder:
             parameter = self.folder.parameters.get(name)
         else:
-            parameter = type(self)._get_parameters_from_db(self.session, name, None).one_or_none()
-        
+            parameter = (
+                type(self)
+                ._get_parameters_from_db(self.session, name, None)
+                .one_or_none()
+            )
+
         if parameter:
             return parameter.value
 
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+        raise AttributeError(
+            f"'{type(self).__name__}' object has no attribute '{name}'"
+        )
 
     @session_context
     def _get_parameter(self, name):
         subkeys = self.rsplit(self.strip(name), maxsplit=1)
 
         last_folder = self.folder if len(subkeys) == 1 else self[subkeys[0]].folder
-        
+
         if last_folder:
             db_param = last_folder.parameters.get(subkeys[-1])
         else:
-            db_param = type(self)._get_parameters_from_db(
-                self.session,
-                subkeys[-1],
-                None
-            ).one_or_none()
+            db_param = (
+                type(self)
+                ._get_parameters_from_db(self.session, subkeys[-1], None)
+                .one_or_none()
+            )
 
         return db_param
 
@@ -440,19 +453,23 @@ class ConfigFolder(FlatMapping):
 
         if isinstance(obj, ConfigFolder):
             self.session.delete(obj.folder)
-            return 
+            return
 
         if self.folder:
             parameter = self.folder.parameters.get(name)
         else:
-            parameter = type(self)._get_parameters_from_db(self.session, name, None).one_or_none()
-       
+            parameter = (
+                type(self)
+                ._get_parameters_from_db(self.session, name, None)
+                .one_or_none()
+            )
+
         self.session.delete(parameter)
 
     @session_context
-    def search(self, name: str = None, sort = True):
+    def search(self, name: str = None, sort=True):
         return self.search_folders(name, sort) + self.search_parameters(name, sort)
-    
+
     @session_context
     def search_folders(self, name: str = None, sort=True):
         """Searches for all subfolders.
@@ -460,32 +477,33 @@ class ConfigFolder(FlatMapping):
         See https://www.mysqltutorial.org/mysql-adjacency-list-tree/
 
         Args:
-            name: 
+            name:
         """
         folder_path = (
-            sa.select(Folder.folder_id, Folder.name, Folder.name.label('path'))
+            sa.select(Folder.folder_id, Folder.name, Folder.name.label("path"))
             .where(Folder.parent_id == self.folder_id)
-            .cte(name='folder_path', recursive=True)
+            .cte(name="folder_path", recursive=True)
         )
 
-        fp = sa.orm.aliased(folder_path, name='fp')
-        f = sa.orm.aliased(Folder, name='f')
+        fp = sa.orm.aliased(folder_path, name="fp")
+        f = sa.orm.aliased(Folder, name="f")
 
         subquery = folder_path.union_all(
-            sa.select(f.folder_id, f.name, sa.func.concat(fp.c.path, '/', f.name))
-            .select_from(
-                sa.join(fp, f, fp.c.folder_id == f.parent_id)
-            )
+            sa.select(
+                f.folder_id, f.name, sa.func.concat(fp.c.path, "/", f.name)
+            ).select_from(sa.join(fp, f, fp.c.folder_id == f.parent_id))
         )
 
         stmt = sa.select(subquery)
-        
-        if name: stmt = stmt.where(subquery.c.name == name)
-        if sort: stmt = stmt.order_by(subquery.c.path)
+
+        if name:
+            stmt = stmt.where(subquery.c.name == name)
+        if sort:
+            stmt = stmt.order_by(subquery.c.path)
 
         return [
-            type(self).from_folder_id(session=self.session, folder_id=fid) 
-                for fid in self.session.scalars(stmt)
+            type(self).from_folder_id(session=self.session, folder_id=fid)
+            for fid in self.session.scalars(stmt)
         ]
 
     @session_context
@@ -495,48 +513,46 @@ class ConfigFolder(FlatMapping):
         See https://www.mysqltutorial.org/mysql-adjacency-list-tree/
 
         Args:
-            name: 
+            name:
         """
         folder_path = (
-            sa.select(Folder.folder_id, Folder.name, Folder.name.label('path'))
+            sa.select(Folder.folder_id, Folder.name, Folder.name.label("path"))
             .where(Folder.parent_id == self.folder_id)
-            .cte(name='folder_path', recursive=True)
+            .cte(name="folder_path", recursive=True)
         )
 
-        fp = sa.orm.aliased(folder_path, name='fp')
-        f = sa.orm.aliased(Folder, name='f')
+        fp = sa.orm.aliased(folder_path, name="fp")
+        f = sa.orm.aliased(Folder, name="f")
 
         subquery = folder_path.union_all(
-            sa.select(f.folder_id, f.name, sa.func.concat(fp.c.path, '/', f.name))
-            .select_from(
-                sa.join(fp, f, fp.c.folder_id == f.parent_id)
-            )
+            sa.select(
+                f.folder_id, f.name, sa.func.concat(fp.c.path, "/", f.name)
+            ).select_from(sa.join(fp, f, fp.c.folder_id == f.parent_id))
         )
 
         # This first statement gets all Parameters in nested subfolders
-        stmt = (
-            sa.select(Parameter)
-            .select_from(
-                sa.join(subquery, Parameter, subquery.c.folder_id == Parameter.folder_id)
-            )
+        stmt = sa.select(Parameter).select_from(
+            sa.join(subquery, Parameter, subquery.c.folder_id == Parameter.folder_id)
         )
         # This second statement gets all Parameters in this folder
         non_nested = sa.select(Parameter).where(Parameter.folder_id == self.folder_id)
-        
-        if name: 
+
+        if name:
             stmt = stmt.where(Parameter.name == name)
             non_nested = non_nested.where(Parameter.name == name)
-        if sort: 
+        if sort:
             stmt = stmt.order_by(subquery.c.path)
 
-        all_parameters = it.chain(self.session.scalars(stmt), self.session.scalars(non_nested))
+        all_parameters = it.chain(
+            self.session.scalars(stmt), self.session.scalars(non_nested)
+        )
 
         return [ReadOnlyParameter.from_orm(p) for p in all_parameters]
 
     def create_all(self, **keys):
         if not keys:
             return
-        
+
         generic = getattr(self, "__orig_class__", None)
         if not generic:
             return
@@ -548,7 +564,9 @@ class ConfigFolder(FlatMapping):
                 value_class = None
 
         if not value_class:
-            raise TypeError(f"Cannot autopopulate {keys} without a specified type hint.")
+            raise TypeError(
+                f"Cannot autopopulate {keys} without a specified type hint."
+            )
 
         for key, subfolder_keys in keys.items():
             if key not in self:
@@ -557,10 +575,9 @@ class ConfigFolder(FlatMapping):
                 else:
                     self.create_parameter(key)
                     continue
-            
+
             if issubtype(value_class, ConfigFolder):
                 self[key].create_all(**subfolder_keys)
-
 
     @session_context
     def __iter__(self):
@@ -574,7 +591,7 @@ class ConfigFolder(FlatMapping):
             parameters = (
                 p.name for p in type(self)._get_parameters_from_db(self.session).all()
             )
-        
+
         return it.chain(subfolders, parameters)
 
     @session_context
@@ -582,7 +599,7 @@ class ConfigFolder(FlatMapping):
         if self.folder:
             return len(self.folder.subfolders) + len(self.folder.parameters)
         else:
-            num_root_folders =  self.session.scalar(
+            num_root_folders = self.session.scalar(
                 sa.select(sa.func.count())
                 .select_from(Folder)
                 .where(Folder.parent_id == None)
@@ -600,14 +617,12 @@ class ConfigFolder(FlatMapping):
 def unstructure_ConfigFolder(settings: ConfigFolder) -> dict:
     return {k: qwip.converter.unstructure(v) for k, v in settings.items()}
 
-qwip.converter.register_unstructure_hook(
-    ConfigFolder,
-    unstructure_ConfigFolder
-)
+
+qwip.converter.register_unstructure_hook(ConfigFolder, unstructure_ConfigFolder)
+
 
 @qdefine(repr=False)
 class ValidatedConfigFolder(ConfigFolder):
-
     def __getattribute__(self, name):
         try:
             field = getattr(attrs.fields(type(self)), name)
@@ -637,10 +652,12 @@ class ValidatedConfigFolder(ConfigFolder):
 
     def __proxy_getitem__(self, name):
         value = super().__proxy_getitem__(name)
-        
+
         if isinstance(value, ConfigFolder):
-            return type(self).get_key_type(name)(session=value.session, folder=value.folder)
-        
+            return type(self).get_key_type(name)(
+                session=value.session, folder=value.folder
+            )
+
         field = getattr(type(self).fields(), name, None)
         if field and field.converter:
             value = field.converter(value)
@@ -657,7 +674,7 @@ class ValidatedConfigFolder(ConfigFolder):
             if issubtype(fieldtype, ValidatedConfigFolder):
                 fieldtype = getattr(fieldtype.fields(), subkey, ...)
 
-                fieldtype = getattr(fieldtype, 'type', ...)
+                fieldtype = getattr(fieldtype, "type", ...)
 
             elif issubtype(fieldtype, Mapping):
                 match get_args(fieldtype):
@@ -683,7 +700,7 @@ class ValidatedConfigFolder(ConfigFolder):
                 continue
 
             subfolder_keys = dict_keys.get(name, {})
-    
+
             if issubtype(field.type, ConfigFolder):
                 if name not in self:
                     self.create_folder(name)
@@ -698,20 +715,24 @@ class ValidatedConfigFolder(ConfigFolder):
                         default = None
                     case attrs.Factory(factory=f):
                         default = f()
-                    case default: ...
+                    case default:
+                        ...
 
                 self.create_parameter(name, value=default)
+
 
 def set_in_db(inst, attr, value):
     super(ValidatedConfigFolder, inst).__proxy_setitem__(attr.name, value)
     return value
 
+
 configschema = functools.partial(
     qdefine,
     init=False,
     repr=False,
-    on_setattr=[attrs.setters.convert, attrs.setters.validate, set_in_db]
+    on_setattr=[attrs.setters.convert, attrs.setters.validate, set_in_db],
 )
+
 
 @qdefine
 class SequenceElementFolder:
@@ -719,8 +740,7 @@ class SequenceElementFolder:
 
     def _get_sequence_element_model(self, name: str) -> SequenceElementModel:
         se_model = self.session.scalar(
-            sa.select(SequenceElementModel)
-            .where(SequenceElementModel.name == name)
+            sa.select(SequenceElementModel).where(SequenceElementModel.name == name)
         )
 
         return se_model
@@ -747,13 +767,13 @@ class SequenceElementFolder:
 
         if se_model:
             return se_model.to_sequence_element()
-        
+
         return None
-    
+
     @session_context
     def update(self, name: str, new_se: SequenceElement) -> None:
         se_model = self._get_sequence_element_model(name)
-        
+
         if se_model is None:
             self.add(name, new_se)
             return
@@ -764,7 +784,7 @@ class SequenceElementFolder:
             return
 
         self.session.delete(se_model)
-        self.add(name, new_se)        
+        self.add(name, new_se)
 
     @session_context
     def delete(self, name: str) -> None:
@@ -788,7 +808,6 @@ class SequenceElementFolder:
 
         return {s.name: s.to_sequence_element() for s in results}
 
-
     def __getitem__(self, key: str) -> SequenceElement:
         se = self.get(key)
 
@@ -800,10 +819,11 @@ class SequenceElementFolder:
     def __contains__(self, key: str) -> bool:
         return key in self.keys()
 
+
 @qdefine
 class DoltDB:
     """An interface to the configuration database.
-    
+
     Attributes:
         database: The name of the dolt database.
         username: The database server username.
@@ -813,8 +833,9 @@ class DoltDB:
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
+
     database: str | None = None
-    username: str 
+    username: str
     password: str = field(repr=lambda pw: "*****")
     host: str
     port: int = 3306
@@ -824,19 +845,20 @@ class DoltDB:
 
     def connect(self, test: bool = True, timeout: int = 2):
         url = URL.create(
-            drivername='mysql+mysqldb',
+            drivername="mysql+mysqldb",
             username=self.username,
             password=self.password,
             host=self.host,
             port=self.port,
-            database=self.database
+            database=self.database,
         )
         engine = sa.create_engine(url, connect_args=dict(connect_timeout=timeout))
         self.engine = engine
         self.session = Session(engine, autobegin=False, expire_on_commit=False)
 
         if test:
-            with self.engine.begin(): ...
+            with self.engine.begin():
+                ...
 
         return engine
 
@@ -848,7 +870,7 @@ class DoltDB:
     @session_context
     def tables(self) -> set[str]:
         return set(self.session.scalars(sa.text("SHOW TABLES")))
-    
+
     @session_context
     def current_branch(self) -> Branch:
         # with self.session.begin():
@@ -872,10 +894,7 @@ class DoltDB:
         return Branch.from_orm(result)
 
     @session_context
-    def add(
-        self,
-        tables: list[str] | None = None
-    ) -> None:
+    def add(self, tables: list[str] | None = None) -> None:
         dolt_add(self.session, tables=tables)
 
     @session_context
@@ -883,7 +902,7 @@ class DoltDB:
         self,
         branch: str | None = None,
         other_branch: str | None = None,
-        action: str = 'create',
+        action: str = "create",
         force: bool = False,
     ) -> None:
         dolt_branch(self.session, branch, other_branch, action, force)
@@ -899,7 +918,7 @@ class DoltDB:
         self,
         committer: str | None = None,
         date: pendulum.DateTime | None = None,
-        date_filter: str = 'after'
+        date_filter: str = "after",
     ) -> list[Commit]:
         stmt = sa.select(DoltLog).order_by(DoltLog.date)
 
@@ -918,40 +937,29 @@ class DoltDB:
         add: str | None = None,
         date: pendulum.DateTime | None = None,
         author: str | None = None,
-        allow_empty: bool = False
+        allow_empty: bool = False,
     ) -> Commit:
         author = author or self.author
 
         dolt_commit(self.session, message, add, date, author, allow_empty)
 
         result = self.session.scalars(
-            sa.select(DoltLog).where(
-                DoltLog.commit_hash == sa.func.hashof('HEAD')
-            )
+            sa.select(DoltLog).where(DoltLog.commit_hash == sa.func.hashof("HEAD"))
         ).one()
 
         return Commit.from_orm(result)
 
     @session_context
-    def get_commit(
-        self,
-        commit_hash: str | None = None
-    ) -> Commit | None:
-        commit_hash = commit_hash or sa.func.hashof('HEAD')
+    def get_commit(self, commit_hash: str | None = None) -> Commit | None:
+        commit_hash = commit_hash or sa.func.hashof("HEAD")
         result = self.session.scalars(
-            sa.select(DoltLog).where(
-                DoltLog.commit_hash == commit_hash
-            )
+            sa.select(DoltLog).where(DoltLog.commit_hash == commit_hash)
         ).one()
 
         return Commit.from_orm(result)
 
     @session_context
-    def reset(
-        self,
-        branch_or_commit: str | None = None,
-        hard: bool = False
-    ) -> None:
+    def reset(self, branch_or_commit: str | None = None, hard: bool = False) -> None:
         dolt_reset(self.session, branch_or_commit, hard)
 
         return self.get_commit()
@@ -995,10 +1003,11 @@ class DoltDB:
 
         return f"{name} <{name}{domain}>"
 
+
 @qdefine
 class ConfigDB(DoltDB):
     """An interface to the configuration database.
-    
+
     Attributes:
         database: The name of the dolt database.
         username: The database server username.
@@ -1008,6 +1017,7 @@ class ConfigDB(DoltDB):
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
+
     database: str
     schema: type[ConfigFolder] = ConfigFolder
 
@@ -1028,7 +1038,7 @@ class ConfigDB(DoltDB):
         )
 
     def init_config(self):
-        self.config = self.schema.from_name(self.session, '/')
+        self.config = self.schema.from_name(self.session, "/")
 
         try:
             if (c := self.config["version"]) != (q := qwip.qsettings["version"]):
@@ -1054,7 +1064,9 @@ class ConfigDB(DoltDB):
         engine = super().connect(test=test, timeout=timeout)
 
         reflected_tables = self.tables()
-        expected_tables = set(t for t in QWIP_DB_METADATA.tables if not t.startswith("dolt"))
+        expected_tables = set(
+            t for t in QWIP_DB_METADATA.tables if not t.startswith("dolt")
+        )
 
         if reflected_tables != expected_tables:
             raise ValueError(
@@ -1062,15 +1074,17 @@ class ConfigDB(DoltDB):
                 f"the expected tables {expected_tables} for version {qwip.qsettings.version}. "
                 f"Use the 'database-setup.py' script to upgrade or downgrade the database."
             )
-        
+
         self.init_config()
         self.init_pulses()
-        
+
         return engine
 
     def update_db_version(self):
         self.config["version"] = qwip.qsettings["version"]
-        self.config["qwip_commit"] = qwip.qsettings["src/commit"] or self.config["qwip_commit"]
+        self.config["qwip_commit"] = (
+            qwip.qsettings["src/commit"] or self.config["qwip_commit"]
+        )
 
     def __getitem__(self, name):
         if self.config is None:
@@ -1079,18 +1093,19 @@ class ConfigDB(DoltDB):
         return self.config[name]
 
     @session_context
-    def add_pulse(self,
+    def add_pulse(
+        self,
         name: str,
         targets: tuple[str],
         pulse_key: str = None,
         se: SequenceElement | None = None,
-        include_var: Callable[[str], bool] = lambda v: True
+        include_var: Callable[[str], bool] = lambda v: True,
     ):
         """Adds a pulse to the config database.
 
         A pulse is stored as a sequence element along with some metadata in the
         configuration table. To faciliate tracking of calibration parameters,
-        the sequence element can act as a pulse "prototype" with string parameters 
+        the sequence element can act as a pulse "prototype" with string parameters
         whose concrete values are referenced in the configuration database.
 
         Args:
@@ -1098,7 +1113,7 @@ class ConfigDB(DoltDB):
             targets: The targets on which this pulse acts.
             pulse_key: The name of the sequence element that this pulse refers to.
                 If `None`, the pulse key is assumed to be the same as `name`.
-            se: The sequence element pulse prototype to add to the database. If 
+            se: The sequence element pulse prototype to add to the database. If
                 `None`, the pulse key must refer to an existing sequence element
                 in the database.
 
@@ -1108,9 +1123,9 @@ class ConfigDB(DoltDB):
         if name in self.config["pulses"]:
             raise KeyError(f"Pulse '{name}' already exists.")
 
-        if (extra := set(targets) - set(self.config["targets"])):
+        if extra := set(targets) - set(self.config["targets"]):
             raise ValueError(f"Targets {extra} are not registered in '/targets/'.")
-        
+
         pulse_key = pulse_key or name
 
         if se is None:
@@ -1122,7 +1137,7 @@ class ConfigDB(DoltDB):
             name: dict(
                 variables={v: v for v in se.variables() if include_var(v)},
                 targets=targets,
-                pulse_key=pulse_key
+                pulse_key=pulse_key,
             )
         }
         self.config["pulses"].create_all(**parameters)
@@ -1135,7 +1150,9 @@ class ConfigDB(DoltDB):
         self,
         name: str,
         variables: dict[str, str | float | int] = {},
-        rename_func: Callable[[str, "PulsesSchema"], str] = lambda v, pm: f"{pm.folder_name()}_{v}"
+        rename_func: Callable[
+            [str, "PulsesSchema"], str
+        ] = lambda v, pm: f"{pm.folder_name()}_{v}",
     ) -> SequenceElement:
         """Loads a SequenceElement from the database.
 
@@ -1167,7 +1184,7 @@ class ConfigDB(DoltDB):
 
         to_replace = pulse_metadata["variables"].todict() | variables
 
-        if (extra := set(to_replace) - se.variables()):
+        if extra := set(to_replace) - se.variables():
             raise ValueError(
                 f"Found extra variables {extra} when loading pulse '{name}'"
             )
@@ -1181,8 +1198,9 @@ class ConfigDB(DoltDB):
                 return to_replace[v]
 
         se.rename_variables(replace)
-        
+
         return se
+
 
 __all__ = [
     "Branch",

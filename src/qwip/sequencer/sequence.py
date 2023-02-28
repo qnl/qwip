@@ -1,22 +1,23 @@
-from collections.abc import Sequence as TSequence
-from typing_extensions import Self
 import itertools as it
-
-from numpy.typing import NDArray
+from collections.abc import Sequence as TSequence
 
 import numpy as np
+from numpy.typing import NDArray
+from typing_extensions import Self
 
-from qwip.settings.settings import qdefine
 from qwip.sequencer.elements import SequenceElement
+from qwip.settings.settings import qdefine
 
 SEQUENCE_FUNCTIONS = {}
+
 
 def sequence_implements(np_function):
     def decorator(func):
         SEQUENCE_FUNCTIONS[np_function] = func
         return func
-    
+
     return decorator
+
 
 @qdefine(init=False, slots=False, repr=False, eq=False, order=False)
 class Sequence(np.ndarray):
@@ -27,7 +28,7 @@ class Sequence(np.ndarray):
         cls,
         array: NDArray[SequenceElement],
         names: tuple[str, ...] | None = None,
-        **labels
+        **labels,
     ):
         # Turn array into ndarray and return view as Sequence
         # If array is already a subclass of ndarray, it will pass through
@@ -43,17 +44,17 @@ class Sequence(np.ndarray):
 
             if len(names) != len(obj.shape):
                 raise ValueError(
-                    f'Length of axis names {names} does not match shape {obj.shape}.'
+                    f"Length of axis names {names} does not match shape {obj.shape}."
                 )
 
             unique_names = set()
             for n in names:
                 if n in unique_names:
-                    raise ValueError(f'{names} contains a duplicate name!')
+                    raise ValueError(f"{names} contains a duplicate name!")
                 if n is not None:
                     unique_names.add(n)
 
-            obj.names = names 
+            obj.names = names
 
         if labels:
             obj.labels = dict()
@@ -64,67 +65,70 @@ class Sequence(np.ndarray):
         return obj
 
     def __array_finalize__(
-        self,
-        obj: NDArray[SequenceElement] | None = None,
-        /
+        self, obj: NDArray[SequenceElement] | None = None, /
     ) -> None:
         # No additional cleanup necessary if this is explicit construction
-        if obj is None: return
+        if obj is None:
+            return
 
-        if not hasattr(self, 'names'):
-             # We copy names from obj if it exists and obj matches the correct shape
-            if hasattr(obj, 'names') and self.shape == obj.shape:
+        if not hasattr(self, "names"):
+            # We copy names from obj if it exists and obj matches the correct shape
+            if hasattr(obj, "names") and self.shape == obj.shape:
                 self.names = obj.names
             # otherwise set to default
-            else: 
+            else:
                 self.names = (None,) * len(self.shape)
 
-        if not hasattr(self, 'labels'):
+        if not hasattr(self, "labels"):
             self.labels = dict()
 
-            if hasattr(obj, 'labels'):
+            if hasattr(obj, "labels"):
                 _set_labels(self, obj.labels, should_raise=False)
 
     def __repr__(self) -> str:
-        names = '' if all(n is None for n in self.names) else f'names={self.names}' + ', '
-        prefix = '    '
+        names = (
+            "" if all(n is None for n in self.names) else f"names={self.names}" + ", "
+        )
+        prefix = "    "
         arr = prefix + np.array2string(self, prefix=prefix)
-        return f'Sequence({names}shape={self.shape}\n{arr}\n)'
+        return f"Sequence({names}shape={self.shape}\n{arr}\n)"
 
     def _expand_basic_index(self, index: tuple) -> tuple:
         """Expands out ellipses in numpy basic indices.
 
-        This expands the index according to the shape of self. According to 
+        This expands the index according to the shape of self. According to
         the numpy [documentation](https://numpy.org/doc/stable/user/basics.indexing.html#dimensional-indexing-tools)
         ... will expand out to as many slice(None) as needed to match the
         shape of the ndarray.
-        
+
         Args:
             index: The numpy index to expand that may include ...
-        
+
         Returns:
             An equivalent index with every dimension expanded out.
         """
 
         if not isinstance(index, tuple):
-            index = (index,) if index is ... else (index, ...) 
+            index = (index,) if index is ... else (index, ...)
         elif ... not in index:
             return index
 
         # Number of slices to create
         n = len(self.shape) - len(tuple(i for i in index if i not in (..., np.newaxis)))
-        
+
         # Must return a single element interable if not ellipse for itertools.chain
-        replace_ellipsis = lambda i: (slice(None) for _ in range(n)) if i is ... else (i,)
+        replace_ellipsis = (
+            lambda i: (slice(None) for _ in range(n)) if i is ... else (i,)
+        )
 
         return tuple(it.chain(*(replace_ellipsis(i) for i in index)))
 
     def _get_names_from_index(self, index: tuple) -> tuple:
         """Determines new names for a view of self given the index.
-        
+
         Args:
             index: The expanded index with no ellipses.
-        
+
         Returns:
             A tuple of updated names
         """
@@ -142,7 +146,6 @@ class Sequence(np.ndarray):
 
         return tuple(names)
 
-    
     def __getitem__(self, key):
         if _is_advanced_index(key):
             return NotImplemented
@@ -154,7 +157,7 @@ class Sequence(np.ndarray):
             return obj
 
         expanded = self._expand_basic_index(key)
-        obj.names = self._get_names_from_index(expanded) # Set names
+        obj.names = self._get_names_from_index(expanded)  # Set names
 
         # Copy over label views
         for n in self.labels:
@@ -166,12 +169,7 @@ class Sequence(np.ndarray):
         return obj
 
     def __array_ufunc__(
-        self,
-        ufunc: np.ufunc,
-        method: str,
-        *inputs,
-        out = None,
-        **kwargs
+        self, ufunc: np.ufunc, method: str, *inputs, out=None, **kwargs
     ):
         outputs = out if out else (None,) * ufunc.nout
 
@@ -183,15 +181,15 @@ class Sequence(np.ndarray):
 
         names, labels = broadcast_names_and_labels(
             *(seq for seq in inputs if isinstance(seq, Sequence)),
-            raise_on_conflict=ufunc.__name__ not in ('equal', 'not_equal')
+            raise_on_conflict=ufunc.__name__ not in ("equal", "not_equal"),
         )
 
         if results is NotImplemented:
             return NotImplemented
 
-        if method == 'at':
+        if method == "at":
             return
-        
+
         if ufunc.nout == 1:
             results = (results,)
 
@@ -203,16 +201,14 @@ class Sequence(np.ndarray):
         if len(results) == 1:
             results = results[0]
 
-            if method == 'reduce' and not kwargs.get('keepdims', False):
-                axis = kwargs.get('axis', 0)
+            if method == "reduce" and not kwargs.get("keepdims", False):
+                axis = kwargs.get("axis", 0)
 
                 if axis is None:
                     names = tuple()
                 else:
                     axis = (axis,) if isinstance(axis, int) else axis
-                    axis = tuple(
-                        d + inputs[0].ndim if d < 0 else d for d in axis
-                    )
+                    axis = tuple(d + inputs[0].ndim if d < 0 else d for d in axis)
 
                     names = tuple(n for i, n in enumerate(names) if i not in axis)
 
@@ -227,15 +223,15 @@ class Sequence(np.ndarray):
         if func not in SEQUENCE_FUNCTIONS:
             return NotImplemented
 
-        if not all (issubclass(t, type(self)) for t in types):
+        if not all(issubclass(t, type(self)) for t in types):
             return NotImplemented
 
         return SEQUENCE_FUNCTIONS[func](*args, **kwargs)
-    
+
     @property
     def T(self):
         """Returns the transpose of a sequence.
-        
+
         This is necessary to ensure that seq.T.names has the correct
         ordering of axis names.
 
@@ -243,10 +239,10 @@ class Sequence(np.ndarray):
             A transposed view of the of the sequence.
         """
         return self.transpose()
-    
+
     def transpose(self, *axes):
         """Reverses or permutes axis of the sequence.
-    
+
         Args:
             axes: Specifies the permutation of the axes. If None, the axes are
                 reversed. Can be a tuple of ints or n ints.
@@ -270,18 +266,18 @@ class Sequence(np.ndarray):
     @classmethod
     def empty(
         cls,
-        shape: tuple[int, ...], 
+        shape: tuple[int, ...],
         names: tuple[str, ...] | None = None,
-        **labels: np.ndarray
+        **labels: np.ndarray,
     ) -> Self:
         """Creates a Sequence of the specified shape with empty SequenceElements.
-        
+
         Args:
             shape: The desired shape of the output sequence.
             names: Names to attach to the axis dimensions.
             labels: Labels to attach to the axis dimensions.
         """
-        
+
         arr = np.empty(shape, dtype=object)
 
         for index in np.ndindex(*arr.shape):
@@ -290,22 +286,14 @@ class Sequence(np.ndarray):
         return cls(arr, names, **labels)
 
     @classmethod
-    def sweep(
-        cls,
-        se: SequenceElement,
-        /,
-        name=None,
-        label=None,
-        **params
-    ) -> Self:
-        """Create a sequence from the sequence element.
-        """
+    def sweep(cls, se: SequenceElement, /, name=None, label=None, **params) -> Self:
+        """Create a sequence from the sequence element."""
 
         shape = min(len(arr) for arr in params.values())
-        name = name or ','.join(params)
-    
+        name = name or ",".join(params)
+
         values = list(zip(*params.values()))
-    
+
         if label is None:
             if len(params) == 1:
                 label = params[name]
@@ -314,40 +302,34 @@ class Sequence(np.ndarray):
                 label[:] = values
         elif label.shape[0] != len(values):
             raise ValueError(
-                f'Provided label must have length {len(values)} that matches '
-                f'sequence shape.'
+                f"Provided label must have length {len(values)} that matches "
+                f"sequence shape."
             )
-        
+
         seq = Sequence.empty((shape,), names=(name,), **{name: label})
-    
+
         for i, vals in enumerate(values):
             new = se.copy()
-            
+
             update = {n: v for n, v in zip(params, vals)}
             new.add_constraints(**update)
             new.resolve_waveforms(**update)
-            
+
             seq[i] = new
 
         return seq
 
     @classmethod
-    def product(
-        cls,
-        se: SequenceElement,
-        /,
-        **params
-    ) -> Self:
-        """Create a sequence from the sequence element.
-        """
+    def product(cls, se: SequenceElement, /, **params) -> Self:
+        """Create a sequence from the sequence element."""
         shape = tuple(len(arrs) for arrs in params.values())
         names = tuple(params)
 
         seq = Sequence.empty(shape, names=names, **params)
-        
+
         for i, vals in enumerate(it.product(*params.values())):
             new = se.copy()
-            
+
             update = {n: v for n, v in zip(names, vals)}
             new.add_constraints(**update)
             new.resolve_waveforms(**update)
@@ -358,75 +340,73 @@ class Sequence(np.ndarray):
 
 
 def _expand_names(names: tuple, shape: tuple[int]) -> tuple:
-        """Expands out ellipses in names to match shape.
+    """Expands out ellipses in names to match shape.
 
-        This function expands out any tuples of names containing ... to match 
-        the number of dimensions specified by shape. Replace ... with as many
-        None values as necessary. The name tuple is also validated to ensure
-        that the total length matches the number of dimensions (unless ...
-        is included) and that no duplicate names exist (except for None).
-        
-        Args:
-            names: The tuple of names passed to the constructor.
-            shape: The shape of the array that the names will be attached to.
-        
-        Returns:
-            An equivalent tuple of names with every dimension expanded out.
+    This function expands out any tuples of names containing ... to match
+    the number of dimensions specified by shape. Replace ... with as many
+    None values as necessary. The name tuple is also validated to ensure
+    that the total length matches the number of dimensions (unless ...
+    is included) and that no duplicate names exist (except for None).
 
-        Raises:
-            IndexError: If names contains more than one ellipsis.
-        """
+    Args:
+        names: The tuple of names passed to the constructor.
+        shape: The shape of the array that the names will be attached to.
 
-        if ... not in names:
-            return names
+    Returns:
+        An equivalent tuple of names with every dimension expanded out.
 
-        if names.count(...) > 1:
-            raise IndexError('names can only contain a single ellipsis (\'...\')')
+    Raises:
+        IndexError: If names contains more than one ellipsis.
+    """
 
-        num_dims = len(shape)
-        num_to_expand = num_dims - len(names) + 1
+    if ... not in names:
+        return names
 
-        def replace_ellipsis(n):
-            return (None for _ in range(num_to_expand)) if n is ... else (n,)
+    if names.count(...) > 1:
+        raise IndexError("names can only contain a single ellipsis ('...')")
 
-        return tuple(it.chain(*(replace_ellipsis(n) for n in names)))
+    num_dims = len(shape)
+    num_to_expand = num_dims - len(names) + 1
+
+    def replace_ellipsis(n):
+        return (None for _ in range(num_to_expand)) if n is ... else (n,)
+
+    return tuple(it.chain(*(replace_ellipsis(n) for n in names)))
+
 
 def _is_advanced_index(index: TSequence) -> True:
     """Determines if an index triggers numpy advanced indexing.
-    
+
     See the numpy [documentation](https://numpy.org/doc/stable/user/basics.indexing.html)
     for more details on indexing.
 
     Args:
         index: An index passed to `ndarray.__getitem__`.
-    
+
     Returns:
         True if the index would trigger advanced indexing under numpy rules.
     """
 
     # Check if index is a non-tuple sequence object
 
-    int_or_bool = 'biu'
+    int_or_bool = "biu"
 
     def is_sequence_or_np_index(i):
-        return (
-            isinstance(i, TSequence) or
-            (isinstance(i, np.ndarray) and i.dtype.kind in int_or_bool)
+        return isinstance(i, TSequence) or (
+            isinstance(i, np.ndarray) and i.dtype.kind in int_or_bool
         )
 
-    return (
-        (is_sequence_or_np_index(index) and not isinstance(index, tuple)) or
-        (isinstance(index, tuple) and any(is_sequence_or_np_index(i) for i in index))
+    return (is_sequence_or_np_index(index) and not isinstance(index, tuple)) or (
+        isinstance(index, tuple) and any(is_sequence_or_np_index(i) for i in index)
     )
 
+
 def _set_labels(
-    obj: Sequence,
-    labels: dict[str, TSequence],
-    should_raise: bool = False
+    obj: Sequence, labels: dict[str, TSequence], should_raise: bool = False
 ) -> Sequence:
     """Sets labels on a Sequence.
 
-    This function os used in both the explicit constructor and 
+    This function os used in both the explicit constructor and
     `__array_finalize__` to copy labels from a source dict to the Sequence
     object being created. Label arrays are copied by reference when the
     Sequence object is a view of another ndarray or Sequence. Labels are
@@ -436,27 +416,27 @@ def _set_labels(
         obj: The Sequence object to attach the labels to.
         labels: The source dictionary from which labels should be copied.
         should_raise: Whether or not to raise an exception or silently pass.
-    
+
     Returns:
         The Sequence object.
     """
     for n, arr in labels.items():
         try:
             idx = obj.names.index(n)
-        
+
         except ValueError as e:
             if should_raise:
                 raise ValueError(
-                    f'\'{n}\' is not an axis name. names = {obj.names}'
+                    f"'{n}' is not an axis name. names = {obj.names}"
                 ) from e
 
             continue
-            
+
         if len(arr) != obj.shape[idx]:
             if should_raise:
                 raise ValueError(
-                    f'{arr} has shape {arr.shape} which does not match shape '
-                    f'{obj.shape} for dimension {idx}.'
+                    f"{arr} has shape {arr.shape} which does not match shape "
+                    f"{obj.shape} for dimension {idx}."
                 )
 
             continue
@@ -465,19 +445,18 @@ def _set_labels(
 
     return obj
 
+
 def broadcast_names_and_labels(*seqs, raise_on_conflict=False):
     b = np.broadcast(*seqs)
 
     def get_name(seq, dim):
         if b.ndim - seq.ndim > dim:
             return None
-        
+
         return seq.names[seq.ndim - b.ndim + dim]
 
     seq_names = tuple(
-        tuple(
-            get_name(seq, dim) for seq in seqs
-        ) for dim in range(b.ndim)
+        tuple(get_name(seq, dim) for seq in seqs) for dim in range(b.ndim)
     )
 
     names = []
@@ -490,12 +469,12 @@ def broadcast_names_and_labels(*seqs, raise_on_conflict=False):
         elif len(unique_names) > 1:
             if raise_on_conflict:
                 raise ValueError(
-                    f'All names along axis {dim} must be the same. {seq_names[dim]}'
+                    f"All names along axis {dim} must be the same. {seq_names[dim]}"
                 )
 
             names.append(None)
             continue
-        
+
         name = next(iter(unique_names))  # Get the axis name
         names.append(name)
 
@@ -515,21 +494,19 @@ def broadcast_names_and_labels(*seqs, raise_on_conflict=False):
             # Assign labels only if all labels are the same
             if unique_values.shape[0] == 1:
                 labels[name] = axis_labels[0]
-    
+
     return names, labels
+
 
 @sequence_implements(np.array2string)
 def array2string(a, **kwargs):
     return np.array2string(np.asarray(a), **kwargs)
 
+
 @sequence_implements(np.concatenate)
-def concatenate(
-    sequences: TSequence[Sequence],
-    axis=0,
-    **kwargs
-):  
+def concatenate(sequences: TSequence[Sequence], axis=0, **kwargs):
     """Concatenates sequences along the specified axis.
-    
+
     Args:
         sequences: An iterable of sequences to concatenate.
         axis: The axis along which to concatenate the sequences.
@@ -555,9 +532,9 @@ def concatenate(
             continue
         elif len(unique_names) > 1:
             raise ValueError(
-                f'All names along axis {dim} must be the same. {arr_names[dim]}'
+                f"All names along axis {dim} must be the same. {arr_names[dim]}"
             )
-        
+
         name = next(iter(unique_names))  # Get the axis name
         names.append(name)
 
@@ -580,21 +557,22 @@ def concatenate(
                 # Assign labels only if all labels along non-concatenation axis are the same
                 if unique_values.shape[0] == 1:
                     seq.labels[name] = labels[0]
-    
+
     seq.names = tuple(names)
 
     return seq
 
+
 @sequence_implements(np.stack)
 def stack(
     seqs: Sequence,
-    axis = 0,
+    axis=0,
     name: str | None = None,
     label: np.ndarray | None = None,
-    **kwargs
+    **kwargs,
 ):
     """Joins sequences along a new axis.
-    
+
     Args:
         sequences: An iterable of sequences to concatenate.
         axis: Specifies the new axis in the stacked sequences.
@@ -613,20 +591,18 @@ def stack(
     names, labels = broadcast_names_and_labels(*seqs, raise_on_conflict=True)
 
     if name in names and name is not None:
-        raise ValueError(f'Axis name {name} is already in names. {names}')
+        raise ValueError(f"Axis name {name} is already in names. {names}")
     else:
         names.insert(axis, name)
 
     if label is not None:
         if name is None:
-            raise ValueError(
-                f'Cannot add a label for an axis with no name.'
-            )
+            raise ValueError(f"Cannot add a label for an axis with no name.")
 
         if label.shape[0] != seq.shape[axis]:
             raise ValueError(
-                f'Label has shape {label.shape} that is not compatible with '
-                f'shape {seq.shape} on axis {axis}.'
+                f"Label has shape {label.shape} that is not compatible with "
+                f"shape {seq.shape} on axis {axis}."
             )
 
         labels[name] = label
@@ -639,18 +615,15 @@ def stack(
 
     return seq
 
+
 @sequence_implements(np.reshape)
-def reshape(
-    seq: Sequence,
-    shape,
-    **kwargs
-):
+def reshape(seq: Sequence, shape, **kwargs):
     """Reshapes the sequence.
 
     Reshaping a sequence creates a view of the sequence but does not
     copy over the axis names and labels in most cases, since this is
     not a sensible thing to do most of the time.
-    
+
     Args:
         seq: The sequence to reshape.
         shape: The new shape of the sequence.
@@ -661,13 +634,14 @@ def reshape(
     """
     return seq.reshape(shape, **kwargs)
 
+
 @sequence_implements(np.transpose)
 def transpose(
     seq: Sequence,
     axes=None,
 ):
     """Reverses or permutes axis of a sequence.
-    
+
     Args:
         seq: The sequence to transpose.
         axes: Specifies the permutation of the axes. If None, the axes are
@@ -678,32 +652,26 @@ def transpose(
     """
     return seq.transpose(axes)
 
+
 @sequence_implements(np.add)
-def add(
-    seq1: Sequence,
-    seq2: Sequence,
-    /,
-    **kwargs
-):
+def add(seq1: Sequence, seq2: Sequence, /, **kwargs):
     return seq1.add(seq2, **kwargs)
 
+
 @sequence_implements(np.sum)
-def sum(
-    seq: Sequence,
-    axis: tuple[int, ...] | int | None = None,
-    **kwargs
-):
+def sum(seq: Sequence, axis: tuple[int, ...] | int | None = None, **kwargs):
     """Sum of sequence elements over a specified axis.
-    
+
     Args:
         seq: The sequence to sum.
         axis: The axis or axes to add. If axis=None, the entire sequence
             is summed.
-    
+
     Returns:
         The resulting sequence.
     """
     return seq.sum(axis, **kwargs)
+
 
 __all__ = [
     "Sequence",
@@ -713,5 +681,5 @@ __all__ = [
     "reshape",
     "transpose",
     "add",
-    "sum"
+    "sum",
 ]

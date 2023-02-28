@@ -1,10 +1,11 @@
 import numpy as np
 from scipy.fft import fft, fftfreq, fftshift
 
+
 def simple_fft(
     ts: np.ndarray,
     ys: np.ndarray,
-    axis: int =-1,
+    axis: int = -1,
     subtract_mean: bool = True,
 ) -> tuple[np.array, np.array]:
     """Helper function for computing FFT's.
@@ -34,22 +35,23 @@ def simple_fft(
 
     return fftshift(fs), fftshift(yfs, axes=axis)
 
+
 def get_frequency_phase(fs: np.ndarray, yfs: np.ndarray, sgn: int | None = 1):
     """Determines the largest frequency component.
 
     Args:
         fs: The frequency domain values.
         yfs: The frequency domain data.
-        sgn: Determines whether the frequency search should be restricted to a 
-            subset of the domain. If `sgn` is positive or negative, the search 
-            will be restricted to positive or negative frequencies. Otherwise 
+        sgn: Determines whether the frequency search should be restricted to a
+            subset of the domain. If `sgn` is positive or negative, the search
+            will be restricted to positive or negative frequencies. Otherwise
             the entire domain will be used.
 
     Returns:
         The estimated frequency and the phase at that frequency.
     """
     if sgn:
-        mask = sgn*fs > 0
+        mask = sgn * fs > 0
         fs = fs[mask]
         yfs = yfs[mask]
 

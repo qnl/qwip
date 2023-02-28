@@ -4,13 +4,10 @@ import numpy as np
 from attrs import field
 
 import qwip
-from qwip.config.database import (
-    configschema,
-    ConfigFolder,
-    ValidatedConfigFolder
-)
+from qwip.config.database import ConfigFolder, ValidatedConfigFolder, configschema
 
-Target = TypeVar('Target', bound=str)
+Target = TypeVar("Target", bound=str)
+
 
 @configschema
 class MixerSchema(ValidatedConfigFolder):
@@ -19,16 +16,19 @@ class MixerSchema(ValidatedConfigFolder):
     voltage_I: float
     voltage_Q: float
 
+
 @configschema
 class LocalOscillatorSchema(ValidatedConfigFolder):
     power: float = 0
-    frequency: float = 0 
+    frequency: float = 0
     phase: float = 0
+
 
 @configschema
 class DCSchema(ValidatedConfigFolder):
     current: float = 0
     range: float
+
 
 @configschema
 class HardwareSchema(ValidatedConfigFolder):
@@ -36,6 +36,7 @@ class HardwareSchema(ValidatedConfigFolder):
     mixer_nulling: ConfigFolder[str, MixerSchema]
     current_sources: ConfigFolder[str, DCSchema]
     num_dac_channels: int
+
 
 @configschema
 class ClassificationSchema(ValidatedConfigFolder):
@@ -45,28 +46,33 @@ class ClassificationSchema(ValidatedConfigFolder):
     rotation: float = 0
     excited_state_promotion: bool = False
 
+
 @configschema
 class ReadoutSchema(ValidatedConfigFolder):
     drives: ConfigFolder[Target, str]
     classification: ConfigFolder[Target, ClassificationSchema]
-    
+
+
 @configschema
 class QuantumSystemSchema(ValidatedConfigFolder):
     system_class: str
     parameters: ConfigFolder[str, Any]
+
 
 @configschema
 class PulsesSchema(ValidatedConfigFolder):
     targets: tuple[Target]
     pulse_key: str
     variables: ConfigFolder[str, str | float]
-    
+
+
 @configschema
 class NativeGateSchema(ValidatedConfigFolder):
     pulse_key: str
     parametrizable: bool = False
     dimensions: list[int] = field(factory=lambda: [2])
     unitary: Callable[..., np.ndarray]
+
 
 @configschema
 class ChannelInfoSchema(ValidatedConfigFolder):
@@ -76,11 +82,13 @@ class ChannelInfoSchema(ValidatedConfigFolder):
     subchannel: int = 0
     delay: float = 0
 
+
 @configschema
 class ChannelGroupSchema(ValidatedConfigFolder):
     name: str
     channels: list[str]
     sample_rate: float
+
 
 @configschema
 class CompilationSchema(ValidatedConfigFolder):
@@ -108,6 +116,7 @@ class ConfigSchema(ValidatedConfigFolder):
         pulses: Pulses subfolder.
         compilation: Compiation subfolder.
     """
+
     version: str = qwip.qsettings["version"]
     qwip_commit: str | None = qwip.qsettings["src/commit"]
     sample_id: str
@@ -120,11 +129,12 @@ class ConfigSchema(ValidatedConfigFolder):
     compilation: CompilationSchema
     extra: ConfigFolder
 
+
 __all__ = [
     "ConfigSchema",
     "CompilationSchema",
     "HardwareSchema",
     "ProcessingSchema",
     "PulsesSchema",
-    "CompilationSchema"
+    "CompilationSchema",
 ]

@@ -3,23 +3,21 @@
 See https://json-schema.org/ for JSON schema specification.
 """
 
-import typing
-import types
 import datetime
-from collections.abc import Mapping, Collection
+import types
+import typing
+from collections.abc import Collection, Mapping
 from numbers import Number
+from typing import get_args, get_origin
 
 import attrs
 import numpy as np
-
 from attrs import Attribute
 from attrs.exceptions import NotAnAttrsClassError
-
 from loguru import logger
 
-from typing import get_origin, get_args
-from qwip.settings.base import SettingsBase
 from qwip.flatdict import FlatDict
+from qwip.settings.base import SettingsBase
 from qwip.typing import is_optional_type, is_union_type, typedispatch
 
 
@@ -27,33 +25,31 @@ def schema(cls):
     definitions = dict()
 
     properties, required = collect_attrs_properties(cls, definitions)
-        
+
     cls_schema = {
-        'title': cls.__name__,
-        'description': cls.__doc__,
-        'type': 'object',
-        'properties': properties,
+        "title": cls.__name__,
+        "description": cls.__doc__,
+        "type": "object",
+        "properties": properties,
     }
 
-    if not cls_schema['description']:
-        del cls_schema['description']
-    
-    if required:
-        cls_schema['required'] = required
-    
-    if definitions:
-        cls_schema['$defs'] = definitions
+    if not cls_schema["description"]:
+        del cls_schema["description"]
 
-    cls_schema['additionalProperties'] = False
-    
+    if required:
+        cls_schema["required"] = required
+
+    if definitions:
+        cls_schema["$defs"] = definitions
+
+    cls_schema["additionalProperties"] = False
+
     return cls_schema
 
-def collect_attrs_properties(
-    cls: type,
-    definitions: dict
-) -> tuple[dict, list]:
+
+def collect_attrs_properties(cls: type, definitions: dict) -> tuple[dict, list]:
     """Collects properties from class.
-    
+
     This function will recursively collect properties from fields that are also
     attrs decorated classes.
     """
@@ -66,53 +62,51 @@ def collect_attrs_properties(
     required = []
 
     for field in attrs.fields(cls):
-        if not field.metadata.get('serialize', True):
+        if not field.metadata.get("serialize", True):
             continue
 
         properties[field.name] = get_field_schema(field, definitions)
 
-
-
         if field.default == attrs.NOTHING:
             required += [field.name]
-            
+
     return properties, required
+
 
 def get_field_schema(field: Attribute, definitions: dict) -> list[dict]:
     schema = {}
 
     if description := get_description(field.type, field):
-        schema['description'] = description
+        schema["description"] = description
 
     if json_type := get_json_type(field.type):
-        schema['type'] = json_type
+        schema["type"] = json_type
 
     if field.default != attrs.NOTHING:
-        schema['default'] = field.default
+        schema["default"] = field.default
 
     tp = add_keywords(field.type, field, schema)
 
-    if '$ref' in schema and field.name not in definitions:
-        properties, required = collect_attrs_properties(
-            tp, definitions
-        )
+    if "$ref" in schema and field.name not in definitions:
+        properties, required = collect_attrs_properties(tp, definitions)
 
-        definitions[field.name] = {
-            'properties': properties
-        }
+        definitions[field.name] = {"properties": properties}
 
         if required:
-            definitions[field.name]['required'] = required
+            definitions[field.name]["required"] = required
 
-        definitions[field.name]['additionalProperties'] = False
+        definitions[field.name]["additionalProperties"] = False
 
     return schema
 
+
 ## ==== Property Description ===== ##
+
 
 @typedispatch
 def get_description(tp: type, field: Attribute) -> str:
-    return field.metadata.get('description', None)
+    return field.metadata.get("description", None)
+
 
 @get_description.register(typing.Annotated)
 def _(tp: type, field: Attribute) -> str:
@@ -123,6 +117,7 @@ def _(tp: type, field: Attribute) -> str:
     else:
         return get_description(args[0], field)
 
+
 @get_description.register(typing.Union)
 @get_description.register(types.UnionType)
 def _(tp: type, field: Attribute) -> str:
@@ -130,20 +125,24 @@ def _(tp: type, field: Attribute) -> str:
         tp = args[0] if args[1] is type(None) else args[1]
         description = get_description(tp)
     else:
-        description = field.metadata.get('description', None)
+        description = field.metadata.get("description", None)
 
     return description
 
+
 ## ==== Property Type ==== ##
+
 
 @typedispatch
 def get_json_type(tp: type) -> str:
     # Default serialization method is to string unless it is an attrs class
-    return 'object' if attrs.has(tp) else 'string'
+    return "object" if attrs.has(tp) else "string"
+
 
 @get_json_type.register(typing.Annotated)
 def _(tp: type):
     return get_json_type(get_args(tp)[0])
+
 
 @get_json_type.register(typing.Union)
 @get_json_type.register(types.UnionType)
@@ -152,37 +151,42 @@ def _(tp: type) -> str:
     json_types = set(get_json_type(t) for t in args if t is not type(None))
 
     if len(json_types) == 1:
-        t, = json_types
+        (t,) = json_types
         return t
 
     # Can't convert union to a single json type
     return None
 
+
 @get_json_type.register(type(None))
 def _(tp: type) -> str:
-    return 'null'
+    return "null"
+
 
 @get_json_type.register(bool)
 def _(tp: type) -> str:
-    return 'boolean'
+    return "boolean"
+
 
 @get_json_type.register(Number)
 def _(tp: type) -> str:
-    return 'number'
+    return "number"
+
 
 @get_json_type.register(str)
 def _(tp: type) -> str:
-    return 'string'
+    return "string"
+
 
 @get_json_type.register(np.ndarray)
 @get_json_type.register(Collection)
 def _(tp: type) -> str:
-    return 'array'
+    return "array"
+
 
 @get_json_type.register(Mapping)
 def _(tp: type) -> str:
-    return 'object'
-
+    return "object"
 
 
 @typedispatch
@@ -192,24 +196,27 @@ def add_keywords(tp: type, field: Attribute, schema: dict) -> type:
     else:
         ...
 
+
 def add_attrs_keywords(tp: type, field: Attribute, schema: dict) -> type:
-    schema['$ref'] = f'#/$defs/{field.name}'
+    schema["$ref"] = f"#/$defs/{field.name}"
 
     return tp
+
 
 @add_keywords.register(typing.Annotated)
 def _(tp: type, field: Attribute, schema: dict) -> type:
     return add_keywords(get_args(tp)[0], field, schema)
 
-# def field_schema(field, definitions=None): 
+
+# def field_schema(field, definitions=None):
 #     fschema = {
 #         'title': field.name,
 #     }
-    
+
 #     add_description(fschema, field)
 #     process_types(fschema, field, definitions=definitions)
 #     add_enum(fschema, field)
-    
+
 #     if field.default != attrs.NOTHING:
 #         fschema['default'] = field.default
 
@@ -306,7 +313,7 @@ def _(tp: type, field: Attribute, schema: dict) -> type:
 #     #         '>=': 'minimum'
 #     #     }
 #     #     return {op_text[validator.compare_op]: validator.bound}
-    
+
 #     return {}
 
 # def get_iterable_validators(field):
@@ -340,7 +347,7 @@ def _(tp: type, field: Attribute, schema: dict) -> type:
 #     if vt is not None and vt != typing.Any:
 #         logger.debug(f'Adding types for {vt}')
 #         class_type_map = get_origin(vt) or vt
-        
+
 #         for cls in class_type_map:
 #             json_types.add(get_json_type(cls))
 
@@ -363,7 +370,7 @@ def _(tp: type, field: Attribute, schema: dict) -> type:
 #         fschema['patternProperties'] = {pattern: {'type': json_types}}
 #     elif pattern:
 #         fschema['propertyNames'] = dict(pattern=pattern)
-    
+
 #     pattern = None
 #     value_properties = {}
 #     map_validators = get_mapping_validators(field)
@@ -376,7 +383,7 @@ def _(tp: type, field: Attribute, schema: dict) -> type:
 
 #     if json_types:
 #         value_properties.update(dict(type=json_types))
-    
+
 #     if pattern and value_properties:
 #         pattern_properties = fschema.get('patternProperties', {})
 #         pattern_properties.update({pattern: value_properties})
@@ -391,7 +398,7 @@ def _(tp: type, field: Attribute, schema: dict) -> type:
 #     properties, required, definitions = collect_properties(clstype, definitions)
 #     if properties:
 #         fschema['properties'] = properties
-        
+
 #     if required:
 #         fschema['required'] = required
 
@@ -436,7 +443,7 @@ def _(tp: type, field: Attribute, schema: dict) -> type:
 #     if 'format' in fschema:
 #         fschema['anyOf'] = [dict(format=fschema['format'])]
 #         del fschema['format']
-    
+
 #     if 'anyOf' in fschema:
 #         fschema['anyOf'] += [dict(format=format_specifier)]
 #     else:
@@ -475,4 +482,3 @@ def _(tp: type, field: Attribute, schema: dict) -> type:
 # @add_type_specific_properties.register(datetime.timedelta)
 # def _(clstype, fschema, field, tp, definitions=None):
 #     add_string_format(fschema, 'duration')
-

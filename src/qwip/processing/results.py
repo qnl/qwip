@@ -1,7 +1,8 @@
 import attr
 
-from qwip.settings.settings import qdefine
 from qwip.processing.process import Process, ProcessSettings
+from qwip.settings.settings import qdefine
+
 
 @qdefine
 class Measurement:

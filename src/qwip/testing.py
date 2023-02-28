@@ -1,23 +1,21 @@
 """Module for test helpers.
 """
 
-from attrs import define
 from collections.abc import Iterable
+
+from attrs import define
+
 
 class UnorderedList(list):
     """A class for implementing unordered comparison of lists.
-    
+
     This is necessary for testing serialization, since sets are unstructured as
-    lists in qwip, and may be serialized in any order. With an UnorderedList, 
+    lists in qwip, and may be serialized in any order. With an UnorderedList,
     we can then compare the resulting list or other ordered container, based only
     on the elements they contain.
     """
-    def __init__(
-        self,
-        iterable,
-        /,
-        ignore_type=False
-    ):
+
+    def __init__(self, iterable, /, ignore_type=False):
         self.original_type = type(iterable)
         self.ignore_type = ignore_type
 
@@ -25,9 +23,9 @@ class UnorderedList(list):
 
     def __eq__(self, other: Iterable) -> bool:
         """Implements eq for UnorderedList.
-        
+
         TODO: Make a shortcut comparison for hashable items. This can be done
-        in O(n) by using `collections.Counter`. See this StackOverflow 
+        in O(n) by using `collections.Counter`. See this StackOverflow
         [post](https://stackoverflow.com/a/8866661).
 
         Args:
@@ -41,15 +39,15 @@ class UnorderedList(list):
     def __repr__(self) -> str:
         """Implements repr for UnorderedList."""
         return (
-            f'Unordered{self.original_type.__name__.capitalize()}'
-            f'({super().__repr__()})'
+            f"Unordered{self.original_type.__name__.capitalize()}"
+            f"({super().__repr__()})"
         )
 
     def compare_unhashable(self, other: Iterable):
         """Compares the iterable other to self, ignoring order.
 
         If `self.ignore_type is True`, then only the elements will be compared.
-        
+
         Args:
             other: The iterable to compare to.
         """
@@ -74,12 +72,10 @@ class UnorderedList(list):
 
         return not unmatched
 
-def ignore_order(
-    iterable: Iterable,
-    ignore_type: bool = False
-) -> UnorderedList:
+
+def ignore_order(iterable: Iterable, ignore_type: bool = False) -> UnorderedList:
     """Returns an UnorderedList for making unordered comparisons.
-    
+
     Args:
         iterable: The iterable to construct the UnorderedList from.
         ignore_type: Whether or not to ignore the container type when comparing.

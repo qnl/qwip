@@ -1,21 +1,20 @@
 import pytest
-
 import sqlalchemy as sa
-from sqlalchemy import MetaData, Table, Column, String, Integer
+from sqlalchemy import Column, Integer, MetaData, String, Table
 
-from qwip.config.dolt import(
-    DoltLog,
+from qwip.config.database import Branch, Commit
+from qwip.config.dolt import (
     DoltBranch,
     DoltCommit,
     DoltDiff,
+    DoltLog,
     DoltTable,
     dolt_add,
     dolt_branch,
     dolt_checkout,
     dolt_commit,
-    dolt_reset
+    dolt_reset,
 )
-from qwip.config.database import Branch, Commit
 
 
 class TestDolt:
@@ -24,20 +23,18 @@ class TestDolt:
         metadata = MetaData()
 
         test_table = DoltTable(
-            'textbooks',
+            "textbooks",
             metadata,
-            Column('id', sa.Integer, primary_key=True, autoincrement=True),
-            Column('title', sa.Text),
-            Column('author', sa.Text),
-            Column('edition', sa.Integer),
+            Column("id", sa.Integer, primary_key=True, autoincrement=True),
+            Column("title", sa.Text),
+            Column("author", sa.Text),
+            Column("edition", sa.Integer),
         )
 
         test_table.create_system_tables()
         try:
             with doltdb.engine.begin() as connection:
-                commit_hash = connection.execute(
-                    sa.func.HASHOF('main')
-                ).scalars().one()
+                commit_hash = connection.execute(sa.func.HASHOF("main")).scalars().one()
 
             metadata.create_all(doltdb.engine, tables=[test_table])
             yield test_table
@@ -49,12 +46,12 @@ class TestDolt:
 
     def test_new_table(self, session, new_table):
         log = session.execute(sa.select(DoltLog)).scalars().first()
-        assert log.message == 'Initialize data repository'
+        assert log.message == "Initialize data repository"
 
         branch = session.execute(sa.select(DoltBranch)).scalars().one()
         commit = session.execute(sa.select(DoltCommit)).scalars().first()
-        
-        assert branch.name == 'main'
+
+        assert branch.name == "main"
         assert branch.hash == log.commit_hash == commit.commit_hash
 
         nrows = session.execute(sa.select(new_table)).rowcount
@@ -64,41 +61,33 @@ class TestDolt:
         table = new_table
 
         stmt = sa.insert(table).values(
-            title='Classical Electrodynamics',
-            author='Jackson',
-            edition=3
+            title="Classical Electrodynamics", author="Jackson", edition=3
         )
 
         session.execute(stmt)
 
-        dolt_commit(session, 'Add Jackson.', add='all')
+        dolt_commit(session, "Add Jackson.", add="all")
 
         stmt = sa.insert(table).values(
-            title='Principles of Quantum Mechanics',
-            author='Shankar',
-            edition=1
+            title="Principles of Quantum Mechanics", author="Shankar", edition=1
         )
 
         session.execute(stmt)
 
-        dolt_commit(session, 'Add Shankar.', add='all')
+        dolt_commit(session, "Add Shankar.", add="all")
 
-        stmt = (
-            sa.update(table)
-            .where(table.c.author == 'Shankar')
-            .values(edition=2)
-        )
+        stmt = sa.update(table).where(table.c.author == "Shankar").values(edition=2)
         session.execute(stmt)
 
-        dolt_commit(session, 'Update Shankar edition.', add='all')
+        dolt_commit(session, "Update Shankar edition.", add="all")
 
         result = session.execute(sa.select(DoltLog)).scalars()
         commits = [Commit.from_orm(row) for row in result]
 
         assert len(commits) == 4
         assert set(c.message for c in commits) == {
-            'Initialize data repository',
-            'Add Jackson.',
-            'Add Shankar.',
-            'Update Shankar edition.'
+            "Initialize data repository",
+            "Add Jackson.",
+            "Add Shankar.",
+            "Update Shankar edition.",
         }

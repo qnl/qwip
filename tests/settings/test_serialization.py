@@ -1,7 +1,7 @@
 from attrs import field
 
-from qwip.settings.settings import Settings, qdefine
 from qwip.flatdict import FlatDict
+from qwip.settings.settings import Settings, qdefine
 
 
 def test_flatdict_structure():
@@ -16,7 +16,6 @@ def test_flatdict_structure():
     settings = OuterSettings(children=FlatDict(c1=dict(a=1), c2=dict(a=2)))
     assert settings == OuterSettings(
         children=FlatDict(
-            c1=OuterSettings.InnerSettings(a='1'),
-            c2=OuterSettings.InnerSettings(a='2')
+            c1=OuterSettings.InnerSettings(a="1"), c2=OuterSettings.InnerSettings(a="2")
         )
     )

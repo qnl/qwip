@@ -14,21 +14,22 @@ class _TypeConverter:
         try:
             return qwip.converter.structure(v, self.fieldtype)
         except Exception as e:
-            logger.debug(f'Conversion failed due to {type(e)}: {e}.')
+            logger.debug(f"Conversion failed due to {type(e)}: {e}.")
             return v
+
 
 def add_type_converters(cls, fields):
     new_fields = []
 
     for field in fields:
         if (
-            field.metadata.get('auto_convert', True) and 
-            field.init and 
-            (
-                field.converter is None or
-                (
-                    isinstance(field.converter, _TypeConverter) and 
-                    cls != field.converter.fieldtype
+            field.metadata.get("auto_convert", True)
+            and field.init
+            and (
+                field.converter is None
+                or (
+                    isinstance(field.converter, _TypeConverter)
+                    and cls != field.converter.fieldtype
                 )
             )
         ):

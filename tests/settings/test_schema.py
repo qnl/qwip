@@ -1,65 +1,57 @@
 import json
-
-from typing import Annotated
 from collections.abc import Mapping
-
-import pytest
+from typing import Annotated
 
 import attrs
 import numpy as np
 import pendulum
-
+import pytest
 from attr import field
 from loguru import logger
 
-from qwip.settings.settings import Settings, qdefine
 from qwip.flatdict import FlatDict
 from qwip.settings.schema import (
-    schema,
     get_description,
+    get_field_schema,
     get_json_type,
-    get_field_schema
+    schema,
 )
+from qwip.settings.settings import Settings, qdefine
 
 
 class TestGetDescription:
     @pytest.mark.parametrize(
-        'name,expected',
-        [
-            ('annotated', 'annotation'),
-            ('metadata', 'metadata'),
-            ('none', None)
-        ]
+        "name,expected",
+        [("annotated", "annotation"), ("metadata", "metadata"), ("none", None)],
     )
     def test_simple(self, name, expected):
         @qdefine
         class A:
-            annotated: Annotated[int, 'annotation']
-            metadata: str = field(metadata=dict(description='metadata'))
+            annotated: Annotated[int, "annotation"]
+            metadata: str = field(metadata=dict(description="metadata"))
             none: bool
 
         f = getattr(attrs.fields(A), name)
         assert get_description(f.type, f) == expected
 
     @pytest.mark.parametrize(
-        'name,expected',
+        "name,expected",
         [
-            ('annotated', 'annotation'),
-            ('metadata', 'metadata'),
-        ]
+            ("annotated", "annotation"),
+            ("metadata", "metadata"),
+        ],
     )
     def test_annotated(self, name, expected):
         @qdefine
         class A:
-            annotated: Annotated[int, 'annotation'] = field(
-                metadata=dict(description='override description')
+            annotated: Annotated[int, "annotation"] = field(
+                metadata=dict(description="override description")
             )
-            metadata: Annotated[str, 1] = field(
-                metadata=dict(description='metadata')
-            )
+            metadata: Annotated[str, 1] = field(metadata=dict(description="metadata"))
 
         f = getattr(attrs.fields(A), name)
         assert get_description(f.type, f) == expected
+
 
 class TestGetJSONType:
     @qdefine
@@ -67,50 +59,50 @@ class TestGetJSONType:
         property: str
 
     @pytest.mark.parametrize(
-        'tp,expected',
+        "tp,expected",
         [
-            (type(None), 'null'),
-            (int, 'number'),
-            (float, 'number'),
-            (complex, 'number'),
-            (np.int64, 'number'),
-            (bool, 'boolean'),
-            (str, 'string'),
-            (object, 'string'),
-            (A, 'object'),
-            (list, 'array'),
-            (set, 'array'),
-            (dict, 'object')
-        ]
+            (type(None), "null"),
+            (int, "number"),
+            (float, "number"),
+            (complex, "number"),
+            (np.int64, "number"),
+            (bool, "boolean"),
+            (str, "string"),
+            (object, "string"),
+            (A, "object"),
+            (list, "array"),
+            (set, "array"),
+            (dict, "object"),
+        ],
     )
     def test_basic_types(self, tp, expected):
         assert get_json_type(tp) == expected
 
     @pytest.mark.parametrize(
-        'tp,expected',
+        "tp,expected",
         [
-            (dict[str, int], 'object'),
-            (Annotated[float, ''], 'number'),
-            (list | None, 'array'),
-            (complex | int | float, 'number'),
-            (dict | Mapping | None, 'object'),
-            (bool | int, None)
-        ]
+            (dict[str, int], "object"),
+            (Annotated[float, ""], "number"),
+            (list | None, "array"),
+            (complex | int | float, "number"),
+            (dict | Mapping | None, "object"),
+            (bool | int, None),
+        ],
     )
     def test_generic_types(self, tp, expected):
         assert get_json_type(tp) == expected
 
-    from pendulum import Date, Time, DateTime, Duration, Period
+    from pendulum import Date, DateTime, Duration, Period, Time
 
-    @pytest.mark.parametrize(
-        'tp', [(Date, Time, DateTime, Duration, Period)]
-    )
+    @pytest.mark.parametrize("tp", [(Date, Time, DateTime, Duration, Period)])
     def test_pendulum_types(self, tp):
-        assert get_json_type(tp) == 'string'
+        assert get_json_type(tp) == "string"
+
 
 class TestGetFieldSchema:
     def test_schema(self):
         import json
+
         @qdefine
         class B:
             c: str
@@ -207,7 +199,7 @@ class TestGetFieldSchema:
 #             'type': 'object',
 #             'additionalProperties': {'type': 'string'}
 #         }
-#     }  
+#     }
 #     logger.debug(json.dumps(s, indent=4))
 #     assert s['properties'] == properties
 
@@ -224,7 +216,7 @@ class TestGetFieldSchema:
 #         @qdefine
 #         class ChildB(Settings):
 #             property_A: ChildA
-        
+
 #         property_A: ChildA
 #         property_B: ChildB
 
@@ -249,7 +241,7 @@ class TestGetFieldSchema:
 #     logger.debug(json.dumps(s, indent=4))
 #     assert (s['properties']['list_property']['type'] ==
 #             s['properties']['list_of_str']['type'] == 'array')
-#     assert s['properties']['list_of_str']['items']['type'] == 'string' 
+#     assert s['properties']['list_of_str']['items']['type'] == 'string'
 
 
 # ### String specific properties
@@ -278,7 +270,7 @@ class TestGetFieldSchema:
 #                 attr.validators.matches_re(regex),
 #             ]
 #         )
-        
+
 
 #     RegexSetting(email='abc@def.com')
 
@@ -323,7 +315,7 @@ class TestGetFieldSchema:
 #             herald_delay: int
 #             readout_delay: float
 #             reset_delay: float
-        
+
 #         disconnect: str = field(
 #             validator=attr.validators.in_(['yes', 'no'])
 #         )

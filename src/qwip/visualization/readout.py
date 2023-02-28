@@ -1,29 +1,28 @@
-from typing import Union, Optional
+from typing import Optional, Union
 
-import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
+import numpy as np
 from matplotlib.colors import Colormap, ListedColormap, LogNorm
 from matplotlib.figure import Figure
-from qwip.processing.classification import GMMData
 
+from qwip.processing.classification import GMMData
 from qwip.visualization.utils import (
     get_alpha_colormap,
+    get_berkeley_colormap,
     get_colormap_with_dropout,
-    get_berkeley_colormap
 )
 
 
 def plot_readout_histogram(
     data: dict[str, np.ndarray],
     *,
-    cmap: Union[str, Colormap] = 'Greys',
+    cmap: Union[str, Colormap] = "Greys",
     seq_axis: Optional[int] = None,
     share_axis: bool = True,
     auto_axis: bool = True,
-    logscale : bool = True,
-    alpha: float = 0.8
+    logscale: bool = True,
+    alpha: float = 0.8,
 ) -> Figure:
     """Plots readout histograms from IQ data.
 
@@ -44,21 +43,23 @@ def plot_readout_histogram(
     Returns:
         (Figure): A matplotlib Figure.
     """
-    fig, axes = plt.subplots(1, len(data), figsize=(4*3, 3), sharex=share_axis, sharey=share_axis)
-    
+    fig, axes = plt.subplots(
+        1, len(data), figsize=(4 * 3, 3), sharex=share_axis, sharey=share_axis
+    )
+
     # histogram colormap
     cmap = get_colormap_with_dropout(cmap, alpha=alpha)
 
     limits = 0
     for ax, (key, IQ) in zip(axes, data.items()):
-        ax.set_title(f'{key}')
+        ax.set_title(f"{key}")
 
         if share_axis:
             limits = max(limits, np.max(np.abs(IQ)) * 1.1)
         else:
             limits = np.max(np.abs(IQ)) * 1.1
 
-        extent = limits*np.array([-1, 1, -1, 1]) if auto_axis else None
+        extent = limits * np.array([-1, 1, -1, 1]) if auto_axis else None
 
         if seq_axis is None:
             ax.hexbin(
@@ -68,34 +69,32 @@ def plot_readout_histogram(
                 norm=LogNorm() if logscale else None,
             )
         else:
-            _plot_readout_by_element(
-                ax, IQ, seq_axis, extent, logscale, alpha
-            )
+            _plot_readout_by_element(ax, IQ, seq_axis, extent, logscale, alpha)
 
-        ax.set_aspect('equal')
+        ax.set_aspect("equal")
 
     fig.tight_layout()
 
     return fig
 
+
 def _plot_readout_by_element(
-    ax,
-    IQ: np.ndarray,
-    seq_axis: int,
-    extent: list,
-    logscale: bool,
-    alpha: float
+    ax, IQ: np.ndarray, seq_axis: int, extent: list, logscale: bool, alpha: float
 ) -> None:
     n_elements = IQ.shape[seq_axis]
 
     for i in range(n_elements):
-        idx = tuple(slice(None, None, None) if dim != seq_axis else i for dim in range(len(IQ.shape)))
+        idx = tuple(
+            slice(None, None, None) if dim != seq_axis else i
+            for dim in range(len(IQ.shape))
+        )
         ax.hexbin(
             *IQ[idx].reshape(-1, 2).T,
-            cmap=get_colormap_with_dropout(get_alpha_colormap(f'C{i}', upper=alpha)),
+            cmap=get_colormap_with_dropout(get_alpha_colormap(f"C{i}", upper=alpha)),
             extent=extent,
-            norm=LogNorm() if logscale else None
+            norm=LogNorm() if logscale else None,
         )
+
 
 def plot_decision_boundary(
     fig: Figure,
@@ -124,31 +123,40 @@ def plot_decision_boundary(
         N = gmm.n_components
         if isinstance(colors, str):
             cmap = mpl.cm.get_cmap(colors)
-            cmap = ListedColormap([cmap.colors[i] for i in range(N)], name='readout', N=N)
+            cmap = ListedColormap(
+                [cmap.colors[i] for i in range(N)], name="readout", N=N
+            )
         else:
-            cmap = ListedColormap(colors[:N], name='readout', N=N)
+            cmap = ListedColormap(colors[:N], name="readout", N=N)
 
         xmin, xmax = ax.get_xlim()
         ymin, ymax = ax.get_ylim()
 
         nx, ny = (200, 200)
 
-        xs, ys = np.meshgrid(np.linspace(xmin, xmax, nx),
-                             np.linspace(ymin, ymax, ny))
+        xs, ys = np.meshgrid(np.linspace(xmin, xmax, nx), np.linspace(ymin, ymax, ny))
 
-        classified = gmm.predict(np.c_[xs.reshape(-1), ys.reshape(-1)]).reshape(xs.shape)
+        classified = gmm.predict(np.c_[xs.reshape(-1), ys.reshape(-1)]).reshape(
+            xs.shape
+        )
 
         for state in range(N):
-            ax.contour(xs, ys, classified, 
-                       [0.5*(state + (state + 1)%N)], # mean of each pair
-                       linewidths=2,
-                       alpha=0.3,
-                       colors='k')
+            ax.contour(
+                xs,
+                ys,
+                classified,
+                [0.5 * (state + (state + 1) % N)],  # mean of each pair
+                linewidths=2,
+                alpha=0.3,
+                colors="k",
+            )
 
         im = ax.pcolormesh(
-            xs, ys, classified, cmap=cmap, shading='nearest', alpha=alpha, zorder=-1
+            xs, ys, classified, cmap=cmap, shading="nearest", alpha=alpha, zorder=-1
         )
-        fig.colorbar(im, ax=ax, label='State', ticks=np.arange(N), pad=0.04, fraction=0.046)
+        fig.colorbar(
+            im, ax=ax, label="State", ticks=np.arange(N), pad=0.04, fraction=0.046
+        )
 
         ax.grid(True)
         fig.tight_layout()

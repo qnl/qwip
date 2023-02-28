@@ -1,45 +1,43 @@
 import itertools as it
-from typing import Callable, Union, ForwardRef
-from functools import cache
-from numbers import Real
-from attrs import field
-from collections.abc import Collection, Callable
-from typing_extensions import Self
+from collections.abc import Callable, Collection
 from copy import copy, deepcopy
-from functools import singledispatchmethod
+from functools import cache, singledispatchmethod
+from numbers import Real
+from typing import Callable, ForwardRef, Union
 
-import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
+import numpy as np
+from attrs import field
 from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from typing_extensions import Self
 
-from qwip.settings.settings import qdefine
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
-    Waveform,
-    CompositeWidthMarker,
     Channel,
+    CompositeWidthMarker,
     CosineRampWaveform,
     Marker,
+    Waveform,
 )
+from qwip.settings.settings import qdefine
 from qwip.visualization.utils import all_legend_handles_labels
 
 LocationLike = Location | str | Real
 TChannelMap = dict[Channel, tuple[Location, Waveform]]
 
+
 class UnderconstrainedSolveError(np.linalg.LinAlgError):
     ...
+
 
 @qdefine
 class SequenceElement:
     locations: dict[Location, list[Waveform]] = field(factory=dict)
     width: Location | None = None
     constraints: dict[str, Location] = field(factory=dict)
-    channels: set[Channel] = field(
-        factory=set,
-        metadata=dict(serialize=False)
-    )
+    channels: set[Channel] = field(factory=set, metadata=dict(serialize=False))
 
     def __attrs_post_init__(self):
         # Update channels from waveforms
@@ -53,10 +51,10 @@ class SequenceElement:
         cls,
         pulse_locations: list[tuple[LocationLike, Waveform | None]],
         width: LocationLike | None = None,
-        constraints: dict[str, Location] = {}
-    ) -> 'SequenceElement':
+        constraints: dict[str, Location] = {},
+    ) -> "SequenceElement":
         """Constructs a sequence from a tuple of locations and waveforms.
-        
+
         The constructor will add `Location('start')` to every location if it does not
         already contain a 'start' location.
 
@@ -85,7 +83,9 @@ class SequenceElement:
             k: Location(l) if isinstance(l, str) else l for k, l in constraints.items()
         }
 
-        return cls(locations=locations, width=width, constraints=constraints, channels=channels)
+        return cls(
+            locations=locations, width=width, constraints=constraints, channels=channels
+        )
 
     def add_waveform(
         self,
@@ -103,7 +103,7 @@ class SequenceElement:
 
         if isinstance(waveform, Waveform):
             waveform = [waveform]
-        
+
         self.locations[location] = self.locations.get(location, list()) + waveform
         self.channels.update(*(w.channels for w in waveform))
 
@@ -112,12 +112,12 @@ class SequenceElement:
     def remove_waveform(
         self,
         waveform: Waveform | Collection[Waveform],
-        location: LocationLike | None = None
+        location: LocationLike | None = None,
     ) -> Self:
         """Removes a waveform to the sequence element.
-        
+
         By default will remove all instances of the waveform(s). If a
-        location is specified, only instances of the waveform at the 
+        location is specified, only instances of the waveform at the
         specified location are removed.
         """
 
@@ -141,14 +141,9 @@ class SequenceElement:
 
         return self
 
-    def add_constraints(
-        self,
-        *,
-        overwrite: bool = True,
-        **kwargs
-    ) -> None:
+    def add_constraints(self, *, overwrite: bool = True, **kwargs) -> None:
         """Adds constraints to the set of existing constraints.
-        
+
         All constraints are of the form `'variable_name' = Location(...)`.
 
         Args:
@@ -163,18 +158,15 @@ class SequenceElement:
 
             if not overwrite and name in self.constraints:
                 raise ValueError(
-                    f'Constraint {self.constraints[name]} for {name} already exists. '
-                    f'Set `overwrite=True` to overwrite this constraint.'
+                    f"Constraint {self.constraints[name]} for {name} already exists. "
+                    f"Set `overwrite=True` to overwrite this constraint."
                 )
 
             self.constraints[name] = location
 
-    def remove_constraint(
-        self,
-        name: str
-    ) -> Location | None:
+    def remove_constraint(self, name: str) -> Location | None:
         """Removes a constraint from the constraint mapping.
-        
+
         Args:
             name: The variable to remove the constraint for.
 
@@ -184,14 +176,15 @@ class SequenceElement:
         """
         return self.constraints.pop(name, None)
 
-    def append(self,
-        other: 'SequenceElement',
+    def append(
+        self,
+        other: "SequenceElement",
         self_loc: LocationLike = Location(),
         other_loc: LocationLike = Location(),
         name: str | None = None,
-    ) -> 'SequenceElement':
+    ) -> "SequenceElement":
         """Appends a sequence element.
-        
+
         Args:
             other: The sequence element to append.
             name: A (optional) variable name to set the new location of the origin
@@ -203,12 +196,12 @@ class SequenceElement:
                 the location in the current sequence element.
 
         Raises:
-            ValueError: If any constraints that are declared in both sequence 
+            ValueError: If any constraints that are declared in both sequence
                 elements and differ from each other.
         """
         if not isinstance(self_loc, Location):
             self_loc = Location(self_loc)
-        
+
         if not isinstance(other_loc, Location):
             other_loc = Location(other_loc)
 
@@ -225,9 +218,9 @@ class SequenceElement:
         for var, loc in other.constraints.items():
             if var in self.constraints and self.constraints[var] != loc:
                 raise ValueError(
-                    f'Conflicting constraints:\n'
-                    f'\t{var} = {self.constraints[var]}\n'
-                    f'\t{var} = {loc}'
+                    f"Conflicting constraints:\n"
+                    f"\t{var} = {self.constraints[var]}\n"
+                    f"\t{var} = {loc}"
                 )
 
             self.constraints[var] = loc
@@ -250,29 +243,24 @@ class SequenceElement:
         """
         sets = []
 
-        if subset is None or subset.lower() == 'location':
-            lvars = [
-                loc.variables(return_string=True) for loc in self.locations
-            ]
+        if subset is None or subset.lower() == "location":
+            lvars = [loc.variables(return_string=True) for loc in self.locations]
             cvars = [
-                {k, *loc.variables(return_string=True)} 
-                    for k, loc in self.constraints.items()
+                {k, *loc.variables(return_string=True)}
+                for k, loc in self.constraints.items()
             ]
-            wvars = [] if self.width is None else [self.width.variables(return_string=True)]
+            wvars = (
+                [] if self.width is None else [self.width.variables(return_string=True)]
+            )
             sets += lvars + cvars + wvars
 
-        if subset is None or subset.lower() == 'waveform':
-            wvars = (
-                w.variables() for waves in self.locations.values() for w in waves
-            )
+        if subset is None or subset.lower() == "waveform":
+            wvars = (w.variables() for waves in self.locations.values() for w in waves)
             sets += list(wvars)
-        
+
         return set().union(*sets)
 
-    def rename_variables(
-        self,
-        rename_func: Callable[[str], str]
-    ) -> set[str]:
+    def rename_variables(self, rename_func: Callable[[str], str]) -> set[str]:
         """Renames all variables.
 
         This function renames variables according to `rename_func`.
@@ -285,10 +273,13 @@ class SequenceElement:
             sequence element.
         """
         varmap = {n: rename_func(n) for n in self.variables()}
-        
-        self.locations = {loc.resolve(**varmap): waves for loc, waves in self.locations.items()}
+
+        self.locations = {
+            loc.resolve(**varmap): waves for loc, waves in self.locations.items()
+        }
         self.constraints = {
-            varmap.get(name, name): loc.resolve(**varmap) for name, loc in self.constraints.items()
+            varmap.get(name, name): loc.resolve(**varmap)
+            for name, loc in self.constraints.items()
         }
         self.width = self.width.resolve(**varmap)
 
@@ -299,8 +290,7 @@ class SequenceElement:
 
     @staticmethod
     def _solve_constraint_matrix(
-        basis_set: dict[Location, int],
-        constraints: dict[str, Location]
+        basis_set: dict[Location, int], constraints: dict[str, Location]
     ) -> dict[str, Location]:
         """Solves a constraint matrix.
 
@@ -344,7 +334,6 @@ class SequenceElement:
         result = np.linalg.solve(A, b)
 
         return {loc.offset: result[i] for loc, i in basis_set.items()}
-            
 
     def solve_constraints(self, **kwargs) -> dict[str, Location]:
         """Solves all timing constraints for the sequence element.
@@ -357,31 +346,26 @@ class SequenceElement:
         """
         self.add_constraints(**kwargs)
 
-        all_vars = self.variables(subset='location')
+        all_vars = self.variables(subset="location")
 
-        basis_set = {
-            Location(v): i for i, v in enumerate(all_vars)
-        }
+        basis_set = {Location(v): i for i, v in enumerate(all_vars)}
 
         try:
             result = type(self)._solve_constraint_matrix(basis_set, self.constraints)
         except np.linalg.LinAlgError as e:
             if (num_vars := len(all_vars)) > (num_cons := len(self.constraints)):
                 raise UnderconstrainedSolveError(
-                    f'Found {num_vars} variables but only {num_cons} constraints. '
-                    f'(variables = {all_vars})'
+                    f"Found {num_vars} variables but only {num_cons} constraints. "
+                    f"(variables = {all_vars})"
                 ) from e
-            
+
             raise e
 
         return result
 
-    def resolve_waveforms(
-        self,
-        **pulse_vars
-    ) -> dict[Waveform, Waveform]:
+    def resolve_waveforms(self, **pulse_vars) -> dict[Waveform, Waveform]:
         """Resolves all waveform variables into concrete values.
-        
+
         Args:
             pulse_vars: A mapping of string variables to variables
 
@@ -394,7 +378,7 @@ class SequenceElement:
         for waves in self.locations.values():
             for idx, wave in enumerate(waves):
                 new = wave.resolve(**pulse_vars)
-                
+
                 if new == wave:
                     continue
 
@@ -411,15 +395,15 @@ class SequenceElement:
     def resolve_locations(
         self,
         sort: bool = True,
-        reset_zero: str | None = 'neg',
-        end_marker: str | None = 'end',
-        **kwargs
+        reset_zero: str | None = "neg",
+        end_marker: str | None = "end",
+        **kwargs,
     ) -> dict[Location, list[Waveform]]:
         """Resolves all locations into concrete times.
 
         Optionally time orders the location mapping and sets the earliest location
         to t = 0.
-        
+
         Args:
             sort: Whether or not to time order the location mapping.
             reset_zero: Whether or not to translate the location mapping such that
@@ -442,9 +426,7 @@ class SequenceElement:
 
             locations[loc].extend(waves)
 
-            t = loc + max(
-                w.width.resolve(**constraints) for w in waves
-            )
+            t = loc + max(w.width.resolve(**constraints) for w in waves)
 
             t_max = t if t > t_max else t_max
 
@@ -457,9 +439,9 @@ class SequenceElement:
 
         t0 = next(iter(locations)) if sort else min(locations)
         should_reset = (
-            (reset_zero == 'neg' and t0 < Location()) or
-            (reset_zero == 'pos' and t0 > Location()) or
-            (reset_zero == 'both')
+            (reset_zero == "neg" and t0 < Location())
+            or (reset_zero == "pos" and t0 > Location())
+            or (reset_zero == "both")
         )
         if should_reset:
             locations = {l - t0: w for l, w in locations.items()}
@@ -471,7 +453,7 @@ class SequenceElement:
         dt: LocationLike,
     ) -> Self:
         """Shifts a sequence element in time.
-        
+
         This function translates all the waveforms in the sequence element by dt, which
         is equivalent to taking s(t) -> s(t - dt).
 
@@ -481,26 +463,21 @@ class SequenceElement:
         Returns:
             The sequence element.
         """
-        
-        self.locations = {
-            loc + dt: waves for loc, waves in self.locations.items()
-        }
+
+        self.locations = {loc + dt: waves for loc, waves in self.locations.items()}
 
         return self
 
-    def copy(
-        self,
-        deep: bool = True
-    ) -> Self:
+    def copy(self, deep: bool = True) -> Self:
         """Copies a sequence element.
-        
+
         This function makes a copy of the sequence element. Defaults to making a deep copy
         but can also make a shallow copy where the constraint dict and waveform mappings are
         shared.
 
         Args:
             deep: Whether to make a deep copy or shallow copy. Defaults to True.
-        
+
         Returns:
             The new sequence element.
         """
@@ -509,11 +486,10 @@ class SequenceElement:
 
     @staticmethod
     def locations_to_channel_map(
-        locations: dict[Location, list[Waveform]],
-        *channels: str | Channel
+        locations: dict[Location, list[Waveform]], *channels: str | Channel
     ) -> dict[Channel, list[tuple[Location, Waveform]]]:
         """Splits a location dict by channel.
-        
+
         Makes a single pass through the location dict. This static method
         is provided as a convenience for processing arbitrary location maps.
 
@@ -524,9 +500,7 @@ class SequenceElement:
             A dictionary mapping channels to (location, waveform) pairs.
         """
 
-        channels = (
-            Channel(c) if isinstance(c, str) else c for c in channels
-        )
+        channels = (Channel(c) if isinstance(c, str) else c for c in channels)
 
         channel_map = {c: [] for c in channels}
 
@@ -540,11 +514,10 @@ class SequenceElement:
         return channel_map
 
     def get_channel_map(
-        self,
-        *channels: str | Channel
+        self, *channels: str | Channel
     ) -> dict[Channel, list[tuple[Location, Waveform]]]:
         """Splits the location dict by channel.
-        
+
         Makes a single pass through the location dict.
 
         Args:
@@ -560,12 +533,12 @@ class SequenceElement:
 
     def plot(
         self,
-        channels: list[tuple[Channel | str,...]] | None = None,
+        channels: list[tuple[Channel | str, ...]] | None = None,
         constraints: dict[str, Location] = {},
         filter_func: Callable[[Location, Waveform], bool] = None,
         axes: Collection[Axes] = None,
         fig_props: dict = {},
-        pulse_vars: dict = {}
+        pulse_vars: dict = {},
     ) -> Figure:
         """Plots the sequence element.
 
@@ -575,7 +548,7 @@ class SequenceElement:
 
         See SequenceElementPlotter to customize how sequence elements are
         rendered.
-        
+
         Args:
             channels: An optional list of channel groups. Groups can be
                 specified as a tuple of Channels or strings that will be
@@ -604,8 +577,7 @@ class SequenceElement:
         )
 
     def get_location_pairs(self) -> list[tuple[Location, Waveform]]:
-        """Returns a list of all `(loc, wave)` pairs in the location mapping.
-        """
+        """Returns a list of all `(loc, wave)` pairs in the location mapping."""
         chained = it.chain.from_iterable(
             ((loc, w) for w in waves) for loc, waves in self.locations.items()
         )
@@ -638,7 +610,7 @@ class SequenceElement:
 
         Args:
             other: The other sequence element to add.
-        
+
         Returns:
             A new sequence element equal to s(t) + r(t).
         """
@@ -656,7 +628,7 @@ class SequenceElement:
             locations[loc] = locations.get(loc, list())
             for w in waves:
                 locations[loc].append(w)
-        
+
         channels.update(self.channels)
         channels.update(other.channels)
 
@@ -666,16 +638,14 @@ class SequenceElement:
         for key, loc in other.constraints.items():
             if constraints.get(key, loc) != loc:
                 raise ValueError(
-                    f'Cannot add two sequences with conflicting constraints. '
-                    f'{key} = {loc} is incompatible with {key} = {constraints[key]}.'
+                    f"Cannot add two sequences with conflicting constraints. "
+                    f"{key} = {loc} is incompatible with {key} = {constraints[key]}."
                 )
 
             constraints[key] = loc
 
         return SequenceElement(
-            locations=locations,
-            constraints=constraints,
-            channels=channels
+            locations=locations, constraints=constraints, channels=channels
         )
 
 
@@ -687,25 +657,24 @@ class SequenceElementPlotter:
     sort_channels: bool = True
     separate_none: bool = False
     channel_grouper: Callable[
-        [Self, Collection[Channel]],
-        list[tuple[Channel,...]]
+        [Self, Collection[Channel]], list[tuple[Channel, ...]]
     ] | None = None
-    
+
     def make_axes(
         self,
         n: int,
         axsize: tuple[float, float] | None = None,
         sharex: bool = True,
         sharey: bool = True,
-        **props
+        **props,
     ) -> Figure:
         """Creates a matplotlib figure and axes.
-        
+
         Args:
             n: Number of axes.
             axsize: The size (width, height) in inc
         """
-        if 'figsize' not in props:
+        if "figsize" not in props:
             axsize = axsize or self.axsize
             width, height = axsize
 
@@ -716,27 +685,18 @@ class SequenceElementPlotter:
             elif height is ...:
                 height = 1 / 8 * width
 
-            props['figsize'] = (width, n * height)
+            props["figsize"] = (width, n * height)
 
-        fig, _ = plt.subplots(
-            n,
-            1,
-            sharex=sharex,
-            sharey=sharey,
-            **props
-        )
-        
+        fig, _ = plt.subplots(n, 1, sharex=sharex, sharey=sharey, **props)
+
         return fig
-    
+
     def group_channels(
-        self,
-        channels: list[tuple[Channel, ...]] | None,
-        channel_map: TChannelMap
+        self, channels: list[tuple[Channel, ...]] | None, channel_map: TChannelMap
     ) -> list[tuple[Channel, ...]]:
         if channels:
             channels = [
-                (Channel(ch) if ch else ch for ch in group) 
-                    for group in channels
+                (Channel(ch) if ch else ch for ch in group) for group in channels
             ]
 
             return channels
@@ -748,16 +708,17 @@ class SequenceElementPlotter:
 
     def default_channel_grouper(self, channels):
         if self.sort_channels:
+
             def get_name(maybe_channel):
                 if maybe_channel:
                     return maybe_channel.name
-                return ''
+                return ""
 
             channels = sorted(channels, key=get_name)
 
         if self.separate_none:
             channels = [(ch,) for ch in channels]
-        else:            
+        else:
             channels = [(ch, None) for ch in channels if ch]
 
         return channels
@@ -768,7 +729,7 @@ class SequenceElementPlotter:
         channel_map: TChannelMap,
         filter_func: Callable[[Location, Waveform], bool] = None,
         pulses: dict[Waveform, int] | None = None,
-        pulse_vars: dict = {}
+        pulse_vars: dict = {},
     ) -> None:
         seen = set()
         for loc_waves in channel_map.values():
@@ -788,7 +749,7 @@ class SequenceElementPlotter:
                     label = wave.name
 
                 props = dict(
-                    color=f'C{pulses[wave]}',
+                    color=f"C{pulses[wave]}",
                     label=label,
                     alpha=0.5,
                 )
@@ -796,12 +757,12 @@ class SequenceElementPlotter:
                 wave = wave.resolve(**pulse_vars)
                 self.add_waveform_to_axes(wave, loc, ax, **props)
 
-        ax.set_ylabel('\n'.join(ch.name for ch in channel_map if ch))    
+        ax.set_ylabel("\n".join(ch.name for ch in channel_map if ch))
 
     def plot(
         self,
         se: SequenceElement,
-        channels: list[tuple[Channel | str,...]] | None = None,
+        channels: list[tuple[Channel | str, ...]] | None = None,
         constraints: dict[str, Location] = {},
         filter_func: Callable[[Location, Waveform], bool] = None,
         axes: Collection[Axes] = None,
@@ -810,11 +771,9 @@ class SequenceElementPlotter:
     ) -> Figure:
         locations = se.resolve_locations(**constraints)
         channel_map = SequenceElement.locations_to_channel_map(
-            locations,
-            *se.channels,
-            None
+            locations, *se.channels, None
         )
-        
+
         channels = self.group_channels(channels, channel_map)
 
         if axes is None:
@@ -832,7 +791,7 @@ class SequenceElementPlotter:
                 {ch: channel_map[ch] for ch in chan_group},
                 filter_func=filter_func,
                 pulses=pulses,
-                pulse_vars=pulse_vars
+                pulse_vars=pulse_vars,
             )
 
         figwidth, _ = fig.get_size_inches()
@@ -841,25 +800,21 @@ class SequenceElementPlotter:
         axes[0].legend(
             h,
             l,
-            mode='expand',
+            mode="expand",
             bbox_to_anchor=(0, 1.05, 1, 0.05),
-            loc='lower left',
+            loc="lower left",
             ncols=min(figwidth // 2, len(l)),
-            borderaxespad=0
+            borderaxespad=0,
         )
 
         axes[0].set_ylim(0, 1)
-        axes[-1].set_xlabel('Time (s)')
+        axes[-1].set_xlabel("Time (s)")
 
         return fig
 
     @singledispatchmethod
     def add_waveform_to_axes(
-        self,
-        wave: Waveform,
-        loc: Location,
-        ax: Axes,
-        **props
+        self, wave: Waveform, loc: Location, ax: Axes, **props
     ) -> None:
         start, end = loc.offset, loc.offset + wave.width.offset
         wfunc = CosineRampWaveform(amplitude=wave.amplitude, width=(end - start))
@@ -868,18 +823,9 @@ class SequenceElementPlotter:
         ax.fill_between(ts, y1=wfunc(ts, t0=start), **props)
 
     @add_waveform_to_axes.register(Marker)
-    def _(
-        self,
-        wave: Waveform,
-        loc: Location,
-        ax: Axes,
-        **props
-    ) -> None:
+    def _(self, wave: Waveform, loc: Location, ax: Axes, **props) -> None:
         start = loc.offset
         ax.axvline(start, **props)
 
-__all__ = [
-    "SequenceElement",
-    "SequenceElementPlotter",
-    "UnderconstrainedSolveError"
-]
+
+__all__ = ["SequenceElement", "SequenceElementPlotter", "UnderconstrainedSolveError"]

@@ -11,15 +11,16 @@ from loguru import logger
 
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
-from qwip.settings.settings import qdefine, Settings
 from qwip.config.database import ConfigDB, ConfigFolder, SequenceElementFolder
-from qwip.sequencer.phase_tracker import ModulationFrequency
-from qwip.sequencer.compilation import WaveformSequencer, ChannelGroup, ChannelInfo
 from qwip.config.schema import Target
-from qwip.processing.processors import *
 from qwip.processing.data_processor import DATA_PROCESSORS, ReadoutPipeline
+from qwip.processing.processors import *
+from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequencer
+from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.settings.settings import Settings, qdefine
 
-REGISTERED_QSYSTEMS: dict [str, "QuantumSystem"] = dict()
+REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
+
 
 def register_qsystem(cls) -> type:
     if not issubclass(cls, QuantumSystem):
@@ -33,6 +34,7 @@ def register_qsystem(cls) -> type:
 @qdefine
 class QuantumSystem:
     name: str
+
 
 @register_qsystem
 @qdefine
@@ -54,15 +56,20 @@ class Transmon(QuantumSystem):
         lo_freq = local_oscillators.get(self.local_oscillator)
 
         if not lo_freq:
-            raise KeyError(f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}.")
-        
+            raise KeyError(
+                f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}."
+            )
+
         match key:
             case "GE":
                 return self.frequency - lo_freq
             case "EF":
                 return self.frequency_EF - lo_freq if self.frequency_EF else None
             case _:
-                raise KeyError(f"'{key}' is not a valid frequency key for {type(self).__name__}.")
+                raise KeyError(
+                    f"'{key}' is not a valid frequency key for {type(self).__name__}."
+                )
+
 
 @register_qsystem
 @qdefine
@@ -76,7 +83,9 @@ class ReadoutResonator(QuantumSystem):
         lo_freq = local_oscillators.get(self.local_oscillator)
 
         if not lo_freq:
-            raise KeyError(f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}.")
+            raise KeyError(
+                f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}."
+            )
 
         return self.frequency - lo_freq
 
@@ -89,9 +98,9 @@ def make_quantum_system_unstructure_fn(cls):
 
     return unstructure_fn
 
+
 qwip.converter.register_unstructure_hook_factory(
-    lambda cls: issubclass(cls, QuantumSystem),
-    make_quantum_system_unstructure_fn
+    lambda cls: issubclass(cls, QuantumSystem), make_quantum_system_unstructure_fn
 )
 
 
@@ -100,26 +109,28 @@ class QPU:
     db: ConfigDB = field(repr=lambda db: db.database)
     config: ConfigFolder = field(repr=lambda c: type(c).__name__)
     pulses: SequenceElementFolder
-    subsystems: dict[Target, QuantumSystem] = field(repr=lambda sys: repr([s for s in sys]))
+    subsystems: dict[Target, QuantumSystem] = field(
+        repr=lambda sys: repr([s for s in sys])
+    )
     sequencer: WaveformSequencer
     pipeline: ReadoutPipeline
 
     @classmethod
-    def load(cls, db, readout_config: str = 'default'):
+    def load(cls, db, readout_config: str = "default"):
         if not db.session or not db.config:
             db.connect()
 
         subsystems = cls.load_subsystems(db.config)
         sequencer = cls.load_sequencer(db.config)
         pipeline = cls.load_pipeline(db.config, readout_config=readout_config)
-        
-        qpu =  cls(
+
+        qpu = cls(
             db=db,
             config=db.config,
             pulses=db.pulses,
             sequencer=sequencer,
             pipeline=pipeline,
-            subsystems=subsystems
+            subsystems=subsystems,
         )
         qpu.update_modulations()
 
@@ -127,9 +138,7 @@ class QPU:
 
     @classmethod
     def load_sequencer(
-        cls,
-        config: ConfigFolder,
-        modulations: dict[str, ModulationFrequency] = {}
+        cls, config: ConfigFolder, modulations: dict[str, ModulationFrequency] = {}
     ) -> WaveformSequencer:
         compilation = config["compilation"]
         channel_groups = []
@@ -137,29 +146,29 @@ class QPU:
         for key, ch_group_config in compilation["channel_groups"].items():
             channels = tuple(
                 ChannelInfo(**compilation["channels"][ch_name])
-                    for ch_name in ch_group_config["channels"]
+                for ch_name in ch_group_config["channels"]
             )
 
             channel_groups.append(
                 ChannelGroup(
                     name=key,
                     channels=channels,
-                    sample_rate=ch_group_config["sample_rate"]
+                    sample_rate=ch_group_config["sample_rate"],
                 )
             )
 
         if not modulations:
             modulations = dict()
 
-        return WaveformSequencer.from_channel_groups(channel_groups, modulations=modulations)
-
+        return WaveformSequencer.from_channel_groups(
+            channel_groups, modulations=modulations
+        )
 
     def save_sequencer(self):
         with self.db.session.begin():
             for group in self.sequencer.channels.values():
                 self.config["compilation/channel_groups"][group.name].update(
-                    name=group.name,
-                    sample_rate=group.sample_rate
+                    name=group.name, sample_rate=group.sample_rate
                 )
 
                 ch_names = []
@@ -174,46 +183,47 @@ class QPU:
                         delay=ch.delay,
                     )
 
-                self.config["compilation/channel_groups"][group.name]["channels"] = ch_names
-        
+                self.config["compilation/channel_groups"][group.name][
+                    "channels"
+                ] = ch_names
+
     def update_modulations(self):
         modulation_keys = {}
         local_oscillators = {
-            key: LO_info['frequency']
-                for key, LO_info in self.config["hardware/local_oscillators"].items()
+            key: LO_info["frequency"]
+            for key, LO_info in self.config["hardware/local_oscillators"].items()
         }
-        
+
         for name, system in self.subsystems.items():
             match system:
                 case QuantumSystem(mod_keys=_, mod_frequency=_):
                     for key in system.mod_keys:
-                        mod_freq = system.mod_frequency(
-                            local_oscillators,
-                            key=key
-                        )
+                        mod_freq = system.mod_frequency(local_oscillators, key=key)
 
                         if mod_freq:
-                            modulation_keys[f"mod_{name}_{key}"] = ModulationFrequency(mod_freq)
+                            modulation_keys[f"mod_{name}_{key}"] = ModulationFrequency(
+                                mod_freq
+                            )
                 case QuantumSystem(mod_frequency=_):
-                    modulation_keys[f"mod_{name}"] = ModulationFrequency(system.mod_frequency(
-                        local_oscillators
-                    ))
+                    modulation_keys[f"mod_{name}"] = ModulationFrequency(
+                        system.mod_frequency(local_oscillators)
+                    )
                 case _:
-                    logger.info(f"Skipping modulation frequency for system {system.name}")
+                    logger.info(
+                        f"Skipping modulation frequency for system {system.name}"
+                    )
                     continue
-        
+
         self.sequencer.modulations.update(**modulation_keys)
         return modulation_keys
 
     @classmethod
     def load_pipeline(
-        cls,
-        config: ConfigFolder,
-        readout_config: str
+        cls, config: ConfigFolder, readout_config: str
     ) -> ReadoutPipeline:
         processors = []
 
-        ro_config = config['readout'][readout_config]
+        ro_config = config["readout"][readout_config]
 
         for processor_cls in DATA_PROCESSORS.data_processors():
             if issubclass(processor_cls, GMMClassification | IQRotation):
@@ -221,13 +231,13 @@ class QPU:
             else:
                 processors.append(processor_cls())
 
-        for k, classification in ro_config['classification'].items():
+        for k, classification in ro_config["classification"].items():
             processors.append(
                 GMMClassification(
                     measurement_key=k,
                     means=classification["means"].astype(float),
                     covariances=classification["covariances"].astype(float),
-                    num_states=classification["num_states"]
+                    num_states=classification["num_states"],
                 )
             )
 
@@ -239,28 +249,20 @@ class QPU:
     def save_pipeline(self):
         with self.db.session.begin():
             ro_config = self.config["readout"][self.pipeline.name]
-            
+
             for processor in self.pipeline.processors:
                 match processor:
                     case GMMClassification(
-                        measurement_key=k,
-                        means=m,
-                        covariances=c,
-                        num_states=s
+                        measurement_key=k, means=m, covariances=c, num_states=s
                     ):
                         ro_config["classification"][k] = dict(
-                            means=m,
-                            covariances=c,
-                            num_states=s
+                            means=m, covariances=c, num_states=s
                         )
                     case IQRotation(angle) if angle:
                         ro_config[f"classification/{k}/rotation"] = angle
 
     @classmethod
-    def load_subsystems(
-        cls,
-        config: ConfigFolder
-    ) -> dict[Target, QuantumSystem]:
+    def load_subsystems(cls, config: ConfigFolder) -> dict[Target, QuantumSystem]:
         subsystems = {}
 
         for target, system_info in config.subsystems.items():
@@ -268,7 +270,7 @@ class QPU:
 
             if not system_cls:
                 raise TypeError(f"'{system_cls}' is not a registered model.")
-            
+
             subsystems[target] = system_cls(name=target, **system_info["parameters"])
 
         return subsystems
@@ -289,4 +291,3 @@ class QPU:
                         raise ValueError(
                             f"Model data is missing parameters: {system_data}"
                         )
-

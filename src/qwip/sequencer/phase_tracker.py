@@ -1,16 +1,16 @@
 import itertools as it
-
+from collections import defaultdict
 from collections.abc import Iterable
 from collections.abc import Sequence as TSequence
-from collections import defaultdict
 from typing import Protocol, runtime_checkable
-from typing_extensions import Self
 
 import numpy as np
-from attrs import field, evolve
+from attrs import evolve, field
+from typing_extensions import Self
 
-from qwip.settings.settings import qdefine, qfrozen
 from qwip.sequencer.utils import LinearExpression
+from qwip.settings.settings import qdefine, qfrozen
+
 
 @qfrozen(kw_only=False, repr=False)
 class ModulationFrequency(LinearExpression):
@@ -20,20 +20,22 @@ class ModulationFrequency(LinearExpression):
 @qfrozen(kw_only=False, order=True)
 class PhaseJump:
     """A discrete phase jump.
-    
+
     A phase jump specifies a time t and a phase phi.
     """
+
     t: float
     phi: float = field(order=False)
 
     def __add__(self, other):
         if self.t != other.t:
             raise ValueError(f"Cannot add two phases at different times {t}")
-        
+
         return evolve(self, phi=self.phi + other.phi)
 
     def __radd__(self, other):
         return evolve(self, phi=self.phi + other)
+
 
 @qdefine
 class PhaseTracker:
@@ -47,12 +49,12 @@ class PhaseTracker:
     Attributes:
         phases: A dictionary mapping ModulationFrequency to a list of phase jumps.
     """
+
     phases: dict[ModulationFrequency, list[PhaseJump]] = field(factory=dict)
 
     @classmethod
     def from_modulations(
-        cls,
-        modulations: TSequence[ModulationFrequency | str]
+        cls, modulations: TSequence[ModulationFrequency | str]
     ) -> Self:
         """Creates an entry in the phase dictionary for each base modulation."""
         phases = defaultdict(list)
@@ -77,14 +79,12 @@ class PhaseTracker:
         if isinstance(val, str):
             val = ModulationFrequency.from_string(val)
 
-        if not val.references:           
+        if not val.references:
             return self.phases[val]
 
         phases = []
         for modkey, c in val.references:
-            phases.append(
-                tuple(evolve(pt, phi=pt.phi*c) for pt in self[modkey])
-            )
+            phases.append(tuple(evolve(pt, phi=pt.phi * c) for pt in self[modkey]))
 
         return sorted(it.chain.from_iterable(phases))
 
@@ -122,10 +122,11 @@ class PhaseTracker:
     def accumulated(self, modkey: ModulationFrequency) -> list[PhaseJump]:
         phis = type(self).compress(self[modkey])
 
-        return list(it.accumulate(
-            phis,
-            func=lambda pj1, pj2: evolve(pj2, phi=pj1.phi + pj2.phi)
-        ))
+        return list(
+            it.accumulate(
+                phis, func=lambda pj1, pj2: evolve(pj2, phi=pj1.phi + pj2.phi)
+            )
+        )
 
     def compute_integrated_phase(
         self,
@@ -144,12 +145,12 @@ class PhaseTracker:
 
         # Find phase_jumps that are relevant for the time slice
         s = np.searchsorted(t_jump, ts[0])
-        e = np.searchsorted(t_jump, ts[-1], side='right')
+        e = np.searchsorted(t_jump, ts[-1], side="right")
 
         idx = np.searchsorted(ts, t_jump[s:e])
 
         # Set phis equal to last phase before or equal to ts[0]
-        phis = accumulated_phase[max(s - 1, 0)]*np.ones_like(ts)
+        phis = accumulated_phase[max(s - 1, 0)] * np.ones_like(ts)
 
         N = phis.shape[0]
 
@@ -161,7 +162,7 @@ class PhaseTracker:
         else:
             # Handle any remaining bit
             if len(idx):
-                phis[idx[-1]:] = accumulated_phase[s + len(idx) - 1]
+                phis[idx[-1] :] = accumulated_phase[s + len(idx) - 1]
 
         return phis
 
@@ -171,9 +172,10 @@ class PhaseUpdater(Protocol):
     def update_phase_tracker(
         self,
         time: float,
-        phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]]
+        phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]],
     ) -> None:
         ...
+
 
 __all__ = [
     "ModulationFrequency",

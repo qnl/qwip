@@ -1,22 +1,19 @@
-import pytest
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pytest
+from numpy.testing import assert_allclose, assert_array_equal
 
-from numpy.testing import assert_array_equal, assert_allclose
+from qwip.analysis.frequency import get_frequency_phase, simple_fft
 
-from qwip.analysis.frequency import (
-    simple_fft,
-    get_frequency_phase,
-)
 
 @pytest.mark.parametrize(
-    'ys,axis',
+    "ys,axis",
     [
         (np.zeros(21), -1),
-        (np.zeros(10),  -1),
+        (np.zeros(10), -1),
         (np.zeros((15, 5)), 1),
-        (np.zeros((5, 21), dtype=np.complex128), -1)
-    ]
+        (np.zeros((5, 21), dtype=np.complex128), -1),
+    ],
 )
 def test_simple_fft(ys, axis):
     """Tests that simple_fft works on a variety of argument types.
@@ -34,11 +31,11 @@ def test_simple_fft(ys, axis):
 
 
 @pytest.mark.parametrize(
-    'vals,sgn,expect',
+    "vals,sgn,expect",
     [
         ([(-1, 1), (1, 0.5)], 1, 1),
         ([(-0.2, -1)], -1, -0.2),
-    ]
+    ],
 )
 def test_get_frequency_phase(vals, sgn, expect):
     fs = np.round(np.arange(-50, 51, 1) / 50, 3)

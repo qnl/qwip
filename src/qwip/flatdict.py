@@ -1,9 +1,8 @@
 """A module for implementing a FlatDict object."""
 import html
-
-from collections.abc import Mapping, MutableMapping, KeysView, ValuesView, ItemsView
-from copy import deepcopy
+from collections.abc import ItemsView, KeysView, Mapping, MutableMapping, ValuesView
 from contextlib import contextmanager
+from copy import deepcopy
 from typing import Any, Generic, TypeVar, Union, get_args, get_origin
 
 import attr
@@ -11,14 +10,17 @@ import numpy as np
 from cattr.gen import make_mapping_structure_fn, make_mapping_unstructure_fn
 
 import qwip
-from qwip.typing import is_annotated_type, is_optional_type, is_generic_type, issubtype
+from qwip.typing import is_annotated_type, is_generic_type, is_optional_type, issubtype
 
-KT = TypeVar('KT', bound=str)
-VT = TypeVar('VT')
+KT = TypeVar("KT", bound=str)
+VT = TypeVar("VT")
+
 
 class FlatKeysView(KeysView):
     """A flattened key view."""
-    __slots__ = ('_levels',)
+
+    __slots__ = ("_levels",)
+
     def __init__(self, mapping, levels=None):
         self._levels = levels
         super().__init__(mapping)
@@ -42,13 +44,16 @@ class FlatKeysView(KeysView):
                 yield k
         else:
             yield from flatkeys
-    
+
     def __repr__(self):
-        return f'{self.__class__.__name__}({list(self.__iter__())}))'
-        
+        return f"{self.__class__.__name__}({list(self.__iter__())}))"
+
+
 class FlatValuesView(ValuesView):
     """A flattened values view."""
-    __slots__ = ('_levels',)
+
+    __slots__ = ("_levels",)
+
     def __init__(self, mapping, levels=None):
         self._levels = levels
         super().__init__(mapping)
@@ -56,13 +61,16 @@ class FlatValuesView(ValuesView):
     def __iter__(self):
         for key in self._mapping.flatkeys(levels=self._levels):
             yield self._mapping[key]
-    
+
     def __repr__(self):
-        return f'{self.__class__.__name__}({list(self.__iter__())})'
-        
+        return f"{self.__class__.__name__}({list(self.__iter__())})"
+
+
 class FlatItemsView(ItemsView):
     """A flattened items view."""
-    __slots__ = ('_levels',)
+
+    __slots__ = ("_levels",)
+
     def __init__(self, mapping, levels=None):
         self._levels = levels
         super().__init__(mapping)
@@ -72,7 +80,8 @@ class FlatItemsView(ItemsView):
             yield (key, self._mapping[key])
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({list(self.__iter__())})'
+        return f"{self.__class__.__name__}({list(self.__iter__())})"
+
 
 class FlatMapping(MutableMapping, Generic[KT, VT]):
     """A base class for a mapping object that allows "flat" access.
@@ -86,11 +95,11 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
     """
 
     __slots__ = tuple()
-    _delim: str = '/'
+    _delim: str = "/"
 
     def __getitem__(self, key):
         """Returns the item stored at `key`.
-        
+
         Example:
             ```
             x.__getitem__(y) <==> x[y]
@@ -102,13 +111,13 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         for subkey in subkeys:
             # First we check if val has a defined non-nested get
             try:
-                val = object.__getattribute__(val, '__proxy_getitem__')(subkey)
+                val = object.__getattribute__(val, "__proxy_getitem__")(subkey)
                 continue
             except AttributeError as e:
                 pass
 
             # If val is self it should always have a defined non-nested get function
-            # so the AttributeError must be due to a non-existent attribute. Thus, we 
+            # so the AttributeError must be due to a non-existent attribute. Thus, we
             # raise a key error.
             if val is self:
                 raise KeyError(f"'{key}'")
@@ -116,7 +125,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
             # Otherwise val may be some other dictionary-like object so we check if
             # it has a __getitem__ defined.
             try:
-                val = object.__getattribute__(val, '__getitem__')(subkey)
+                val = object.__getattribute__(val, "__getitem__")(subkey)
                 continue
             except AttributeError as e:
                 pass
@@ -149,7 +158,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         remainder = keys
         for i, subkey in enumerate(keys[:-1]):
             base = remainder[0]
-            remainder = keys[i+1:]
+            remainder = keys[i + 1 :]
 
             if isinstance(subgroup, FlatMapping):
                 if subkey in subgroup:
@@ -158,9 +167,9 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
                     break
             else:
                 raise TypeError(
-                    f'Cannot assign key {keys[i] + self._delim + remainder} to base {subgroup} of type {type(subgroup).__name__}.'
+                    f"Cannot assign key {keys[i] + self._delim + remainder} to base {subgroup} of type {type(subgroup).__name__}."
                 )
-        else: # Finished for loop
+        else:  # Finished for loop
             base = remainder[0]
             if isinstance(subgroup, FlatMapping):
                 subgroup.__setitem__(base, val)
@@ -169,11 +178,11 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
                     setattr(subgroup, base, val)
                 except AttributeError as e:
                     raise TypeError(
-                        f'Cannot assign key {base} to base {repr(subgroup)} of type {type(subgroup).__name__}'
+                        f"Cannot assign key {base} to base {repr(subgroup)} of type {type(subgroup).__name__}"
                     ) from e
 
             return
-        
+
         # need to create parameters
         key = self._delim.join(remainder)
         subgroup.__setitem__(base, self._get_mapping_type(key=key)({key: val}))
@@ -196,7 +205,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         for subkey in subkeys[:-1]:
             val = val[subkey]
 
-        if hasattr(val, '__proxy_delitem__'):
+        if hasattr(val, "__proxy_delitem__"):
             val.__proxy_delitem__(subkeys[-1])
             return
 
@@ -207,7 +216,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
             object.__delattr__(self, name)
         else:
             self.__delitem__(name)
-    
+
     def _get_mapping_type(self, key: str) -> type:
         return type(self)
 
@@ -237,19 +246,23 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
     def __flatiter__(self, levels=None, base=None):
         if levels == 0:
             return
-        
+
         next_levels = levels - 1 if levels is not None and levels > 0 else levels
         for k, v in self.items():
-            if hasattr(v, '__flatiter__') and v and (levels is None or levels < 0 or levels > 1):
-                next_base = k if base is None else  f'{base}{self._delim}{k}'
-                
+            if (
+                hasattr(v, "__flatiter__")
+                and v
+                and (levels is None or levels < 0 or levels > 1)
+            ):
+                next_base = k if base is None else f"{base}{self._delim}{k}"
+
                 yield from v.__flatiter__(base=next_base, levels=next_levels)
             else:
-                yield k if base is None else f'{base}{self._delim}{k}'
+                yield k if base is None else f"{base}{self._delim}{k}"
 
     def __repr__(self):
-        return '{' + ', '.join([f'{repr(k)}: {repr(v)}' for k, v in self.items()]) + '}' 
-    
+        return "{" + ", ".join([f"{repr(k)}: {repr(v)}" for k, v in self.items()]) + "}"
+
     def flatkeys(self, levels=None):
         """Returns a `View` of flattened keys.
 
@@ -260,18 +273,18 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
                 `FlatMapping` object.
         """
         return FlatKeysView(self, levels=levels)
-    
+
     def flatvalues(self, levels=None):
         """Returns a `View` of flattened values.
 
         All `FlatMapping` objects contained within this object are iterated over
 
         Returns:
-            FlatValuesView: An iterator that returns all values in the 
+            FlatValuesView: An iterator that returns all values in the
                 `FlatMapping` object, including values in nested `FlatMappings`.
         """
         return FlatValuesView(self, levels=levels)
-    
+
     def flatitems(self, levels=None):
         """Returns a `View` of flattened items.
 
@@ -285,9 +298,9 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
 
     def copy(self):
         """Returns a deep copy of the `FlatMapping` object
-        
+
         Returns:
-            (FlatMapping): A copy of the `FlatMapping` 
+            (FlatMapping): A copy of the `FlatMapping`
         """
         return deepcopy(self)
 
@@ -298,15 +311,17 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         the `FlatMapping`.
         """
         return (
-                f'<table style="min-width:200px">\n'
-                f'<thead><th>{type(self).__name__}</th></thead>'
-                f'<thead><th>Key</th><th>Value</thead>'
-                + '\n'.join([
-                    f'<tr><td>{html.escape(str(k))}</td><td>{html.escape(str(v))}</td></tr>' 
-                        for k, v in self.flatitems()
-                ])
-                + '</table>'
+            f'<table style="min-width:200px">\n'
+            f"<thead><th>{type(self).__name__}</th></thead>"
+            f"<thead><th>Key</th><th>Value</thead>"
+            + "\n".join(
+                [
+                    f"<tr><td>{html.escape(str(k))}</td><td>{html.escape(str(v))}</td></tr>"
+                    for k, v in self.flatitems()
+                ]
             )
+            + "</table>"
+        )
 
     def get_keys(self, *keys) -> dict:
         """Returns a subset of the `FlatMapping` with the specified keys."""
@@ -330,7 +345,9 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         Returns:
             dict: The converted `FlatDict`.
         """
-        return {k: v.todict() if isinstance(v, FlatMapping) else v for k, v in self.items()}
+        return {
+            k: v.todict() if isinstance(v, FlatMapping) else v for k, v in self.items()
+        }
 
     def toflatdict(self, levels=None) -> dict:
         """Converts the flattenned `FlatDict` object to a dictionary.
@@ -340,7 +357,8 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         """
         return {k: v for k, v in self.flatitems(levels=levels)}
 
-class FlatDict(FlatMapping, dict): # type:ignore
+
+class FlatDict(FlatMapping, dict):  # type:ignore
     """A mapping object that supports key chaining and attribute access.
 
     Values can be accessed like `params['one/two/three']` or
@@ -350,9 +368,10 @@ class FlatDict(FlatMapping, dict): # type:ignore
         _delim (str): A class variable that specifies the character used to
             separate nested mappings.
     """
+
     __slots__ = tuple()
 
-    def  __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
         self.update(*args, **kwargs)
 
     def __proxy_getitem__(self, key):
@@ -362,10 +381,7 @@ class FlatDict(FlatMapping, dict): # type:ignore
         # It is important that we only check for the base type of FlatMapping here.
         # Otherwise, this will greedily convert everything to FlatDict, since most
         # of the other "flat-access" types subclass FlatMapping and not FlatDict.
-        if (
-            isinstance(val, Mapping) and not
-            isinstance(val, FlatMapping)
-        ):  
+        if isinstance(val, Mapping) and not isinstance(val, FlatMapping):
             mapping = self._get_mapping_type(key=key)
             val = mapping(**val)
 
@@ -379,7 +395,7 @@ class FlatDict(FlatMapping, dict): # type:ignore
 
     def __len__(self):
         return dict.__len__(self)
-    
+
     @contextmanager
     def context(self, update=None):
         """Context manager for temporarily changing values."""
@@ -390,6 +406,7 @@ class FlatDict(FlatMapping, dict): # type:ignore
             yield
         finally:
             self.update(orig)
+
 
 # Register structuring/unstructuring on qwip converter
 def make_flatdict_structure_fn(cls):
@@ -404,7 +421,7 @@ def make_flatdict_structure_fn(cls):
         VT = args[1]
         while is_optional_type(VT) or is_annotated_type(VT):
             VT = get_args(VT)[0]
-            
+
         VT = get_origin(VT) or VT
 
         if VT is Any:
@@ -423,7 +440,7 @@ def make_flatdict_structure_fn(cls):
 
     return new_structure_fn
 
+
 qwip.converter.register_structure_hook_factory(
-    lambda cls: is_generic_type(cls, FlatDict),
-    make_flatdict_structure_fn
+    lambda cls: is_generic_type(cls, FlatDict), make_flatdict_structure_fn
 )
