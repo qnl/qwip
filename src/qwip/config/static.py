@@ -1,6 +1,6 @@
 from pathlib import Path
 from attrs import field
-from qwip.settings.settings import Settings
+from qwip.settings.settings import Settings, qdefine
 
 @qdefine
 class InstrumentSettings(Settings):
