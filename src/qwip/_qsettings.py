@@ -109,7 +109,7 @@ class QWiPSettings(DefaultSettings):
     src: SourceInfo = field(factory=SourceInfo)
     file_format: str = "yaml"
     logging: LogSettings = field(factory=LogSettings)
-    notifiers: FlatDict[str, SlackSettings] = field(factory=FlatDict)
+    slack: SlackSettings = field(factory=SlackSettings)
     units: UnitSettings = field(factory=UnitSettings)
     data: DataSettings = field(factory=DataSettings)
 
@@ -129,8 +129,6 @@ def process_qsettings_file():
 def default_qsettings():
     qsettings = QWiPSettings()
     qsettings.src.update(get_repodata(qsettings.src.directory))
-
-    qsettings["notifiers/slack"] = SlackSettings()
 
     qsettings.update(process_qsettings_file())
     qsettings = QWiPSettings(**qsettings)
