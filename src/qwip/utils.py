@@ -8,11 +8,31 @@ from IPython.core.magic_arguments import argument, magic_arguments, parse_argstr
 from notifiers import get_notifier
 
 from qwip import qsettings
-from qwip.defaults import QWiPDefault
+
+
+def format_exception(exc: Exception) -> str:
+    """Formats an exception traceback as a string.
+
+    Args:
+        exc: An `Exception` object.
+
+    Returns:
+        A string with the exception traceback.
+    """
+
+    tb = "".join(traceback.format_exception(exc))
+    return f"```\n" f"{tb}\n" f"```"
 
 
 @contextmanager
-def slack_notify(channel, message="Finished!"):
+def slack_notify(channel: str, message: str = "Finished!"):
+    """Context manager for sending a slack notification upon completion.
+
+    Args:
+        channel: The name of the channel. This should correspond to a registered channel
+            in `qsettings["slack/channels"]`
+        message: The message to send upon successful completion
+    """
     provider = get_notifier("slack")
 
     if channel not in qsettings["slack/channels"]:
@@ -21,16 +41,14 @@ def slack_notify(channel, message="Finished!"):
     kwargs = qsettings[f"slack/channels/{channel}"]
 
     notify = partial(provider.notify, **kwargs)
-    failed = False
+
     try:
         yield notify
     except Exception as e:
-        notify(message=f"*{type(e).__name__}*: {e}", **kwargs)
-        failed = True
+        message = format_exception(e)
         raise e
     finally:
-        if not failed:
-            notify(message=message, **kwargs)
+        notify(message=message, **kwargs)
 
 
 @magics_class
@@ -54,9 +72,9 @@ class SlackNotifyMagic(Magics):
         if output.success:
             provider.notify(message=args.message, **slack_kwargs)
         else:
-            tb = "".join(traceback.format_exception(output.error_in_exec))
-            message = f"```\n" f"{tb}\n" f"```"
-            provider.notify(message=message, **slack_kwargs)
+            provider.notify(
+                message=format_exception(output.error_in_exec), **slack_kwargs
+            )
 
 
 def load_ipython_extension(ipython):
