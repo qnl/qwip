@@ -2,6 +2,13 @@
 
 QWiP is still in the early stages of development, with many new features planned with the goal of making it easier to set up and execute new experiments.
 
+!!! success "Completed Features"
+    - [ ] QPU servers
+    - [x] ConfigDB
+    - [x] Flexible processing graph
+    - [ ] Improved data management
+    - [ ] Measurement protocols
+
 ## QPU Servers
 
 This eliminates setup "bookings" except for long data taking sessions. Multiple people can take data from different client computers, by sending sequences to a single server hooked up to the measurement hardware. The simplest implementation involves putting most of the logic client side and leaving only the final sequence upload and data acquisition to the server. Server sends raw data back to the client and remainder of processing is done client side.
@@ -23,3 +30,8 @@ Sometimes we want to switch temporarily to a different set of configuration para
 To do this properly we need to move beyond file based storage and move configuration data into a database. Ideally we also have first class support for version management and branching.
 
 [Dolt](https://docs.dolthub.com/introduction/use-cases/config) seems to be a promising candidate for the SystemDB. It is a mysql-compatible database that acts like "git for data". Another candidate is [TerminusDb](https://terminusdb.com/docs/get-started/index) which is a document-based database.
+
+## Improved data saving
+
+## Measurement Protocols
+
