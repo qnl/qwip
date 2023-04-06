@@ -729,7 +729,7 @@ class CompiledSequencePlotter:
                     if not pts.any():
                         continue
 
-                ax.plot(ts, pts, label=f"CH{ch}", color=f"C{ch}")
+                    ax.plot(ts, pts, label=f"CH{ch}", color=f"C{ch}")
 
         readoutseq = cseq.waveforms["readout"]
 
