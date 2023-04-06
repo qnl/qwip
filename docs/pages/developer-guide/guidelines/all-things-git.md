@@ -70,6 +70,7 @@ $ git commit -m "Added pull request tutorial in git documentation"
 $ git push -u origin docs/git
 ---> 100%
 ```
+
 </div>
 
 1. **Create a new branch** with a name that describes the changes you want to make. This new branch will contain your edits and won't affect the main branch unless it is approved later on. The `-b` flag creates a new branch in addition to checking out a branch. If you've already made some changes to the code you can still checkout a *new* branch and these changes will stay.
