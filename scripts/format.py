@@ -61,7 +61,16 @@ def format(
 def lint(
     ctx: typer.Context,
 ):
-    ...
+    """Lints all code.
+
+    Runs `ruff check` on all source code directories.
+    """
+    folders = ["src", "tests", "scripts"]
+
+    p = subprocess.run(["ruff", "check", *folders], stdout=PIPE, stderr=STDOUT)
+
+    print(" ".join(p.args))
+    print(p.stdout.decode('utf-8'))
 
 
 if __name__ == "__main__":
