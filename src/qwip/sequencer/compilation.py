@@ -63,6 +63,9 @@ class WaveformData:
 
     def get_readout_locations(self):
         return self.readout_locations
+    
+    def get_truncations(self):
+        return self.readout_locations
 
     @property
     def shape(self) -> tuple[int, ...]:
@@ -333,6 +336,9 @@ class CompiledSequence:
         return self.waveforms["seq"].shape
 
     def get_readout_locations(self) -> dict[int, int]:
+        return self.waveforms["seq"].get_readout_locations()
+    
+    def get_truncations(self) -> dict[int, int]:
         return self.waveforms["seq"].get_readout_locations()
 
     def generate_seq_table(self, elem_len=None):
