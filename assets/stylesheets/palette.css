@@ -1,0 +1,16 @@
+[data-md-color-scheme="berkeley-light"] {
+    --md-primary-fg-color:  #003262;
+    --md-accent-fg-color:   #C4820E;
+    --md-typeset-a-color:   #3B7EA1;
+    --md-text-link-color:   #3B7EA1;
+}
+
+/* Dark Theme */
+[data-md-color-scheme="slate"] {
+    --md-hue: 208;
+    --md-primary-fg-color:          #859438;
+    --md-default-fg-color--light:   #AFAFAF;
+    --md-accent-fg-color:           #FDB515;
+    --md-typeset-a-color:           #CFDD45;
+    --md-text-link-color:           #3B7EA1;
+}
