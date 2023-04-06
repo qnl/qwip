@@ -14,10 +14,13 @@ markdown_extensions:
   - pymdownx.superfences
   - pymdownx.tabbed
   - pymdownx.tilde
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - toc:
       permalink: true
 theme:
   name: material
+  custom_dir: ./overrides
   font:
     text: Roboto
     code: Fira Code, Inconsolata
@@ -46,7 +49,8 @@ plugins:
           options:
             paths: ../src/qwip
             show_source: true
-  - git-authors
+  - git-authors:
+        enabled: true
   - git-revision-date-localized:
       type: date
 extra_css: 

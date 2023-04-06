@@ -6,21 +6,29 @@ Welcome! This developer guide is meant to be a reference for the developers and 
 
 To get started, you'll want to get your development environment set up with the proper tooling for making improvements to QWiP. 
 
-```bash
-$ conda create -n qwip-env python=3.10
 
+<div class="termy">
+```console
+$ conda create -n qwip-env python=3.10
+---> 100%
 $ conda activate qwip-env
 $ python -m pip install -e ".[dev]"
+---> 100%
 ```
+
+</div>
 
 The `-e` flag will install QWiP in "editable" mode, so any changes made to the source code will be reflected when importing the library. The `[dev]` option will install all optional packages listed under `dev` in the `setup.cfg` file. These packages are needed for running tests, linting and formatting code, and building documentation. 
 
 To verify that there are no issues with the installation, you can run the tests, all of which should pass.
 
-```bash
-# Run this from the root directory
-$ pytest
+<div class="termy">
+```console
+$ pytest 
+---> 100%
 ```
+
+</div>
 
 If this checks out then you're all set and ready to go. You should read the remainder of this developer guide to familiarize yourself with best practices and guidelines on contributing changes to QWiP.
 
