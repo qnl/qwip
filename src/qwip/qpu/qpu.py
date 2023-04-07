@@ -14,10 +14,10 @@ from qwip._cattr import make_attrs_unstructure_fn
 from qwip.config.database import ConfigDB, ConfigFolder, SequenceElementFolder
 from qwip.config.schema import Target
 from qwip.processing.data_processor import DATA_PROCESSORS, ReadoutPipeline
-from qwip.processing.processors import *
+from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequencer
 from qwip.sequencer.phase_tracker import ModulationFrequency
-from qwip.settings.settings import Settings, qdefine
+from qwip.settings.settings import qdefine
 
 REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
 
@@ -107,13 +107,19 @@ qwip.converter.register_unstructure_hook_factory(
 @qdefine
 class QPU:
     db: ConfigDB = field(repr=lambda db: db.database)
-    config: ConfigFolder = field(repr=lambda c: type(c).__name__)
-    pulses: SequenceElementFolder
     subsystems: dict[Target, QuantumSystem] = field(
         repr=lambda sys: repr([s for s in sys])
     )
     sequencer: WaveformSequencer
     pipeline: ReadoutPipeline
+
+    @property
+    def config(self) -> ConfigFolder:
+        return self.db.config
+    
+    @property
+    def pulses(self) -> SequenceElementFolder:
+        return self.db.pulses
 
     @classmethod
     def load(cls, db, readout_config: str = "default"):
