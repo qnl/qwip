@@ -5,121 +5,80 @@ a superconduting quantum device as a quantum circuit processor, including circui
 compilation/transpilation, data acquisition, and measurement processing. This is the
 main user interface for interacting with experimental devices.
 """
+import re
 
 from attrs import field
 from loguru import logger
 
 import qwip
-from qwip._cattr import make_attrs_unstructure_fn
 from qwip.config.database import ConfigDB, ConfigFolder, SequenceElementFolder
 from qwip.config.schema import Target
-from qwip.processing.data_processor import DATA_PROCESSORS, ReadoutPipeline
-from qwip.processing.processors import GMMClassification, IQRotation
-from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequencer
-from qwip.sequencer.phase_tracker import ModulationFrequency
-from qwip.settings.settings import qdefine
-
-REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
-
-
-def register_qsystem(cls) -> type:
-    if not issubclass(cls, QuantumSystem):
-        raise TypeError(f"Registered quantum model must subclass {QuantumSystem}")
-
-    REGISTERED_QSYSTEMS[cls.__name__] = cls
-
-    return cls
-
-
-@qdefine
-class QuantumSystem:
-    name: str
-
-
-@register_qsystem
-@qdefine
-class Transmon(QuantumSystem):
-    frequency: float
-    anharmonicity: float | None = None
-    local_oscillator: str | None = None
-
-    @property
-    def frequency_EF(self) -> float:
-        alpha = self.anharmonicity
-        return None if alpha is None else self.frequency + alpha
-
-    @property
-    def mod_keys(self) -> tuple[str, ...]:
-        return ("GE", "EF")
-
-    def mod_frequency(self, local_oscillators, key="GE"):
-        lo_freq = local_oscillators.get(self.local_oscillator)
-
-        if not lo_freq:
-            raise KeyError(
-                f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}."
-            )
-
-        match key:
-            case "GE":
-                return self.frequency - lo_freq
-            case "EF":
-                return self.frequency_EF - lo_freq if self.frequency_EF else None
-            case _:
-                raise KeyError(
-                    f"'{key}' is not a valid frequency key for {type(self).__name__}."
-                )
-
-
-@register_qsystem
-@qdefine
-class ReadoutResonator(QuantumSystem):
-    frequency: float
-    kappa: float | None = None
-    chi: float | None = None
-    local_oscillator: str | None = None
-
-    def mod_frequency(self, local_oscillators) -> float:
-        lo_freq = local_oscillators.get(self.local_oscillator)
-
-        if not lo_freq:
-            raise KeyError(
-                f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}."
-            )
-
-        return self.frequency - lo_freq
-
-
-def make_quantum_system_unstructure_fn(cls):
-    unstructure_attrs = make_attrs_unstructure_fn(cls)
-
-    def unstructure_fn(obj):
-        return {**unstructure_attrs(obj), "__class__": type(obj).__name__}
-
-    return unstructure_fn
-
-
-qwip.converter.register_unstructure_hook_factory(
-    lambda cls: issubclass(cls, QuantumSystem), make_quantum_system_unstructure_fn
+from qwip.processing.data_processor import (
+    DATA_PROCESSORS,
+    DataProcessor,
+    MeasurementResult,
+    ReadoutPipeline,
 )
+from qwip.processing.processors import FormatLegacyIQ, GMMClassification, IQRotation
+from qwip.qpu.backend import QuantumBackend
+from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
+from qwip.sequencer.compilation import (
+    ChannelGroup,
+    ChannelInfo,
+    CompiledSequence,
+    WaveformSequencer,
+)
+from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.sequence import Sequence
+from qwip.settings.settings import qdefine
 
 
 @qdefine
 class QPU:
+    """Quantum Processing Unit.
+
+    The QPU is meant to be the main interface for users to take measurements on a
+    device. It orchestrates the execution of various subcomponents to take a
+    circuit or sequence, execute it on hardware, and process the results.
+
+    !!! note
+
+        While the QPU wraps a lot of functionality into a simple user-facing
+        interface, it is not meant to hold the actual logic for all these routines.
+        Rather, these are delegated to submodules so that behavior can be modified
+        by passing the QPU different submodules where the implementation details
+        are contained.
+
+    Attributes:
+        db: A config database object. This is where all the configuration settings
+            representing a quantum device are stored and referenced.
+        subsystems: A mapping of targets to QuantumSystems, which together form a
+            model of the quantum device.
+        sequencer: A sequencer instance that controls the compilation from Sequences
+            to waveform data and programs that are uploaded to hardware.
+        pipeline: A data processing pipeline.
+
+    """
+
     db: ConfigDB = field(repr=lambda db: db.database)
     subsystems: dict[Target, QuantumSystem] = field(
         repr=lambda sys: repr([s for s in sys])
     )
     sequencer: WaveformSequencer
     pipeline: ReadoutPipeline
+    backend: QuantumBackend | None = None
 
     @property
     def config(self) -> ConfigFolder:
         return self.db.config
-    
+
     @property
     def pulses(self) -> SequenceElementFolder:
         return self.db.pulses
+
+    def set_backend(self, backend: QuantumBackend):
+        self.backend = backend
 
     @classmethod
     def load(cls, db, readout_config: str = "default"):
@@ -132,13 +91,19 @@ class QPU:
 
         qpu = cls(
             db=db,
-            config=db.config,
-            pulses=db.pulses,
             sequencer=sequencer,
             pipeline=pipeline,
             subsystems=subsystems,
         )
         qpu.update_modulations()
+
+        ro_qubits = []
+        for sys in qpu.subsystems.values():
+            match sys:
+                case ReadoutResonator(name=n):
+                    r = int(re.match(r"R(\d+)", n)[1])
+                    ro_qubits.append(r)
+        qpu.sequencer.readout_qubits = ro_qubits
 
         return qpu
 
@@ -166,9 +131,11 @@ class QPU:
         if not modulations:
             modulations = dict()
 
-        return WaveformSequencer.from_channel_groups(
+        sequencer = WaveformSequencer.from_channel_groups(
             channel_groups, modulations=modulations
         )
+
+        return sequencer
 
     def save_sequencer(self):
         with self.db.session.begin():
@@ -282,7 +249,8 @@ class QPU:
         return subsystems
 
     def save_subsystems(self):
-        ## Starting a session here ensures that either all the models get saved or none do.
+        ## Starting a session here ensures that either all the models get saved or
+        ## none do.
         with self.db.session.begin():
             for system in self.subsystems.values():
                 system_data = qwip.converter.unstructure(system)
@@ -297,3 +265,65 @@ class QPU:
                         raise ValueError(
                             f"Model data is missing parameters: {system_data}"
                         )
+
+    def run(
+        self,
+        program: Sequence | CompiledSequence,
+        processor: type[DataProcessor]
+        | dict[str, type[DataProcessor]] = FormatLegacyIQ,
+        repetitions: int = 512,
+        readout: dict = {},
+        compilation: dict = {},
+        backend: dict = {},
+    ):
+        ro_se = self.get_readout_sequence(**readout)
+
+        match program:
+            case Sequence():
+                cseq = self.sequencer.compile(program, readout=ro_se, **compilation)
+                seq = cseq.sequence
+            case CompiledSequence():
+                cseq = program
+                seq = cseq.sequence
+
+            case _:
+                raise NotImplementedError(
+                    f"Only 'Sequence' and 'CompiledSequence' programs are currently "
+                    f"supported. Got {program}"
+                )
+
+        self.backend.upload(cseq)
+        meas = self.backend.acquire(cseq, repetitions=repetitions)
+
+        return self.process_results(meas, processor)
+
+    def get_readout_sequence(
+        self,
+        readout: str = "default",
+        length: float | None = None,
+        length_variable: str = "width",
+    ) -> SequenceElement:
+        readout_config = self.config.readout[readout]
+
+        ro_se = SequenceElement()
+        length = length or readout_config.length
+
+        for r in self.sequencer.readout_qubits:
+            pulse_name = readout_config.drives[f"R{r}"]
+
+            ro_se += self.db.load_pulse(pulse_name, {length_variable: length})
+
+        return ro_se
+
+    def process_results(
+        self,
+        raw_data: dict,
+        processor: type[DataProcessor]
+        | dict[str, type[DataProcessor]] = FormatLegacyIQ,
+    ) -> dict[str, MeasurementResult]:
+        if not isinstance(processor, dict):
+            processor = {f"R{r}": processor for r in self.sequencer.readout_qubits}
+
+        iqdata = {k: raw_data[k]["Heterodyne"] for k in processor.keys()}
+
+        return self.pipeline.process_results(iqdata, processor)
