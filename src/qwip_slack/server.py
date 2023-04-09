@@ -1,12 +1,11 @@
 from functools import lru_cache
 
-from loguru import logger
-
 import httpx
 from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.background import BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
+from loguru import logger
 from pydantic import AnyHttpUrl, BaseSettings
 
 
@@ -50,9 +49,7 @@ async def oauth_token_exchange(
 async def process_response(data: dict, settings: Settings) -> RedirectResponse:
     if not data["ok"]:
         error = data["error"]
-        return RedirectResponse(
-            f"{settings.DOCS_URL}?webhook_url={error}#adding-a-webhook"
-        )
+        return RedirectResponse(f"{settings.DOCS_URL}?error={error}#adding-a-webhook")
 
     webhook_url = data["incoming_webhook"]["url"]
     channel = data["incoming_webhook"]["channel"]
@@ -95,9 +92,13 @@ async def slack_redirect(
     data = response.json()
 
     redirect = await process_response(data, settings)
-    background_tasks.add_task(
-        post_welcome_message, data["incoming_webhook"]["url"], settings
-    )
+
+    try:
+        background_tasks.add_task(
+            post_welcome_message, data["incoming_webhook"]["url"], settings
+        )
+    except KeyError:
+        ...
 
     return redirect
 
