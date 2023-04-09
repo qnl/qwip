@@ -42,7 +42,7 @@ In addition to sending messages upon completion, the slack notification cell mag
 
 To create a new Slack webhook for use with QWiP, click the "Add to Slack" button below:
 
-<a href="https://slack.com/oauth/v2/authorize?scope=incoming-webhook&amp;user_scope=&amp;redirect_uri=https%3A%2F%2Flocalhost%3A8000%2FQWiP%2Fregister&amp;client_id=48620956720.2735463917265"><img alt="Add to Slack" height="40" width="139" src="https://platform.slack-edge.com/img/add_to_slack.png" srcSet="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x" /></a>
+<a href="https://slack.com/oauth/v2/authorize?scope=incoming-webhook&amp;user_scope=&amp;redirect_uri=https%3A%2F%2Fqnl-internal.berkeley.edu%2Fqwip-api%2Fregister&amp;client_id=48620956720.2735463917265"><img alt="Add to Slack" height="40" width="139" src="https://platform.slack-edge.com/img/add_to_slack.png" srcSet="https://platform.slack-edge.com/img/add_to_slack.png 1x, https://platform.slack-edge.com/img/add_to_slack@2x.png 2x" /></a>
 
 You will be asked to select a channel to post to. We recommend selecting the @QWiP channel so that you don't spam group channels with your messages. If all goes well, you should see a webhook url and the channel selected below after being redirected back to the documentation site.
 
