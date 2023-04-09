@@ -46,12 +46,14 @@ To create a new Slack webhook for use with QWiP, click the "Add to Slack" button
 
 You will be asked to select a channel to post to. We recommend selecting the @QWiP channel so that you don't spam group channels with your messages. If all goes well, you should see a webhook url and the channel selected below after being redirected back to the documentation site.
 
+![Slack sign up view](../assets/media/qwip-signup.png){ style="max-width: 400px;" }
+
+### Adding a Webhook
+
 !!! success
 
 
 !!! failure
-
-### Adding a Webhook
 
 Now you can add this webhook url to your QWiP configuration. Copy the webhook to your `settings.qwip` file, which should be automatically created for you in the `~/.qwip` folder when you first installed QWiP.
 
