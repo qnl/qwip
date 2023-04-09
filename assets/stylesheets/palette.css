@@ -8,9 +8,9 @@
 /* Dark Theme */
 [data-md-color-scheme="slate"] {
     --md-hue: 208;
-    --md-primary-fg-color:          #859438;
-    --md-default-fg-color--light:   #AFAFAF;
-    --md-accent-fg-color:           #FDB515;
-    --md-typeset-a-color:           #CFDD45;
+    --md-primary-fg-color:          #FDB515;
+    --md-default-fg-color--light:   #CFCFCF;
+    --md-accent-fg-color:           #CFDD45;
+    --md-typeset-a-color:           #FDB515;
     --md-text-link-color:           #3B7EA1;
 }
