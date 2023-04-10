@@ -456,3 +456,19 @@ class ReadoutPipeline:
             key: self.dependency_cache[(key, processor_type)]
             for key, processor_type in output_types.items()
         }
+
+    def cached_data(
+        self,
+        processor: type[DataProcessor] | None = None,
+        keys: list[str] | None = None,
+    ) -> dict[str, MeasurementResult]:
+        def filter_func(key: str, proc: type[DataProcessor]) -> bool:
+            return (keys is None or key in keys) and (proc == processor)
+
+        results = {
+            key: data
+            for (key, proc), data in self.dependency_cache.items()
+            if filter_func(key, proc)
+        }
+
+        return results
