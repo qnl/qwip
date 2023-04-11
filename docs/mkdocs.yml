@@ -1,12 +1,18 @@
 site_name: QWiP
-site_url: https://qnl.github.io/QWiP
+site_url: https://qnl-internal.berkeley.edu/QWiP
+site_dir: site/QWiP
 repo_name: qnl/QWiP
 repo_url: https://github.com/qnl/QWiP
 docs_dir: pages
 markdown_extensions:
   - admonition
-  - codehilite:
-      linenums: true
+  - attr_list
+  - pymdownx.highlight:
+        anchor_linenums: true
+        line_spans: __span
+        pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
   - footnotes
   - pymdownx.arithmatex
   - pymdownx.caret
@@ -38,6 +44,8 @@ theme:
     repo: fontawesome/brands/github
   features:
     - navigation.tabs
+    - content.code.copy
+    - content.code.annotate
 watch:
   - ../src/qwip
 plugins:
@@ -73,6 +81,7 @@ nav:
       - user-guide/sequences/sequencer.md
       - user-guide/sequences/sequence-elements.md
       - user-guide/sequences/sequences.md
+    - user-guide/workflow.md
   - Developer Guide: 
     - developer-guide/intro.md
     - developer-guide/roadmap.md

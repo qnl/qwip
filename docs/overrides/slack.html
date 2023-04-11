@@ -1,0 +1,49 @@
+{% extends "main.html" %}
+
+{% block scripts %}
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const webhook_url = urlParams.get("webhook_url");
+        const channel = urlParams.get("channel");
+        const error = urlParams.get("error");
+
+        const success = document.getElementsByClassName("success")[0];
+        const failure = document.getElementsByClassName("failure")[0];
+
+        if ((webhook_url == null) || (channel == null)) {
+            success.style.display = "none"
+        } else {
+            const p = document.createElement("p");
+            const a = document.createElement("a");
+            a.href = webhook_url
+            a.title = webhook_url
+            a.appendChild(document.createTextNode(webhook_url));
+
+            p.appendChild(document.createTextNode(
+                "Your Slack webhook url is: "
+            ));
+            p.appendChild(a);
+            p.appendChild(document.createElement("br"));
+            p.appendChild(document.createTextNode(
+                `This URL will also be sent to ${channel} in case you ever forget.`
+            ));
+
+            success.appendChild(p);
+
+            console.log(webhook_url);
+            console.log(channel);
+        }
+
+        if (error == null) {
+            failure.style.display = "none"
+        } else {
+            const p = document.createElement("p");
+            p.appendChild(document.createTextNode(
+                `An error occurred when communicating with the Slack API: ${error}`
+            ));
+
+            failure.appendChild(p);
+        }
+    </script>
+    {{ super() }}
+{% endblock %}

@@ -4,9 +4,12 @@ from pathlib import Path
 import pytest
 import sqlalchemy as sa
 
-from qwip.config.database import DoltDB
-from qwip.config.dolt import dolt_reset
-from qwip.config.metadata import QWIP_DB_METADATA
+try:
+    from qwip.config.database import DoltDB
+    from qwip.config.dolt import dolt_reset
+    from qwip.config.metadata import QWIP_DB_METADATA
+except ModuleNotFoundError:
+    ...
 
 
 def pytest_addoption(parser):

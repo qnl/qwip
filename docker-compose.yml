@@ -1,0 +1,26 @@
+version: "3.9"
+
+services:
+  qwip:
+    container_name: qwip
+    build: ./
+    image: qnl/qwip-api
+    volumes:
+      - ./src/qwip_slack:/qwip_slack
+    command:
+      - '--reload'
+    env_file:
+      - ./secrets.env
+    networks:
+      - web
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.qwip.rule=Host(`qnl-internal.berkeley.edu`) && PathPrefix(`/qwip-api`)
+      - traefik.http.routers.qwip.entrypoints=websecure
+      - traefik.http.routers.qwip.middlewares=qwip
+      - traefik.http.services.qwip.loadbalancer.server.port=4001
+      - traefik.http.middlewares.qwip.stripprefix.prefixes=/qwip-api
+
+networks:
+  web:
+    external: true

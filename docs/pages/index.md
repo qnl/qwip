@@ -4,7 +4,7 @@ Quantum Workflows in Python (QWiP) is a framework for running experiments with s
 
 ## Installation
 
-To install QWiP, first clone the GitHub [repository](https://github.com/larchen/QWiP). Then create a new conda environment with your preferred version of python, keeping in mind that QWiP supports python 3.10 and up.
+To install QWiP, first clone the GitHub [repository](https://github.com/qnl/QWiP). Then create a new conda environment with your preferred version of python, keeping in mind that QWiP supports python 3.10 and up.
 
 <div class="termy">
 ```console
