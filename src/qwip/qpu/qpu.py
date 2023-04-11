@@ -324,6 +324,4 @@ class QPU:
         if not isinstance(processor, dict):
             processor = {f"R{r}": processor for r in self.sequencer.readout_qubits}
 
-        iqdata = {k: raw_data[k]["Heterodyne"] for k in processor.keys()}
-
-        return self.pipeline.process_results(iqdata, processor)
+        return self.pipeline.process_results(raw_data, processor)
