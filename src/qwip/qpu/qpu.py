@@ -272,11 +272,24 @@ class QPU:
         processor: type[DataProcessor]
         | dict[str, type[DataProcessor]] = FormatLegacyIQ,
         repetitions: int = 512,
-        readout: dict = {},
+        readout: dict | SequenceElement = {},
         compilation: dict = {},
         backend: dict = {},
     ):
-        ro_se = self.get_readout_sequence(**readout)
+        match readout:
+            case dict():
+                ro_se = self.get_readout_sequence(**readout)
+            case SequenceElement():
+                ro_se = readout
+            case _:
+                raise ValueError(
+                f"Readout must be a sequence element or a dictionary of parameters. "
+                f"Got {readout}"
+            )
+
+        ## Update all frequencies before compilation
+        self.update_modulations()
+        self.backend.update_parameters(self)
 
         match program:
             case Sequence():
