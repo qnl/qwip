@@ -63,7 +63,7 @@ class WaveformData:
 
     def get_readout_locations(self):
         return self.readout_locations
-    
+
     def get_truncations(self):
         return self.readout_locations
 
@@ -337,7 +337,7 @@ class CompiledSequence:
 
     def get_readout_locations(self) -> dict[int, int]:
         return self.waveforms["seq"].get_readout_locations()
-    
+
     def get_truncations(self) -> dict[int, int]:
         return self.waveforms["seq"].get_readout_locations()
 

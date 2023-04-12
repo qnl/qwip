@@ -51,6 +51,7 @@ class ClassificationSchema(ValidatedConfigFolder):
 class ReadoutSchema(ValidatedConfigFolder):
     drives: ConfigFolder[Target, str]
     classification: ConfigFolder[Target, ClassificationSchema]
+    length: float = 0
 
 
 @configschema

@@ -306,7 +306,7 @@ class ReadoutPipeline:
     @functools.lru_cache
     def get_processor(
         self,
-        processor_type: type | str,
+        processor_type: type[DataProcessor] | str,
         key: str,
     ) -> DataProcessor:
         """Returns a processor with a matching type and compatible measurement key."""
@@ -325,6 +325,26 @@ class ReadoutPipeline:
                 processor = p
 
         return processor
+
+    def add_processor(self, processor: DataProcessor) -> None:
+        """Adds a processor to the pipeline.
+
+        If a processor with matching type and key already exists, it will be replaced.
+
+        Args:
+            processor: The DataProcessor to be added.
+        """
+
+        def should_remove(other):
+            return (
+                type(other) == type(processor)
+                and other.measurement_key == processor.measurement_key
+            )
+
+        self.processors = (
+            *(proc for proc in self.processors if not should_remove(proc)),
+            processor,
+        )
 
     def _build_processor_graph(
         self,
@@ -456,3 +476,19 @@ class ReadoutPipeline:
             key: self.dependency_cache[(key, processor_type)]
             for key, processor_type in output_types.items()
         }
+
+    def cached_data(
+        self,
+        processor: type[DataProcessor] | None = None,
+        keys: list[str] | None = None,
+    ) -> dict[str, MeasurementResult]:
+        def filter_func(key: str, proc: type[DataProcessor]) -> bool:
+            return (keys is None or key in keys) and (proc == processor)
+
+        results = {
+            key: data
+            for (key, proc), data in self.dependency_cache.items()
+            if filter_func(key, proc)
+        }
+
+        return results

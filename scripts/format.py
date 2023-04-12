@@ -70,7 +70,7 @@ def lint(
     p = subprocess.run(["ruff", "check", *folders], stdout=PIPE, stderr=STDOUT)
 
     print(" ".join(p.args))
-    print(p.stdout.decode('utf-8'))
+    print(p.stdout.decode("utf-8"))
 
 
 if __name__ == "__main__":

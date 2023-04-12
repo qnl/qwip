@@ -26,14 +26,19 @@ class FormatLegacyIQ(DataProcessor):
     """A data processor to reformat legacy QTRL IQ data.
 
     This processor will reorder the axis so that the IQ data for each shot is
-    contiguous. The legacy heterodyne array is a 4-D array where the axes
-    correspond to (IQ, )
-
+    contiguous. The legacy heterodyne array is a 4-D array where the axes correspond
+    to `(IQ, shots, elements, readouts)`. This is reformatted to a dataframe where the
+    index is `(elements, readouts)` and columns correspond to `shots`, such that the
+    data ordering is `(elements, readouts, shots, IQ)`.
     """
 
     def run(self, meas: np.ndarray, name="IQResult", **kwargs) -> IQResult:
-        """
+        """Reorders the memory layout of the IQ data for each measurement key.
 
+        Args:
+            meas: A `qtrl` measurement dictionary. Each measurement key maps to a 4-d
+                numpy array.
+            name: The result name.
 
         Returns:
             An IQResult. The measurement data frame will have index labels
@@ -210,7 +215,7 @@ class ReadoutHistogram(DataProcessor):
 
         return HistogramResult(
             name=meas.name,
-            data=counts,
+            data=counts.fillna(0),
             num_states=meas.num_states,
             num_qudits=meas.num_qudits,
             processors=meas.processors,
