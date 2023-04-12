@@ -1199,7 +1199,7 @@ class ConfigDB(DoltDB):
 
         return se
     
-    def pulse_parameters(self, names: str | list[str] = ".*") -> pd.DataFrame:
+    def pulse_parameters(self, names: str | list[str] = r".*") -> pd.DataFrame:
         """Returns a dataframe of pulse parameters in table form.
 
         Args:
