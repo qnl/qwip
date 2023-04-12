@@ -377,3 +377,5 @@ class QPU:
             processor = {f"R{r}": processor for r in self.sequencer.readout_qubits}
 
         return self.pipeline.process_results(raw_data, processor)
+
+__all__ = ["QPU"]

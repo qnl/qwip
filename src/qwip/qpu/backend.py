@@ -193,3 +193,5 @@ class FakeBackend(QuantumBackend):
             match proc:
                 case GMMClassification(measurement_key=key):
                     self.gmms[key] = proc
+
+__all__ = ["QTRLBackend", "SimulatorBackend", "FakeBackend"]
