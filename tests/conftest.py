@@ -4,13 +4,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 import sqlalchemy as sa
-from qtrl.settings import Settings
 
-Settings.setup = Settings.OFFLINE  # ruff: noqa: E402
+try:
+    from qtrl.settings import Settings
 
-from qwip.config.database import ConfigDB, DoltDB
-from qwip.config.dolt import dolt_reset
-from qwip.config.metadata import QWIP_DB_METADATA
+    Settings.setup = Settings.OFFLINE  # ruff: noqa: E402
+
+    from qwip.config.database import ConfigDB, DoltDB
+    from qwip.config.dolt import dolt_reset
+    from qwip.config.metadata import QWIP_DB_METADATA
+except ModuleNotFoundError:
+    ...
+
 from qwip.processing.data_processor import DATA_PROCESSORS, ReadoutPipeline
 from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.qpu.qpu import QPU
