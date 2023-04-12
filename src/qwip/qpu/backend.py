@@ -49,9 +49,10 @@ class QTRLBackend(QuantumBackend):
         acquisition_kwargs = dict(n_reps=repetitions, save_data=False) | kwargs
 
         meas = self.meta.acquire(**acquisition_kwargs)
-        iqdata = {k: meas[k]["Heterodyne"] for k in meas.keys() if re.match(r"R(\d+)", k)}
+        iqdata = {
+            k: meas[k]["Heterodyne"] for k in meas.keys() if re.match(r"R(\d+)", k)
+        }
         return iqdata
-
 
     def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU.
@@ -83,8 +84,9 @@ def random_data_sampler(
         repetitions: int,
     ) -> np.ndarray:
         return rng.choice(num_states, size=repetitions)
-    
+
     return generate
+
 
 def population_data_sampler(
     populations: np.ndarray,
@@ -193,5 +195,6 @@ class FakeBackend(QuantumBackend):
             match proc:
                 case GMMClassification(measurement_key=key):
                     self.gmms[key] = proc
+
 
 __all__ = ["QTRLBackend", "SimulatorBackend", "FakeBackend"]

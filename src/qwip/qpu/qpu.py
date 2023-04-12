@@ -287,9 +287,9 @@ class QPU:
                 arguments, which are passed to `qpu.get_readout_sequence`. If a
                 `SequenceElement` is given, it will be used with no modifications. This
                 is ignored if the program is already compiled.
-            compilation: The compilation arguments, which are passed to 
+            compilation: The compilation arguments, which are passed to
                 `WaveformSequencer.compile`.
-        
+
         Returns:
             A dictionary mapping measurement keys to the acquired and processed data.
         """
@@ -300,9 +300,9 @@ class QPU:
                 ro_se = readout
             case _:
                 raise ValueError(
-                f"Readout must be a sequence element or a dictionary of parameters. "
-                f"Got {readout}"
-            )
+                    f"Readout must be a sequence element or a dictionary of parameters. "
+                    f"Got {readout}"
+                )
 
         ## Update all frequencies before compilation
         self.update_modulations()
@@ -334,7 +334,7 @@ class QPU:
         length_variable: str = "width",
     ) -> SequenceElement:
         """Constructs a readout sequence element from the readout config.
-        
+
         Args:
             readout: The name of the readout config.
             length: The readout length in seconds.
@@ -369,7 +369,7 @@ class QPU:
             processor: The final data processor. If it is a single data processor it
                 will be used for all measurement keys. If it is a dictionary, each
                 measurement key can specify a different data processor.
-        
+
         Returns:
             A mapping from measurement keys to `MeasurementResult` instances.
         """
@@ -377,5 +377,6 @@ class QPU:
             processor = {f"R{r}": processor for r in self.sequencer.readout_qubits}
 
         return self.pipeline.process_results(raw_data, processor)
+
 
 __all__ = ["QPU"]

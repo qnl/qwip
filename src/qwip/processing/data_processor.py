@@ -325,13 +325,10 @@ class ReadoutPipeline:
                 processor = p
 
         return processor
-    
-    def add_processor(
-        self,
-        processor: DataProcessor
-    ) -> None:
+
+    def add_processor(self, processor: DataProcessor) -> None:
         """Adds a processor to the pipeline.
-        
+
         If a processor with matching type and key already exists, it will be replaced.
 
         Args:
@@ -340,13 +337,13 @@ class ReadoutPipeline:
 
         def should_remove(other):
             return (
-                type(other) == type(processor) and
-                other.measurement_key == processor.measurement_key
+                type(other) == type(processor)
+                and other.measurement_key == processor.measurement_key
             )
-        
+
         self.processors = (
             *(proc for proc in self.processors if not should_remove(proc)),
-            processor
+            processor,
         )
 
     def _build_processor_graph(

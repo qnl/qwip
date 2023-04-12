@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from numpy.random import default_rng
 
 import qwip
@@ -43,11 +42,11 @@ class TestQuantumBackend:
         gmm0 = GMMClassification(
             measurement_key="R0",
             means=np.array([[5, 0], [-5, 0]], dtype=float),
-            covariances=np.array([1, 1], dtype=float)
+            covariances=np.array([1, 1], dtype=float),
         )
 
         qpu.pipeline.add_processor(gmm0)
-        
+
         backend.update_parameters(qpu)
         assert backend.gmms["R0"] is gmm0
 
@@ -70,7 +69,7 @@ class TestQuantumBackend:
         def data_func(key, element, readout, repetitions):
             if key == "R0":
                 populations = (np.sin(element / 20 * 2 * np.pi) + 1) / 2
-                ones = np.round(populations* repetitions).astype(int)
+                ones = np.round(populations * repetitions).astype(int)
 
                 states = np.zeros(repetitions)
 

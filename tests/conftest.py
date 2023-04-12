@@ -6,7 +6,7 @@ import pytest
 import sqlalchemy as sa
 from qtrl.settings import Settings
 
-Settings.setup = Settings.OFFLINE # ruff: noqa: E402
+Settings.setup = Settings.OFFLINE  # ruff: noqa: E402
 
 from qwip.config.database import ConfigDB, DoltDB
 from qwip.config.dolt import dolt_reset
@@ -39,6 +39,7 @@ def db_url(request):
 @pytest.fixture(scope="module")
 def test_db(request):
     return request.config.getoption("--test_db")
+
 
 @pytest.fixture(scope="module")
 def seed(request):
