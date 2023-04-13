@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 def plot_readout_IQ(
-    data: "IQResult" | DataFrame | Series,
+    data: "IQResult | DataFrame | Series",
     /,
     groupby: str | None = None,
     ax: Axes = None,
