@@ -1,3 +1,4 @@
+import itertools as it
 from typing import TYPE_CHECKING, Optional, Union
 
 import matplotlib as mpl
@@ -16,10 +17,10 @@ if TYPE_CHECKING:
 
 
 def plot_readout_IQ(
-    data: "IQResult | DataFrame | Series",
+    data: "IQResult",
     /,
+    ax: Axes | None = None,
     groupby: str | None = None,
-    ax: Axes = None,
     cmap: Colormap | TColor = "Greys",
     logscale: bool = True,
     bins: int = 30,
@@ -29,9 +30,9 @@ def plot_readout_IQ(
 
     Args:
         data: The IQResult.
+        ax: The `Axes` on which to plot the data.
         groupby: A string specifying whether to group the data. This is passed to the
             pandas `groupby` function.
-        ax: The `Axes` on which to plot the data.
         cmap: A colormap specifier. See `qwip.visualization.utils.get_colormap` for more
             details.
         bins: The number of bins to use in the 2d histogram.
@@ -69,6 +70,55 @@ def plot_readout_IQ(
             )
 
     ax.axis("square")
+
+    return fig
+
+
+def plot_GMM(
+    gmm: "GMMClassification",
+    ax: Axes | None = None,
+    mesh: int = 200,
+    legend: bool = True,
+    means_kw: dict = dict(marker="*", mec="k", mew=0.3),
+    contour_kw: dict = dict(linewidths=1, colors="k"),
+) -> Figure:
+    """Plots GMM means and decision boundaries.
+
+    Args:
+        gmm: The GMM processor that holds the GMM data.
+        ax: The `Axes` object on which to plot the data. If none is supplied, a new
+            figure is created.
+        mesh: The number of points to use in the mesh for plotting the decision
+            boundary.
+        legend: If true, adds a legend to the plot.
+        means_kw: Keyword arguments are passed to `Axes.plot` when plotting the means.
+        contour_kw: Keyword arguments are passed to `Axes.contour` when plotting the
+            decision boundary.
+
+    Returns:
+        The matplotlib `Figure` that the subplot belongs to.
+    """
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.get_figure()
+
+    for i, m in enumerate(gmm.means):
+        ax.plot(*m, color=f"C{i}", label=f"{i}", **means_kw)
+
+    xs, ys = np.meshgrid(
+        np.linsapce(*ax.get_xlim(), mesh), np.linspace(*ax.get_ylim(), mesh)
+    )
+    pts = np.stack([xs.flatten(), ys.flatten()]).T
+    classified = gmm.get_model().predict(pts).reshape(xs.shape)
+
+    pairs = it.combinations(range(gmm.num_states), 2)
+    boundaries = sorted(np.mean(pair) for pair in pairs)
+
+    ax.contour(xs, ys, classified, boundaries, **contour_kw)
+
+    if legend:
+        ax.legend()
 
     return fig
 
