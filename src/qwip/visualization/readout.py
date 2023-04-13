@@ -78,9 +78,10 @@ def plot_GMM(
     gmm: "GMMClassification",
     ax: Axes | None = None,
     mesh: int = 200,
-    legend: bool = True,
-    means_kw: dict = dict(marker="*", mec="k", mew=0.3),
+    legend: bool = False,
+    means_kw: dict = dict(marker="*", mec="k", mew=0.3, ls=" "),
     contour_kw: dict = dict(linewidths=1, colors="k"),
+    legend_kw: dict = {},
 ) -> Figure:
     """Plots GMM means and decision boundaries.
 
@@ -94,6 +95,7 @@ def plot_GMM(
         means_kw: Keyword arguments are passed to `Axes.plot` when plotting the means.
         contour_kw: Keyword arguments are passed to `Axes.contour` when plotting the
             decision boundary.
+        legend_kw: Keyword arguments are pased to `Axes.legend`.
 
     Returns:
         The matplotlib `Figure` that the subplot belongs to.
@@ -118,6 +120,6 @@ def plot_GMM(
     ax.contour(xs, ys, classified, boundaries, **contour_kw)
 
     if legend:
-        ax.legend()
+        ax.legend(**legend_kw)
 
     return fig
