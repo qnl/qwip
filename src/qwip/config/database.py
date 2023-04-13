@@ -832,9 +832,9 @@ class DoltDB:
     """
 
     database: str | None = None
-    username: str
-    password: str = field(repr=lambda pw: "*****")
-    host: str
+    username: str | None
+    password: str | None = field(repr=lambda pw: "*****")
+    host: str | None
     port: int = 3306
 
     engine: sa.engine.Engine | None = field(init=False, default=None)
