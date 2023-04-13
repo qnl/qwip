@@ -1,99 +1,76 @@
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.colors import Colormap, ListedColormap, LogNorm
 from matplotlib.figure import Figure
+from pandas import DataFrame, Series
 
 from qwip.processing.classification import GMMData
-from qwip.visualization.utils import (
-    get_alpha_colormap,
-    get_berkeley_colormap,
-    get_colormap_with_dropout,
-)
+from qwip.visualization.utils import TColor, get_colormap
+
+if TYPE_CHECKING:
+    from qwip.processing.processors import GMMClassification, IQResult
 
 
-def plot_readout_histogram(
-    data: dict[str, np.ndarray],
-    *,
-    cmap: Union[str, Colormap] = "Greys",
-    seq_axis: Optional[int] = None,
-    share_axis: bool = True,
-    auto_axis: bool = True,
+def plot_readout_IQ(
+    data: "IQResult" | DataFrame | Series,
+    /,
+    groupby: str | None = None,
+    ax: Axes = None,
+    cmap: Colormap | TColor = "Greys",
     logscale: bool = True,
-    alpha: float = 0.8,
+    bins: int = 30,
+    title: str = None,
 ) -> Figure:
-    """Plots readout histograms from IQ data.
-
-    This plotting utility can be configured
+    """Plots an IQResult as a 2d histogram.
 
     Args:
-        data (dict): A mapping with IQ data.
-        cmap (str|Colormap): A colormap or a reference to a registered colormap.
-        seq_axis (int|None): The data axis that corresponds to the sequence
-            element dimension. If None, the all IQ data is plotted with a single
-            colormap. Otherwise, if an axis is specified, IQ data from each
-            element will be shown with a different color.
-        share_axis (bool): Whether the x and y axes should be shared among the
-            different subplots.
-        logscale (bool): Whether the colorscale should be log normalized.
-        alpha (float): The transparency level of the color scale.
+        data: The IQResult.
+        groupby: A string specifying whether to group the data. This is passed to the
+            pandas `groupby` function.
+        ax: The `Axes` on which to plot the data.
+        cmap: A colormap specifier. See `qwip.visualization.utils.get_colormap` for more
+            details.
+        bins: The number of bins to use in the 2d histogram.
+        title: The subplot title.
 
     Returns:
-        (Figure): A matplotlib Figure.
+        The matplotlib `Figure` that the subplot belongs to.
     """
-    fig, axes = plt.subplots(
-        1, len(data), figsize=(4 * 3, 3), sharex=share_axis, sharey=share_axis
-    )
+    if ax is None:
+        fig, ax = plt.subplots()
+    else:
+        fig = ax.get_figure()
 
-    # histogram colormap
-    cmap = get_colormap_with_dropout(cmap, alpha=alpha)
+    ax.grid(False)
+    ax.set_aspect("equal")
+    norm = LogNorm() if logscale else None
+    dropout = {} if logscale else dict(threshold=0.02, smoothing=0.04)
+    cmap = get_colormap(cmap, dropout=dropout)
 
-    limits = 0
-    for ax, (key, IQ) in zip(axes, data.items()):
-        ax.set_title(f"{key}")
+    if title:
+        ax.set_title(title)
 
-        if share_axis:
-            limits = max(limits, np.max(np.abs(IQ)) * 1.1)
-        else:
-            limits = np.max(np.abs(IQ)) * 1.1
+    if groupby is None:
+        IQ = data.data.to_numpy().flatten()
+        counts, _, _, im = ax.hist2d(
+            IQ.real, IQ.imag, norm=norm, density=True, cmap=cmap, bins=bins
+        )
 
-        extent = limits * np.array([-1, 1, -1, 1]) if auto_axis else None
-
-        if seq_axis is None:
-            ax.hexbin(
-                *IQ.reshape(-1, 2).T,
-                cmap=cmap,
-                extent=extent,
-                norm=LogNorm() if logscale else None,
+    else:
+        for i, (label, subset) in enumerate(data.data.groupby(groupby)):
+            IQ = subset.to_numpy().flatten()
+            cmap = get_colormap(f"C{i}", dropout=dropout)
+            counts, _, _, im = ax.hist2d(
+                IQ.real, IQ.imag, norm=norm, density=True, cmap=cmap, bins=bins
             )
-        else:
-            _plot_readout_by_element(ax, IQ, seq_axis, extent, logscale, alpha)
 
-        ax.set_aspect("equal")
-
-    fig.tight_layout()
+    ax.axis("square")
 
     return fig
-
-
-def _plot_readout_by_element(
-    ax, IQ: np.ndarray, seq_axis: int, extent: list, logscale: bool, alpha: float
-) -> None:
-    n_elements = IQ.shape[seq_axis]
-
-    for i in range(n_elements):
-        idx = tuple(
-            slice(None, None, None) if dim != seq_axis else i
-            for dim in range(len(IQ.shape))
-        )
-        ax.hexbin(
-            *IQ[idx].reshape(-1, 2).T,
-            cmap=get_colormap_with_dropout(get_alpha_colormap(f"C{i}", upper=alpha)),
-            extent=extent,
-            norm=LogNorm() if logscale else None,
-        )
 
 
 def plot_decision_boundary(

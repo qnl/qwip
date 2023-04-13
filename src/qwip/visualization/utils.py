@@ -2,7 +2,8 @@
 """
 
 import itertools as it
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from typing import Any
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -15,6 +16,7 @@ from matplotlib.colors import (
     to_hex,
     to_rgb,
 )
+from matplotlib.figure import Figure
 
 TColor = str | tuple[float, float, float] | tuple[float, float, float, float]
 
@@ -44,7 +46,13 @@ def find_closest_factors(n: int, /):
     return As[-1], Bs[-1]
 
 
-def make_grid(N, nrows=None, ncols=None, hide_unused=True, **kwargs) -> np.ndarray:
+def make_grid(
+    N: int,
+    nrows: int | None = None,
+    ncols: int | None = None,
+    hide_unused: bool = True,
+    **kwargs,
+) -> tuple[Figure, np.ndarray]:
     """Makes a figure subplot grid with at least N subplots.
 
     Args:
@@ -84,6 +92,46 @@ def make_grid(N, nrows=None, ncols=None, hide_unused=True, **kwargs) -> np.ndarr
     return fig, axes
 
 
+def grid_plotter(
+    dataset: dict[str, Any],
+    axes_plotter: Callable | None = None,
+    subplot_kwargs: dict = {},
+    grid_kwargs: dict = {},
+    sort: bool = True,
+) -> Figure:
+    """Plots a dataset on a grid.
+
+    Given a dataset mapping of keys to data, plots the data on a figure subplot using
+    the specified plotting function.
+
+    Args:
+        dataset: A dictionary mapping keys to data. The values can be MeasurementResult
+            instances, pandas dataframes, or numpy arrays, as long as the axes plotter
+            can handle the data type.
+        axes_plotter: A plotting function that plots the data on a given `Axes`.
+        subplot_kwargs: A dictionary of parameters that are passed to `axes_plotter`
+        grid_kwargs: A dictionary of parameters that are passed to `make_grid`.
+        sort: If `True`, the dataset keys will be sorted first.
+
+    Returns:
+        A matplotlib `Figure` with the resulting subplots.
+    """
+    N = len(dataset)
+
+    if sort:
+        dataset = dict(sorted(dataset.items()))
+
+    fig, axes = make_grid(N, **grid_kwargs)
+
+    for ax, (key, axdata) in zip(axes.flat, dataset.items()):
+        axes_plotter(axdata, ax=ax, **subplot_kwargs)
+
+        if not ax.title.get_text():
+            ax.set_title(key)
+
+    return fig
+
+
 ## Legend
 
 
@@ -96,6 +144,47 @@ def all_legend_handles_labels(
 
 
 ## Colors
+
+
+def get_colormap(
+    cmap_or_color: Colormap | TColor, dropout: dict | None = None
+) -> Colormap:
+    """Returns a colormap.
+
+    This helper function allows for easy construction of a colormap. If a colormap is
+    given it will be returned with no modifications. Otherwise if a string is given, the
+    function will first try to resolve it to a colormap and then fallback to resolving
+    it as a color.
+
+    Args:
+        cmap_or_color: Can be anything that resolves to either a registered colormap or
+            color.
+        dropout: If `None`, no dropout is applied. Otherwise, a dropout is applied with
+            `get_colormap_with_dropout` using the supplied parameters. Pass in an empty
+            dictionary for default parameters. This is only applied when a color is
+            given.
+
+    Returns:
+        The resulting colormap.
+    """
+    if isinstance(cmap_or_color, Colormap):
+        return cmap_or_color
+
+    try:
+        cmap = plt.get_cmap(cmap_or_color)
+        return cmap
+    except ValueError:
+        pass
+
+    try:
+        cmap = get_alpha_colormap(cmap_or_color)
+    except ValueError as e:
+        raise ValueError(f"'{cmap_or_color}' is not a valid color or colormap.") from e
+
+    if dropout is not None:
+        cmap = get_colormap_with_dropout(cmap, **dropout)
+
+    return cmap
 
 
 def get_colormap_with_dropout(
