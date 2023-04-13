@@ -5,6 +5,7 @@ import itertools as it
 from collections.abc import Iterable
 
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.colors import (
@@ -18,12 +19,83 @@ from matplotlib.colors import (
 TColor = str | tuple[float, float, float] | tuple[float, float, float, float]
 
 
+## Grid
+
+
+def find_closest_factors(n: int, /):
+    """Given an integer n, finds the factors of n that are closest to sqrt(n)
+
+    Args:
+        n: The integer to factor.
+
+    Returns:
+        `a, b` such that `a <= b` and `a * b == n`.
+    """
+    if not n > 0:
+        raise ValueError(f"n must be greater than 0, got {n}")
+
+    trial_factors = 1 + np.arange(np.floor(np.sqrt(n)))
+
+    remainder, factors = np.modf(n / trial_factors)
+
+    As = trial_factors[remainder == 0].astype(int)
+    Bs = factors[remainder == 0].astype(int)
+
+    return As[-1], Bs[-1]
+
+
+def make_grid(N, nrows=None, ncols=None, hide_unused=True, **kwargs) -> np.ndarray:
+    """Makes a figure subplot grid with at least N subplots.
+
+    Args:
+        N: The number of subplots requested.
+        nrows: If not `None`, specifies the total number of rows.
+        ncols: If not `None`, specifies the total number of columns.
+        hide_unsued: If `True`, will hide all extra subplots. The N "active" subplots
+            start at the top left corner and go down the grid in row-major order.
+        **kwargs: Additional keyword arguments are passed to `plt.subplots`
+
+    Returns:
+        A numpy array of empty Axes objects.
+    """
+    if nrows is None and ncols is None:
+        nrows, ncols = find_closest_factors(N)
+    elif nrows is None:
+        nrows = np.ceil(N / ncols).astype(int)
+    elif ncols is None:
+        ncols = np.ceil(N / nrows).astype(int)
+    elif nrows * ncols < N:
+        raise ValueError(
+            f"Not enough axes in the specified grid. nrows * ncols must be greater than"
+            f" N. Got {nrows} * {ncols} = {nrows * ncols} < {N}."
+        )
+
+    fig, axes = plt.subplots(nrows, ncols, **kwargs)
+
+    if nrows == ncols == 1:
+        axes = np.array([axes])
+
+    if N < nrows * ncols and hide_unused:
+        for ax in axes.flat[N:]:
+            ax.axis("off")
+
+    fig.tight_layout()
+
+    return fig, axes
+
+
+## Legend
+
+
 def all_legend_handles_labels(
     axes: Iterable[Axes],
 ) -> tuple[list, list]:
     handles, labels = zip(*(ax.get_legend_handles_labels() for ax in axes))
 
     return list(it.chain(*handles)), list(it.chain(*labels))
+
+
+## Colors
 
 
 def get_colormap_with_dropout(
