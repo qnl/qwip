@@ -4,6 +4,8 @@ import sqlalchemy as sa
 import qwip
 from qwip.config.models import (
     ConstraintModel,
+    Folder,
+    Parameter,
     SequenceElementModel,
     WaveformLocationModel,
     WaveformModel,
@@ -17,6 +19,56 @@ from qwip.sequencer.waveform import (
     ModulatedWaveform,
     VirtualZWaveform,
 )
+
+
+class TestFolder:
+    def test_select_insert(self, session, reset_models):
+        hardware = Folder(name="hardware")
+        lo = Folder(name="local_oscillators", parent=hardware)
+        dc = Folder(name="dc_sources", parent=hardware)
+
+        session.add(hardware)
+        session.flush()
+
+        results = session.scalars(sa.select(Folder)).all()
+
+        assert len(results) == 3
+        assert results == [hardware, lo, dc]
+
+    def test_select_none(self, session, reset_models):
+        folders = session.scalars(sa.select(Folder)).one_or_none()
+        assert folders is None
+
+    def test_select_condition(self, session, reset_models):
+        hardware = Folder(name="hardware")
+        lo = Folder(name="local_oscillators", parent=hardware)
+        dc = Folder(name="dc_sources", parent=hardware)
+        yoko = Folder(name="yokos", parent=dc)
+        qubits = Folder(name="qubits")
+
+        session.add_all([hardware, qubits])
+        session.flush()
+
+        assert session.scalars(sa.select(Folder)).all() == [
+            hardware,
+            qubits,
+            lo,
+            dc,
+            yoko,
+        ]
+
+        assert session.scalars(
+            sa.select(Folder).where(Folder.parent_id == None)
+        ).all() == [hardware, qubits]
+        assert session.scalars(
+            sa.select(Folder).where(Folder.parent_id == hardware.folder_id)
+        ).all() == [lo, dc]
+
+
+class TestParameter:
+    def test_select(self, session, reset_models):
+        params = session.scalars(sa.select(Parameter)).one_or_none()
+        assert params is None
 
 
 class TestWaveformModel:
