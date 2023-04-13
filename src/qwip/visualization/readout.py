@@ -107,7 +107,7 @@ def plot_GMM(
         ax.plot(*m, color=f"C{i}", label=f"{i}", **means_kw)
 
     xs, ys = np.meshgrid(
-        np.linsapce(*ax.get_xlim(), mesh), np.linspace(*ax.get_ylim(), mesh)
+        np.linspace(*ax.get_xlim(), mesh), np.linspace(*ax.get_ylim(), mesh)
     )
     pts = np.stack([xs.flatten(), ys.flatten()]).T
     classified = gmm.get_model().predict(pts).reshape(xs.shape)
