@@ -9,7 +9,7 @@ from matplotlib.figure import Figure
 from pandas import DataFrame, Series
 
 from qwip.processing.classification import GMMData
-from qwip.visualization.utils import TColor, get_colormap
+from qwip.visualization.utils import TColor, get_berkeley_colormap, get_colormap
 
 if TYPE_CHECKING:
     from qwip.processing.processors import GMMClassification, IQResult
