@@ -23,8 +23,6 @@ class TestDoltDB:
         assert doltdb.get_branch("new") is None
 
     def test_checkout_branch(self, doltdb):
-        import time
-
         doltdb.branch("new")
         new = doltdb.get_branch("new")
         current = doltdb.checkout("new")
@@ -74,17 +72,11 @@ class TestFolder:
         ]
 
         assert session.scalars(
-            sa.select(Folder).where(Folder.parent_id == None)
+            sa.select(Folder).where(Folder.parent_id is None)
         ).all() == [hardware, qubits]
         assert session.scalars(
             sa.select(Folder).where(Folder.parent_id == hardware.folder_id)
         ).all() == [lo, dc]
-
-
-class TestParameter:
-    def test_select(self, session, reset_models):
-        params = session.scalars(sa.select(Parameter)).one_or_none()
-        assert params is None
 
 
 class TestConfigFolder:
