@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING
 import numpy as np
 from attrs import field
 from numpy.random import Generator, default_rng
-from qtrl.managers import MetaManager
+try:
+    from qtrl.managers import MetaManager
+except ImportError:
+    ...
 
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
@@ -40,7 +43,7 @@ class SimulatorBackend(QuantumBackend):
 class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
 
-    meta: MetaManager
+    meta: "MetaManager"
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
         self.meta.write_sequence(cseq)

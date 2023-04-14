@@ -63,6 +63,10 @@ class MeasurementResult:
     @property
     def loc(self):
         return self.data.loc
+    
+    @property
+    def shape(self):
+        return self.data.shape
 
     def _repr_html_(self) -> str:
         description = f'<p style="font-family: monospace;">{repr(self)}</p>'
