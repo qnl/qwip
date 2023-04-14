@@ -63,7 +63,7 @@ class MeasurementResult:
     @property
     def loc(self):
         return self.data.loc
-    
+
     @property
     def shape(self):
         return self.data.shape

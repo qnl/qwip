@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from attrs import field
 from numpy.random import Generator, default_rng
+
 try:
     from qtrl.managers import MetaManager
 except ImportError:

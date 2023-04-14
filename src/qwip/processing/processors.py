@@ -80,7 +80,7 @@ class IQRotation(DataProcessor):
 
     def run(self, meas: IQResult, **kwargs) -> IQResult:
         """Rotates the IQ data in the IQ plane by a specified angle.
-        
+
         Args:
             meas: The `IQResult` to rotate.
 
@@ -103,7 +103,7 @@ class IQRotation(DataProcessor):
 #         axis (int): The axes along which to average.
 #     """
 #     axis: int = -1
-  
+
 #     def run(self, meas: IQResult, **kwargs) -> IQResult:
 #         raise NotImplementedError()
 
@@ -118,15 +118,16 @@ class ClassifiedResult(MeasurementResult):
 @qdefine
 class GMMClassification(DataProcessor):
     """A data processor for classifying IQ data based on a GMM.
-    
+
     Attributes:
-        num_states: The number of qubit states to classify. 
+        num_states: The number of qubit states to classify.
         means: The centers of the Gaussian distributions used to model the different
             state distributions. Should have shape `(num_states, 2)`.
-        covariances: The covariances of the Gaussian distributiosn used to model the 
-            different state distributions. We assume spherical Gaussians, so should 
+        covariances: The covariances of the Gaussian distributiosn used to model the
+            different state distributions. We assume spherical Gaussians, so should
             have shape `(num_states,)`.
     """
+
     num_states: int = 2
     means: np.ndarray = field()
     covariances: np.ndarray = field()
@@ -138,7 +139,7 @@ class GMMClassification(DataProcessor):
     @covariances.default
     def _default_covariances(self) -> np.ndarray:
         return np.ones(self.num_states)
-    
+
     @staticmethod
     def _get_real_IQ_from_complex(IQ_data: np.ndarray) -> np.ndarray:
         shape = IQ_data.shape
@@ -151,16 +152,16 @@ class GMMClassification(DataProcessor):
             case dtype:
                 TypeError(f"IQ data should be complex type, got {dtype}.")
 
-        return IQ_data.view(cast).reshape(*shape, 2)        
+        return IQ_data.view(cast).reshape(*shape, 2)
 
     def get_model(self, initialize=True) -> GaussianMixture:
         """Returns an initialized `sklearn.mixture.GaussianMixture` instance.
-        
-        This model can be used for classifying IQ points based on the model parameters 
+
+        This model can be used for classifying IQ points based on the model parameters
         using the `predict` method.
 
         Args:
-            initialize: If `True`, sets the parameters of the `GaussianMixture` object 
+            initialize: If `True`, sets the parameters of the `GaussianMixture` object
                 to match the means and covariances stored in the data processor.
 
         Returns:
@@ -187,9 +188,7 @@ class GMMClassification(DataProcessor):
         Returns:
             A tuple `(means, covariances)` corresponding to the best fit model.
         """
-        IQ = GMMClassification._get_real_IQ_from_complex(
-            meas.data.to_numpy().flatten()   
-        )
+        IQ = GMMClassification._get_real_IQ_from_complex(meas.data.to_numpy().flatten())
 
         model = self.get_model()
         model.means_init = self.means
@@ -199,7 +198,7 @@ class GMMClassification(DataProcessor):
 
     def run(self, meas: IQResult, **kwargs) -> ClassifiedResult:
         """Classifies IQData according to the GMM model.
-        
+
         Args:
             meas: The `IQResult` to classify.
 
@@ -236,11 +235,12 @@ class ReadoutBitstring(DataProcessor):
     Attributes:
         delimiter: The delimiter used to combine measurement keys.
     """
+
     delimiter: str = ","
 
     def run(self, meas: Collection[ClassifiedResult], **kwargs) -> ClassifiedResult:
         """Concatenates single qudit `ClassifiedResult` into a multi-qudit result.
-        
+
         Args:
             meas: A list of `ClassifiedResult` to concatenate. They must have the same
                 shape in order to be combined.
@@ -277,19 +277,20 @@ class HistogramResult(MeasurementResult):
 @qdefine
 class ReadoutHistogram(DataProcessor):
     """Bins qudit states/bitstrings to determine counts.
-    
+
     Attributes:
         fill_missing: Whether or not to fill in missing bitstrings with zero counts.
-            This should only be done on small numbers of qudits, since the number of 
+            This should only be done on small numbers of qudits, since the number of
             possible bitstrings is exponential in the number of qudits.
         sort: Whether or not to sort the bitstring columns. Defaults to `True`.
     """
+
     fill_missing: bool | None = None
     sort: bool = True
 
     def run(self, meas: ClassifiedResult, **kwargs) -> HistogramResult:
         """Bins qudit states/bitstrings to determine counts.
-        
+
         Args:
             meas: The per-shot bitstrings to bin.
 

@@ -6,8 +6,8 @@ from pathlib import Path
 from typing import Callable, get_args
 
 import attrs
-import pendulum
 import pandas as pd
+import pendulum
 import sqlalchemy as sa
 from attrs import field
 from loguru import logger
@@ -1198,7 +1198,7 @@ class ConfigDB(DoltDB):
         se.rename_variables(replace)
 
         return se
-    
+
     def pulse_parameters(self, names: str | list[str] = r".*") -> pd.DataFrame:
         """Returns a dataframe of pulse parameters in table form.
 
@@ -1206,7 +1206,7 @@ class ConfigDB(DoltDB):
             names: A list of pulse names to include in the table. If a list of names is
                 passed in, only these pulses will be included. If a names is a string,
                 it will be used as a regex to filter out pulses whose names don't match.
-        
+
         Returns:
             A dataframe indexed by pulse names, with all possible pulse parameters as
             columns. NaN values indicate that the given parameter does not exist for the
@@ -1215,8 +1215,10 @@ class ConfigDB(DoltDB):
         parameters = {}
 
         match names:
-            case str(): exclude = lambda s: not bool(re.match(names, s))
-            case list(): exclude = lambda s: s not in names
+            case str():
+                exclude = lambda s: not bool(re.match(names, s))
+            case list():
+                exclude = lambda s: s not in names
             case _:
                 raise ValueError(
                     f"'names' must be a str or a list of str, got {names} that is {type(names)}"
@@ -1227,7 +1229,9 @@ class ConfigDB(DoltDB):
                 continue
 
             parameters[(name, "pulse_key")] = pulse.pulse_key
-            parameters |= {(name, param): value for param, value in pulse.variables.items()}
+            parameters |= {
+                (name, param): value for param, value in pulse.variables.items()
+            }
 
         return pd.Series(parameters.values(), index=parameters.keys()).unstack()
 

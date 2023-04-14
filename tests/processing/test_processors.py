@@ -1,8 +1,8 @@
-import pytest
 import numpy as np
 import pandas as pd
+import pytest
 from numpy.random import default_rng
-from numpy.testing import assert_array_equal, assert_array_almost_equal
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from qwip.processing.processors import (
     ClassifiedResult,
@@ -16,6 +16,7 @@ from qwip.processing.processors import (
     ReadoutHistogram,
     StatePopulations,
 )
+
 
 class TestFormatLegacyIQ:
     def test_reorder(self):
@@ -37,19 +38,18 @@ class TestFormatLegacyIQ:
 
 class TestIQRotation:
     def test_rotate(self):
-        angles = np.exp(1j*np.arange(8) * np.pi / 4)
-        meas = IQResult(
-            name="R0",
-            data=pd.DataFrame(angles.reshape(4, 2))
-        )
+        angles = np.exp(1j * np.arange(8) * np.pi / 4)
+        meas = IQResult(name="R0", data=pd.DataFrame(angles.reshape(4, 2)))
 
         res = IQRotation(angle=0)(meas)
         assert_array_almost_equal(res.data.to_numpy(), angles.reshape(4, 2))
 
-        res = IQRotation(angle=np.pi/4)(meas)
-        assert_array_almost_equal(res.data.to_numpy(), np.roll(angles, -1).reshape(4, 2))
-        
-        res = IQRotation(angle=-np.pi/2)(meas)
+        res = IQRotation(angle=np.pi / 4)(meas)
+        assert_array_almost_equal(
+            res.data.to_numpy(), np.roll(angles, -1).reshape(4, 2)
+        )
+
+        res = IQRotation(angle=-np.pi / 2)(meas)
         assert_array_almost_equal(res.data.to_numpy(), np.roll(angles, 2).reshape(4, 2))
 
 
@@ -59,7 +59,7 @@ class TestGMMClassification:
         [
             ((2, 3, 4), np.float64),
             ((5,), np.float32),
-        ]
+        ],
     )
     def test_get_real_IQ_from_domplex(self, shape, dtype, seed):
         rng = default_rng(seed + np.product(shape))
@@ -67,7 +67,7 @@ class TestGMMClassification:
         real = rng.random(size=shape, dtype=dtype)
         imag = rng.random(size=shape, dtype=dtype)
 
-        IQ_data = real + 1j*imag
+        IQ_data = real + 1j * imag
 
         result = GMMClassification._get_real_IQ_from_complex(IQ_data)
 
@@ -75,15 +75,14 @@ class TestGMMClassification:
         assert_array_equal(result[..., 0], real)
         assert_array_equal(result[..., 1], imag)
 
-
     @pytest.mark.parametrize(
         "means,shape",
         [
             (np.array([[-1, 0], [1, 0]], dtype=float), (10 * 2, 5)),
             (np.array([[-1, 0], [1, 0]], dtype=float), (1, 1)),
             (np.array([[-1, 0], [1, 0], [0, 1]], dtype=float), (20, 1)),
-            (np.array([[-1, 0], [1, 0], [0, 1], [0, -1]], dtype=float), (1, 50))
-        ]
+            (np.array([[-1, 0], [1, 0], [0, 1], [0, -1]], dtype=float), (1, 50)),
+        ],
     )
     def test_classification_qubit(self, means, shape, seed):
         rng = default_rng(seed)
@@ -91,18 +90,13 @@ class TestGMMClassification:
         N = means.shape[0]
 
         gmm = GMMClassification(
-            num_states=N,
-            means=means,
-            covariances=0.2*np.ones(means.shape[0])
+            num_states=N, means=means, covariances=0.2 * np.ones(means.shape[0])
         )
 
         expect = rng.choice(N, size=shape)
         iqdata = gmm.means[expect].view(np.complex128)[..., 0]
 
-        iq = IQResult(
-            name="R0",
-            data=pd.DataFrame(iqdata)
-        )
+        iq = IQResult(name="R0", data=pd.DataFrame(iqdata))
 
         classified = gmm(iq)
 

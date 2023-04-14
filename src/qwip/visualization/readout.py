@@ -9,7 +9,6 @@ from matplotlib.colors import Colormap, ListedColormap, LogNorm
 from matplotlib.figure import Figure
 from pandas import DataFrame, Series
 
-from qwip.processing.classification import GMMData
 from qwip.visualization.utils import TColor, get_berkeley_colormap, get_colormap
 
 if TYPE_CHECKING:

@@ -9,8 +9,9 @@ from qtrl.amiable_sequencer import AM_Sequence
 
 import qwip
 from qwip.flatdict import FlatDict
-from qwip.processing.pipeline import Pipeline
-from qwip.processing.process import ProcessSettings
+
+# from qwip.processing.pipeline import Pipeline
+# from qwip.processing.process import ProcessSettings
 from qwip.settings.settings import qdefine
 
 
@@ -87,7 +88,7 @@ class Calibration:
         def structure(cls, data, converter=qwip.converter):
             return converter.structure(data, cls)
 
-    processing: Pipeline
+    processing: "Pipeline"
     results: FlatDict[str, Result] = field(factory=FlatDict)
     # logger: CalibrationLogger = field()
 
