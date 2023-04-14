@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
-from matplotlib.colors import Colormap
+from matplotlib.colors import Colormap, LogNorm
 from matplotlib.figure import Figure
 
 from qwip.visualization.utils import TColor, get_colormap
