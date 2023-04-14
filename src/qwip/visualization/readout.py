@@ -1,15 +1,13 @@
 import itertools as it
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.axes import Axes
-from matplotlib.colors import Colormap, ListedColormap, LogNorm
+from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
-from pandas import DataFrame, Series
 
-from qwip.visualization.utils import TColor, get_berkeley_colormap, get_colormap
+from qwip.visualization.utils import TColor, get_colormap
 
 if TYPE_CHECKING:
     from qwip.processing.processors import GMMClassification, IQResult
