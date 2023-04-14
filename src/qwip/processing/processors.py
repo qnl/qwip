@@ -124,7 +124,7 @@ class GMMClassification(DataProcessor):
             model.weights_ = np.ones(self.num_states) / self.num_states
 
         return model
-    
+
     def fit(self, meas: IQResult, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         IQ = meas.data.to_numpy().flatten().view(np.float64).reshape(-1, 2)
 
