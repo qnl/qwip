@@ -13,7 +13,18 @@ from qwip.processing.data_processor import (
     MeasurementResult,
     ReadoutPipeline,
 )
-from qwip.processing.processors import *
+from qwip.processing.processors import (
+    ClassifiedResult,
+    FormatLegacyIQ,
+    GMMClassification,
+    HistogramResult,
+    IQResult,
+    IQRotation,
+    PopulationResult,
+    ReadoutBitstring,
+    ReadoutHistogram,
+    StatePopulations,
+)
 
 
 class TestMeasurementResult:
@@ -25,8 +36,26 @@ class TestMeasurementResult:
             name="name", data=y
         )
 
+    def test_not_equal(self):
+        x = pd.DataFrame([1, 2, 3])
+        y = pd.DataFrame([1, 2, 3])
+        z = pd.DataFrame([3, 2, 1])
+
+        assert MeasurementResult(name="name", data=x) != MeasurementResult(
+            name="name", data=z
+        )
+        assert MeasurementResult(name="name", data=x) != MeasurementResult(
+            name="NAME", data=y
+        )
+
     def test_repr(self):
         res = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3, 4]))
+
+        assert (
+            repr(res)
+            == "MeasurementResult(name='name', data=DataFrame [4 rows x 1 columns], "
+            "processors=())"
+        )
 
 
 class TestProcessingGraph:
@@ -63,6 +92,42 @@ class TestProcessingGraph:
         assert DATA_PROCESSORS.get_input_type(processor) == in_type
         assert DATA_PROCESSORS.get_result_type(processor) == out_type
 
+    @pytest.mark.parametrize(
+        "processor,replace,expect",
+        [
+            (FormatLegacyIQ, False, (np.ndarray, IQResult)),
+            (GMMClassification, False, (IQResult, ClassifiedResult)),
+            (ReadoutBitstring, False, (Collection[ClassifiedResult], ClassifiedResult)),
+            (ReadoutBitstring, True, (ClassifiedResult, ClassifiedResult)),
+        ],
+    )
+    def test_get_types_from_signature(self, processor, replace, expect):
+        assert (
+            DataProcessorGraph.get_types_from_signature(
+                processor, replace_generic=replace
+            )
+            == expect
+        )
+
+    def test_get_dependencies(self):
+        deps = DATA_PROCESSORS.get_dependencies(StatePopulations, input_type=np.ndarray)
+        assert deps == [
+            FormatLegacyIQ,
+            IQRotation,
+            GMMClassification,
+            ReadoutBitstring,
+            ReadoutHistogram,
+            StatePopulations,
+        ]
+
+        deps = DATA_PROCESSORS.get_dependencies(GMMClassification, input_type=IQResult)
+        assert deps == [GMMClassification]
+
+        with pytest.raises(ValueError):
+            deps = DATA_PROCESSORS.get_dependencies(
+                GMMClassification, input_type=ClassifiedResult
+            )
+
 
 class TestPipeline:
     @pytest.fixture
@@ -70,6 +135,9 @@ class TestPipeline:
         processors = [
             FormatLegacyIQ(),
             IQRotation(measurement_key="R0", angle=np.pi / 2),
+            GMMClassification(
+                measurement_key=None, means=np.zeros((2, 2)), covariances=np.zeros(2)
+            ),
             GMMClassification(
                 measurement_key="R0",
                 means=np.array([[0, 1], [1, 0]]),
@@ -85,16 +153,14 @@ class TestPipeline:
         ]
         return processors
 
-    @pytest.mark.skip
     def test_get_processor(self, single_qubit):
         processors = single_qubit
         pipeline = ReadoutPipeline(processors=processors)
 
-        assert pipeline.get_processor("GMMClassification", "R0") == processors[2]
-        assert pipeline.get_processor("StatePopulations", "R1") == processors[5]
-        assert pipeline.get_processor("IQRotation", "R1") == None
+        assert pipeline.get_processor("GMMClassification", "R0") == processors[3]
+        assert pipeline.get_processor("StatePopulations", "R1") == processors[6]
+        assert pipeline.get_processor("IQRotation", "R1") is None
 
-    @pytest.mark.skip
     def test_get_processor_cache(self, single_qubit):
         processors = single_qubit
         pipeline = ReadoutPipeline(processors=processors)
@@ -109,7 +175,24 @@ class TestPipeline:
         assert cinfo.hits == 2
         assert cinfo.misses == 1
 
-    @pytest.mark.skip
+    def test_add_processor(self, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        bitstring_proc = ReadoutBitstring()
+
+        assert pipeline.get_processor("ReadoutBitstring", "R0") is None
+        pipeline.add_processor(bitstring_proc)
+        assert pipeline.get_processor("ReadoutBitstring", "R0") == bitstring_proc
+
+    def test_remove_processor(self, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        p = pipeline.remove_processor(StatePopulations)
+        assert p not in pipeline.processors
+
+        with pytest.raises(KeyError):
+            pipeline.remove_processor(ReadoutHistogram, "R3")
+
     def test_result_types(self, single_qubit):
         pipeline = ReadoutPipeline(processors=single_qubit)
 
@@ -120,72 +203,34 @@ class TestPipeline:
             PopulationResult,
         }
 
-    def test_dependencies(self):
-        ...
-        # deps = resolve_class_dependencies('StatePopulations')
+    def test_dependency_resolution(self, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+        pipeline.add_processor(ReadoutBitstring())
 
-    @pytest.mark.skip
-    def test_dependency_resolution(self):
-        from collections import defaultdict
-
-        n1 = FormatLegacyIQ()
-        n2_R1 = IQRotation(angle=np.pi / 2)
-        n3_R0 = GMMClassification(
-            means=np.array([[0, 1], [1, 0]], dtype=float),
-            covariances=np.array([0.2, 0.2]),
-        )
-        n3_R1 = GMMClassification(
-            means=np.array([[-1, 0], [-1, -2]], dtype=float),
-            covariances=np.array([0.2, 0.2]),
-        )
-        n4 = ReadoutBitstring()
-
-        n5 = ReadoutHistogram()
-        n6 = StatePopulations()
-
-        processes = [
-            (None, n1),
-            ("R1", n2_R1),
-            ("R0", n3_R0),
-            ("R1", n3_R1),
-            (None, n4),
-            (None, n5),
-            (None, n6),
-        ]
-
-        for cls, dependencies in DATA_PROCESSOR_LOOKUP.items():
-            print(cls)
-            print(dependencies)
-
-        print(resolve_class_dependencies("StatePopulations"))
-
-        pipeline = ReadoutPipeline(
-            processors={(k, type(p).__name__): p for k, p in processes}
+        resolved = pipeline.resolve_dependencies(
+            {"R0": GMMClassification, "R1": ReadoutHistogram, "R0,R1": StatePopulations}
         )
 
-        key = "R0,R1"
-        processor = "ReadoutBitstring"
+        order = [(k, type(p).__name__) for k, p, pred in resolved]
 
-        data = np.zeros((2, 10, 15, 1))
-
-        result = pipeline.process_key(key, data, processor)
-        new_result = pipeline.process_key(key, result, processor)
-
-        assert result is new_result
-
-        print(result)
-        print()
-
-        # for cls, (indata, outdata) in DATA_PROCESSOR_LOOKUP.items():
-        #     print(f'{cls}:', indata, outdata)
-        #     LOOKUP[outdata].append((indata, cls))
-
-        # print(LOOKUP)
-
-        # key = 'R1'
-        # result_type = 'PopulationResult'
-
-        # process_chain = []
-
-        # while result_type in LOOKUP:
-        #     LOOKUP[result_type]
+        assert order.index(("R0", "FormatLegacyIQ")) < order.index(
+            ("R0", "GMMClassification")
+        )
+        assert order.index(("R1", "FormatLegacyIQ")) < order.index(
+            ("R1", "GMMClassification")
+        )
+        assert order.index(("R1", "GMMClassification")) < order.index(
+            ("R1", "ReadoutHistogram")
+        )
+        assert order.index(("R0", "GMMClassification")) < order.index(
+            ("R0,R1", "ReadoutBitstring")
+        )
+        assert order.index(("R1", "GMMClassification")) < order.index(
+            ("R0,R1", "ReadoutBitstring")
+        )
+        assert order.index(("R0,R1", "ReadoutBitstring")) < order.index(
+            ("R0,R1", "ReadoutHistogram")
+        )
+        assert order.index(("R0,R1", "ReadoutHistogram")) < order.index(
+            ("R0,R1", "StatePopulations")
+        )
