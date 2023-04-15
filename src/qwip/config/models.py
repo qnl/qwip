@@ -130,6 +130,7 @@ folder_table = DoltTable(
             name="fk_folders_folders",
             onupdate="CASCADE",
             ondelete="CASCADE",
+            use_alter=True,
         ),
     ),
     UniqueConstraint("name", "folder_id", name="uq_folders_name_folder_id"),
@@ -212,6 +213,7 @@ waveform_table = DoltTable(
             name="fk_waveforms_waveforms",
             onupdate="CASCADE",
             ondelete="CASCADE",
+            use_alter=True,
         ),
     ),
 )

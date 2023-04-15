@@ -36,17 +36,17 @@ def pytest_addoption(parser):
     parser.addoption("--seed", action="store", default=0, help="Seed used for all rng.")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def db_url(request):
     return request.config.getoption("--db_url")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def test_db(request):
     return request.config.getoption("--test_db")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def seed(request):
     return int(request.config.getoption("--seed"))
 
@@ -67,8 +67,8 @@ def data_file(request):
     return datadir / f"{filename}.txt"
 
 
-@pytest.fixture(scope="module")
-def doltdb(db_url, test_db):
+@pytest.fixture(scope="session")
+def database(db_url, test_db):
     doltdb = DoltDB.from_url(f"{db_url}/{test_db}")
     doltdb.connect()
 
@@ -76,35 +76,47 @@ def doltdb(db_url, test_db):
 
 
 @pytest.fixture(scope="module")
-def models(doltdb):
-    with doltdb.session.begin():
-        commit_hash = doltdb.session.scalars(sa.func.HASHOF("main")).one()
+def models(database):
+    # with doltdb.session.begin():
+    #     commit_hash = doltdb.session.scalars(sa.func.HASHOF("main")).one()
 
     tables = [t for n, t in QWIP_DB_METADATA.tables.items() if not n.startswith("dolt")]
 
-    QWIP_DB_METADATA.create_all(doltdb.engine, tables=tables)
+    QWIP_DB_METADATA.create_all(database.engine, tables=tables)
 
-    doltdb.commit("Created models.", add="all")
+    # doltdb.commit("Created models.", add="all")
 
     yield QWIP_DB_METADATA
 
-    with doltdb.session.begin():
-        dolt_reset(doltdb.session, commit_hash, hard=True)
+    QWIP_DB_METADATA.drop_all(database.engine, tables=tables)
 
-    QWIP_DB_METADATA.drop_all(doltdb.engine, tables=tables)
+
+@pytest.fixture(scope="function")
+def session(database):
+    with database.session.begin_nested():
+        yield database.session
+        database.session.rollback()
+
+
+@pytest.fixture(scope="function")
+def dolt_session(database):
+    # with database.engine.begin() as connection:
+    #     commit_hash = connection.execute(sa.func.HASHOF("main")).scalars().one()
+
+    with database.session.begin():
+        commit_hash = database.get_commit().hash
+        yield database.session
+        database.reset(commit_hash, hard=True)
+
+    # with database.engine.begin() as connection:
+    #     database.reset(commit_hash, hard=True)
 
 
 @pytest.fixture
-def session(doltdb):
-    with doltdb.session.begin():
-        yield doltdb.session
+def session_with_models(session, models):
+    yield session
 
-
-@pytest.fixture
-def reset_models(session, models):
-    yield models
-
-    dolt_reset(session, "main", hard=True)
+    # dolt_reset(session, "main", hard=True)
 
 
 ## ==================== Processing ==================== ##
