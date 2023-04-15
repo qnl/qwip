@@ -10,6 +10,7 @@ import pendulum
 import sqlalchemy as sa
 from attrs import field
 from loguru import logger
+from sqlalchemy import event
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.orm import Session
 from typing_extensions import Self
@@ -816,9 +817,83 @@ class SequenceElementFolder:
     def __contains__(self, key: str) -> bool:
         return key in self.keys()
 
+def sqlite_connect(dbapi_connection, connection_record):
+    # disable pysqlite's emitting of the BEGIN statement entirely.
+    # also stops it from emitting COMMIT before any DDL.
+    dbapi_connection.isolation_level = None
+
+def sqlite_begin(connection):
+    # emit our own BEGIN
+    connection.exec_driver_sql("BEGIN")
+@qdefine
+class Database:
+    """An interface to a database"""
+
+    online: bool = False
+    database: str | None = None
+    username: str | None
+    password: str | None = field(repr=lambda pw: "*****")
+    host: str | None
+    port: int | None = field()
+
+    @port.default
+    def _default_port(self) -> int | None:
+        return 3306 if self.online else None
+    
+
+    engine: sa.engine.Engine | None = field(init=False, default=None)
+    session: sa.orm.Session | None = field(init=False, default=None)
+
+    def connect(self, test: bool = True, timeout: int = 2):
+        url = URL.create(
+            drivername=self.driver,
+            username=self.username,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            database=self.database,
+        )
+        connect_args = dict(connect_timeout=timeout) if self.online else {}
+        engine = sa.create_engine(url, connect_args=connect_args)
+
+        if not self.online:
+            event.listens_for(engine, "connect")(sqlite_connect)
+            event.listens_for(engine, "begin")(sqlite_begin)
+
+        self.engine = engine
+        self.session = Session(engine, autobegin=False, expire_on_commit=False)
+
+        if test:
+            with self.engine.begin():
+                ...
+
+        return engine
+    
+    @property
+    def driver(self) -> str:
+        return "mysql+mysqldb" if self.online else "sqlite+pysqlite"
+
+    def disconnect(self):
+        self.session.close()
+        self.engine.dispose()
+        self.engine = self.session = None
+
+    @classmethod
+    def from_url(cls, db_url: str) -> Self:
+        url = make_url(db_url)
+
+        return cls(
+            database=url.database,
+            username=url.username,
+            password=url.password,
+            host=url.host,
+            port=url.port,
+            online=url.get_backend_name() != "sqlite"
+        )
+
 
 @qdefine
-class DoltDB:
+class DoltDB(Database):
     """An interface to the configuration database.
 
     Attributes:
@@ -830,39 +905,6 @@ class DoltDB:
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
-
-    database: str | None = None
-    username: str | None
-    password: str | None = field(repr=lambda pw: "*****")
-    host: str | None
-    port: int = 3306
-
-    engine: sa.engine.Engine | None = field(init=False, default=None)
-    session: sa.orm.Session | None = field(init=False, default=None)
-
-    def connect(self, test: bool = True, timeout: int = 2):
-        url = URL.create(
-            drivername="mysql+mysqldb",
-            username=self.username,
-            password=self.password,
-            host=self.host,
-            port=self.port,
-            database=self.database,
-        )
-        engine = sa.create_engine(url, connect_args=dict(connect_timeout=timeout))
-        self.engine = engine
-        self.session = Session(engine, autobegin=False, expire_on_commit=False)
-
-        if test:
-            with self.engine.begin():
-                ...
-
-        return engine
-
-    def disconnect(self):
-        self.session.close()
-        self.engine.dispose()
-        self.engine = self.session = None
 
     @session_context
     def tables(self) -> set[str]:
@@ -979,18 +1021,6 @@ class DoltDB:
 
         return [Status.from_orm(s) for s in results]
 
-    @classmethod
-    def from_url(cls, db_url: str) -> Self:
-        url = make_url(db_url)
-
-        return cls(
-            database=url.database,
-            username=url.username,
-            password=url.password,
-            host=url.host,
-            port=url.port,
-        )
-
     @property
     def author(self) -> str:
         groups = USERNAME_REGEX.match(self.username).groupdict()
@@ -1002,7 +1032,7 @@ class DoltDB:
 
 
 @qdefine
-class ConfigDB(DoltDB):
+class OfflineConfigDB(Database):
     """An interface to the configuration database.
 
     Attributes:
@@ -1197,6 +1227,11 @@ class ConfigDB(DoltDB):
         se.rename_variables(replace)
 
         return se
+
+
+@qdefine
+class ConfigDB(OfflineConfigDB, DoltDB):
+    ...
 
 
 __all__ = [

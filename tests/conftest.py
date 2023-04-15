@@ -3,14 +3,14 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-import sqlalchemy as sa
+from sqlalchemy.engine import make_url
 
 try:
     from qtrl.settings import Settings
 
     Settings.setup = Settings.OFFLINE  # ruff: noqa: E402
 
-    from qwip.config.database import ConfigDB, DoltDB
+    from qwip.config.database import ConfigDB, DoltDB, Database, OfflineConfigDB
     from qwip.config.dolt import dolt_reset
     from qwip.config.metadata import QWIP_DB_METADATA
 except ModuleNotFoundError:
@@ -69,7 +69,14 @@ def data_file(request):
 
 @pytest.fixture(scope="session")
 def database(db_url, test_db):
-    doltdb = DoltDB.from_url(f"{db_url}/{test_db}")
+    url = make_url(f"{db_url}/{test_db}")
+
+    if url.get_backend_name() == "sqlite":
+        db_cls = Database
+    else:
+        db_cls = DoltDB
+
+    doltdb = db_cls.from_url(url)
     doltdb.connect()
 
     yield doltdb
