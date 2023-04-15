@@ -77,14 +77,8 @@ def database(db_url, test_db):
 
 @pytest.fixture(scope="module")
 def models(database):
-    # with doltdb.session.begin():
-    #     commit_hash = doltdb.session.scalars(sa.func.HASHOF("main")).one()
-
     tables = [t for n, t in QWIP_DB_METADATA.tables.items() if not n.startswith("dolt")]
-
     QWIP_DB_METADATA.create_all(database.engine, tables=tables)
-
-    # doltdb.commit("Created models.", add="all")
 
     yield QWIP_DB_METADATA
 
@@ -100,23 +94,15 @@ def session(database):
 
 @pytest.fixture(scope="function")
 def dolt_session(database):
-    # with database.engine.begin() as connection:
-    #     commit_hash = connection.execute(sa.func.HASHOF("main")).scalars().one()
-
     with database.session.begin():
         commit_hash = database.get_commit().hash
         yield database.session
         database.reset(commit_hash, hard=True)
 
-    # with database.engine.begin() as connection:
-    #     database.reset(commit_hash, hard=True)
-
 
 @pytest.fixture
 def session_with_models(session, models):
     yield session
-
-    # dolt_reset(session, "main", hard=True)
 
 
 ## ==================== Processing ==================== ##
