@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from attrs import field
 from loguru import logger
 from sqlalchemy import event
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.orm import Session
 from typing_extensions import Self
 
@@ -817,61 +817,87 @@ class SequenceElementFolder:
     def __contains__(self, key: str) -> bool:
         return key in self.keys()
 
+
 def sqlite_connect(dbapi_connection, connection_record):
     # disable pysqlite's emitting of the BEGIN statement entirely.
     # also stops it from emitting COMMIT before any DDL.
     dbapi_connection.isolation_level = None
 
+
 def sqlite_begin(connection):
     # emit our own BEGIN
     connection.exec_driver_sql("BEGIN")
+
+
 @qdefine
 class Database:
-    """An interface to a database"""
+    """An interface to a database backend.
 
-    online: bool = False
-    database: str | None = None
-    username: str | None
-    password: str | None = field(repr=lambda pw: "*****")
-    host: str | None
-    port: int | None = field()
+    Attributes:
+        online:
+        database: The name of the dolt database.
+        username: The database server username.
+        password: The database server password.
+        host: The IP address or url for the database server.
+        port: The port on which the database server is listening.
+        engine: The SQLAlchemy engine that maintains the database connection.
+        session: The database session associated with the engine.
+    """
 
-    @port.default
-    def _default_port(self) -> int | None:
-        return 3306 if self.online else None
-    
-
+    url: URL = field(
+        default=make_url("sqlite://"),
+        converter=lambda s: make_url(s) if isinstance(s, str) else s,
+    )
     engine: sa.engine.Engine | None = field(init=False, default=None)
     session: sa.orm.Session | None = field(init=False, default=None)
 
-    def connect(self, test: bool = True, timeout: int = 2):
-        url = URL.create(
-            drivername=self.driver,
-            username=self.username,
-            password=self.password,
-            host=self.host,
-            port=self.port,
-            database=self.database,
-        )
-        connect_args = dict(connect_timeout=timeout) if self.online else {}
+    def _get_engine(self, url, **kwargs) -> Engine:
+        """Get engine with backend specific parameters.
+
+        Args:
+            url: The database URL.
+
+        Return:
+            A SQLAlchemy engine.
+        """
+
+        match url.get_backend_name():
+            case "mysql":
+                connect_args = dict(connect_timeout=kwargs.get("timeout"))
+            case "sqlite":
+                connect_args = dict()
+            case backend:
+                raise ValueError(
+                    f"Backend {backend} is not supported. Must be mysql or sqlite."
+                )
+
         engine = sa.create_engine(url, connect_args=connect_args)
 
-        if not self.online:
-            event.listens_for(engine, "connect")(sqlite_connect)
-            event.listens_for(engine, "begin")(sqlite_begin)
+        match url.get_backend_name():
+            case "sqlite":
+                event.listens_for(engine, "connect")(sqlite_connect)
+                event.listens_for(engine, "begin")(sqlite_begin)
 
-        self.engine = engine
-        self.session = Session(engine, autobegin=False, expire_on_commit=False)
+        return engine
+
+    def connect(self, test: bool = True, timeout: int = 2):
+        """Connect to the database.
+
+        Args:
+            test: If `True`, tests the database connection.
+            timeout: The timeout for the database connection.
+
+        Return:
+            The SQLAlchemy engine.
+        """
+        self.engine = self._get_engine(self.url, timeout=timeout)
+        self.session = Session(self.engine, autobegin=False, expire_on_commit=False)
 
         if test:
             with self.engine.begin():
                 ...
 
-        return engine
-    
-    @property
-    def driver(self) -> str:
-        return "mysql+mysqldb" if self.online else "sqlite+pysqlite"
+        return self.engine
 
     def disconnect(self):
         self.session.close()
@@ -879,17 +905,26 @@ class Database:
         self.engine = self.session = None
 
     @classmethod
-    def from_url(cls, db_url: str) -> Self:
-        url = make_url(db_url)
-
-        return cls(
-            database=url.database,
-            username=url.username,
-            password=url.password,
-            host=url.host,
-            port=url.port,
-            online=url.get_backend_name() != "sqlite"
+    def from_parameters(
+        cls,
+        driver: str = "sqlite+pysqlite",
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        database: str | None = None,
+        **kwargs,
+    ) -> Self:
+        url = URL(
+            drivername=driver,
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=database,
         )
+
+        return cls(url, **kwargs)
 
 
 @qdefine
@@ -1050,19 +1085,6 @@ class OfflineConfigDB(Database):
 
     config: ConfigFolder | None = field(init=False, default=None)
     pulses: SequenceElementFolder | None = field(init=False, default=None)
-
-    @classmethod
-    def from_url(cls, db_url: str, schema: type = ConfigFolder) -> Self:
-        url = make_url(db_url)
-
-        return cls(
-            database=url.database,
-            username=url.username,
-            password=url.password,
-            host=url.host,
-            port=url.port,
-            schema=schema,
-        )
 
     def init_config(self):
         self.config = self.schema.from_name(self.session, "/")

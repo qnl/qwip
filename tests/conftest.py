@@ -10,7 +10,7 @@ try:
 
     Settings.setup = Settings.OFFLINE  # ruff: noqa: E402
 
-    from qwip.config.database import ConfigDB, DoltDB, Database, OfflineConfigDB
+    from qwip.config.database import ConfigDB, Database, DoltDB, OfflineConfigDB
     from qwip.config.dolt import dolt_reset
     from qwip.config.metadata import QWIP_DB_METADATA
 except ModuleNotFoundError:
@@ -76,10 +76,10 @@ def database(db_url, test_db):
     else:
         db_cls = DoltDB
 
-    doltdb = db_cls.from_url(url)
-    doltdb.connect()
+    db = db_cls(url=url)
+    db.connect()
 
-    yield doltdb
+    yield db
 
 
 @pytest.fixture(scope="module")
