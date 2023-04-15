@@ -17,6 +17,7 @@ from qwip.config.dolt import (
 )
 
 
+@pytest.mark.usefixtures("skip_dolt")
 class TestDolt:
     @pytest.fixture
     def new_table(self, dolt_session):

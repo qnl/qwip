@@ -49,7 +49,7 @@ def find_readout_marker(locations) -> Location | None:
     return readout_location
 
 
-@qdefine
+@qdefine(kw_only=False)
 class _ReadoutInfo:
     """Readout info.
 

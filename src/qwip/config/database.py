@@ -922,9 +922,10 @@ class Database:
             host=host,
             port=port,
             database=database,
+            query=None,
         )
 
-        return cls(url, **kwargs)
+        return cls(url=url, **kwargs)
 
 
 @qdefine
@@ -1065,6 +1066,29 @@ class DoltDB(Database):
 
         return f"{name} <{name}{domain}>"
 
+    @classmethod
+    def from_parameters(
+        cls,
+        driver: str = "mysql+mysqldb",
+        username: str | None = None,
+        password: str | None = None,
+        host: str = "localhost",
+        port: int = 3306,
+        database: str | None = None,
+        **kwargs,
+    ) -> Self:
+        url = URL(
+            drivername=driver,
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=database,
+            query=None,
+        )
+
+        return cls(url=url, **kwargs)
+
 
 @qdefine
 class OfflineConfigDB(Database):
@@ -1080,7 +1104,6 @@ class OfflineConfigDB(Database):
         session: The database session associated with the engine.
     """
 
-    database: str
     schema: type[ConfigFolder] = ConfigFolder
 
     config: ConfigFolder | None = field(init=False, default=None)
@@ -1253,7 +1276,17 @@ class OfflineConfigDB(Database):
 
 @qdefine
 class ConfigDB(OfflineConfigDB, DoltDB):
-    ...
+    url: URL = field(
+        converter=lambda s: make_url(s) if isinstance(s, str) else s,
+    )
+
+    @url.validator
+    def _validate_url(self, attribute, value):
+        if value.get_backend_name() != "mysql":
+            raise ValueError("Dolt database must use mysql driver")
+
+        if value.database is None:
+            raise ValueError("Database name must be provided for ConfigDB.")
 
 
 __all__ = [

@@ -9,13 +9,12 @@ try:
     from qtrl.settings import Settings
 
     Settings.setup = Settings.OFFLINE  # ruff: noqa: E402
-
-    from qwip.config.database import ConfigDB, Database, DoltDB, OfflineConfigDB
-    from qwip.config.dolt import dolt_reset
-    from qwip.config.metadata import QWIP_DB_METADATA
 except ModuleNotFoundError:
     ...
 
+from qwip.config.database import ConfigDB, Database, DoltDB, OfflineConfigDB
+from qwip.config.dolt import dolt_reset
+from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.processing.data_processor import DATA_PROCESSORS, ReadoutPipeline
 from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.qpu.qpu import QPU
@@ -24,26 +23,15 @@ from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequen
 
 
 def pytest_addoption(parser):
-    parser.addoption("--db_url", action="store", default=None, help="The database url.")
-
     parser.addoption(
-        "--test_db",
-        action="store",
-        default="test_db",
-        help="The name of the test database.",
+        "--db_url", action="store", default="sqlite://", help="The database url."
     )
-
     parser.addoption("--seed", action="store", default=0, help="Seed used for all rng.")
 
 
 @pytest.fixture(scope="session")
 def db_url(request):
-    return request.config.getoption("--db_url")
-
-
-@pytest.fixture(scope="session")
-def test_db(request):
-    return request.config.getoption("--test_db")
+    return make_url(request.config.getoption("--db_url"))
 
 
 @pytest.fixture(scope="session")
@@ -68,16 +56,20 @@ def data_file(request):
 
 
 @pytest.fixture(scope="session")
-def database(db_url, test_db):
-    url = make_url(f"{db_url}/{test_db}")
+def skip_dolt(db_url):
+    if db_url.get_backend_name() != "mysql":
+        pytest.skip("Skipping dolt tests with offline database.")
 
-    if url.get_backend_name() == "sqlite":
+
+@pytest.fixture(scope="session")
+def database(db_url):
+    if db_url.get_backend_name() == "sqlite":
         db_cls = Database
     else:
         db_cls = DoltDB
 
-    db = db_cls(url=url)
-    db.connect()
+    db = db_cls(url=db_url)
+    db.connect(test=True)
 
     yield db
 
@@ -193,7 +185,7 @@ def subsystems():
 @pytest.fixture
 def qpu(sequencer, pipeline, subsystems):
     qpu = QPU(
-        db=ConfigDB(
+        db=ConfigDB.from_parameters(
             username="test", password="test", host="localhost", database="test"
         ),
         subsystems=subsystems,

@@ -9,6 +9,7 @@ from qwip.config.models import Folder, Parameter
 from qwip.settings.settings import Settings, qdefine
 
 
+@pytest.mark.usefixtures("skip_dolt")
 class TestDoltDB:
     def test_current_branch(self, database):
         branch = database.current_branch()
