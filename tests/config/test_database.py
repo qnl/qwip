@@ -19,7 +19,11 @@ class TestDoltDB:
         branch = database.get_branch("new")
         assert branch.name == "new"
 
-        database.branch("new", action="delete", force=True)
+        try:
+            database.branch("new", action="delete")
+        except sa.exc.OperationalError:
+            database.branch("new", action="delete", force=True)
+
         assert database.get_branch("new") is None
 
     def test_checkout_branch(self, database):
@@ -32,7 +36,11 @@ class TestDoltDB:
         current = database.checkout("main")
 
         assert main == current
-        database.branch("new", action="delete", force=True)
+
+        try:
+            database.branch("new", action="delete")
+        except sa.exc.OperationalError:
+            database.branch("new", action="delete", force=True)
 
 
 # class TestConfigFolder:
