@@ -435,6 +435,9 @@ class ConfigFolder(FlatMapping):
     def get_parameter(self, name):
         db_param = self._get_parameter(name)
 
+        if db_param is None:
+            return db_param
+
         return ReadOnlyParameter.from_orm(model=db_param)
 
     @session_context
