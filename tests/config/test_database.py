@@ -1,3 +1,5 @@
+import warnings
+
 import attrs
 import pendulum
 import pytest
@@ -23,6 +25,7 @@ class TestDoltDB:
         try:
             database.branch("new", action="delete")
         except sa.exc.OperationalError:
+            warnings.warn("Forcing branch deletion")
             database.branch("new", action="delete", force=True)
 
         assert database.get_branch("new") is None
@@ -41,6 +44,7 @@ class TestDoltDB:
         try:
             database.branch("new", action="delete")
         except sa.exc.OperationalError:
+            warnings.warn("Forcing branch deletion")
             database.branch("new", action="delete", force=True)
 
 

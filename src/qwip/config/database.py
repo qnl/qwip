@@ -922,7 +922,7 @@ class Database:
             host=host,
             port=port,
             database=database,
-            query=None,
+            query=dict(),
         )
 
         return cls(url=url, **kwargs)
@@ -1077,17 +1077,15 @@ class DoltDB(Database):
         database: str | None = None,
         **kwargs,
     ) -> Self:
-        url = URL(
-            drivername=driver,
+        return super().from_parameters(
+            driver=driver,
             username=username,
             password=password,
             host=host,
             port=port,
             database=database,
-            query=None,
+            **kwargs,
         )
-
-        return cls(url=url, **kwargs)
 
 
 @qdefine
