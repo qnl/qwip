@@ -900,6 +900,11 @@ class Database:
         return self.engine
 
     def disconnect(self):
+        """Disconnects from the database.
+        
+        This method closes the SQLAlchemy ORM session associated with the database and
+        disposes of the associated engine.
+        """
         self.session.close()
         self.engine.dispose()
         self.engine = self.session = None
@@ -927,6 +932,14 @@ class Database:
 
         return cls(url=url, **kwargs)
 
+    @session_context
+    def tables(self) -> set[str]:
+        """Returns the tables present in the database."""
+        meta = sa.MetaData()
+        meta.reflect(bind=self.engine)
+
+        return set(meta.tables)
+
 
 @qdefine
 class DoltDB(Database):
@@ -939,10 +952,6 @@ class DoltDB(Database):
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
-
-    @session_context
-    def tables(self) -> set[str]:
-        return set(self.session.scalars(sa.text("SHOW TABLES")))
 
     @session_context
     def current_branch(self) -> Branch:
@@ -1307,8 +1316,10 @@ __all__ = [
     "Branch",
     "Commit",
     "ReadOnlyParameter",
+    "Database",
     "DoltDB",
     "ConfigDB",
+    "OfflineConfigDB",
     "ConfigFolder",
     "ValidatedConfigFolder",
     "configschema",

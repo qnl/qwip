@@ -19,6 +19,18 @@ from qwip.settings.settings import Settings, qdefine
 from qwip.testing import ignore_order
 
 
+class TestDatabase:
+    def test_tables(self, database, models):
+        assert database.tables() == {
+            "folders",
+            "parameters",
+            "waveforms",
+            "waveform_locations",
+            "constraints",
+            "sequence_elements",
+        }
+
+
 @pytest.mark.usefixtures("skip_dolt")
 class TestDoltDB:
     def test_current_branch(self, database):
@@ -54,16 +66,6 @@ class TestDoltDB:
         except sa.exc.OperationalError:
             warnings.warn("Forcing branch deletion")
             database.branch("new", action="delete", force=True)
-
-    def test_tables(self, database, models):
-        assert database.tables() == {
-            "folders",
-            "parameters",
-            "waveforms",
-            "waveform_locations",
-            "constraints",
-            "sequence_elements",
-        }
 
     def test_status(self, database, models):
         assert database.status() == ignore_order(
