@@ -821,6 +821,8 @@ class SequenceElementFolder:
         return key in self.keys()
 
 
+# Savepoint support for sqlite
+# See https://docs.sqlalchemy.org/en/latest/dialects/sqlite.html#pysqlite-serializable
 def sqlite_connect(dbapi_connection, connection_record):
     # disable pysqlite's emitting of the BEGIN statement entirely.
     # also stops it from emitting COMMIT before any DDL.
@@ -837,12 +839,7 @@ class Database:
     """An interface to a database backend.
 
     Attributes:
-        online:
-        database: The name of the dolt database.
-        username: The database server username.
-        password: The database server password.
-        host: The IP address or url for the database server.
-        port: The port on which the database server is listening.
+        url: The database connection url.
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
@@ -933,14 +930,12 @@ class Database:
 
 @qdefine
 class DoltDB(Database):
-    """An interface to the configuration database.
+    """An interface to a dolt database backend.
+
+    See https://docs.dolthub.com/introduction/what-is-dolt
 
     Attributes:
-        database: The name of the dolt database.
-        username: The database server username.
-        password: The database server password.
-        host: The IP address or url for the database server.
-        port: The port on which the database server is listening.
+        url: The database connection url.
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
@@ -1093,14 +1088,15 @@ class DoltDB(Database):
 
 @qdefine
 class OfflineConfigDB(Database):
-    """An interface to the configuration database.
+    """An interface to a local configuration database backend.
+
+    The OfflineConfigDB can be used with a SQLite databse backend, with the caveat that
+    no database version control features are available. This is primarily used for
+    testing and development purposes, but can also be used as a backup in the event
+    that the dolt database server is down.
 
     Attributes:
-        database: The name of the dolt database.
-        username: The database server username.
-        password: The database server password.
-        host: The IP address or url for the database server.
-        port: The port on which the database server is listening.
+        url: The database connection url.
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
@@ -1277,6 +1273,19 @@ class OfflineConfigDB(Database):
 
 @qdefine
 class ConfigDB(OfflineConfigDB, DoltDB):
+    """An interface to a configuration database backend.
+
+    The OfflineConfigDB can be used with a SQLite databse backend, with the caveat that
+    no database version control features are available. This is primarily used for
+    testing and development purposes, but can also be used as a backup in the event
+    that the dolt database server is down.
+
+    Attributes:
+        url: The database connection url.
+        engine: The SQLAlchemy engine that maintains the database connection.
+        session: The database session associated with the engine.
+    """
+
     url: URL = field(
         converter=lambda s: make_url(s) if isinstance(s, str) else s,
     )
