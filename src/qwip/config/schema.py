@@ -143,7 +143,7 @@ __all__ = [
     "ConfigSchema",
     "CompilationSchema",
     "HardwareSchema",
-    "ProcessingSchema",
+    "ReadoutSchema",
     "PulsesSchema",
     "CompilationSchema",
 ]
