@@ -1056,6 +1056,10 @@ class DoltDB(Database):
         return [Status.from_orm(s) for s in results]
 
     @property
+    def username(self) -> str:
+        return self.url.username
+
+    @property
     def author(self) -> str:
         groups = USERNAME_REGEX.match(self.username).groupdict()
 

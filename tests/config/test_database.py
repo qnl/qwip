@@ -5,10 +5,18 @@ import pendulum
 import pytest
 import sqlalchemy as sa
 
-from qwip.config.database import Branch, Commit, ConfigDB, ConfigFolder, ReadOnlyParameter
+from qwip.config.database import (
+    Branch,
+    Commit,
+    ConfigDB,
+    ConfigFolder,
+    ReadOnlyParameter,
+    Status,
+)
 from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.config.models import Folder, Parameter
 from qwip.settings.settings import Settings, qdefine
+from qwip.testing import ignore_order
 
 
 @pytest.mark.usefixtures("skip_dolt")
@@ -47,14 +55,37 @@ class TestDoltDB:
             warnings.warn("Forcing branch deletion")
             database.branch("new", action="delete", force=True)
 
+    def test_tables(self, database, models):
+        assert database.tables() == {
+            "folders",
+            "parameters",
+            "waveforms",
+            "waveform_locations",
+            "constraints",
+            "sequence_elements",
+        }
+
+    def test_status(self, database, models):
+        assert database.status() == ignore_order(
+            [
+                Status(table=t, staged=False, status="new table")
+                for t in database.tables()
+            ]
+        )
+
+    def test_author(self, database):
+        assert database.author == "pytest <pytest@qnl>"
+
+
 @pytest.fixture(scope="function")
 def config(session, models):
     return ConfigFolder(session=session)
 
+
 class TestConfigFolder:
     def test_init(self, config):
         assert list(config.keys()) == []
-        assert config.folder_id  is None
+        assert config.folder_id is None
 
     def test_create(self, config):
         with pytest.raises(KeyError):
@@ -70,7 +101,7 @@ class TestConfigFolder:
     def test_get(self, config):
         config.create_parameter("Q0", "qubit")
         config.create_parameter("Q1", 1)
-        
+
         assert config["Q0"] == config.Q0 == "qubit"
 
         with pytest.raises(KeyError):
@@ -89,7 +120,7 @@ class TestConfigFolder:
 
         del config["is_transmon"]
         assert config.todict() == dict(qubits=dict(Q0=0, Q1=1))
-        
+
         delattr(config, "qubits")
         assert config.todict() == dict()
 
