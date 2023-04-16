@@ -901,7 +901,7 @@ class Database:
 
     def disconnect(self):
         """Disconnects from the database.
-        
+
         This method closes the SQLAlchemy ORM session associated with the database and
         disposes of the associated engine.
         """
@@ -931,6 +931,18 @@ class Database:
         )
 
         return cls(url=url, **kwargs)
+
+    @property
+    def username(self) -> str:
+        return self.url.username
+
+    @property
+    def backend(self) -> str:
+        return self.url.get_backend_name()
+
+    @property
+    def database(self) -> str:
+        return self.url.database()
 
     @session_context
     def tables(self) -> set[str]:
@@ -1065,10 +1077,6 @@ class DoltDB(Database):
         return [Status.from_orm(s) for s in results]
 
     @property
-    def username(self) -> str:
-        return self.url.username
-
-    @property
     def author(self) -> str:
         groups = USERNAME_REGEX.match(self.username).groupdict()
 
@@ -1125,16 +1133,18 @@ class OfflineConfigDB(Database):
         try:
             if (c := self.config["version"]) != (q := qwip.qsettings["version"]):
                 logger.warning(
-                    f"Config database was last used with QWiP version {c} which differs "
-                    f"from current QWiP version {q}! Call ConfigDB.update_db_version() to "
-                    f"update database to current version, or revert QWiP to {c}."
+                    f"Config database was last used with QWiP version {c} which "
+                    f"differs from current QWiP version {q}! Call "
+                    f"ConfigDB.update_db_version() to update database to current "
+                    f"version, or revert QWiP to {c}."
                 )
             if (c := self.config["qwip_commit"]) != (q := qwip.qsettings["src/commit"]):
                 logger.warning(
-                    f"Config database was last used with QWiP source commit {c[:SHORT_HASH_LEN]} "
-                    f"which differs from current source commit {q[:SHORT_HASH_LEN]}! Call "
-                    f"ConfigDB.update_db_version() to update database to current version or "
-                    f"revert source to {c[:SHORT_HASH_LEN]}"
+                    f"Config database was last used with QWiP source commit "
+                    f"{c[:SHORT_HASH_LEN]} which differs from current source commit "
+                    f"{q[:SHORT_HASH_LEN]}! Call ConfigDB.update_db_version() to "
+                    f" update database to current version or revert source to "
+                    f"{c[:SHORT_HASH_LEN]}."
                 )
         except KeyError:
             ...
@@ -1151,10 +1161,11 @@ class OfflineConfigDB(Database):
         )
 
         if reflected_tables != expected_tables:
+            version = qwip.qsettings.version
             raise ValueError(
-                f"Database {self.database} has tables {reflected_tables} that do not match "
-                f"the expected tables {expected_tables} for version {qwip.qsettings.version}. "
-                f"Use the 'database-setup.py' script to upgrade or downgrade the database."
+                f"Database {self.url} has tables {reflected_tables} that do not match "
+                f"the expected tables {expected_tables} for version {version}. Use the"
+                f"'database-setup.py' script to upgrade or downgrade the database."
             )
 
         self.init_config()
