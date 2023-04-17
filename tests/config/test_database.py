@@ -190,13 +190,15 @@ class TestConfigSchema:
                 ),
                 num_dac_channels=16,
             ),
-            readout=dict(default=dict(
-                classification={r: {} for r in resonator_names},
-                drives={r: f"{r}_basic" for r in resonator_names},
-                length=2048/1.8e9
-            )),
+            readout=dict(
+                default=dict(
+                    classification={r: {} for r in resonator_names},
+                    drives={r: f"{r}_basic" for r in resonator_names},
+                    length=2048 / 1.8e9,
+                )
+            ),
             subsystems={q: {} for q in qubit_names} | {r: {} for r in resonator_names},
-            targets=qubit_names + resonator_names
+            targets=qubit_names + resonator_names,
         )
 
         assert list(config.keys()) == [

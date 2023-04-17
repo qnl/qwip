@@ -10,11 +10,15 @@ from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 class TestQuantumBackend:
     @pytest.fixture
-    def backend(self, qpu, seed):
+    def backend(self, qpu_01, seed):
         backend = FakeBackend(rng=default_rng(seed))
-        backend.update_parameters(qpu)
+        backend.update_parameters(qpu_01)
 
         return backend
+
+    @pytest.fixture
+    def sequencer(self, qpu_01):
+        return qpu_01.sequencer
 
     @pytest.fixture
     def compiled(self, sequencer):
@@ -38,7 +42,8 @@ class TestQuantumBackend:
         assert backend.uploaded is cseq
         assert backend.data_func is zeros
 
-    def test_update_parameters(self, qpu, backend):
+    def test_update_parameters(self, qpu_01, backend):
+        qpu = qpu_01
         gmm0 = GMMClassification(
             measurement_key="R0",
             means=np.array([[5, 0], [-5, 0]], dtype=float),
@@ -50,7 +55,9 @@ class TestQuantumBackend:
         backend.update_parameters(qpu)
         assert backend.gmms["R0"] is gmm0
 
-    def test_acquire_zeros(self, qpu, backend, compiled):
+    def test_acquire_zeros(self, qpu_01, backend, compiled):
+        qpu = qpu_01
+
         def data_func(key, element, readout, repetitions):
             return np.zeros(repetitions)
 
@@ -65,7 +72,9 @@ class TestQuantumBackend:
         assert (results["R0"].data["0"] > 0.99).all()
         assert (results["R1"].data["0"] > 0.99).all()
 
-    def test_acquire_sin(self, qpu, backend, compiled):
+    def test_acquire_sin(self, qpu_01, backend, compiled):
+        qpu = qpu_01
+
         def data_func(key, element, readout, repetitions):
             if key == "R0":
                 populations = (np.sin(element / 20 * 2 * np.pi) + 1) / 2
