@@ -128,9 +128,6 @@ nav:
           - qwip.processing: api/qwip/processing/index.md
           - qwip.processing.data_processor: api/qwip/processing/data_processor.md
           - qwip.processing.processors: api/qwip/processing/processors.md
-      - qwip.protocols:
-          - qwip.protocols: api/qwip/protocols/index.md
-          - qwip.protocols.protocol: api/qwip/protocols/protocol.md
       - qwip.qpu:
           - qwip.qpu: api/qwip/qpu/index.md
           - qwip.qpu.backend: api/qwip/qpu/backend.md
@@ -153,7 +150,6 @@ nav:
           - qwip.settings.validation: api/qwip/settings/validation.md
       - qwip.visualization:
           - qwip.visualization: api/qwip/visualization/index.md
-          - qwip.visualization.dataframe: api/qwip/visualization/dataframe.md
           - qwip.visualization.readout: api/qwip/visualization/readout.md
           - qwip.visualization.utils: api/qwip/visualization/utils.md
   - Changelog: CHANGELOG.md
