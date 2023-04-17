@@ -1,1 +1,0 @@
-::: qwip.settings.schema
