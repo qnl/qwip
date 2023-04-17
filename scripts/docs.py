@@ -1,12 +1,14 @@
-from rich import print
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 import yaml
+from rich import print
+
 
 class YAMLDumper(yaml.Dumper):
-    def increase_indent(self, flow=False, indentless=False):
+    def increase_indent(self, flow: bool = False, indentless: bool = False):
         return super().increase_indent(flow, False)
+
 
 def build_api_pages(src_dir: Path, docs_dir: Path) -> dict:
     directory = defaultdict(dict)
@@ -46,6 +48,7 @@ def build_api_pages(src_dir: Path, docs_dir: Path) -> dict:
 
     return nav
 
+
 def update_nav(docs_dir: Path, nav: dict):
     with open(docs_dir / "mkdocs.yml", "r") as f:
         mkdocs = yaml.safe_load(f)
@@ -55,10 +58,13 @@ def update_nav(docs_dir: Path, nav: dict):
             break
 
     subsection["API Reference"] = nav
-    
+
     with open(docs_dir / "mkdocs.yml", "w") as f:
         print(f"Writing to mkdocs configuration to {docs_dir / 'mkdocs.yml'}")
-        yaml.dump(mkdocs, f, Dumper=YAMLDumper, sort_keys=False, default_flow_style=False)
+        yaml.dump(
+            mkdocs, f, Dumper=YAMLDumper, sort_keys=False, default_flow_style=False
+        )
+
 
 if __name__ == "__main__":
     src_dir = (Path(__file__).parent / "../src/").resolve()
