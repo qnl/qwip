@@ -10,13 +10,8 @@ from attr import field
 from loguru import logger
 
 from qwip.attrs import qdefine
+from qwip.attrs.schema import get_description, get_field_schema, get_json_type, schema
 from qwip.flatdict import FlatDict
-from qwip.attrs.schema import (
-    get_description,
-    get_field_schema,
-    get_json_type,
-    schema,
-)
 
 
 class TestGetDescription:
