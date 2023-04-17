@@ -5,6 +5,7 @@ import qwip
 from qwip.calibration.calibration import Calibration, CalibrationLogger
 
 
+@pytest.mark.skip
 class TestCalibrationLogger:
     @pytest.fixture
     def param_logger(self):

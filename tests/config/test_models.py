@@ -6,6 +6,8 @@ from qwip.config.models import (
     ConstraintModel,
     Folder,
     Parameter,
+    Folder,
+    Parameter,
     SequenceElementModel,
     WaveformLocationModel,
     WaveformModel,

@@ -12,9 +12,11 @@ from sklearn.mixture import GaussianMixture
 
 from qwip.calibration.calibration import Calibration, CalibrationLogger, Parameter
 from qwip.flatdict import FlatDict
-from qwip.processing.classification import GMMData
+
+# from qwip.processing.classification import GMMData
 from qwip.settings.settings import qdefine
-from qwip.visualization.readout import plot_decision_boundary, plot_readout_histogram
+
+# from qwip.visualization.readout import plot_decision_boundary, plot_readout_histogram
 
 
 @qdefine
