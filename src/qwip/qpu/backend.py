@@ -12,10 +12,10 @@ try:
 except ImportError:
     ...
 
+from qwip.attrs import qdefine
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence
-from qwip.settings.settings import qdefine
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU

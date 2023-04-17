@@ -16,7 +16,6 @@ from qwip.config.database import (
 from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.config.models import Folder, Parameter
 from qwip.config.schema import ConfigSchema
-from qwip.settings.settings import Settings, qdefine
 from qwip.testing import ignore_order
 
 

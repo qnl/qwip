@@ -10,11 +10,10 @@ from qtrl.am_seq_utils.am_sequences import add_basic_readout
 from qtrl.amiable_sequencer import AM_Sequence
 from sklearn.mixture import GaussianMixture
 
+# from qwip.processing.classification import GMMData
+from qwip.attrs import qdefine
 from qwip.calibration.calibration import Calibration, CalibrationLogger, Parameter
 from qwip.flatdict import FlatDict
-
-# from qwip.processing.classification import GMMData
-from qwip.settings.settings import qdefine
 
 # from qwip.visualization.readout import plot_decision_boundary, plot_readout_histogram
 

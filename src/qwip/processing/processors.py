@@ -7,12 +7,12 @@ import pandas as pd
 from attrs import field
 from sklearn.mixture import GaussianMixture
 
+from qwip.attrs import qdefine
 from qwip.processing.data_processor import (  # register_data_processor
     DATA_PROCESSORS,
     DataProcessor,
     MeasurementResult,
 )
-from qwip.settings.settings import qdefine
 
 
 @qdefine

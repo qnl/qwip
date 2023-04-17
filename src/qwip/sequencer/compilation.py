@@ -15,12 +15,12 @@ from numpy.typing import NDArray
 from scipy.fft import fft, fftfreq, fftshift
 from typing_extensions import Self
 
+from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import Channel, Marker, ReadoutMarker, Waveform
-from qwip.settings.settings import qdefine, qfrozen
 from qwip.visualization.utils import all_legend_handles_labels
 
 

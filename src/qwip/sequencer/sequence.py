@@ -5,8 +5,8 @@ import numpy as np
 from numpy.typing import NDArray
 from typing_extensions import Self
 
+from qwip.attrs import qdefine
 from qwip.sequencer.elements import SequenceElement
-from qwip.settings.settings import qdefine
 
 SEQUENCE_FUNCTIONS = {}
 

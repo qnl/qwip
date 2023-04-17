@@ -12,9 +12,8 @@ from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
+from qwip.attrs import qfrozen
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import qfrozen
-from qwip.settings.validation import resolve_types_with_validation
 
 
 def _type_error_text(op1, op2, operand: str) -> str:

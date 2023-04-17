@@ -7,8 +7,9 @@ from loguru import logger
 
 import qwip
 from qwip import qsettings
+from qwip.attrs import qdefine
 from qwip.defaults import QWiPDefault, dynamic_default
-from qwip.settings.settings import Settings, qdefine
+from qwip.settings import Settings
 
 
 @qdefine

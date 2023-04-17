@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from typing_extensions import Self
 
 import qwip
+from qwip.attrs import qdefine, qfrozen
 from qwip.config.dolt import (
     DoltBranch,
     DoltCommit,
@@ -39,7 +40,7 @@ from qwip.config.models import (
 from qwip.flatdict import FlatDict, FlatMapping
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.waveform import Waveform
-from qwip.settings.settings import Settings, qdefine, qfrozen
+from qwip.settings import Settings
 from qwip.typing import issubtype
 
 try:

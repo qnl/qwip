@@ -99,6 +99,7 @@ nav:
           - qwip: api/qwip/index.md
           - qwip.defaults: api/qwip/defaults.md
           - qwip.flatdict: api/qwip/flatdict.md
+          - qwip.settings: api/qwip/settings.md
           - qwip.testing: api/qwip/testing.md
           - qwip.typing: api/qwip/typing.md
           - qwip.utils: api/qwip/utils.md
@@ -106,6 +107,11 @@ nav:
           - qwip.analysis: api/qwip/analysis/index.md
           - qwip.analysis.fitting: api/qwip/analysis/fitting.md
           - qwip.analysis.frequency: api/qwip/analysis/frequency.md
+      - qwip.attrs:
+          - qwip.attrs: api/qwip/attrs/index.md
+          - qwip.attrs.schema: api/qwip/attrs/schema.md
+          - qwip.attrs.serialization: api/qwip/attrs/serialization.md
+          - qwip.attrs.validation: api/qwip/attrs/validation.md
       - qwip.calibration:
           - qwip.calibration: api/qwip/calibration/index.md
           - qwip.calibration.calibration: api/qwip/calibration/calibration.md
@@ -141,13 +147,6 @@ nav:
           - qwip.sequencer.sequence: api/qwip/sequencer/sequence.md
           - qwip.sequencer.utils: api/qwip/sequencer/utils.md
           - qwip.sequencer.waveform: api/qwip/sequencer/waveform.md
-      - qwip.settings:
-          - qwip.settings: api/qwip/settings/index.md
-          - qwip.settings.base: api/qwip/settings/base.md
-          - qwip.settings.schema: api/qwip/settings/schema.md
-          - qwip.settings.serialization: api/qwip/settings/serialization.md
-          - qwip.settings.settings: api/qwip/settings/settings.md
-          - qwip.settings.validation: api/qwip/settings/validation.md
       - qwip.visualization:
           - qwip.visualization: api/qwip/visualization/index.md
           - qwip.visualization.readout: api/qwip/visualization/readout.md

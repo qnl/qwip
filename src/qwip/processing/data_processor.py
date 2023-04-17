@@ -11,7 +11,7 @@ import rustworkx as rx
 from attrs import cmp_using, field
 from loguru import logger
 
-from qwip.settings.settings import qdefine
+from qwip.attrs import qdefine
 from qwip.typing import is_generic_type
 
 DATA_PROCESSOR_LOOKUP = dict()

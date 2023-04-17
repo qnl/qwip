@@ -17,7 +17,6 @@ from attrs.exceptions import NotAnAttrsClassError
 from loguru import logger
 
 from qwip.flatdict import FlatDict
-from qwip.settings.base import SettingsBase
 from qwip.typing import is_optional_type, is_union_type, typedispatch
 
 

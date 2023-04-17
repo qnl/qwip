@@ -8,8 +8,8 @@ import numpy as np
 from attrs import evolve, field
 from typing_extensions import Self
 
+from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.utils import LinearExpression
-from qwip.settings.settings import qdefine, qfrozen
 
 
 @qfrozen(kw_only=False, repr=False)

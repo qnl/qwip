@@ -11,6 +11,7 @@ from attrs import field
 from loguru import logger
 
 import qwip
+from qwip.attrs import qdefine
 from qwip.config.database import ConfigFolder, OfflineConfigDB, SequenceElementFolder
 from qwip.config.schema import Target
 from qwip.processing.data_processor import (
@@ -31,7 +32,6 @@ from qwip.sequencer.compilation import (
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.sequence import Sequence
-from qwip.settings.settings import qdefine
 
 
 @qdefine
