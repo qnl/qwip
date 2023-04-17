@@ -22,7 +22,7 @@ from qwip.sequencer.waveform import (
 
 
 class TestFolder:
-    def test_select_insert(self, session, reset_models):
+    def test_select_insert(self, session, models):
         hardware = Folder(name="hardware")
         lo = Folder(name="local_oscillators", parent=hardware)
         dc = Folder(name="dc_sources", parent=hardware)
@@ -35,11 +35,11 @@ class TestFolder:
         assert len(results) == 3
         assert results == [hardware, lo, dc]
 
-    def test_select_none(self, session, reset_models):
+    def test_select_none(self, session, models):
         folders = session.scalars(sa.select(Folder)).one_or_none()
         assert folders is None
 
-    def test_select_condition(self, session, reset_models):
+    def test_select_condition(self, session, models):
         hardware = Folder(name="hardware")
         lo = Folder(name="local_oscillators", parent=hardware)
         dc = Folder(name="dc_sources", parent=hardware)
@@ -66,7 +66,7 @@ class TestFolder:
 
 
 class TestParameter:
-    def test_select(self, session, reset_models):
+    def test_select(self, session, models):
         params = session.scalars(sa.select(Parameter)).one_or_none()
         assert params is None
 
@@ -81,12 +81,12 @@ class TestWaveformModel:
         drag=DRAG(name="drag", lmbda=1, envelope=GaussianWaveform(width=20e-9)),
     )
 
-    def test_select_none(self, session, reset_models):
+    def test_select_none(self, session, models):
         waveforms = session.scalars(sa.select(WaveformModel)).one_or_none()
 
         assert waveforms is None
 
-    def test_insert_select(self, session, reset_models):
+    def test_insert_select(self, session, models):
         models = []
         for wave in self.WAVEFORMS.values():
             model = WaveformModel.from_waveform(wave)
@@ -142,7 +142,7 @@ class TestSequenceElements:
         )
         return se
 
-    def test_insert_select(self, session, reset_models, x90_se):
+    def test_insert_select(self, session, models, x90_se):
         se_model = SequenceElementModel.from_sequence_element(x90_se, name="x90")
         session.add(se_model)
         session.flush()
@@ -163,7 +163,7 @@ class TestSequenceElements:
 
         assert se_model == new_model
 
-    def test_delete(self, session, reset_models, x90_se):
+    def test_delete(self, session, models, x90_se):
         se_model = SequenceElementModel.from_sequence_element(x90_se, name="x90")
         extra_wave = WaveformModel.from_waveform(
             CosineRampWaveform(amplitude=0.5, width=20e-9)

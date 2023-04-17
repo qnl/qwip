@@ -11,7 +11,7 @@ from attrs import field
 from loguru import logger
 
 import qwip
-from qwip.config.database import ConfigDB, ConfigFolder, SequenceElementFolder
+from qwip.config.database import ConfigFolder, OfflineConfigDB, SequenceElementFolder
 from qwip.config.schema import Target
 from qwip.processing.data_processor import (
     DATA_PROCESSORS,
@@ -61,7 +61,7 @@ class QPU:
 
     """
 
-    db: ConfigDB = field(repr=lambda db: db.database)
+    db: OfflineConfigDB = field(repr=lambda db: db.database)
     subsystems: dict[Target, QuantumSystem] = field(
         repr=lambda sys: repr([s for s in sys])
     )

@@ -3,8 +3,11 @@ import pendulum
 import sqlalchemy as sa
 from attrs import field
 from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
+from sqlalchemy.sql.expression import FunctionElement
+from sqlalchemy.types import DateTime
 from typing_extensions import Self
 
 import qwip
@@ -14,6 +17,26 @@ from qwip.sequencer.waveform import REGISTERED_WAVEFORMS
 from qwip.settings.settings import qdefine
 
 JSONTypes = dict | list | bool | float | int | str | None
+
+
+class utc_timestamp(FunctionElement):
+    """Gets the current timestamp in UTC.
+
+    Based on SQLAlchemy documentation [example](https://docs.sqlalchemy.org/en/20/core/compiler.html#utc-timestamp-function).
+    """
+
+    type = DateTime()
+    inherit_cache = True
+
+
+@compiles(utc_timestamp, "mysql")
+def mysql_utc_timestamp(element, compiler, **kwargs):
+    return "UTC_TIMESTAMP()"
+
+
+@compiles(utc_timestamp, "sqlite")
+def sqlite_utc_timestamp(element, compiler, **kwargs):
+    return "DATETIME('now')"
 
 
 @qdefine(slots=False)
@@ -107,6 +130,7 @@ folder_table = DoltTable(
             name="fk_folders_folders",
             onupdate="CASCADE",
             ondelete="CASCADE",
+            use_alter=True,
         ),
     ),
     UniqueConstraint("name", "folder_id", name="uq_folders_name_folder_id"),
@@ -130,8 +154,8 @@ parameter_table = DoltTable(
     Column(
         "last_modified",
         sa.DateTime,
-        default=func.utc_timestamp(),
-        onupdate=func.utc_timestamp(),
+        default=utc_timestamp(),
+        onupdate=utc_timestamp(),
     ),
     Column("value", sa.JSON),
     UniqueConstraint("name", "folder_id", name="uq_parameters_name_folder_id"),
@@ -189,6 +213,7 @@ waveform_table = DoltTable(
             name="fk_waveforms_waveforms",
             onupdate="CASCADE",
             ondelete="CASCADE",
+            use_alter=True,
         ),
     ),
 )
@@ -368,7 +393,7 @@ sequence_element_table = DoltTable(
     "sequence_elements",
     QWIP_DB_METADATA,
     Column("sequence_element_id", sa.Integer, primary_key=True, autoincrement=True),
-    Column("name", sa.String(255), primary_key=True),
+    Column("name", sa.String(255)),
     Column("width", sa.String(255)),
     UniqueConstraint("name", name="uq_sequence_elements_name"),
 )
