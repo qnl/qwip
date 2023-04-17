@@ -550,35 +550,27 @@ class ConfigFolder(FlatMapping):
 
         return [ReadOnlyParameter.from_orm(p) for p in all_parameters]
 
-    def create_all(self, **keys):
-        if not keys:
+    def create_all(self, **kwargs):
+        if not kwargs:
             return
 
         generic = getattr(self, "__orig_class__", None)
-        if not generic:
-            return
 
         match get_args(generic):
-            case (kt, vt):
-                value_class = vt
+            case (_, value_class):
+                ...
             case _:
                 value_class = None
 
-        if not value_class:
-            raise TypeError(
-                f"Cannot autopopulate {keys} without a specified type hint."
-            )
-
-        for key, subfolder_keys in keys.items():
+        for key, value in kwargs.items():
             if key not in self:
                 if issubtype(value_class, ConfigFolder):
                     self.create_folder(key)
+                    self[key].create_all(**value)
                 else:
-                    self.create_parameter(key)
-                    continue
-
-            if issubtype(value_class, ConfigFolder):
-                self[key].create_all(**subfolder_keys)
+                    self.create_parameter(key, value)
+            else:
+                self[key] = value
 
     @session_context
     def __iter__(self):
@@ -638,7 +630,7 @@ class ValidatedConfigFolder(ConfigFolder):
         # First we check if we're trying to write to an actual attribute.
         if name not in self:
             raise KeyError(
-                f"'{name}' does not exist. Use create_parameter to or create_folder to "
+                f"'{name}' does not exist. Use create_parameter or create_folder to "
                 f"create a new parameter or folder."
             )
 
@@ -709,17 +701,19 @@ class ValidatedConfigFolder(ConfigFolder):
                 self[name].create_all(**subfolder_keys)
             else:
                 if name in self:
+                    if name in dict_keys:
+                        self[name] = dict_keys[name]
                     continue
 
                 match field.default:
                     case attrs.NOTHING:
                         default = None
-                    case attrs.Factory(factory=f):
-                        default = f()
+                    case attrs.Factory(factory=f, takes_self=takes_self):
+                        default = f(self) if takes_self else f()
                     case default:
                         ...
 
-                self.create_parameter(name, value=default)
+                self.create_parameter(name, value=dict_keys.get(name, default))
 
 
 def set_in_db(inst, attr, value):
@@ -1234,8 +1228,6 @@ class OfflineConfigDB(Database):
             )
         }
         self.config["pulses"].create_all(**parameters)
-        # create_all leaves parameter values as null so we must call update
-        self.config["pulses"].update(parameters)
 
         return self.config["pulses"][name]
 

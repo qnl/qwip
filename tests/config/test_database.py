@@ -15,6 +15,7 @@ from qwip.config.database import (
 )
 from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.config.models import Folder, Parameter
+from qwip.config.schema import ConfigSchema
 from qwip.settings.settings import Settings, qdefine
 from qwip.testing import ignore_order
 
@@ -158,3 +159,55 @@ class TestConfigFolder:
         assert type(param) is ReadOnlyParameter
         assert param.name == "tunable"
         assert (now - param.timestamp).seconds < 1
+
+    @pytest.mark.parametrize(
+        "cls,kwargs",
+        [
+            (ConfigFolder, dict(a=1, b=2, c=dict(d=3, e=4))),
+            (ConfigFolder[str, int], dict(a=1, b=2, c=3)),
+            (ConfigFolder[str, ConfigFolder], dict(a=dict(a1=1, b1=2))),
+        ],
+    )
+    def test_create_all(self, session, models, cls, kwargs):
+        config = cls(session=session)
+
+        config.create_all(**kwargs)
+        assert config.todict() == kwargs
+
+
+class TestConfigSchema:
+    def test_create_all(self, session, models):
+        config = ConfigSchema(session=session)
+
+        qubit_names = [f"Q{q}" for q in range(4)]
+        resonator_names = [f"R{r}" for r in range(4)]
+        config.create_all(
+            hardware=dict(
+                local_oscillators=dict(
+                    qubit=dict(power=5, frequency=5.8e9),
+                    readout=dict(power=0, frequency=6.5e9),
+                    twpa=dict(power=8, frequency=7.8e9),
+                ),
+                num_dac_channels=16,
+            ),
+            readout=dict(default=dict(
+                classification={r: {} for r in resonator_names},
+                drives={r: f"{r}_basic" for r in resonator_names},
+                length=2048/1.8e9
+            )),
+            subsystems={q: {} for q in qubit_names} | {r: {} for r in resonator_names},
+            targets=qubit_names + resonator_names
+        )
+
+        assert list(config.keys()) == [
+            "hardware",
+            "readout",
+            "subsystems",
+            "pulses",
+            "compilation",
+            "extra",
+            "version",
+            "qwip_commit",
+            "sample_id",
+            "targets",
+        ]
