@@ -11,7 +11,7 @@ from attrs import field
 from loguru import logger
 
 import qwip
-from qwip.config.database import OfflineConfigDB, ConfigFolder, SequenceElementFolder
+from qwip.config.database import ConfigFolder, OfflineConfigDB, SequenceElementFolder
 from qwip.config.schema import Target
 from qwip.processing.data_processor import (
     DATA_PROCESSORS,
