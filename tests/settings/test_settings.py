@@ -8,8 +8,9 @@ import pytest
 from attr import field, s
 from numpy.typing import NDArray
 
+from qwip.attrs import qdefine
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import Settings, qdefine
+from qwip.settings import Settings
 
 
 @qdefine
@@ -161,7 +162,7 @@ def test_onset_validate(nesteddict):
 
 
 def test_disable_validate(typefaildict):
-    from qwip.settings.settings import danger, disable_validation
+    from qwip.attrs import danger, disable_validation
 
     with disable_validation():
         s = NestedSettings(**typefaildict)

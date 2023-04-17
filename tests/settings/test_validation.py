@@ -10,9 +10,9 @@ from attr.exceptions import NotCallableError
 from numpy.typing import NDArray
 from typing_extensions import Self
 
+from qwip.attrs import qdefine
+from qwip.attrs.validation import get_type_validator, resolve_types_with_validation
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import Settings, qdefine
-from qwip.settings.validation import get_type_validator, resolve_types_with_validation
 
 
 class TestGetTypeValidators:

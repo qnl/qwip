@@ -1,6 +1,6 @@
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
-from qwip.settings.settings import qdefine
+from qwip.attrs import qdefine
 
 REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
 

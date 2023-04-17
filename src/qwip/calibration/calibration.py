@@ -8,11 +8,11 @@ from pendulum import DateTime
 from qtrl.amiable_sequencer import AM_Sequence
 
 import qwip
-from qwip.flatdict import FlatDict
 
 # from qwip.processing.pipeline import Pipeline
 # from qwip.processing.process import ProcessSettings
-from qwip.settings.settings import qdefine
+from qwip.attrs import qdefine
+from qwip.flatdict import FlatDict
 
 
 @qdefine

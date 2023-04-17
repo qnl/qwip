@@ -9,14 +9,14 @@ import pytest
 from attr import field
 from loguru import logger
 
+from qwip.attrs import qdefine
 from qwip.flatdict import FlatDict
-from qwip.settings.schema import (
+from qwip.attrs.schema import (
     get_description,
     get_field_schema,
     get_json_type,
     schema,
 )
-from qwip.settings.settings import Settings, qdefine
 
 
 class TestGetDescription:

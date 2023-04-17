@@ -4,7 +4,7 @@ from attr import field
 import qwip
 from qwip import qsettings
 from qwip._qsettings import DefaultSettings
-from qwip.settings.settings import qdefine
+from qwip.attrs import qdefine
 
 
 @qdefine

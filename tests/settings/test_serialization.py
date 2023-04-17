@@ -1,7 +1,8 @@
 from attrs import field
 
+from qwip.attrs import qdefine
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import Settings, qdefine
+from qwip.settings import Settings
 
 
 def test_flatdict_structure():

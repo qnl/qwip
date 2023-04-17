@@ -2,7 +2,8 @@ from pathlib import Path
 
 from attrs import field
 
-from qwip.settings.settings import Settings, qdefine
+from qwip.attrs import qdefine
+from qwip.settings import Settings
 
 
 @qdefine
