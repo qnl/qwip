@@ -13,6 +13,9 @@ from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence
 from qwip.settings.settings import qdefine
 
+from os import path # Can this be included? 
+import qutip as qt  # no qutip package? 
+
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
 
@@ -33,7 +36,92 @@ class QuantumBackend(metaclass=ABCMeta):
 
 @qdefine
 class SimulatorBackend(QuantumBackend):
-    ...
+
+    def upload(self, cseq: CompiledSequence, **kwargs) -> None:
+        
+        # Identify channels
+        chs = db['compilation']['channel_groups']['seq']['channels']    # ['Q0_I', 'Q0_Q', 'Q1_I', 'Q1_Q']      
+        chs_status = np.any(cseq.array, axis=(1, 2, 3))                 # ['True', 'True', 'False', 'False']
+        chs_on = [i for i, x in enumerate(chs_status) if x]             # [0, 1]
+
+        chs_names = [(chs[i],chs[i+1]) for i in chs_on 
+                   if ((i%2==0) & (i+1 in chs_on))]                     # [('Q0_I', 'Q0_Q')]
+        
+        
+
+
+        # def acquire(cseq, chs_names): -------------------------
+        for q_sys in chs_names: 
+            # q_sys = ('Q0_I', 'Q0_Q')
+
+            # Retrieve qubit and chs info
+            chs_info = [db["compilation"]["channels"][ch] for ch in q_sys]  # ['Q0_I', Q1_I'] dict
+            Q_name = chs_info[0].get("name").split('_')[0]                  # 'Q0'
+            Q = db["subsystems"][Q_name]["parameters"]                      # 'Q0' parameters
+            n_elements = cseq.waveforms.get('seq').n_elements
+        
+            H_list = np.array([])
+
+            for nth_seq in range(n_elements):                               # Simulate every sequence
+                np.append(H_list, find_Hamiltonian(Q, cseq, nth_seq))
+
+        
+
+        # def find_Hamiltonian(Q, cseq, nth_seq) -------------------
+        nth_seq = -1
+
+        N = 2
+        alpha = Q.get('anharmonicity')
+        f01 = Q.get('frequency') 
+        fq, fd = f01, f01
+        
+        f_LO = db['hardware']['local_oscillators']['qubit']['frequency']  
+        phase_LO = db['hardware']['local_oscillators']['qubit']['phase']
+        sampling_rate = cseq.waveforms.get('seq').sample_rate
+
+
+        # cseq array indices = (channel, element, timestep/sample_idx, subchannel)
+        ch_I = cseq.array[chs_info[0].get("index"), nth_seq, :, chs_info[0].get("subchannel")] 
+        ch_Q = cseq.array[chs_info[1].get("index"), nth_seq, :, chs_info[1].get("subchannel")]
+
+        pulse = ch_I + 1j*ch_Q 
+        
+
+        # Upconvert & Interpolate I and Q -- code from pypulse 
+        sample_time = 1/sampling_rate
+    
+        N = len(pulse)
+        T = N*sample_time
+        ts = np.arange(0, T, sample_time/100)   # time_steps_per_sample?
+
+        # This compensates for rounding error
+        ts = ts[:N*100]
+        ts = np.append(ts, [T])
+        envelope = np.interp(ts, np.linspace(0, T, N + 1), np.append(pulse, [0]))
+
+        # Upconvert
+        carrier = np.exp(1j*2*np.pi*f_LO*ts + 1j*phase_LO)
+        drive = 2*np.pi*carrier * envelope
+
+
+
+        # Amplitude Scaling Factor?
+        Omega = 2*np.pi*20e6 
+
+        # Construct Hamiltonian and Store
+        a = qt.destroy(N)
+        adag = qt.create(N)
+
+        H0 = 2*np.pi*fq*adag*a + 2*np.pi*(alpha/2)*adag*adag*a*a
+        H = [[H0, np.ones_like(ts)], [a, Omega*drive], [adag, Omega*np.conj(drive)]]
+
+
+
+    def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
+        ...
+
+    def update_parameters(self, qpu: "QPU", **kwargs):
+        ...
 
 
 @qdefine
