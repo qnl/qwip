@@ -3,6 +3,7 @@ site_url: https://qnl-internal.berkeley.edu/QWiP
 site_dir: site/QWiP
 repo_name: qnl/QWiP
 repo_url: https://github.com/qnl/QWiP
+edit_uri: edit/main/docs/pages/
 docs_dir: pages
 markdown_extensions:
   - admonition
@@ -40,9 +41,13 @@ theme:
         icon: material/weather-night
         name: Switch to light mode
   icon:
+    edit: material/file-edit-outline
     logo: material/home
     repo: fontawesome/brands/github
+    view: material/file-eye-outline
   features:
+    - content.action.edit
+    - content.action.view
     - content.code.copy
     - content.code.annotate
     - navigation.tabs
