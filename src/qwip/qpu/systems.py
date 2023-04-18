@@ -1,6 +1,10 @@
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
+<<<<<<< HEAD
 from qwip.settings.settings import qdefine
+=======
+from qwip.attrs import qdefine
+>>>>>>> main
 
 REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
 
@@ -85,3 +89,9 @@ def make_quantum_system_unstructure_fn(cls):
 qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, QuantumSystem), make_quantum_system_unstructure_fn
 )
+<<<<<<< HEAD
+=======
+
+
+__all__ = ["Transmon", "ReadoutResonator"]
+>>>>>>> main

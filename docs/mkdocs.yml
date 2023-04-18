@@ -1,12 +1,19 @@
 site_name: QWiP
-site_url: https://qnl.github.io/QWiP
+site_url: https://qnl-internal.berkeley.edu/QWiP
+site_dir: site/QWiP
 repo_name: qnl/QWiP
 repo_url: https://github.com/qnl/QWiP
+edit_uri: edit/main/docs/pages/
 docs_dir: pages
 markdown_extensions:
   - admonition
-  - codehilite:
-      linenums: true
+  - attr_list
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
   - footnotes
   - pymdownx.arithmatex
   - pymdownx.caret
@@ -34,10 +41,17 @@ theme:
         icon: material/weather-night
         name: Switch to light mode
   icon:
+    edit: material/file-edit-outline
     logo: material/home
     repo: fontawesome/brands/github
+    view: material/file-eye-outline
   features:
+    - content.action.edit
+    - content.action.view
+    - content.code.copy
+    - content.code.annotate
     - navigation.tabs
+    - navigation.indexes
 watch:
   - ../src/qwip
 plugins:
@@ -49,11 +63,13 @@ plugins:
           options:
             paths: ../src/qwip
             show_source: true
+          import:
+            - https://docs.python.org/3/objects.inv
   - git-authors:
-        enabled: true
+      enabled: true
   - git-revision-date-localized:
       type: date
-extra_css: 
+extra_css:
   - assets/stylesheets/palette.css
   - assets/stylesheets/layout.css
   - assets/stylesheets/termynal.css
@@ -62,27 +78,82 @@ extra_javascript:
   - assets/js/setup.js
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML
 nav:
-  - QWiP: 
-    - index.md
+  - QWiP:
+      - index.md
   - User Guide:
-    - user-guide/intro.md
-    - Configuration Management:
-      - user-guide/configuration/configuration.md
-      - user-guide/configuration/first-steps.md
-    - Sequencer:
-      - user-guide/sequences/sequencer.md
-      - user-guide/sequences/sequence-elements.md
-      - user-guide/sequences/sequences.md
-  - Developer Guide: 
-    - developer-guide/intro.md
-    - developer-guide/roadmap.md
-    - Guidelines:
-      - developer-guide/guidelines/all-things-git.md
-      - developer-guide/guidelines/coding-guidelines.md
-      - developer-guide/guidelines/testing.md
-      - developer-guide/guidelines/documentation.md
-    - developer-guide/attrs.md
-
+      - user-guide/index.md
+      - Configuration Management:
+          - user-guide/configuration/configuration.md
+          - user-guide/configuration/first-steps.md
+      - Sequencer:
+          - user-guide/sequences/sequencer.md
+          - user-guide/sequences/sequence-elements.md
+          - user-guide/sequences/sequences.md
+      - user-guide/workflow.md
+  - Developer Guide:
+      - developer-guide/index.md
+      - developer-guide/roadmap.md
+      - Guidelines:
+          - developer-guide/guidelines/all-things-git.md
+          - developer-guide/guidelines/coding-guidelines.md
+          - developer-guide/guidelines/testing.md
+          - developer-guide/guidelines/documentation.md
+      - developer-guide/attrs.md
   - API Reference:
-    - api/qwip.md
+      - qwip:
+          - qwip: api/qwip/index.md
+          - qwip.defaults: api/qwip/defaults.md
+          - qwip.flatdict: api/qwip/flatdict.md
+          - qwip.settings: api/qwip/settings.md
+          - qwip.testing: api/qwip/testing.md
+          - qwip.typing: api/qwip/typing.md
+          - qwip.utils: api/qwip/utils.md
+      - qwip.analysis:
+          - qwip.analysis: api/qwip/analysis/index.md
+          - qwip.analysis.fitting: api/qwip/analysis/fitting.md
+          - qwip.analysis.frequency: api/qwip/analysis/frequency.md
+      - qwip.attrs:
+          - qwip.attrs: api/qwip/attrs/index.md
+          - qwip.attrs.schema: api/qwip/attrs/schema.md
+          - qwip.attrs.serialization: api/qwip/attrs/serialization.md
+          - qwip.attrs.validation: api/qwip/attrs/validation.md
+      - qwip.calibration:
+          - qwip.calibration: api/qwip/calibration/index.md
+          - qwip.calibration.calibration: api/qwip/calibration/calibration.md
+          - qwip.calibration.readout: api/qwip/calibration/readout.md
+      - qwip.config:
+          - qwip.config: api/qwip/config/index.md
+          - qwip.config.database: api/qwip/config/database.md
+          - qwip.config.dolt: api/qwip/config/dolt.md
+          - qwip.config.metadata: api/qwip/config/metadata.md
+          - qwip.config.models: api/qwip/config/models.md
+          - qwip.config.schema: api/qwip/config/schema.md
+          - qwip.config.static: api/qwip/config/static.md
+      - qwip.data:
+          - qwip.data: api/qwip/data/index.md
+          - qwip.data.filesystem: api/qwip/data/filesystem.md
+      - qwip.instruments:
+          - qwip.instruments: api/qwip/instruments/index.md
+          - qwip.instruments.instrument_server: api/qwip/instruments/instrument_server.md
+      - qwip.processing:
+          - qwip.processing: api/qwip/processing/index.md
+          - qwip.processing.data_processor: api/qwip/processing/data_processor.md
+          - qwip.processing.processors: api/qwip/processing/processors.md
+      - qwip.qpu:
+          - qwip.qpu: api/qwip/qpu/index.md
+          - qwip.qpu.backend: api/qwip/qpu/backend.md
+          - qwip.qpu.qpu: api/qwip/qpu/qpu.md
+          - qwip.qpu.systems: api/qwip/qpu/systems.md
+      - qwip.sequencer:
+          - qwip.sequencer: api/qwip/sequencer/index.md
+          - qwip.sequencer.compilation: api/qwip/sequencer/compilation.md
+          - qwip.sequencer.elements: api/qwip/sequencer/elements.md
+          - qwip.sequencer.phase_tracker: api/qwip/sequencer/phase_tracker.md
+          - qwip.sequencer.sequence: api/qwip/sequencer/sequence.md
+          - qwip.sequencer.utils: api/qwip/sequencer/utils.md
+          - qwip.sequencer.waveform: api/qwip/sequencer/waveform.md
+      - qwip.visualization:
+          - qwip.visualization: api/qwip/visualization/index.md
+          - qwip.visualization.readout: api/qwip/visualization/readout.md
+          - qwip.visualization.utils: api/qwip/visualization/utils.md
   - Changelog: CHANGELOG.md

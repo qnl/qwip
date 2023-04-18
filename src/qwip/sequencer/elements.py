@@ -13,6 +13,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from typing_extensions import Self
 
+from qwip.attrs import qdefine
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     Channel,
@@ -21,7 +22,6 @@ from qwip.sequencer.waveform import (
     Marker,
     Waveform,
 )
-from qwip.settings.settings import qdefine
 from qwip.visualization.utils import all_legend_handles_labels
 
 LocationLike = Location | str | Real

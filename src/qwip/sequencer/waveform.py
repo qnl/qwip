@@ -13,10 +13,10 @@ from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
+from qwip.attrs import qdefine, qfrozen
 from qwip.defaults import dynamic_default
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import LinearExpression, Location
-from qwip.settings.settings import qdefine, qfrozen
 from qwip.typing import is_union_type
 
 REGISTERED_WAVEFORMS: dict[str, "Waveform"] = dict()

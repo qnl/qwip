@@ -10,8 +10,9 @@ from loguru import logger
 
 from qwip import __file__, __version__, yaml
 from qwip._repodata import get_repodata
+from qwip.attrs import qdefine
 from qwip.flatdict import FlatDict
-from qwip.settings.settings import Settings, qdefine
+from qwip.settings import Settings
 
 
 class DefaultSettings(Settings):

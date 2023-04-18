@@ -40,7 +40,7 @@ def add_progress(
 @add_progress(description="Testing database connection...", sleep=1)
 def test_connection(db: DoltDB):
     try:
-        db.connect(test=False)
+        db.connect(test=True)
         return True
     except sa.exc.OperationalError as e:
         print(e)
@@ -134,7 +134,7 @@ def create(
         ..., prompt="Select a name for the new database", confirmation_prompt=True
     ),
 ):
-    db = DoltDB(username=username, host=hostname, password=password)
+    db = DoltDB.from_parameters(username=username, host=hostname, password=password)
 
     if not test_connection(db):
         raise typer.Exit()
@@ -165,7 +165,7 @@ def show(
     username: str = typer.Option(..., prompt=True),
     password: str = typer.Option(..., prompt=True, hide_input=True),
 ):
-    db = DoltDB(username=username, host=hostname, password=password)
+    db = DoltDB.from_parameters(username=username, host=hostname, password=password)
 
     if not test_connection(db):
         raise typer.Exit()

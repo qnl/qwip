@@ -1,6 +1,9 @@
 import numpy as np
 import pytest
+<<<<<<< HEAD
 
+=======
+>>>>>>> main
 from numpy.random import default_rng
 
 import qwip
@@ -11,13 +14,26 @@ from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 class TestQuantumBackend:
     @pytest.fixture
+<<<<<<< HEAD
     def backend(self, qpu, seed):
         backend = FakeBackend(rng=default_rng(seed))
         backend.update_parameters(qpu)
+=======
+    def backend(self, qpu_01, seed):
+        backend = FakeBackend(rng=default_rng(seed))
+        backend.update_parameters(qpu_01)
+>>>>>>> main
 
         return backend
 
     @pytest.fixture
+<<<<<<< HEAD
+=======
+    def sequencer(self, qpu_01):
+        return qpu_01.sequencer
+
+    @pytest.fixture
+>>>>>>> main
     def compiled(self, sequencer):
         def generate_cseq(shape):
             ro = SequenceElement()
@@ -39,6 +55,7 @@ class TestQuantumBackend:
         assert backend.uploaded is cseq
         assert backend.data_func is zeros
 
+<<<<<<< HEAD
     def test_update_parameters(self, qpu, backend):
         gmm0 = GMMClassification(
             measurement_key="R0",
@@ -52,6 +69,24 @@ class TestQuantumBackend:
         assert backend.gmms["R0"] is gmm0
 
     def test_acquire_zeros(self, qpu, backend, compiled):
+=======
+    def test_update_parameters(self, qpu_01, backend):
+        qpu = qpu_01
+        gmm0 = GMMClassification(
+            measurement_key="R0",
+            means=np.array([[5, 0], [-5, 0]], dtype=float),
+            covariances=np.array([1, 1], dtype=float),
+        )
+
+        qpu.pipeline.add_processor(gmm0)
+
+        backend.update_parameters(qpu)
+        assert backend.gmms["R0"] is gmm0
+
+    def test_acquire_zeros(self, qpu_01, backend, compiled):
+        qpu = qpu_01
+
+>>>>>>> main
         def data_func(key, element, readout, repetitions):
             return np.zeros(repetitions)
 
@@ -66,11 +101,21 @@ class TestQuantumBackend:
         assert (results["R0"].data["0"] > 0.99).all()
         assert (results["R1"].data["0"] > 0.99).all()
 
+<<<<<<< HEAD
     def test_acquire_sin(self, qpu, backend, compiled):
         def data_func(key, element, readout, repetitions):
             if key == "R0":
                 populations = (np.sin(element / 20 * 2 * np.pi) + 1) / 2
                 ones = np.round(populations* repetitions).astype(int)
+=======
+    def test_acquire_sin(self, qpu_01, backend, compiled):
+        qpu = qpu_01
+
+        def data_func(key, element, readout, repetitions):
+            if key == "R0":
+                populations = (np.sin(element / 20 * 2 * np.pi) + 1) / 2
+                ones = np.round(populations * repetitions).astype(int)
+>>>>>>> main
 
                 states = np.zeros(repetitions)
 

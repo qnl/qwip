@@ -6,15 +6,18 @@ from pathlib import Path
 from typing import Callable, get_args
 
 import attrs
+import pandas as pd
 import pendulum
 import sqlalchemy as sa
 from attrs import field
 from loguru import logger
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy import event
+from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.orm import Session
 from typing_extensions import Self
 
 import qwip
+from qwip.attrs import qdefine, qfrozen
 from qwip.config.dolt import (
     DoltBranch,
     DoltCommit,
@@ -37,7 +40,7 @@ from qwip.config.models import (
 from qwip.flatdict import FlatDict, FlatMapping
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.waveform import Waveform
-from qwip.settings.settings import Settings, qdefine, qfrozen
+from qwip.settings import Settings
 from qwip.typing import issubtype
 
 try:
@@ -434,6 +437,9 @@ class ConfigFolder(FlatMapping):
     def get_parameter(self, name):
         db_param = self._get_parameter(name)
 
+        if db_param is None:
+            return db_param
+
         return ReadOnlyParameter.from_orm(model=db_param)
 
     @session_context
@@ -546,35 +552,27 @@ class ConfigFolder(FlatMapping):
 
         return [ReadOnlyParameter.from_orm(p) for p in all_parameters]
 
-    def create_all(self, **keys):
-        if not keys:
+    def create_all(self, **kwargs):
+        if not kwargs:
             return
 
         generic = getattr(self, "__orig_class__", None)
-        if not generic:
-            return
 
         match get_args(generic):
-            case (kt, vt):
-                value_class = vt
+            case (_, value_class):
+                ...
             case _:
                 value_class = None
 
-        if not value_class:
-            raise TypeError(
-                f"Cannot autopopulate {keys} without a specified type hint."
-            )
-
-        for key, subfolder_keys in keys.items():
+        for key, value in kwargs.items():
             if key not in self:
                 if issubtype(value_class, ConfigFolder):
                     self.create_folder(key)
+                    self[key].create_all(**value)
                 else:
-                    self.create_parameter(key)
-                    continue
-
-            if issubtype(value_class, ConfigFolder):
-                self[key].create_all(**subfolder_keys)
+                    self.create_parameter(key, value)
+            else:
+                self[key] = value
 
     @session_context
     def __iter__(self):
@@ -634,7 +632,7 @@ class ValidatedConfigFolder(ConfigFolder):
         # First we check if we're trying to write to an actual attribute.
         if name not in self:
             raise KeyError(
-                f"'{name}' does not exist. Use create_parameter to or create_folder to "
+                f"'{name}' does not exist. Use create_parameter or create_folder to "
                 f"create a new parameter or folder."
             )
 
@@ -705,17 +703,19 @@ class ValidatedConfigFolder(ConfigFolder):
                 self[name].create_all(**subfolder_keys)
             else:
                 if name in self:
+                    if name in dict_keys:
+                        self[name] = dict_keys[name]
                     continue
 
                 match field.default:
                     case attrs.NOTHING:
                         default = None
-                    case attrs.Factory(factory=f):
-                        default = f()
+                    case attrs.Factory(factory=f, takes_self=takes_self):
+                        default = f(self) if takes_self else f()
                     case default:
                         ...
 
-                self.create_parameter(name, value=default)
+                self.create_parameter(name, value=dict_keys.get(name, default))
 
 
 def set_in_db(inst, attr, value):
@@ -817,56 +817,149 @@ class SequenceElementFolder:
         return key in self.keys()
 
 
+# Savepoint support for sqlite
+# See https://docs.sqlalchemy.org/en/latest/dialects/sqlite.html#pysqlite-serializable
+def sqlite_connect(dbapi_connection, connection_record):
+    # disable pysqlite's emitting of the BEGIN statement entirely.
+    # also stops it from emitting COMMIT before any DDL.
+    dbapi_connection.isolation_level = None
+
+
+def sqlite_begin(connection):
+    # emit our own BEGIN
+    connection.exec_driver_sql("BEGIN")
+
+
 @qdefine
-class DoltDB:
-    """An interface to the configuration database.
+class Database:
+    """An interface to a database backend.
 
     Attributes:
-        database: The name of the dolt database.
-        username: The database server username.
-        password: The database server password.
-        host: The IP address or url for the database server.
-        port: The port on which the database server is listening.
+        url: The database connection url.
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
 
-    database: str | None = None
-    username: str
-    password: str = field(repr=lambda pw: "*****")
-    host: str
-    port: int = 3306
-
+    url: URL = field(
+        default=make_url("sqlite://"),
+        converter=lambda s: make_url(s) if isinstance(s, str) else s,
+    )
     engine: sa.engine.Engine | None = field(init=False, default=None)
     session: sa.orm.Session | None = field(init=False, default=None)
 
+    def _get_engine(self, url, **kwargs) -> Engine:
+        """Get engine with backend specific parameters.
+
+        Args:
+            url: The database URL.
+
+        Return:
+            A SQLAlchemy engine.
+        """
+
+        match url.get_backend_name():
+            case "mysql":
+                connect_args = dict(connect_timeout=kwargs.get("timeout"))
+            case "sqlite":
+                connect_args = dict()
+            case backend:
+                raise ValueError(
+                    f"Backend {backend} is not supported. Must be mysql or sqlite."
+                )
+
+        engine = sa.create_engine(url, connect_args=connect_args)
+
+        match url.get_backend_name():
+            case "sqlite":
+                event.listens_for(engine, "connect")(sqlite_connect)
+                event.listens_for(engine, "begin")(sqlite_begin)
+
+        return engine
+
     def connect(self, test: bool = True, timeout: int = 2):
-        url = URL.create(
-            drivername="mysql+mysqldb",
-            username=self.username,
-            password=self.password,
-            host=self.host,
-            port=self.port,
-            database=self.database,
-        )
-        engine = sa.create_engine(url, connect_args=dict(connect_timeout=timeout))
-        self.engine = engine
-        self.session = Session(engine, autobegin=False, expire_on_commit=False)
+        """Connect to the database.
+
+        Args:
+            test: If `True`, tests the database connection.
+            timeout: The timeout for the database connection.
+
+        Return:
+            The SQLAlchemy engine.
+        """
+        self.engine = self._get_engine(self.url, timeout=timeout)
+        self.session = Session(self.engine, autobegin=False, expire_on_commit=False)
 
         if test:
             with self.engine.begin():
                 ...
 
-        return engine
+        return self.engine
 
     def disconnect(self):
+        """Disconnects from the database.
+
+        This method closes the SQLAlchemy ORM session associated with the database and
+        disposes of the associated engine.
+        """
         self.session.close()
         self.engine.dispose()
         self.engine = self.session = None
 
+    @classmethod
+    def from_parameters(
+        cls,
+        driver: str = "sqlite+pysqlite",
+        username: str | None = None,
+        password: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        database: str | None = None,
+        **kwargs,
+    ) -> Self:
+        url = URL(
+            drivername=driver,
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=database,
+            query=dict(),
+        )
+
+        return cls(url=url, **kwargs)
+
+    @property
+    def username(self) -> str:
+        return self.url.username
+
+    @property
+    def backend(self) -> str:
+        return self.url.get_backend_name()
+
+    @property
+    def database(self) -> str:
+        return self.url.database()
+
     @session_context
     def tables(self) -> set[str]:
-        return set(self.session.scalars(sa.text("SHOW TABLES")))
+        """Returns the tables present in the database."""
+        meta = sa.MetaData()
+        meta.reflect(bind=self.engine)
+
+        return set(meta.tables)
+
+
+@qdefine
+class DoltDB(Database):
+    """An interface to a dolt database backend.
+
+    See https://docs.dolthub.com/introduction/what-is-dolt
+
+    Attributes:
+        url: The database connection url.
+        engine: The SQLAlchemy engine that maintains the database connection.
+        session: The database session associated with the engine.
+    """
 
     @session_context
     def current_branch(self) -> Branch:
@@ -979,18 +1072,6 @@ class DoltDB:
 
         return [Status.from_orm(s) for s in results]
 
-    @classmethod
-    def from_url(cls, db_url: str) -> Self:
-        url = make_url(db_url)
-
-        return cls(
-            database=url.database,
-            username=url.username,
-            password=url.password,
-            host=url.host,
-            port=url.port,
-        )
-
     @property
     def author(self) -> str:
         groups = USERNAME_REGEX.match(self.username).groupdict()
@@ -1000,39 +1081,47 @@ class DoltDB:
 
         return f"{name} <{name}{domain}>"
 
+    @classmethod
+    def from_parameters(
+        cls,
+        driver: str = "mysql+mysqldb",
+        username: str | None = None,
+        password: str | None = None,
+        host: str = "localhost",
+        port: int = 3306,
+        database: str | None = None,
+        **kwargs,
+    ) -> Self:
+        return super().from_parameters(
+            driver=driver,
+            username=username,
+            password=password,
+            host=host,
+            port=port,
+            database=database,
+            **kwargs,
+        )
+
 
 @qdefine
-class ConfigDB(DoltDB):
-    """An interface to the configuration database.
+class OfflineConfigDB(Database):
+    """An interface to a local configuration database backend.
+
+    The OfflineConfigDB can be used with a SQLite databse backend, with the caveat that
+    no database version control features are available. This is primarily used for
+    testing and development purposes, but can also be used as a backup in the event
+    that the dolt database server is down.
 
     Attributes:
-        database: The name of the dolt database.
-        username: The database server username.
-        password: The database server password.
-        host: The IP address or url for the database server.
-        port: The port on which the database server is listening.
+        url: The database connection url.
         engine: The SQLAlchemy engine that maintains the database connection.
         session: The database session associated with the engine.
     """
 
-    database: str
     schema: type[ConfigFolder] = ConfigFolder
 
     config: ConfigFolder | None = field(init=False, default=None)
     pulses: SequenceElementFolder | None = field(init=False, default=None)
-
-    @classmethod
-    def from_url(cls, db_url: str, schema: type = ConfigFolder) -> Self:
-        url = make_url(db_url)
-
-        return cls(
-            database=url.database,
-            username=url.username,
-            password=url.password,
-            host=url.host,
-            port=url.port,
-            schema=schema,
-        )
 
     def init_config(self):
         self.config = self.schema.from_name(self.session, "/")
@@ -1040,16 +1129,18 @@ class ConfigDB(DoltDB):
         try:
             if (c := self.config["version"]) != (q := qwip.qsettings["version"]):
                 logger.warning(
-                    f"Config database was last used with QWiP version {c} which differs "
-                    f"from current QWiP version {q}! Call ConfigDB.update_db_version() to "
-                    f"update database to current version, or revert QWiP to {c}."
+                    f"Config database was last used with QWiP version {c} which "
+                    f"differs from current QWiP version {q}! Call "
+                    f"ConfigDB.update_db_version() to update database to current "
+                    f"version, or revert QWiP to {c}."
                 )
             if (c := self.config["qwip_commit"]) != (q := qwip.qsettings["src/commit"]):
                 logger.warning(
-                    f"Config database was last used with QWiP source commit {c[:SHORT_HASH_LEN]} "
-                    f"which differs from current source commit {q[:SHORT_HASH_LEN]}! Call "
-                    f"ConfigDB.update_db_version() to update database to current version or "
-                    f"revert source to {c[:SHORT_HASH_LEN]}"
+                    f"Config database was last used with QWiP source commit "
+                    f"{c[:SHORT_HASH_LEN]} which differs from current source commit "
+                    f"{q[:SHORT_HASH_LEN]}! Call ConfigDB.update_db_version() to "
+                    f" update database to current version or revert source to "
+                    f"{c[:SHORT_HASH_LEN]}."
                 )
         except KeyError:
             ...
@@ -1066,10 +1157,11 @@ class ConfigDB(DoltDB):
         )
 
         if reflected_tables != expected_tables:
+            version = qwip.qsettings.version
             raise ValueError(
-                f"Database {self.database} has tables {reflected_tables} that do not match "
-                f"the expected tables {expected_tables} for version {qwip.qsettings.version}. "
-                f"Use the 'database-setup.py' script to upgrade or downgrade the database."
+                f"Database {self.url} has tables {reflected_tables} that do not match "
+                f"the expected tables {expected_tables} for version {version}. Use the"
+                f"'database-setup.py' script to upgrade or downgrade the database."
             )
 
         self.init_config()
@@ -1138,8 +1230,6 @@ class ConfigDB(DoltDB):
             )
         }
         self.config["pulses"].create_all(**parameters)
-        # create_all leaves parameter values as null so we must call update
-        self.config["pulses"].update(parameters)
 
         return self.config["pulses"][name]
 
@@ -1198,13 +1288,79 @@ class ConfigDB(DoltDB):
 
         return se
 
+    def pulse_parameters(self, names: str | list[str] = r".*") -> pd.DataFrame:
+        """Returns a dataframe of pulse parameters in table form.
+
+        Args:
+            names: A list of pulse names to include in the table. If a list of names is
+                passed in, only these pulses will be included. If a names is a string,
+                it will be used as a regex to filter out pulses whose names don't match.
+
+        Returns:
+            A dataframe indexed by pulse names, with all possible pulse parameters as
+            columns. NaN values indicate that the given parameter does not exist for the
+            pulse.
+        """
+        parameters = {}
+
+        match names:
+            case str():
+                exclude = lambda s: not bool(re.match(names, s))
+            case list():
+                exclude = lambda s: s not in names
+            case _:
+                raise ValueError(
+                    f"'names' must be a str or a list of str, got {names} that is {type(names)}"
+                )
+
+        for name, pulse in self.config.pulses.items():
+            if exclude(name):
+                continue
+
+            parameters[(name, "pulse_key")] = pulse.pulse_key
+            parameters |= {
+                (name, param): value for param, value in pulse.variables.items()
+            }
+
+        return pd.Series(parameters.values(), index=parameters.keys()).unstack()
+
+
+@qdefine
+class ConfigDB(OfflineConfigDB, DoltDB):
+    """An interface to a configuration database backend.
+
+    The OfflineConfigDB can be used with a SQLite databse backend, with the caveat that
+    no database version control features are available. This is primarily used for
+    testing and development purposes, but can also be used as a backup in the event
+    that the dolt database server is down.
+
+    Attributes:
+        url: The database connection url.
+        engine: The SQLAlchemy engine that maintains the database connection.
+        session: The database session associated with the engine.
+    """
+
+    url: URL = field(
+        converter=lambda s: make_url(s) if isinstance(s, str) else s,
+    )
+
+    @url.validator
+    def _validate_url(self, attribute, value):
+        if value.get_backend_name() != "mysql":
+            raise ValueError("Dolt database must use mysql driver")
+
+        if value.database is None:
+            raise ValueError("Database name must be provided for ConfigDB.")
+
 
 __all__ = [
     "Branch",
     "Commit",
     "ReadOnlyParameter",
+    "Database",
     "DoltDB",
     "ConfigDB",
+    "OfflineConfigDB",
     "ConfigFolder",
     "ValidatedConfigFolder",
     "configschema",

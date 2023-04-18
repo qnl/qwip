@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+<<<<<<< HEAD
 import sqlalchemy as sa
 from qtrl.settings import Settings
 
@@ -16,29 +17,40 @@ from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.qpu.qpu import QPU
 from qwip.qpu.systems import ReadoutResonator, Transmon
 from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequencer
+=======
+from sqlalchemy.engine import make_url
+
+try:
+    from qtrl.settings import Settings
+
+    Settings.setup = Settings.OFFLINE  # ruff: noqa: E402
+except ModuleNotFoundError:
+    ...
+
+from qwip.config.database import ConfigDB, Database, DoltDB, OfflineConfigDB
+from qwip.config.metadata import QWIP_DB_METADATA
+from qwip.config.schema import ConfigSchema
+from qwip.qpu.qpu import QPU
+>>>>>>> main
 
 
 def pytest_addoption(parser):
-    parser.addoption("--db_url", action="store", default=None, help="The database url.")
-
     parser.addoption(
-        "--test_db",
-        action="store",
-        default="test_db",
-        help="The name of the test database.",
+        "--db_url", action="store", default="sqlite://", help="The database url."
     )
+    parser.addoption("--seed", action="store", default=0, help="Seed used for all rng.")
 
     parser.addoption("--seed", action="store", default=0, help="Seed used for all rng.")
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="session")
 def db_url(request):
-    return request.config.getoption("--db_url")
+    return make_url(request.config.getoption("--db_url"))
 
 
-@pytest.fixture(scope="module")
-def test_db(request):
-    return request.config.getoption("--test_db")
+@pytest.fixture(scope="session")
+def seed(request):
+    return int(request.config.getoption("--seed"))
 
 @pytest.fixture(scope="module")
 def seed(request):
@@ -61,43 +73,69 @@ def data_file(request):
     return datadir / f"{filename}.txt"
 
 
+<<<<<<< HEAD
 @pytest.fixture(scope="module")
 def doltdb(db_url, test_db):
     doltdb = DoltDB.from_url(f"{db_url}/{test_db}")
     doltdb.connect()
+=======
+@pytest.fixture(scope="session")
+def skip_dolt(db_url):
+    if db_url.get_backend_name() != "mysql":
+        pytest.skip("Skipping dolt tests with offline database.")
+>>>>>>> main
 
-    yield doltdb
+
+@pytest.fixture(scope="session")
+def database(db_url):
+    if db_url.get_backend_name() == "sqlite":
+        db_cls = Database
+    else:
+        db_cls = DoltDB
+
+    db = db_cls(url=db_url)
+    db.connect(test=True)
+
+    yield db
 
 
 @pytest.fixture(scope="module")
-def models(doltdb):
-    with doltdb.session.begin():
-        commit_hash = doltdb.session.scalars(sa.func.HASHOF("main")).one()
-
+def models(database):
     tables = [t for n, t in QWIP_DB_METADATA.tables.items() if not n.startswith("dolt")]
-
-    QWIP_DB_METADATA.create_all(doltdb.engine, tables=tables)
-
-    doltdb.commit("Created models.", add="all")
+    QWIP_DB_METADATA.create_all(database.engine, tables=tables)
 
     yield QWIP_DB_METADATA
 
-    with doltdb.session.begin():
-        dolt_reset(doltdb.session, commit_hash, hard=True)
+    QWIP_DB_METADATA.drop_all(database.engine, tables=tables)
 
-    QWIP_DB_METADATA.drop_all(doltdb.engine, tables=tables)
+
+@pytest.fixture(scope="function")
+def session(database):
+    with database.session.begin_nested():
+        yield database.session
+        database.session.rollback()
+
+
+@pytest.fixture(scope="function")
+def dolt_session(database):
+    with database.session.begin():
+        commit_hash = database.get_commit().hash
+        yield database.session
+        database.reset(commit_hash, hard=True)
 
 
 @pytest.fixture
-def session(doltdb):
-    with doltdb.session.begin():
-        yield doltdb.session
+def session_with_models(session, models):
+    yield session
 
 
 @pytest.fixture
-def reset_models(session, models):
-    yield models
+def configdb_01():
+    db_file = Path(__file__).parent / "sample_configs/config_01.sqlite"
+    db = OfflineConfigDB(url=f"sqlite:///{db_file}", schema=ConfigSchema)
+    db.connect()
 
+<<<<<<< HEAD
     dolt_reset(session, "main", hard=True)
 
 
@@ -190,4 +228,14 @@ def qpu(sequencer, pipeline, subsystems):
         pipeline=pipeline,
     )
 
+=======
+    with db.session.begin_nested():
+        yield db
+        db.session.rollback()
+
+
+@pytest.fixture
+def qpu_01(configdb_01):
+    qpu = QPU.load(configdb_01)
+>>>>>>> main
     return qpu

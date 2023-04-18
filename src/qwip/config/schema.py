@@ -40,11 +40,19 @@ class HardwareSchema(ValidatedConfigFolder):
 
 @configschema
 class ClassificationSchema(ValidatedConfigFolder):
-    num_states: int
-    means: np.ndarray
-    covariances: np.ndarray
+    num_states: int = 2
+    means: np.ndarray = field()
+    covariances: np.ndarray = field()
     rotation: float = 0
     excited_state_promotion: bool = False
+
+    @means.default
+    def _default_means(self) -> np.ndarray:
+        return np.zeros((self.num_states, 2), dtype=float)
+
+    @covariances.default
+    def _default_covariances(self) -> np.ndarray:
+        return np.zeros(self.num_states, dtype=float)
 
 
 @configschema
@@ -135,7 +143,7 @@ __all__ = [
     "ConfigSchema",
     "CompilationSchema",
     "HardwareSchema",
-    "ProcessingSchema",
+    "ReadoutSchema",
     "PulsesSchema",
     "CompilationSchema",
 ]

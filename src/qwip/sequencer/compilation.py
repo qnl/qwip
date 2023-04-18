@@ -12,16 +12,15 @@ from loguru import logger
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
-from qtrl.sequence_utils.readout import _ReadoutInfo
 from scipy.fft import fft, fftfreq, fftshift
 from typing_extensions import Self
 
+from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import Channel, Marker, ReadoutMarker, Waveform
-from qwip.settings.settings import qdefine, qfrozen
 from qwip.visualization.utils import all_legend_handles_labels
 
 
@@ -48,6 +47,23 @@ def find_readout_marker(locations) -> Location | None:
             readout_location = loc
 
     return readout_location
+
+
+@qdefine(kw_only=False)
+class _ReadoutInfo:
+    """Readout info.
+
+    This is a mirror of the _ReadoutInfo class in `qtrl.sequence_utils.readout`.
+
+    Attributes:
+        sequence: A WaveformData object to mirror a QTRL sequence.
+        qubits: A list of qubit indices corresponding to which qubits a read out.
+        n_readouts: The total number of readouts accross all sequence elements.
+    """
+
+    sequence: "WaveformData"
+    qubits: list[int]
+    n_readouts: int
 
 
 @qdefine

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from attrs import field
 from numpy.random import Generator, default_rng
+<<<<<<< HEAD
 from qtrl.managers import MetaManager
 
 from qwip.processing.processors import GMMClassification
@@ -15,6 +16,18 @@ from qwip.settings.settings import qdefine
 
 from os import path # Can this be included? 
 import qutip as qt  # no qutip package? 
+=======
+
+try:
+    from qtrl.managers import MetaManager
+except ImportError:
+    ...
+
+from qwip.attrs import qdefine
+from qwip.processing.processors import GMMClassification
+from qwip.qpu.systems import ReadoutResonator
+from qwip.sequencer.compilation import CompiledSequence
+>>>>>>> main
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
@@ -124,11 +137,16 @@ class SimulatorBackend(QuantumBackend):
         ...
 
 
+
 @qdefine
 class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
 
+<<<<<<< HEAD
     meta: MetaManager
+=======
+    meta: "MetaManager"
+>>>>>>> main
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
         self.meta.write_sequence(cseq)
@@ -137,10 +155,18 @@ class QTRLBackend(QuantumBackend):
         acquisition_kwargs = dict(n_reps=repetitions, save_data=False) | kwargs
 
         meas = self.meta.acquire(**acquisition_kwargs)
+<<<<<<< HEAD
         iqdata = {k: meas[k]["Heterodyne"] for k in meas.keys() if re.match(r"R(\d+)", k)}
         return iqdata
 
 
+=======
+        iqdata = {
+            k: meas[k]["Heterodyne"] for k in meas.keys() if re.match(r"R(\d+)", k)
+        }
+        return iqdata
+
+>>>>>>> main
     def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU.
 
@@ -171,9 +197,16 @@ def random_data_sampler(
         repetitions: int,
     ) -> np.ndarray:
         return rng.choice(num_states, size=repetitions)
+<<<<<<< HEAD
     
     return generate
 
+=======
+
+    return generate
+
+
+>>>>>>> main
 def population_data_sampler(
     populations: np.ndarray,
     rng: Generator = default_rng(),
@@ -281,3 +314,9 @@ class FakeBackend(QuantumBackend):
             match proc:
                 case GMMClassification(measurement_key=key):
                     self.gmms[key] = proc
+<<<<<<< HEAD
+=======
+
+
+__all__ = ["QTRLBackend", "SimulatorBackend", "FakeBackend"]
+>>>>>>> main

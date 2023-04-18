@@ -1,3 +1,3 @@
-# Quantum Workflows In Python
+# Quantum Workflows in Python
 
-Qwip is a workflow library for running experiments on superconducting quantum computers.
+QWiP is a workflow library for running experiments on superconducting quantum computers. Check out the [documentation](https://qnl-internal.berkeley.edu/QWiP/) for more information.

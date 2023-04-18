@@ -11,7 +11,7 @@ import rustworkx as rx
 from attrs import cmp_using, field
 from loguru import logger
 
-from qwip.settings.settings import qdefine
+from qwip.attrs import qdefine
 from qwip.typing import is_generic_type
 
 DATA_PROCESSOR_LOOKUP = dict()
@@ -27,6 +27,13 @@ def _dataframe_equals(a: pd.DataFrame, b: pd.DataFrame) -> bool:
         True if a and b are equal otherwise False.
     """
     return a.equals(b)
+
+
+def _dataframe_repr(df: pd.DataFrame) -> str:
+    """Short representation of DataFrame."""
+    rows, cols = df.shape
+
+    return f"DataFrame [{rows} rows x {cols} columns]"
 
 
 @qdefine
@@ -47,7 +54,7 @@ class MeasurementResult:
     """A measurement result object."""
 
     name: str
-    data: pd.DataFrame = field(eq=cmp_using(eq=_dataframe_equals))
+    data: pd.DataFrame = field(eq=cmp_using(eq=_dataframe_equals), repr=_dataframe_repr)
     processors: tuple[DataProcessor, ...] = field(factory=tuple)
 
     def __get__(self, key):
@@ -56,6 +63,16 @@ class MeasurementResult:
     @property
     def loc(self):
         return self.data.loc
+
+    @property
+    def shape(self):
+        return self.data.shape
+
+    def _repr_html_(self) -> str:
+        description = f'<p style="font-family: monospace;">{repr(self)}</p>'
+        dataframe = pd.DataFrame(np.zeros((8, 4)))._repr_html_()
+
+        return "\n".join([description, dataframe])
 
 
 @qdefine
@@ -163,6 +180,8 @@ class DataProcessorGraph:
                 if name in self.index_map:
                     match self.index_map[name]:
                         case tuple(nodes):
+                            # We need a way to resolve the ambiguity here. Since it is
+                            # no longer possible to determine where the node should go
                             raise NotImplementedError()
                         case prev_v:
                             ...
@@ -252,6 +271,12 @@ class DataProcessorGraph:
         input_idx = self.index_map[input_type.__name__]
 
         try:
+            match input_idx:
+                # We take the last input_idx b.c. it's supposed to be the shortest path
+                # May want to consider resolving the ambiguity in a more flexible way
+                case (*prev, input_idx):
+                    ...
+
             path = rx.dijkstra_shortest_paths(
                 self.graph,
                 input_idx,
@@ -307,9 +332,23 @@ class ReadoutPipeline:
     def get_processor(
         self,
         processor_type: type[DataProcessor] | str,
+<<<<<<< HEAD
         key: str,
     ) -> DataProcessor:
         """Returns a processor with a matching type and compatible measurement key."""
+=======
+        key: str | None = None,
+    ) -> DataProcessor | None:
+        """Returns a processor with a matching type and compatible measurement key.
+
+        Args:
+            processor_type: A `DataProcessor` subclass or a string specifying a subclass.
+            key: A measurement key.
+
+        Returns:
+            A compatible data processor, or `None` if no data processor is found.
+        """
+>>>>>>> main
         if not isinstance(processor_type, str):
             processor_type = processor_type.__name__
 
@@ -348,6 +387,73 @@ class ReadoutPipeline:
             *(proc for proc in self.processors if not should_remove(proc)),
             processor
         )
+
+    def add_processor(self, processor: DataProcessor) -> None:
+        """Adds a processor to the pipeline.
+
+        If a processor with matching type and key already exists, it will be replaced.
+
+        Args:
+            processor: The DataProcessor to be added.
+        """
+
+        self.get_processor.cache_clear()
+
+        def should_remove(other):
+            return (
+                type(other) == type(processor)
+                and other.measurement_key == processor.measurement_key
+            )
+
+        self.processors = (
+            *(proc for proc in self.processors if not should_remove(proc)),
+            processor,
+        )
+
+    def remove_processor(
+        self,
+        processor_type: type[DataProcessor] | str,
+        key: str | None = None,
+    ) -> DataProcessor:
+        """Removes a processor from the pipeline.
+
+        Unlike add_processor, the processor_type and key must match exactly, i.e. a
+        processor with `measurement_key == None` will not be removed if key is given
+        and not `None`.
+
+        Args:
+            processor_type: A `DataProcessor` subclass or a string specifying a subclass.
+            key: A measurement key.
+
+        Returns:
+            The `DataProcessor` that was removed.
+
+        Raises:
+            KeyError: If the specified processor does not exist.
+        """
+
+        if not isinstance(processor_type, str):
+            processor_type = processor_type.__name__
+
+        new_processors = []
+
+        removed = None
+        for p in self.processors:
+            if type(p).__name__ == processor_type and p.measurement_key == key:
+                removed = p
+            else:
+                new_processors.append(p)
+
+        if removed is None:
+            raise KeyError(
+                f"DataProcessor of type {processor_type} with measurement key {key} "
+                f"does not exist."
+            )
+
+        self.processors = new_processors
+        self.get_processor.cache_clear()
+
+        return removed
 
     def _build_processor_graph(
         self,

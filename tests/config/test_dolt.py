@@ -17,9 +17,10 @@ from qwip.config.dolt import (
 )
 
 
+@pytest.mark.usefixtures("skip_dolt")
 class TestDolt:
     @pytest.fixture
-    def new_table(self, doltdb):
+    def new_table(self, dolt_session):
         metadata = MetaData()
 
         test_table = DoltTable(
@@ -32,19 +33,15 @@ class TestDolt:
         )
 
         test_table.create_system_tables()
-        try:
-            with doltdb.engine.begin() as connection:
-                commit_hash = connection.execute(sa.func.HASHOF("main")).scalars().one()
+        test_table.create(dolt_session.connection())
 
-            metadata.create_all(doltdb.engine, tables=[test_table])
-            yield test_table
-        finally:
-            with doltdb.engine.begin() as connection:
-                dolt_reset(connection, commit_hash, hard=True)
+        yield test_table
 
-            metadata.drop_all(doltdb.engine, tables=[test_table])
+        test_table.drop(dolt_session.connection())
 
-    def test_new_table(self, session, new_table):
+    def test_new_table(self, dolt_session, new_table):
+        session = dolt_session
+
         log = session.execute(sa.select(DoltLog)).scalars().first()
         assert log.message == "Initialize data repository"
 
@@ -57,7 +54,8 @@ class TestDolt:
         nrows = session.execute(sa.select(new_table)).rowcount
         assert nrows == 0
 
-    def test_linear_history(self, session, new_table):
+    def test_linear_history(self, dolt_session, new_table):
+        session = dolt_session
         table = new_table
 
         stmt = sa.insert(table).values(
