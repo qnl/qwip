@@ -1,39 +1,27 @@
 import numpy as np
 import pytest
-<<<<<<< HEAD
-
-=======
->>>>>>> main
 from numpy.random import default_rng
 
 import qwip
 from qwip.processing.processors import GMMClassification, StatePopulations
 from qwip.qpu.backend import FakeBackend
+from qwip.qpu.backend import SimulatorBackend
 from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 
 class TestQuantumBackend:
     @pytest.fixture
-<<<<<<< HEAD
-    def backend(self, qpu, seed):
-        backend = FakeBackend(rng=default_rng(seed))
-        backend.update_parameters(qpu)
-=======
     def backend(self, qpu_01, seed):
         backend = FakeBackend(rng=default_rng(seed))
         backend.update_parameters(qpu_01)
->>>>>>> main
 
         return backend
 
     @pytest.fixture
-<<<<<<< HEAD
-=======
     def sequencer(self, qpu_01):
         return qpu_01.sequencer
 
     @pytest.fixture
->>>>>>> main
     def compiled(self, sequencer):
         def generate_cseq(shape):
             ro = SequenceElement()
@@ -55,21 +43,6 @@ class TestQuantumBackend:
         assert backend.uploaded is cseq
         assert backend.data_func is zeros
 
-<<<<<<< HEAD
-    def test_update_parameters(self, qpu, backend):
-        gmm0 = GMMClassification(
-            measurement_key="R0",
-            means=np.array([[5, 0], [-5, 0]], dtype=float),
-            covariances=np.array([1, 1], dtype=float)
-        )
-
-        qpu.pipeline.add_processor(gmm0)
-        
-        backend.update_parameters(qpu)
-        assert backend.gmms["R0"] is gmm0
-
-    def test_acquire_zeros(self, qpu, backend, compiled):
-=======
     def test_update_parameters(self, qpu_01, backend):
         qpu = qpu_01
         gmm0 = GMMClassification(
@@ -86,7 +59,6 @@ class TestQuantumBackend:
     def test_acquire_zeros(self, qpu_01, backend, compiled):
         qpu = qpu_01
 
->>>>>>> main
         def data_func(key, element, readout, repetitions):
             return np.zeros(repetitions)
 
@@ -101,13 +73,6 @@ class TestQuantumBackend:
         assert (results["R0"].data["0"] > 0.99).all()
         assert (results["R1"].data["0"] > 0.99).all()
 
-<<<<<<< HEAD
-    def test_acquire_sin(self, qpu, backend, compiled):
-        def data_func(key, element, readout, repetitions):
-            if key == "R0":
-                populations = (np.sin(element / 20 * 2 * np.pi) + 1) / 2
-                ones = np.round(populations* repetitions).astype(int)
-=======
     def test_acquire_sin(self, qpu_01, backend, compiled):
         qpu = qpu_01
 
@@ -115,7 +80,6 @@ class TestQuantumBackend:
             if key == "R0":
                 populations = (np.sin(element / 20 * 2 * np.pi) + 1) / 2
                 ones = np.round(populations * repetitions).astype(int)
->>>>>>> main
 
                 states = np.zeros(repetitions)
 
@@ -136,3 +100,56 @@ class TestQuantumBackend:
 
         assert (np.abs(results["R0"].data["1"] - R0_expect) < 1e-2).all()
         assert (results["R1"].data["1"] < 1e-2).all()
+    
+
+
+    @pytest.fixture
+    def sim_backend(self, qpu_01):
+        backend = SimulatorBackend()
+        backend.update_parameters(qpu_01)
+
+        return backend
+
+    @pytest.fixture
+    def compile_Q0_X(self, qpu_01):
+        db = qpu_01.db
+        Q0_X = db.load_pulse('Q0_X90', variables=dict(width="rabi_width"))
+
+        rabi_se = SequenceElement()
+        rabi_se.append(Q0_X)
+        rabi_se.add_waveform(ReadoutMarker(), location=Q0_X.width)
+
+        ro_se = SequenceElement()
+        ro_se.add_waveform([db.load_pulse(f"R{r}_basic") for r in range(2)])
+        ro_se.add_constraints(readout_length=256/1.8e9)
+
+        ts = np.linspace(0, 12.54e-9, 21)
+        seq = Sequence.sweep(rabi_se, rabi_width=ts)
+
+        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)        # How to construct readout?
+
+        return cseq
+    
+
+    def test_sim_upload_param(self, qpu_01, sim_backend, compiled):
+        cseq = compiled(15)
+
+        sim_backend.update_parameters(qpu_01)
+        sim_backend.upload(cseq)
+
+        #print(qpu_01.db)
+
+        assert sim_backend.uploaded is cseq
+        assert sim_backend.qpu is qpu_01
+
+    def test_sim_identify_on_channels(self, qpu_01, sim_backend, compile_Q0_X):
+        cseq = compile_Q0_X(qpu_01)
+
+        sim_backend.update_parameters(qpu_01)
+        sim_backend.upload(cseq)
+
+        assert sim_backend.identify_chs() == [('Q0_I', 'Q0_Q')]
+
+        
+
+

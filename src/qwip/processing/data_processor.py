@@ -332,11 +332,6 @@ class ReadoutPipeline:
     def get_processor(
         self,
         processor_type: type[DataProcessor] | str,
-<<<<<<< HEAD
-        key: str,
-    ) -> DataProcessor:
-        """Returns a processor with a matching type and compatible measurement key."""
-=======
         key: str | None = None,
     ) -> DataProcessor | None:
         """Returns a processor with a matching type and compatible measurement key.
@@ -348,7 +343,6 @@ class ReadoutPipeline:
         Returns:
             A compatible data processor, or `None` if no data processor is found.
         """
->>>>>>> main
         if not isinstance(processor_type, str):
             processor_type = processor_type.__name__
 

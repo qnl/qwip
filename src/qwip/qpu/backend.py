@@ -6,17 +6,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 from attrs import field
 from numpy.random import Generator, default_rng
-<<<<<<< HEAD
-from qtrl.managers import MetaManager
-
-from qwip.processing.processors import GMMClassification
-from qwip.qpu.systems import ReadoutResonator
-from qwip.sequencer.compilation import CompiledSequence
-from qwip.settings.settings import qdefine
-
-from os import path # Can this be included? 
-import qutip as qt  # no qutip package? 
-=======
 
 try:
     from qtrl.managers import MetaManager
@@ -27,7 +16,8 @@ from qwip.attrs import qdefine
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence
->>>>>>> main
+
+import qutip as qt
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
@@ -48,40 +38,49 @@ class QuantumBackend(metaclass=ABCMeta):
 
 
 @qdefine
-class SimulatorBackend(QuantumBackend):
+class SimulatorBackend(QuantumBackend): 
+
+    uploaded = None # CompiledSequence | None = None?
+    qpu = None      #: "QPU" | None?
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
-        
-        # Identify channels
-        chs = db['compilation']['channel_groups']['seq']['channels']    # ['Q0_I', 'Q0_Q', 'Q1_I', 'Q1_Q']      
-        chs_status = np.any(cseq.array, axis=(1, 2, 3))                 # ['True', 'True', 'False', 'False']
-        chs_on = [i for i, x in enumerate(chs_status) if x]             # [0, 1]
 
-        chs_names = [(chs[i],chs[i+1]) for i in chs_on 
-                   if ((i%2==0) & (i+1 in chs_on))]                     # [('Q0_I', 'Q0_Q')]
+        self.uploaded = cseq
+        db = self.qpu.db
         
+        chs_on = self.identify_chs()
+        H_list = np.array([])
         
-
-
-        # def acquire(cseq, chs_names): -------------------------
-        for q_sys in chs_names: 
-            # q_sys = ('Q0_I', 'Q0_Q')
+        for q_sys in chs_on:   # q_sys = ('Q0_I', 'Q0_Q')
 
             # Retrieve qubit and chs info
             chs_info = [db["compilation"]["channels"][ch] for ch in q_sys]  # ['Q0_I', Q1_I'] dict
             Q_name = chs_info[0].get("name").split('_')[0]                  # 'Q0'
             Q = db["subsystems"][Q_name]["parameters"]                      # 'Q0' parameters
             n_elements = cseq.waveforms.get('seq').n_elements
-        
-            H_list = np.array([])
-
+    
             for nth_seq in range(n_elements):                               # Simulate every sequence
-                np.append(H_list, find_Hamiltonian(Q, cseq, nth_seq))
-
+                np.append(H_list, self.find_Hamiltonian(Q, nth_seq, chs_info))
         
+        return H_list
 
-        # def find_Hamiltonian(Q, cseq, nth_seq) -------------------
-        nth_seq = -1
+
+    def identify_chs(self):
+        db = self.qpu.db
+
+        chs = db['compilation']['channel_groups']['seq']['channels']            # ['Q0_I', 'Q0_Q', 'Q1_I', 'Q1_Q']      
+        chs_status = np.any(self.uploaded.array, axis=(1, 2, 3))                # ['True', 'True', 'False', 'False']
+        chs_ind = [i for i, x in enumerate(chs_status) if x]                    # [0, 1]
+
+        chs_on = [(chs[i],chs[i+1]) for i in chs_ind 
+                   if ((i%2==0) & (i+1 in chs_ind))]                            # [('Q0_I', 'Q0_Q')]
+        
+        return chs_on
+
+
+    def find_Hamiltonian(self, Q, nth_seq, chs_info):
+        db = self.qpu.db
+        cseq = self.uploaded
 
         N = 2
         alpha = Q.get('anharmonicity')
@@ -98,8 +97,22 @@ class SimulatorBackend(QuantumBackend):
         ch_Q = cseq.array[chs_info[1].get("index"), nth_seq, :, chs_info[1].get("subchannel")]
 
         pulse = ch_I + 1j*ch_Q 
+        drive, ts = self.upconvert(sampling_rate, pulse, f_LO, phase_LO)
+
+        # Amplitude Scaling Factor?
+        Omega = 2*np.pi*20e6 
+
+        # Construct Hamiltonian and Store
+        a = qt.destroy(N)
+        adag = qt.create(N)
+
+        H0 = 2*np.pi*fq*adag*a + 2*np.pi*(alpha/2)*adag*adag*a*a
+        H = [[H0, np.ones_like(ts)], [a, Omega*drive], [adag, Omega*np.conj(drive)]]
+
+        return H
         
 
+    def upconvert(self, sampling_rate, pulse, f_LO, phase_LO):
         # Upconvert & Interpolate I and Q -- code from pypulse 
         sample_time = 1/sampling_rate
     
@@ -116,25 +129,14 @@ class SimulatorBackend(QuantumBackend):
         carrier = np.exp(1j*2*np.pi*f_LO*ts + 1j*phase_LO)
         drive = 2*np.pi*carrier * envelope
 
-
-
-        # Amplitude Scaling Factor?
-        Omega = 2*np.pi*20e6 
-
-        # Construct Hamiltonian and Store
-        a = qt.destroy(N)
-        adag = qt.create(N)
-
-        H0 = 2*np.pi*fq*adag*a + 2*np.pi*(alpha/2)*adag*adag*a*a
-        H = [[H0, np.ones_like(ts)], [a, Omega*drive], [adag, Omega*np.conj(drive)]]
-
+        return [drive, ts]
 
 
     def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
         ...
 
     def update_parameters(self, qpu: "QPU", **kwargs):
-        ...
+        self.qpu = qpu
 
 
 
@@ -142,11 +144,7 @@ class SimulatorBackend(QuantumBackend):
 class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
 
-<<<<<<< HEAD
-    meta: MetaManager
-=======
     meta: "MetaManager"
->>>>>>> main
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
         self.meta.write_sequence(cseq)
@@ -155,18 +153,11 @@ class QTRLBackend(QuantumBackend):
         acquisition_kwargs = dict(n_reps=repetitions, save_data=False) | kwargs
 
         meas = self.meta.acquire(**acquisition_kwargs)
-<<<<<<< HEAD
-        iqdata = {k: meas[k]["Heterodyne"] for k in meas.keys() if re.match(r"R(\d+)", k)}
-        return iqdata
-
-
-=======
         iqdata = {
             k: meas[k]["Heterodyne"] for k in meas.keys() if re.match(r"R(\d+)", k)
         }
         return iqdata
 
->>>>>>> main
     def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU.
 
@@ -197,16 +188,10 @@ def random_data_sampler(
         repetitions: int,
     ) -> np.ndarray:
         return rng.choice(num_states, size=repetitions)
-<<<<<<< HEAD
-    
-    return generate
-
-=======
 
     return generate
 
 
->>>>>>> main
 def population_data_sampler(
     populations: np.ndarray,
     rng: Generator = default_rng(),
@@ -314,9 +299,6 @@ class FakeBackend(QuantumBackend):
             match proc:
                 case GMMClassification(measurement_key=key):
                     self.gmms[key] = proc
-<<<<<<< HEAD
-=======
 
 
 __all__ = ["QTRLBackend", "SimulatorBackend", "FakeBackend"]
->>>>>>> main
