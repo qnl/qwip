@@ -1,3 +1,5 @@
+from functools import cached_property
+
 import attrs
 import pendulum
 import sqlalchemy as sa
@@ -45,6 +47,18 @@ class VersionControlled:
     def table(self) -> Table:
         return self.__table__
 
+    @classmethod
+    def column_field_map(cls):
+        mapper = cls.__mapper__
+
+        aliases = dict()
+        for f in attrs.fields(cls):
+            columns = getattr(mapper.get_property(f.name))
+            if columns and f.init:
+                aliases[f.name] = columns[0].name
+
+        return aliases
+
     def history(self, connection) -> list[str, Self]:
         table = self.table
         history_cols = table._dolt_history.columns
@@ -56,13 +70,7 @@ class VersionControlled:
             )
         )
 
-        mapper = self.__mapper__
-
-        aliases = dict()
-        for f in attrs.fields(type(self)):
-            columns = getattr(mapper.get_property(f.name), "columns", None)
-            if columns and f.init:
-                aliases[f.name] = columns[0].name
+        aliases = type(self).column_field_map()
 
         # Everything before here can maybe be cached in the future.
 
