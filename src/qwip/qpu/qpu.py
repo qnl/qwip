@@ -268,7 +268,7 @@ class QPU:
 
     def run(
         self,
-        program: Sequence | CompiledSequence,
+        program: Sequence | CompiledSequence | None,
         processor: type[DataProcessor]
         | dict[str, type[DataProcessor]] = FormatLegacyIQ,
         repetitions: int = 512,
@@ -315,14 +315,16 @@ class QPU:
             case CompiledSequence():
                 cseq = program
                 seq = cseq.sequence
-
+            case None:
+                cseq = None
             case _:
                 raise NotImplementedError(
                     f"Only 'Sequence' and 'CompiledSequence' programs are currently "
                     f"supported. Got {program}"
                 )
 
-        self.backend.upload(cseq)
+        if cseq:
+            self.backend.upload(cseq)
         meas = self.backend.acquire(cseq, repetitions=repetitions)
 
         return self.process_results(meas, processor)
