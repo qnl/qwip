@@ -4,6 +4,7 @@ import pytest
 from numpy.random import default_rng
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
+import qwip
 from qwip.processing.processors import (
     ClassifiedResult,
     FormatLegacyIQ,
@@ -21,7 +22,6 @@ from qwip.processing.processors import (
 class TestFormatLegacyIQ:
     def test_reorder(self):
         meas = np.arange(2 * 3 * 4 * 5).astype(float).reshape(2, 3, 4, 5)
-
         iqdata = FormatLegacyIQ()(meas)
 
         assert iqdata.shape == (4 * 5, 3)
@@ -29,12 +29,25 @@ class TestFormatLegacyIQ:
 
     def test_float32(self):
         meas = np.arange(2 * 3 * 4 * 5).astype(np.float32).reshape(2, 3, 4, 5)
-
         iqdata = FormatLegacyIQ()(meas)
 
         assert iqdata.shape == (4 * 5, 3)
         assert iqdata.data.index.levshape == (4, 5)
 
+    def test_unstructure(self):
+        meas = np.arange(2 * 3 * 4 * 5).astype(float).reshape(2, 3, 4, 5)
+        iqdata = FormatLegacyIQ()(meas)
+
+        unstructured = qwip.converter.unstructure(iqdata)
+        df = iqdata.data
+        structured = qwip.converter.structure(unstructured | dict(data=df), IQResult)
+
+        assert unstructured == dict(
+            name="IQResult",
+            processors=[dict(measurement_key=None, __class__="FormatLegacyIQ")],
+            __class__="IQResult"
+        )
+        assert structured == iqdata
 
 class TestIQRotation:
     def test_rotate(self):

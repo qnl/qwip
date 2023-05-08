@@ -11,6 +11,8 @@ import rustworkx as rx
 from attrs import cmp_using, field
 from loguru import logger
 
+import qwip
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 from qwip.typing import is_generic_type
 
@@ -54,7 +56,11 @@ class MeasurementResult:
     """A measurement result object."""
 
     name: str
-    data: pd.DataFrame = field(eq=cmp_using(eq=_dataframe_equals), repr=_dataframe_repr)
+    data: pd.DataFrame = field(
+        eq=cmp_using(eq=_dataframe_equals),
+        repr=_dataframe_repr,
+        metadata=dict(serialize=False),
+    )
     processors: tuple[DataProcessor, ...] = field(factory=tuple)
 
     def __get__(self, key):
@@ -70,7 +76,7 @@ class MeasurementResult:
 
     def _repr_html_(self) -> str:
         description = f'<p style="font-family: monospace;">{repr(self)}</p>'
-        dataframe = pd.DataFrame(np.zeros((8, 4)))._repr_html_()
+        dataframe = pd.DataFrame(self.data)._repr_html_()
 
         return "\n".join([description, dataframe])
 
@@ -98,7 +104,7 @@ class DataProcessorGraph:
     """A data structure for managing the data processing dependency graph."""
 
     graph: rx.PyDiGraph = field(factory=lambda: rx.PyDiGraph(check_cycle=True))
-    registered: dict[TMeasurementOrProcessor, str] = field(factory=dict)
+    registered: dict[str, TMeasurementOrProcessor] = field(factory=dict)
     index_map: dict[str, int] = field(factory=dict)
 
     @staticmethod
@@ -572,3 +578,45 @@ class ReadoutPipeline:
         }
 
         return results
+
+
+# ========== Data Processor converters ========== #
+
+def make_data_processor_structure_fn(cls):
+    structure_attrs = make_attrs_structure_fn(cls)
+
+    def structure_fn(val, cls):
+        if isinstance(val, cls):
+            return val
+
+        subclass = DATA_PROCESSORS.registered.get(
+            val.get("__class__", None),
+        )
+
+        if subclass is None:
+            logger.warning(
+                f"No matching data processor found. Structuring {val} as {cls}."
+            )
+            return structure_attrs(val, cls)
+
+        return qwip.converter.structure(val, subclass)
+
+    return structure_fn
+
+
+def make_data_processor_unstructure_fn(cls):
+    unstructure_attrs = make_attrs_unstructure_fn(cls, omit_defaults=False)
+
+    def unstructure_fn(obj):
+        return {**unstructure_attrs(obj), "__class__": type(obj).__name__}
+
+    return unstructure_fn
+
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: cls in (DataProcessor, MeasurementResult), make_data_processor_structure_fn
+)
+
+qwip.converter.register_unstructure_hook_factory(
+    lambda cls: issubclass(cls, (DataProcessor, MeasurementResult)), make_data_processor_unstructure_fn
+)

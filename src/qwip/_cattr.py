@@ -150,7 +150,7 @@ converter.register_unstructure_hook(pendulum.Date, lambda dt: dt.isoformat())
 
 def make_attrs_structure_fn(cls):
     def should_structure(field):
-        return field.init and field.metadata.get("serialize", True)
+        return field.init
 
     to_structure = {
         f.name: cattr.override(omit=True)
@@ -171,7 +171,7 @@ def make_attrs_structure_fn(cls):
     return structure_fn
 
 
-def make_attrs_unstructure_fn(cls):
+def make_attrs_unstructure_fn(cls, omit_defaults: bool = True):
     def should_unstructure(field):
         return field.init and field.metadata.get("serialize", True)
 
@@ -182,7 +182,7 @@ def make_attrs_unstructure_fn(cls):
     }
 
     unstructure_from_dict = make_dict_unstructure_fn(
-        cls, converter, _cattrs_omit_if_default=True, **to_unstructure
+        cls, converter, _cattrs_omit_if_default=omit_defaults, **to_unstructure
     )
 
     def unstructure_fn(v):

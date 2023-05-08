@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 import rustworkx as rx
 
+import qwip
 from qwip.processing.data_processor import (
     DATA_PROCESSORS,
     GRAPH_IN,
@@ -57,6 +58,20 @@ class TestMeasurementResult:
             "processors=())"
         )
 
+    def test_unstructure(self):
+        res = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3, 4]))
+
+        assert qwip.converter.unstructure(res) == dict(name="name", processors=[])
+
+
+class TestDataProcessor:
+    def test_unstructure(self):
+        IQ = FormatLegacyIQ()
+        rot = IQRotation(measurement_key="R0", angle=90)
+        gmm = GMMClassification(measurement_key="R0")
+        print(qwip.converter.unstructure(gmm))
+        gmmd = qwip.converter.unstructure(gmm)
+        print(type(gmmd['means']))
 
 class TestProcessingGraph:
     def test_init(self):
