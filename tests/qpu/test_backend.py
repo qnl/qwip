@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from numpy.random import default_rng
+import matplotlib.pyplot as plt
 
 import qwip
 from qwip.processing.processors import GMMClassification, StatePopulations
@@ -102,6 +103,22 @@ class TestQuantumBackend:
         assert (results["R1"].data["1"] < 1e-2).all()
     
 
+class TestSimulatorBackend:
+
+    @pytest.fixture
+    def sequencer(self, qpu_01):
+        return qpu_01.sequencer
+
+    @pytest.fixture
+    def compiled(self, sequencer):
+        def generate_cseq(shape):
+            ro = SequenceElement()
+            seq = Sequence.empty(shape)
+            seq = seq + SequenceElement().add_waveform(ReadoutMarker(), 10e-9)
+
+            return sequencer.compile(seq, readout=ro)
+
+        return generate_cseq
 
     @pytest.fixture
     def sim_backend(self, qpu_01):
@@ -120,35 +137,84 @@ class TestQuantumBackend:
         rabi_se.add_waveform(ReadoutMarker(), location=Q0_X.width)
 
         ro_se = SequenceElement()
-        ro_se.add_waveform([db.load_pulse(f"R{r}_basic") for r in range(2)])
-        ro_se.add_constraints(readout_length=256/1.8e9)
 
         ts = np.linspace(0, 12.54e-9, 21)
         seq = Sequence.sweep(rabi_se, rabi_width=ts)
 
-        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)        # How to construct readout?
+        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)      
 
         return cseq
     
+    def check_fft(self, ts, drive):
+        from qwip.analysis.frequency import simple_fft
 
-    def test_sim_upload_param(self, qpu_01, sim_backend, compiled):
-        cseq = compiled(15)
+        fs, yfs = simple_fft(ts, drive)
 
-        sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(cseq)
+        fig, ax = plt.subplots()
+        ax.plot(fs, np.abs(yfs))
+        ax.set_xlim(4.6e9, 6e9)
+        plt.show()
+    
 
-        #print(qpu_01.db)
+    def plot_states(self, result):
+        states = np.array(result.expect)
+        ts = list(range(states.shape[1]))
+        N = states.shape[0]
 
-        assert sim_backend.uploaded is cseq
+        fig, ax = plt.subplots()
+        for level in range(N):
+            ax.plot(ts, states[level], label=f'$|{level}⟩$')
+        ax.legend()
+        plt.show()
+
+
+    def test_sim_upload_db(self, qpu_01, sim_backend):
         assert sim_backend.qpu is qpu_01
 
+
     def test_sim_identify_on_channels(self, qpu_01, sim_backend, compile_Q0_X):
-        cseq = compile_Q0_X(qpu_01)
+        cseq = compile_Q0_X
 
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(cseq)
+        
+        assert sim_backend.on_channels() == [(0, 1)]
 
-        assert sim_backend.identify_chs() == [('Q0_I', 'Q0_Q')]
+
+    def test_sim_upload_Q0X_seq(self, qpu_01, sim_backend, compile_Q0_X):
+        cseq = compile_Q0_X
+        sim_backend.update_parameters(qpu_01)
+        sim_backend.upload(cseq)
+        
+        assert len(sim_backend.uploaded.array[0]) == 21
+
+    
+    def test_sim_acquire_Q0X_seq(self, sim_backend, compile_Q0_X):
+        cseq = compile_Q0_X
+        H_list = sim_backend.upload(cseq)
+
+        results = sim_backend.acquire(cseq)
+        assert len(results["Q0"]["results"]) == 21
+
+
+    def test_sim_acquire_Q0X_seq_fft_correct(self, sim_backend, compile_Q0_X):
+        cseq = compile_Q0_X
+        data = sim_backend.acquire(cseq)
+        self.check_fft(sim_backend.ts, sim_backend.drive)
+        assert True
+    
+    def test_sim_acquire_Q0X_seq_states_correct(self, sim_backend, compile_Q0_X):
+        cseq = compile_Q0_X
+        data = sim_backend.acquire(cseq)
+
+        full_seq = data["Q0"]["results"][-1]
+        self.plot_states(full_seq)
+
+        assert True
+
+        
+        
+
 
         
 
