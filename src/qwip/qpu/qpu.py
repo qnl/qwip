@@ -12,7 +12,12 @@ from loguru import logger
 
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
-from qwip.config.database import ConfigDB, ConfigFolder, SequenceElementFolder, OfflineConfigDB
+from qwip.config.database import (
+    ConfigDB,
+    ConfigFolder,
+    OfflineConfigDB,
+    SequenceElementFolder,
+)
 from qwip.config.schema import Target
 from qwip.processing.data_processor import (
     DATA_PROCESSORS,
