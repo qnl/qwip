@@ -106,7 +106,7 @@ def session_with_models(session, models):
 
 @pytest.fixture
 def configdb_01():
-    db_file = Path(__file__).parent / "sample_configs/config_01.sqlite"
+    db_file = Path(__file__).parent / "sample_configs/config_02.sqlite"
     db = OfflineConfigDB(url=f"sqlite:///{db_file}", schema=ConfigSchema)
     db.connect()
 

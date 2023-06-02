@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 import numpy as np
+import matplotlib.pyplot as plt
 from attrs import field
 from numpy.random import Generator, default_rng
 
@@ -40,82 +41,74 @@ class QuantumBackend(metaclass=ABCMeta):
 @qdefine
 class SimulatorBackend(QuantumBackend): 
 
-    uploaded = None # CompiledSequence | None = None?
-    qpu = None      #: "QPU" | None?
+    uploaded: CompiledSequence | None = None
+
+    def update_parameters(self, qpu: "QPU", **kwargs):
+        self.qpu = qpu   
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
-
         self.uploaded = cseq
-        db = self.qpu.db
-        
-        chs_on = self.identify_chs()
-        H_list = np.array([])
-        
-        for q_sys in chs_on:   # q_sys = ('Q0_I', 'Q0_Q')
 
-            # Retrieve qubit and chs info
-            chs_info = [db["compilation"]["channels"][ch] for ch in q_sys]  # ['Q0_I', Q1_I'] dict
-            Q_name = chs_info[0].get("name").split('_')[0]                  # 'Q0'
-            Q = db["subsystems"][Q_name]["parameters"]                      # 'Q0' parameters
-            n_elements = cseq.waveforms.get('seq').n_elements
+    def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
+        self.uploaded = cseq
+
+        chs_sim = self.on_channels()
+        data = dict()
+
+        for ch_pair in chs_sim:
+            Q_name = self.qpu.db['compilation']['channel_groups']['seq']['channels'][ch_pair[0]].split("_")[0]
+            Q = self.qpu.db["subsystems"][Q_name]["parameters"]
+            H_seq, states_seq = [], []
+
+            for (Iseq, Qseq) in zip(self.uploaded.array[ch_pair[0]], self.uploaded.array[ch_pair[1]]):
+                H = self.construct_H(Q, Iseq, Qseq)
+                result = self.simulate_H(H, self.ts)
+
+                H_seq.append(H)
+                states_seq.append(result)
+            
+            data[Q_name] = {'H': np.array(H_seq), 'results': np.array(states_seq)}
+        
+        return data
     
-            for nth_seq in range(n_elements):                               # Simulate every sequence
-                np.append(H_list, self.find_Hamiltonian(Q, nth_seq, chs_info))
-        
-        return H_list
 
+    def on_channels(self):
+        chs_on = np.where(np.any(self.uploaded.array, axis=(1, 2, 3)))[0]
+        chs_sim = [(i, i+1) for i in chs_on if i%2==0 & (i+1) in chs_on]
+        return chs_sim
+    
 
-    def identify_chs(self):
+    def construct_H(self, Q, ch_I, ch_Q):
         db = self.qpu.db
-
-        chs = db['compilation']['channel_groups']['seq']['channels']            # ['Q0_I', 'Q0_Q', 'Q1_I', 'Q1_Q']      
-        chs_status = np.any(self.uploaded.array, axis=(1, 2, 3))                # ['True', 'True', 'False', 'False']
-        chs_ind = [i for i, x in enumerate(chs_status) if x]                    # [0, 1]
-
-        chs_on = [(chs[i],chs[i+1]) for i in chs_ind 
-                   if ((i%2==0) & (i+1 in chs_ind))]                            # [('Q0_I', 'Q0_Q')]
-        
-        return chs_on
-
-
-    def find_Hamiltonian(self, Q, nth_seq, chs_info):
-        db = self.qpu.db
-        cseq = self.uploaded
-
         N = 2
-        alpha = Q.get('anharmonicity')
+        alpha = Q.get('anharmonicity') 
         f01 = Q.get('frequency') 
-        fq, fd = f01, f01
-        
+        fq = f01
+
         f_LO = db['hardware']['local_oscillators']['qubit']['frequency']  
         phase_LO = db['hardware']['local_oscillators']['qubit']['phase']
-        sampling_rate = cseq.waveforms.get('seq').sample_rate
-
-
-        # cseq array indices = (channel, element, timestep/sample_idx, subchannel)
-        ch_I = cseq.array[chs_info[0].get("index"), nth_seq, :, chs_info[0].get("subchannel")] 
-        ch_Q = cseq.array[chs_info[1].get("index"), nth_seq, :, chs_info[1].get("subchannel")]
+        sampling_rate = self.uploaded.waveforms.get('seq').sample_rate
 
         pulse = ch_I + 1j*ch_Q 
-        drive, ts = self.upconvert(sampling_rate, pulse, f_LO, phase_LO)
+        drive = self.upconvert(sampling_rate, pulse, f_LO, phase_LO)
 
-        # Amplitude Scaling Factor?
-        Omega = 2*np.pi*20e6 
+        Omega = 2*np.pi*40e6 
 
         # Construct Hamiltonian and Store
         a = qt.destroy(N)
         adag = qt.create(N)
 
         H0 = 2*np.pi*fq*adag*a + 2*np.pi*(alpha/2)*adag*adag*a*a
-        H = [[H0, np.ones_like(ts)], [a, Omega*drive], [adag, Omega*np.conj(drive)]]
+        H = [[H0, np.ones_like(self.ts)], [a, Omega*drive], [adag, Omega*np.conj(drive)]]
 
+        self.drive = drive
         return H
-        
 
+
+    # Code from pypulse
     def upconvert(self, sampling_rate, pulse, f_LO, phase_LO):
-        # Upconvert & Interpolate I and Q -- code from pypulse 
         sample_time = 1/sampling_rate
-    
+
         N = len(pulse)
         T = N*sample_time
         ts = np.arange(0, T, sample_time/100)   # time_steps_per_sample?
@@ -123,21 +116,24 @@ class SimulatorBackend(QuantumBackend):
         # This compensates for rounding error
         ts = ts[:N*100]
         ts = np.append(ts, [T])
+        self.ts = ts
+
         envelope = np.interp(ts, np.linspace(0, T, N + 1), np.append(pulse, [0]))
 
         # Upconvert
         carrier = np.exp(1j*2*np.pi*f_LO*ts + 1j*phase_LO)
         drive = 2*np.pi*carrier * envelope
 
-        return [drive, ts]
+        return drive
+    
 
+    def simulate_H(self, H, ts):
+        N = 2
+        psis = [qt.basis(N, i) for i in range(N)]
+        N_ops = [psi*psi.dag() for psi in psis]
 
-    def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
-        ...
-
-    def update_parameters(self, qpu: "QPU", **kwargs):
-        self.qpu = qpu
-
+        result = qt.mesolve(H, psis[0], ts, e_ops=N_ops)
+        return result
 
 
 @qdefine
