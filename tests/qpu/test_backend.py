@@ -2,11 +2,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from numpy.random import default_rng
+import qutip as qt
 
 import qwip
 from qwip.processing.processors import GMMClassification, StatePopulations
-from qwip.qpu.backend import FakeBackend, SimulatorBackend
+from qwip.qpu.backend import FakeBackend, SimulatorBackend, OperatorChannelMap
 from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
+from qwip.qpu.backend import on_channels, simulate_H
+from qwip.analysis.frequency import simple_fft
+
+import tests.qpu.backend_test_data as tdata
 
 
 class TestQuantumBackend:
@@ -102,6 +107,21 @@ class TestQuantumBackend:
         assert (results["R1"].data["1"] < 1e-2).all()
 
 
+def check_fft(ts, drive):
+    fs, yfs = simple_fft(ts, drive)
+    return fs[np.argmax(yfs)]
+
+def plot_states(result, ts, N):
+        states = np.array(result.expect)
+        ts = list(range(states.shape[1]))
+        N = states.shape[0]
+
+        fig, ax = plt.subplots()
+        for level in range(N):
+            ax.plot(ts, states[level], label=f"$|{level}⟩$")
+        ax.legend()
+        plt.show()
+
 class TestSimulatorBackend:
     @pytest.fixture
     def sequencer(self, qpu_01):
@@ -119,10 +139,8 @@ class TestSimulatorBackend:
         return generate_cseq
 
     @pytest.fixture
-    def sim_backend(self, qpu_01):
+    def sim_backend(self):
         backend = SimulatorBackend()
-        backend.update_parameters(qpu_01)
-
         return backend
 
     @pytest.fixture
@@ -133,73 +151,59 @@ class TestSimulatorBackend:
         rabi_se = SequenceElement()
         rabi_se.append(Q0_X)
         rabi_se.add_waveform(ReadoutMarker(), location=Q0_X.width)
-
         ro_se = SequenceElement()
 
         ts = np.linspace(0, 12.54e-9, 21)
         seq = Sequence.sweep(rabi_se, rabi_width=ts)
-
         cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
 
         return cseq
+    
 
-    def check_fft(self, ts, drive):
-        from qwip.analysis.frequency import simple_fft
+    def test_update_parameters(self, qpu_01, sim_backend):
+        sim_backend.update_parameters(qpu_01)
+        a, adag = qt.destroy(4), qt.create(4)
 
-        fs, yfs = simple_fft(ts, drive)
+        assert sim_backend.num_levels == 4
+        for i in range(8):
+            assert sim_backend.channel_map[i] == OperatorChannelMap(operator=a+adag, channels=(2*i, 2*i+1), amplitude_factor=40e6, LO_frequency=5.8e9, name=f"Q{i}")
 
-        fig, ax = plt.subplots()
-        ax.plot(fs, np.abs(yfs))
-        ax.set_xlim(4.6e9, 6e9)
-        plt.show()
+            assert list(sim_backend.static_hamiltonian.keys()) == [f"Q{i}" for i in range(8)]
 
-    def plot_states(self, result):
-        states = np.array(result.expect)
-        ts = list(range(states.shape[1]))
-        N = states.shape[0]
+            #assert np.allclose(np.array(sim_backend.static_hamiltonian[f"Q{i}"].data, dtype=float), np.array((2*np.pi*(50+i)*1e8*adag*a + 2*np.pi*(-200e6/2)*adag*adag*a*a).data, dtype=float))
 
-        fig, ax = plt.subplots()
-        for level in range(N):
-            ax.plot(ts, states[level], label=f"$|{level}⟩$")
-        ax.legend()
-        plt.show()
+        # test error thrown correctly
 
-    def test_sim_upload_db(self, qpu_01, sim_backend):
-        assert sim_backend.qpu is qpu_01
 
-    def test_sim_identify_on_channels(self, qpu_01, sim_backend, compile_Q0_X):
-        cseq = compile_Q0_X
+    def test_on_channels(self, compile_Q0_X):
+        assert (on_channels(compile_Q0_X.array) == [0, 1]).all()
+    
 
+    def test_upload(self, compiled, qpu_01, sim_backend):
+        cseq = compiled(20)
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(cseq)
 
-        assert sim_backend.on_channels() == [(0, 1)]
+        assert sim_backend.drive_hamiltonian == {}
 
-    def test_sim_upload_Q0X_seq(self, qpu_01, sim_backend, compile_Q0_X):
-        cseq = compile_Q0_X
+
+    def test_upload_Q0X_seq(self, qpu_01, sim_backend, compile_Q0_X):
         sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(cseq)
+        sim_backend.upload(compile_Q0_X)
 
-        assert len(sim_backend.uploaded.array[0]) == 21
+        assert abs(np.max(check_fft(sim_backend.ts, sim_backend.drive)) - 5e9)/5e9 < 0.01
+        
+        # Check drive
+        #assert (2*np.pi*sim_backend.channel_map[0].amplitude_factor*sim_backend.drive == tdata.drive_X90)
+        
+        H = [[sim_backend.static_hamiltonian["Q0"], np.ones_like(sim_backend.ts)],
+             [sim_backend.drive_hamiltonian["Q0"][0],sim_backend.drive_hamiltonian["Q0"][1]]
+            ]
+        result = simulate_H(H, sim_backend.ts, 4)
+        plot_states(result, sim_backend.ts, 4)
 
-    def test_sim_acquire_Q0X_seq(self, sim_backend, compile_Q0_X):
-        cseq = compile_Q0_X
-        H_list = sim_backend.upload(cseq)
+    
+    # test for subsequent X90 pulses
+    # test for change in axis of rotation
+    
 
-        results = sim_backend.acquire(cseq)
-        assert len(results["Q0"]["results"]) == 21
-
-    def test_sim_acquire_Q0X_seq_fft_correct(self, sim_backend, compile_Q0_X):
-        cseq = compile_Q0_X
-        data = sim_backend.acquire(cseq)
-        self.check_fft(sim_backend.ts, sim_backend.drive)
-        assert True
-
-    def test_sim_acquire_Q0X_seq_states_correct(self, sim_backend, compile_Q0_X):
-        cseq = compile_Q0_X
-        data = sim_backend.acquire(cseq)
-
-        full_seq = data["Q0"]["results"][-1]
-        self.plot_states(full_seq)
-
-        assert True

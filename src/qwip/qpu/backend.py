@@ -14,6 +14,7 @@ except ImportError:
     ...
 
 import qutip as qt
+from qutip import Qobj
 
 from qwip.attrs import qdefine
 from qwip.processing.processors import GMMClassification
@@ -38,105 +39,108 @@ class QuantumBackend(metaclass=ABCMeta):
         ...
 
 
+# Code from pypulse
+def upconvert(sampling_rate, pulse, f_LO):
+    sample_time = 1 / sampling_rate
+
+    N = len(pulse)
+    T = N * sample_time
+    ts = np.arange(0, T, sample_time / 100)             # time_steps_per_sample?
+
+    # This compensates for rounding error
+    ts = ts[: N * 100]
+    ts = np.append(ts, [T])
+
+    envelope = np.interp(x=ts, xp=np.linspace(0, T, N + 1), fp=np.append(pulse, [0]))
+
+    # Upconvert
+    carrier = np.exp(1j * 2 * np.pi * f_LO * ts)
+    drive = 2 * np.pi * carrier * envelope
+    return drive, ts
+
+
+def simulate_H(H, ts, N):
+    psis = [qt.basis(N, i) for i in range(N)]
+    N_ops = [psi * psi.dag() for psi in psis]
+    result = qt.mesolve(H, psis[0], ts, e_ops=N_ops)
+    return result
+
+
+def on_channels(uploaded):
+    chs_on = np.where(np.any(uploaded, axis=(1, 2, 3)))[0]
+    return chs_on
+
+
+@qdefine
+class OperatorChannelMap:
+    operator: Qobj
+    channels: tuple[int, int] = field(factory=tuple)        # int, int or int
+    amplitude_factor: float = 40e6
+    LO_frequency: float = 0 
+    name: str = ''
+
+
 @qdefine
 class SimulatorBackend(QuantumBackend):
     uploaded: CompiledSequence | None = None
+    num_levels: int = 4
+    static_hamiltonian: dict[str, Qobj] = field(factory=dict)
+    drive_hamiltonian: dict[str, tuple[Qobj, np.ndarray]] = field(factory=dict)
+    channel_map: list[OperatorChannelMap] = field(factory=list)
+
 
     def update_parameters(self, qpu: "QPU", **kwargs):
-        self.qpu = qpu
+        channels = qpu.db['compilation']['channels']
+
+        for ch in channels.keys():
+            qubit, t = ch.split("_")
+
+            if t=="I" and qubit[0]=="Q":
+                if qubit+"_Q" in channels:
+                    # Mapping of channels to its parameters
+                    a, adag = qt.destroy(self.num_levels), qt.create(self.num_levels)
+                    map_op = a + adag
+
+                    map_channels = (channels[f"{qubit}_I"]["index"], channels[f"{qubit}_Q"]["index"])
+                    map_LOfreq = qpu.db["hardware"]["local_oscillators"]["qubit"]["frequency"]
+
+                    ch_map = OperatorChannelMap(operator=map_op, channels=map_channels, LO_frequency=map_LOfreq, name=qubit)
+                    self.channel_map.append(ch_map)
+
+
+                    # Static hamiltonian for each qubit
+                    Q = qpu.db['subsystems'][qubit]['parameters']
+                    self.static_hamiltonian[qubit] = 2*np.pi*Q.frequency*adag*a + 2*np.pi*(Q.anharmonicity/2)*adag*adag*a*a
+
+                else:
+                    raise NotImplementedError(f"Q component of channel {qubit} missing")
+                
+            elif t=="Q" and qubit+"_I" not in channels:
+                raise NotImplementedError(f"I component of channel {qubit} missing")
+
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
         self.uploaded = cseq
+        chs_on = on_channels(cseq.array)
+
+        for map in self.channel_map:
+            I_index, Q_index = map.channels
+
+            # Create drive operators for correctly paired on channels
+            if I_index in chs_on and Q_index in chs_on:
+                Omega = 2*np.pi*map.amplitude_factor
+                sampling_rate = self.uploaded.waveforms.get("seq").sample_rate
+
+                ch_I, ch_Q = self.uploaded.array[I_index, -1, :, 0], self.uploaded.array[Q_index, -1, :, 0]
+                pulse = ch_I + 1j * ch_Q
+                
+                # Drive hamiltonian
+                self.drive, self.ts = upconvert(sampling_rate, pulse, map.LO_frequency)   # drive, ts for testing purposes
+                self.drive_hamiltonian[map.name] = (map.operator, Omega*np.real(self.drive))
+
 
     def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
-        self.uploaded = cseq
-
-        chs_sim = self.on_channels()
-        data = dict()
-
-        for ch_pair in chs_sim:
-            Q_name = self.qpu.db["compilation"]["channel_groups"]["seq"]["channels"][
-                ch_pair[0]
-            ].split("_")[0]
-            Q = self.qpu.db["subsystems"][Q_name]["parameters"]
-            H_seq, states_seq = [], []
-
-            for Iseq, Qseq in zip(
-                self.uploaded.array[ch_pair[0]], self.uploaded.array[ch_pair[1]]
-            ):
-                H = self.construct_H(Q, Iseq, Qseq)
-                result = self.simulate_H(H, self.ts)
-
-                H_seq.append(H)
-                states_seq.append(result)
-
-            data[Q_name] = {"H": np.array(H_seq), "results": np.array(states_seq)}
-
-        return data
-
-    def on_channels(self):
-        chs_on = np.where(np.any(self.uploaded.array, axis=(1, 2, 3)))[0]
-        chs_sim = [(i, i + 1) for i in chs_on if i % 2 == 0 & (i + 1) in chs_on]
-        return chs_sim
-
-    def construct_H(self, Q, ch_I, ch_Q):
-        db = self.qpu.db
-        N = 2
-        alpha = Q.get("anharmonicity")
-        f01 = Q.get("frequency")
-        fq = f01
-
-        f_LO = db["hardware"]["local_oscillators"]["qubit"]["frequency"]
-        phase_LO = db["hardware"]["local_oscillators"]["qubit"]["phase"]
-        sampling_rate = self.uploaded.waveforms.get("seq").sample_rate
-
-        pulse = ch_I + 1j * ch_Q
-        drive = self.upconvert(sampling_rate, pulse, f_LO, phase_LO)
-
-        Omega = 2 * np.pi * 40e6
-
-        # Construct Hamiltonian and Store
-        a = qt.destroy(N)
-        adag = qt.create(N)
-
-        H0 = 2 * np.pi * fq * adag * a + 2 * np.pi * (alpha / 2) * adag * adag * a * a
-        H = [
-            [H0, np.ones_like(self.ts)],
-            [a, Omega * drive],
-            [adag, Omega * np.conj(drive)],
-        ]
-
-        self.drive = drive
-        return H
-
-    # Code from pypulse
-    def upconvert(self, sampling_rate, pulse, f_LO, phase_LO):
-        sample_time = 1 / sampling_rate
-
-        N = len(pulse)
-        T = N * sample_time
-        ts = np.arange(0, T, sample_time / 100)  # time_steps_per_sample?
-
-        # This compensates for rounding error
-        ts = ts[: N * 100]
-        ts = np.append(ts, [T])
-        self.ts = ts
-
-        envelope = np.interp(ts, np.linspace(0, T, N + 1), np.append(pulse, [0]))
-
-        # Upconvert
-        carrier = np.exp(1j * 2 * np.pi * f_LO * ts + 1j * phase_LO)
-        drive = 2 * np.pi * carrier * envelope
-
-        return drive
-
-    def simulate_H(self, H, ts):
-        N = 2
-        psis = [qt.basis(N, i) for i in range(N)]
-        N_ops = [psi * psi.dag() for psi in psis]
-
-        result = qt.mesolve(H, psis[0], ts, e_ops=N_ops)
-        return result
+        ...
 
 
 @qdefine
