@@ -39,45 +39,13 @@ class QuantumBackend(metaclass=ABCMeta):
         ...
 
 
-# Code from pypulse
-def upconvert(sampling_rate, pulse, f_LO):
-    sample_time = 1 / sampling_rate
-
-    N = len(pulse)
-    T = N * sample_time
-    ts = np.arange(0, T, sample_time / 100)             # time_steps_per_sample?
-
-    # This compensates for rounding error
-    ts = ts[: N * 100]
-    ts = np.append(ts, [T])
-
-    envelope = np.interp(x=ts, xp=np.linspace(0, T, N + 1), fp=np.append(pulse, [0]))
-
-    # Upconvert
-    carrier = np.exp(1j * 2 * np.pi * f_LO * ts)
-    drive = 2 * np.pi * carrier * envelope
-    return drive, ts
-
-
-def simulate_H(H, ts, N):
-    psis = [qt.basis(N, i) for i in range(N)]
-    N_ops = [psi * psi.dag() for psi in psis]
-    result = qt.mesolve(H, psis[0], ts, e_ops=N_ops)
-    return result
-
-
-def on_channels(uploaded):
-    chs_on = np.where(np.any(uploaded, axis=(1, 2, 3)))[0]
-    return chs_on
-
-
 @qdefine
 class OperatorChannelMap:
     operator: Qobj
-    channels: tuple[int, int] = field(factory=tuple)        # int, int or int
+    channels: tuple[int, int] = field(factory=tuple)  # int, int or int
     amplitude_factor: float = 40e6
-    LO_frequency: float = 0 
-    name: str = ''
+    LO_frequency: float = 0
+    name: str = ""
 
 
 @qdefine
@@ -91,36 +59,51 @@ class SimulatorBackend(QuantumBackend):
     ts: dict[str, np.ndarray] = field(factory=dict)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
-        channels = qpu.db['compilation']['channels']
+        channels = qpu.db["compilation"]["channels"]
 
         for ch in channels.keys():
             qubit, t = ch.split("_")
 
-            if t=="I" and qubit[0]=="Q":
-                if qubit+"_Q" in channels:
+            if t == "I" and qubit[0] == "Q":
+                if qubit + "_Q" in channels:
                     # Mapping of channels to its parameters
                     a, adag = qt.destroy(self.num_levels), qt.create(self.num_levels)
                     map_op = a + adag
 
-                    map_channels = (channels[f"{qubit}_I"]["index"], channels[f"{qubit}_Q"]["index"])
-                    map_LOfreq = qpu.db["hardware"]["local_oscillators"]["qubit"]["frequency"]
+                    map_channels = (
+                        channels[f"{qubit}_I"]["index"],
+                        channels[f"{qubit}_Q"]["index"],
+                    )
+                    map_LOfreq = qpu.db["hardware"]["local_oscillators"]["qubit"][
+                        "frequency"
+                    ]
 
-                    ch_map = OperatorChannelMap(operator=map_op, channels=map_channels, LO_frequency=map_LOfreq, name=qubit)
+                    ch_map = OperatorChannelMap(
+                        operator=map_op,
+                        channels=map_channels,
+                        LO_frequency=map_LOfreq,
+                        name=qubit,
+                    )
                     self.channel_map.append(ch_map)
 
-
                     # Static hamiltonian for each qubit
-                    Q = qpu.db['subsystems'][qubit]['parameters']
-                    self.static_hamiltonian[qubit] = 2*np.pi*Q.frequency*adag*a + 2*np.pi*(Q.anharmonicity/2)*adag*adag*a*a
+                    Q = qpu.db["subsystems"][qubit]["parameters"]
+                    self.static_hamiltonian[qubit] = (
+                        2 * np.pi * Q.frequency * adag * a
+                        + 2 * np.pi * (Q.anharmonicity / 2) * adag * adag * a * a
+                    )
 
                 else:
                     raise NotImplementedError(f"Q component of channel {qubit} missing")
-                
-            elif t=="Q" and qubit+"_I" not in channels:
+
+            elif t == "Q" and qubit + "_I" not in channels:
                 raise NotImplementedError(f"I component of channel {qubit} missing")
 
-
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
+        self.drive_hamiltonian = {}
+        self.H = {}
+        self.ts = {}
+
         self.uploaded = cseq
         chs_on = on_channels(cseq.array)
 
@@ -129,20 +112,30 @@ class SimulatorBackend(QuantumBackend):
 
             # Create drive operators for correctly paired on channels
             if I_index in chs_on and Q_index in chs_on:
-                Omega = 2*np.pi*map.amplitude_factor
+                Omega = 2 * np.pi * map.amplitude_factor
                 sampling_rate = self.uploaded.waveforms.get("seq").sample_rate
 
-                ch_I, ch_Q = self.uploaded.array[I_index, -1, :, 0], self.uploaded.array[Q_index, -1, :, 0]
+                ch_I, ch_Q = (
+                    self.uploaded.array[I_index, -1, :, 0],
+                    self.uploaded.array[Q_index, -1, :, 0],
+                )
                 pulse = ch_I + 1j * ch_Q
 
-                
                 # Drive hamiltonian
-                drive, ts = upconvert(sampling_rate, pulse, map.LO_frequency)   # drive, ts for testing purposes
-                self.drive_hamiltonian[map.name] = (map.operator, Omega*np.real(drive))
+                drive, ts = upconvert(sampling_rate, pulse, map.LO_frequency)
+                self.drive_hamiltonian[map.name] = (
+                    map.operator,
+                    Omega * np.real(drive),
+                )
 
                 self.ts[map.name] = ts
-                self.H[map.name] = [[self.static_hamiltonian[map.name], np.ones_like(ts)], [self.drive_hamiltonian[map.name][0], self.drive_hamiltonian[map.name][1]]]
-
+                self.H[map.name] = [
+                    [self.static_hamiltonian[map.name], np.ones_like(ts)],
+                    [
+                        self.drive_hamiltonian[map.name][0],
+                        self.drive_hamiltonian[map.name][1],
+                    ],
+                ]
 
     def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
         results = {}
@@ -150,9 +143,12 @@ class SimulatorBackend(QuantumBackend):
             raise NotImplementedError("No sequence has been uploaded")
         else:
             for qubit in self.H.keys():
-                results[qubit] = simulate_H(self.H[qubit], self.ts[qubit], self.num_levels)
+                results[qubit] = simulate_H(
+                    self.H[qubit], self.ts[qubit], self.num_levels
+                )
 
         return results
+
 
 @qdefine
 class QTRLBackend(QuantumBackend):
@@ -316,3 +312,35 @@ class FakeBackend(QuantumBackend):
 
 
 __all__ = ["QTRLBackend", "SimulatorBackend", "FakeBackend"]
+
+
+# Code from pypulse
+def upconvert(sampling_rate, pulse, f_LO):
+    sample_time = 1 / sampling_rate
+
+    N = len(pulse)
+    T = N * sample_time
+    ts = np.arange(0, T, sample_time / 100)
+
+    # This compensates for rounding error
+    ts = ts[: N * 100]
+    ts = np.append(ts, [T])
+
+    envelope = np.interp(x=ts, xp=np.linspace(0, T, N + 1), fp=np.append(pulse, [0]))
+
+    # Upconvert
+    carrier = np.exp(1j * 2 * np.pi * f_LO * ts)
+    drive = 2 * np.pi * carrier * envelope
+    return drive, ts
+
+
+def simulate_H(H, ts, N):
+    psis = [qt.basis(N, i) for i in range(N)]
+    N_ops = [psi * psi.dag() for psi in psis]
+    result = qt.mesolve(H, psis[0], ts, e_ops=N_ops)
+    return result
+
+
+def on_channels(uploaded):
+    chs_on = np.where(np.any(uploaded, axis=(1, 2, 3)))[0]
+    return chs_on

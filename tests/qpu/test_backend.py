@@ -1,16 +1,21 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from numpy.random import default_rng
 import qutip as qt
+from numpy.random import default_rng
 from numpy.testing import assert_allclose
 
 import qwip
-from qwip.processing.processors import GMMClassification, StatePopulations
-from qwip.qpu.backend import FakeBackend, SimulatorBackend, OperatorChannelMap
-from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
-from qwip.qpu.backend import on_channels, simulate_H
 from qwip.analysis.frequency import simple_fft
+from qwip.processing.processors import GMMClassification, StatePopulations
+from qwip.qpu.backend import (
+    FakeBackend,
+    OperatorChannelMap,
+    SimulatorBackend,
+    on_channels,
+    simulate_H,
+)
+from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 
 class TestQuantumBackend:
@@ -110,15 +115,17 @@ def check_fft(ts, drive):
     fs, yfs = simple_fft(ts, drive)
     return fs[np.argmax(yfs)]
 
-def plot_states(result, ts, N):
-        states = np.array(result.expect)
-        N = states.shape[0]
 
-        fig, ax = plt.subplots()
-        for level in range(N):
-            ax.plot(ts, states[level], label=f"$|{level}⟩$")
-        ax.legend()
-        plt.show()
+def plot_states(result, ts, N):
+    states = np.array(result.expect)
+    N = states.shape[0]
+
+    fig, ax = plt.subplots()
+    for level in range(N):
+        ax.plot(ts, states[level], label=f"$|{level}⟩$")
+    ax.legend()
+    plt.show()
+
 
 class TestSimulatorBackend:
     @pytest.fixture
@@ -156,7 +163,7 @@ class TestSimulatorBackend:
         cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
 
         return cseq
-    
+
     @pytest.fixture
     def compile_Q0_X180(self, qpu_01):
         db = qpu_01.db
@@ -165,7 +172,7 @@ class TestSimulatorBackend:
         rabi_se = SequenceElement()
         rabi_se.append(Q0_X)
         rabi_se.append(Q0_X, self_loc=Q0_X.width)
-        rabi_se.add_waveform(ReadoutMarker(), location=2*Q0_X.width)
+        rabi_se.add_waveform(ReadoutMarker(), location=2 * Q0_X.width)
         ro_se = SequenceElement()
 
         ts = np.linspace(0, 34.8e-9, 21)
@@ -173,7 +180,6 @@ class TestSimulatorBackend:
         cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
 
         return cseq
-    
 
     def test_update_parameters(self, qpu_01, sim_backend):
         sim_backend.update_parameters(qpu_01)
@@ -181,18 +187,22 @@ class TestSimulatorBackend:
 
         assert sim_backend.num_levels == 4
         for i in range(8):
-            assert sim_backend.channel_map[i] == OperatorChannelMap(operator=a+adag, channels=(2*i, 2*i+1), amplitude_factor=40e6, LO_frequency=5.8e9, name=f"Q{i}")
+            assert sim_backend.channel_map[i] == OperatorChannelMap(
+                operator=a + adag,
+                channels=(2 * i, 2 * i + 1),
+                amplitude_factor=40e6,
+                LO_frequency=5.8e9,
+                name=f"Q{i}",
+            )
 
-            assert list(sim_backend.static_hamiltonian.keys()) == [f"Q{i}" for i in range(8)]
-
-            #assert np.allclose(np.array(sim_backend.static_hamiltonian[f"Q{i}"].data, dtype=float), np.array((2*np.pi*(50+i)*1e8*adag*a + 2*np.pi*(-200e6/2)*adag*adag*a*a).data, dtype=float))
+            assert list(sim_backend.static_hamiltonian.keys()) == [
+                f"Q{i}" for i in range(8)
+            ]
 
         # test error thrown correctly
 
-
     def test_on_channels(self, compile_Q0_X90):
         assert (on_channels(compile_Q0_X90.array) == [0, 1]).all()
-    
 
     def test_upload(self, compiled, qpu_01, sim_backend):
         cseq = compiled(20)
@@ -201,25 +211,20 @@ class TestSimulatorBackend:
 
         assert sim_backend.drive_hamiltonian == {}
 
-
     def test_aqcuire_Q0X90_seq(self, qpu_01, sim_backend, compile_Q0_X90, data_file):
-        expected = np.loadtxt(str(data_file), delimiter=',')
+        expected = np.loadtxt(str(data_file), delimiter=",")
 
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0_X90)
         results = sim_backend.acquire(compile_Q0_X90)
 
-        assert_allclose(expected, results["Q0"].expect) 
-    
+        assert_allclose(expected, results["Q0"].expect)
 
     def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180, data_file):
-        expected = np.loadtxt(str(data_file), delimiter=',')
+        expected = np.loadtxt(str(data_file), delimiter=",")
 
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0_X180)
         results = sim_backend.acquire(compile_Q0_X180)
 
         assert_allclose(expected, results["Q0"].expect)
-        
-    
-
