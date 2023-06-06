@@ -87,7 +87,8 @@ class SimulatorBackend(QuantumBackend):
     static_hamiltonian: dict[str, Qobj] = field(factory=dict)
     drive_hamiltonian: dict[str, tuple[Qobj, np.ndarray]] = field(factory=dict)
     channel_map: list[OperatorChannelMap] = field(factory=list)
-
+    H: dict[str, list[tuple[Qobj, np.ndarray]]] = field(factory=dict)
+    ts: dict[str, np.ndarray] = field(factory=dict)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
         channels = qpu.db['compilation']['channels']
@@ -133,15 +134,25 @@ class SimulatorBackend(QuantumBackend):
 
                 ch_I, ch_Q = self.uploaded.array[I_index, -1, :, 0], self.uploaded.array[Q_index, -1, :, 0]
                 pulse = ch_I + 1j * ch_Q
+
                 
                 # Drive hamiltonian
-                self.drive, self.ts = upconvert(sampling_rate, pulse, map.LO_frequency)   # drive, ts for testing purposes
-                self.drive_hamiltonian[map.name] = (map.operator, Omega*np.real(self.drive))
+                drive, ts = upconvert(sampling_rate, pulse, map.LO_frequency)   # drive, ts for testing purposes
+                self.drive_hamiltonian[map.name] = (map.operator, Omega*np.real(drive))
+
+                self.ts[map.name] = ts
+                self.H[map.name] = [[self.static_hamiltonian[map.name], np.ones_like(ts)], [self.drive_hamiltonian[map.name][0], self.drive_hamiltonian[map.name][1]]]
 
 
     def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
-        ...
+        results = {}
+        if not self.H:
+            raise NotImplementedError("No sequence has been uploaded")
+        else:
+            for qubit in self.H.keys():
+                results[qubit] = simulate_H(self.H[qubit], self.ts[qubit], self.num_levels)
 
+        return results
 
 @qdefine
 class QTRLBackend(QuantumBackend):

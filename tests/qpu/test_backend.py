@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 from numpy.random import default_rng
 import qutip as qt
+from numpy.testing import assert_allclose
 
 import qwip
 from qwip.processing.processors import GMMClassification, StatePopulations
@@ -10,8 +11,6 @@ from qwip.qpu.backend import FakeBackend, SimulatorBackend, OperatorChannelMap
 from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 from qwip.qpu.backend import on_channels, simulate_H
 from qwip.analysis.frequency import simple_fft
-
-import tests.qpu.backend_test_data as tdata
 
 
 class TestQuantumBackend:
@@ -113,7 +112,6 @@ def check_fft(ts, drive):
 
 def plot_states(result, ts, N):
         states = np.array(result.expect)
-        ts = list(range(states.shape[1]))
         N = states.shape[0]
 
         fig, ax = plt.subplots()
@@ -144,7 +142,7 @@ class TestSimulatorBackend:
         return backend
 
     @pytest.fixture
-    def compile_Q0_X(self, qpu_01):
+    def compile_Q0_X90(self, qpu_01):
         db = qpu_01.db
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
 
@@ -153,7 +151,24 @@ class TestSimulatorBackend:
         rabi_se.add_waveform(ReadoutMarker(), location=Q0_X.width)
         ro_se = SequenceElement()
 
-        ts = np.linspace(0, 12.54e-9, 21)
+        ts = np.linspace(0, 34.8e-9, 21)
+        seq = Sequence.sweep(rabi_se, rabi_width=ts)
+        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
+
+        return cseq
+    
+    @pytest.fixture
+    def compile_Q0_X180(self, qpu_01):
+        db = qpu_01.db
+        Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
+
+        rabi_se = SequenceElement()
+        rabi_se.append(Q0_X)
+        rabi_se.append(Q0_X, self_loc=Q0_X.width)
+        rabi_se.add_waveform(ReadoutMarker(), location=2*Q0_X.width)
+        ro_se = SequenceElement()
+
+        ts = np.linspace(0, 34.8e-9, 21)
         seq = Sequence.sweep(rabi_se, rabi_width=ts)
         cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
 
@@ -175,8 +190,8 @@ class TestSimulatorBackend:
         # test error thrown correctly
 
 
-    def test_on_channels(self, compile_Q0_X):
-        assert (on_channels(compile_Q0_X.array) == [0, 1]).all()
+    def test_on_channels(self, compile_Q0_X90):
+        assert (on_channels(compile_Q0_X90.array) == [0, 1]).all()
     
 
     def test_upload(self, compiled, qpu_01, sim_backend):
@@ -187,23 +202,24 @@ class TestSimulatorBackend:
         assert sim_backend.drive_hamiltonian == {}
 
 
-    def test_upload_Q0X_seq(self, qpu_01, sim_backend, compile_Q0_X):
+    def test_aqcuire_Q0X90_seq(self, qpu_01, sim_backend, compile_Q0_X90, data_file):
+        expected = np.loadtxt(str(data_file), delimiter=',')
+
         sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(compile_Q0_X)
+        sim_backend.upload(compile_Q0_X90)
+        results = sim_backend.acquire(compile_Q0_X90)
 
-        assert abs(np.max(check_fft(sim_backend.ts, sim_backend.drive)) - 5e9)/5e9 < 0.01
-        
-        # Check drive
-        #assert (2*np.pi*sim_backend.channel_map[0].amplitude_factor*sim_backend.drive == tdata.drive_X90)
-        
-        H = [[sim_backend.static_hamiltonian["Q0"], np.ones_like(sim_backend.ts)],
-             [sim_backend.drive_hamiltonian["Q0"][0],sim_backend.drive_hamiltonian["Q0"][1]]
-            ]
-        result = simulate_H(H, sim_backend.ts, 4)
-        plot_states(result, sim_backend.ts, 4)
-
+        assert_allclose(expected, results["Q0"].expect) 
     
-    # test for subsequent X90 pulses
-    # test for change in axis of rotation
+
+    def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180, data_file):
+        expected = np.loadtxt(str(data_file), delimiter=',')
+
+        sim_backend.update_parameters(qpu_01)
+        sim_backend.upload(compile_Q0_X180)
+        results = sim_backend.acquire(compile_Q0_X180)
+
+        assert_allclose(expected, results["Q0"].expect)
+        
     
 
