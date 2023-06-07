@@ -41,6 +41,16 @@ class QuantumBackend(metaclass=ABCMeta):
 
 @qdefine
 class OperatorChannelMap:
+    """A simulator backend used to simulate pulse sequences.
+
+    This backend is meant to act like a real backend, by accepting sequences for upload
+    and returning pre-configured data to be processed.
+
+    Attributes:
+        uploaded: Stores the last uploaded compiled sequence, which is referenced when
+            generating data.
+    """
+
     operator: Qobj
     channels: tuple[int, int] = field(factory=tuple)  # int, int or int
     amplitude_factor: float = 40e6
@@ -50,6 +60,26 @@ class OperatorChannelMap:
 
 @qdefine
 class SimulatorBackend(QuantumBackend):
+    """A simulator backend used to simulate pulse sequences.
+
+    This backend is meant to act like a real backend, accepting sequences for upload
+    and returning the acquired simulated results through qutip's mesolve. 
+
+    Attributes:
+        uploaded: Stores the last uploaded compiled sequence, which is referenced when
+            generating data.
+        num_levels: Number of energy levels to be simulated. 
+        static_hamiltonian: A mapping from every single qubit to its corresponding 
+            static hamiltonian. 
+        drive_hamiltonian: A mapping from qubits of turned on channels to their drive 
+            hamiltonians, consisting of the operator and drive array. 
+        channel_map: A list of mappings from an IQ channel to its parameters.   
+        H: A mapping from qubits of turned on channels to their hamiltonian, 
+            with both the static and drive components. 
+        ts: A mapping from qubits of turned on channels to their time array, used for
+            the simulation in acquire. 
+    """
+
     uploaded: CompiledSequence | None = None
     num_levels: int = 4
     static_hamiltonian: dict[str, Qobj] = field(factory=dict)
@@ -59,6 +89,13 @@ class SimulatorBackend(QuantumBackend):
     ts: dict[str, np.ndarray] = field(factory=dict)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
+        """Updates parameters from the QPU -- creating mappings from channels to parameters 
+            and qubits to static hamiltonians. 
+
+        Args:
+            qpu: T
+        """
+
         channels = qpu.db["compilation"]["channels"]
 
         for ch in channels.keys():
@@ -100,6 +137,13 @@ class SimulatorBackend(QuantumBackend):
                 raise NotImplementedError(f"I component of channel {qubit} missing")
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
+        """Simulates a sequence upload.
+
+        Args:
+            cseq: The sequence to "upload".
+            data_func: Updates function used to generate the fake data.
+        """
+
         self.drive_hamiltonian = {}
         self.H = {}
         self.ts = {}
@@ -138,6 +182,13 @@ class SimulatorBackend(QuantumBackend):
                 ]
 
     def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
+        """Simulates a sequence upload.
+
+        Args:
+            cseq: The sequence to "upload".
+            data_func: Updates function used to generate the fake data.
+        """
+
         results = {}
         if not self.H:
             raise NotImplementedError("No sequence has been uploaded")
