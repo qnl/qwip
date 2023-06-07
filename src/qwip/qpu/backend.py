@@ -1,4 +1,5 @@
 import re
+import itertools as it
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
 from typing import TYPE_CHECKING
@@ -39,24 +40,79 @@ class QuantumBackend(metaclass=ABCMeta):
         ...
 
 
+## SimulatorBackend utils
+
+def upconvert(sampling_rate, pulse, f_LO):
+    sample_time = 1 / sampling_rate
+
+    N = len(pulse)
+    T = N * sample_time
+
+    ts = np.linspace(0, T, N * 100 + 1)
+
+    # This compensates for rounding error
+    ts = ts[: N * 100]
+    ts = np.append(ts, [T])
+
+    envelope = np.interp(x=ts, xp=np.linspace(0, T, N + 1), fp=np.append(pulse, [0]))
+
+    # Upconvert
+    carrier = np.exp(1j * 2 * np.pi * f_LO * ts)
+    drive = 2 * np.pi * carrier * envelope
+    return drive, ts
+
+def get_active_channels(waveform_data: np.ndarray):
+    N_channels = waveform_data.shape[0]
+    active = np.any(waveform_data.reshape(N_channels, -1), axis=1)
+    return np.where(active)[0]
+
+
 @qdefine
 class OperatorChannelMap:
+    target: str
     operator: Qobj
-    channels: tuple[int, int] = field(factory=tuple)  # int, int or int
+    channels: tuple[int, ...] = field(factory=tuple)
     amplitude_factor: float = 40e6
     LO_frequency: float = 0
-    name: str = ""
 
+@qdefine
+class TimeDependentHamiltonian:
+    H: list[tuple[Qobj, np.ndarray]]
+    ts: np.ndarray
+
+    @property
+    def dims(self) -> list | None:
+        if not self.H:
+            return None
+        
+        qobj, _ = self.H[0]
+        return qobj.dims
+
+    def simulate(self) -> np.ndarray:
+        """"""
+        N = self.dims[0]
+
+        # Get all basis states for possibly multi-qubit states.
+        psis = {
+            i: qt.basis(N, list(i)) for i in it.product(*(range(Ni) for Ni in N))
+        }
+        N_ops = {i: psi * psi.dag() for i, psi in psis.items()}
+
+        ground_state = tuple([0]*len(N))
+        result = qt.mesolve(
+            self.H,
+            psis[ground_state],
+            self.ts, e_ops=list(N_ops.values())
+        )
+        return result
 
 @qdefine
 class SimulatorBackend(QuantumBackend):
     uploaded: CompiledSequence | None = None
     num_levels: int = 4
     static_hamiltonian: dict[str, Qobj] = field(factory=dict)
-    drive_hamiltonian: dict[str, tuple[Qobj, np.ndarray]] = field(factory=dict)
     channel_map: list[OperatorChannelMap] = field(factory=list)
-    H: dict[str, list[tuple[Qobj, np.ndarray]]] = field(factory=dict)
-    ts: dict[str, np.ndarray] = field(factory=dict)
+    H: list[TimeDependentHamiltonian] = field(factory=list)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
         channels = qpu.db["compilation"]["channels"]
@@ -74,15 +130,15 @@ class SimulatorBackend(QuantumBackend):
                         channels[f"{qubit}_I"]["index"],
                         channels[f"{qubit}_Q"]["index"],
                     )
-                    map_LOfreq = qpu.db["hardware"]["local_oscillators"]["qubit"][
+                    map_LO_freq = qpu.db["hardware"]["local_oscillators"]["qubit"][
                         "frequency"
                     ]
 
                     ch_map = OperatorChannelMap(
+                        target=qubit,
                         operator=map_op,
                         channels=map_channels,
-                        LO_frequency=map_LOfreq,
-                        name=qubit,
+                        LO_frequency=map_LO_freq,
                     )
                     self.channel_map.append(ch_map)
 
@@ -94,60 +150,74 @@ class SimulatorBackend(QuantumBackend):
                     )
 
                 else:
-                    raise NotImplementedError(f"Q component of channel {qubit} missing")
+                    raise ValueError(f"Q component of channel {qubit} missing")
 
             elif t == "Q" and qubit + "_I" not in channels:
-                raise NotImplementedError(f"I component of channel {qubit} missing")
+                raise ValueError(f"I component of channel {qubit} missing")
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
-        self.drive_hamiltonian = {}
-        self.H = {}
-        self.ts = {}
-
+        self.H = [] # Clear list of hamiltonians to simulate
         self.uploaded = cseq
-        chs_on = on_channels(cseq.array)
 
-        for map in self.channel_map:
-            I_index, Q_index = map.channels
+        N_elements = cseq.array.shape[1]
+        sampling_rate = self.uploaded.waveforms.get("seq").sample_rate
 
-            # Create drive operators for correctly paired on channels
-            if I_index in chs_on and Q_index in chs_on:
-                Omega = 2 * np.pi * map.amplitude_factor
-                sampling_rate = self.uploaded.waveforms.get("seq").sample_rate
+        for element in range(N_elements):
+            waveforms = cseq.array[:, element, ...]
+            active_channels = get_active_channels(waveforms)
 
-                ch_I, ch_Q = (
-                    self.uploaded.array[I_index, -1, :, 0],
-                    self.uploaded.array[Q_index, -1, :, 0],
-                )
-                pulse = ch_I + 1j * ch_Q
+            drive_hamiltonians = dict()
+            for ch_info in self.channel_map:
+                match ch_info.channels:
+                    case I_index, Q_index if {I_index, Q_index} <= set(active_channels):
+                        Omega = 2 * np.pi * ch_info.amplitude_factor
 
-                # Drive hamiltonian
-                drive, ts = upconvert(sampling_rate, pulse, map.LO_frequency)
-                self.drive_hamiltonian[map.name] = (
-                    map.operator,
-                    Omega * np.real(drive),
-                )
+                        I, Q = (waveforms[I_index, :, 0], waveforms[Q_index, :, 0])
+                        pulse = I + 1j * Q
 
-                self.ts[map.name] = ts
-                self.H[map.name] = [
-                    [self.static_hamiltonian[map.name], np.ones_like(ts)],
-                    [
-                        self.drive_hamiltonian[map.name][0],
-                        self.drive_hamiltonian[map.name][1],
-                    ],
-                ]
+                        # Drive hamiltonian
+                        drive, ts = upconvert(sampling_rate, pulse, ch_info.LO_frequency)
 
-    def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
-        results = {}
+                        H_t = TimeDependentHamiltonian(
+                            H=[
+                                [self.static_hamiltonian[ch_info.target], np.ones_like(ts)],
+                                [ch_info.operator, Omega * np.real(drive)]
+                            ],
+                            ts=ts
+                        )
+
+                        drive_hamiltonians[ch_info.target] = H_t
+
+                    case I_index, Q_index: ...
+                    case (ch_index,):
+                        raise NotImplementedError("Only paired channels are currently supported.")
+                    case _:
+                        raise ValueError("OperatorChannelMap should have at most two channel indices.")
+            
+            
+            if len(drive_hamiltonians) == 0:
+                raise ValueError("No active channels to simulate. Check that sequence is non-empty.")
+
+            if len(drive_hamiltonians) > 1:
+                # TODO: combine hamiltonians with tensor product
+                raise NotImplementedError("Only single qubit simulations are supported.")
+            
+            # If only one "qubit", then don't need to combine, can just take the first one.
+            self.H.append(list(drive_hamiltonians.values())[0])
+
+    def acquire(self, cseq: CompiledSequence, **kwargs) -> list:
         if not self.H:
-            raise NotImplementedError("No sequence has been uploaded")
-        else:
-            for qubit in self.H.keys():
-                results[qubit] = simulate_H(
-                    self.H[qubit], self.ts[qubit], self.num_levels
-                )
+            raise ValueError("No sequence has been uploaded")
+        
+        results = []
+
+        for H_t in self.H:
+            results.append(H_t.simulate())
 
         return results
+
+
+
 
 
 @qdefine
@@ -312,35 +382,3 @@ class FakeBackend(QuantumBackend):
 
 
 __all__ = ["QTRLBackend", "SimulatorBackend", "FakeBackend"]
-
-
-# Code from pypulse
-def upconvert(sampling_rate, pulse, f_LO):
-    sample_time = 1 / sampling_rate
-
-    N = len(pulse)
-    T = N * sample_time
-    ts = np.arange(0, T, sample_time / 100)
-
-    # This compensates for rounding error
-    ts = ts[: N * 100]
-    ts = np.append(ts, [T])
-
-    envelope = np.interp(x=ts, xp=np.linspace(0, T, N + 1), fp=np.append(pulse, [0]))
-
-    # Upconvert
-    carrier = np.exp(1j * 2 * np.pi * f_LO * ts)
-    drive = 2 * np.pi * carrier * envelope
-    return drive, ts
-
-
-def simulate_H(H, ts, N):
-    psis = [qt.basis(N, i) for i in range(N)]
-    N_ops = [psi * psi.dag() for psi in psis]
-    result = qt.mesolve(H, psis[0], ts, e_ops=N_ops)
-    return result
-
-
-def on_channels(uploaded):
-    chs_on = np.where(np.any(uploaded, axis=(1, 2, 3)))[0]
-    return chs_on
