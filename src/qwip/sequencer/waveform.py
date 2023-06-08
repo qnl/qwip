@@ -304,6 +304,10 @@ class DCWaveform(InfiniteWaveform):
 class CWWaveform(InfiniteWaveform):
     frequency: ModulationFrequency
     phase: float | str = 0
+    offset: float | complex | str = field(
+        default=0,
+        converter=lambda v: float(v) if isinstance(v, int) else v
+    )
     mod_key: ModulationFrequency | None = None
 
     @dynamic_default(phase_unit="units/phase")
@@ -312,6 +316,7 @@ class CWWaveform(InfiniteWaveform):
         ts: np.ndarray,
         amplitude: float,
         phase: float,
+        offset: float | complex,
         phase_tracker: PhaseTracker | None = None,
         modulations: dict[str, ModulationFrequency] = {},
         phase_unit: str = None,
@@ -350,7 +355,7 @@ class CWWaveform(InfiniteWaveform):
             phase *= np.pi / 180
             phis *= np.pi / 180
 
-        wave = amplitude * np.exp(1j * (freq * ts + phis + phase), dtype=np.complex64)
+        wave = amplitude * np.exp(1j * (freq * ts + phis + phase), dtype=np.complex64) + offset
 
         if complex_out:
             return wave

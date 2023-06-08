@@ -151,8 +151,10 @@ def create(
     if not create_database(db, database):
         raise typer.Exit()
 
-    db.database = database
     db.disconnect()
+    db = DoltDB.from_parameters(
+        username=username, host=hostname, password=password, database=database
+    )
     db.connect()
 
     create_tables(db, database)
