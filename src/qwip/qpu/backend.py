@@ -94,7 +94,6 @@ class OperatorChannelMap:
         LO_frequency: LO frequency
 
     """
-
     target: str
     operator: Qobj
     channels: tuple[int, ...] = field(factory=tuple)
@@ -144,7 +143,6 @@ class TimeDependentHamiltonian:
 
         Returns:
             result: Qobj from mesolve
-
         """
         N = self.dims[0]
 
@@ -160,7 +158,17 @@ class TimeDependentHamiltonian:
 
     @classmethod
     def tensor(cls, H1, H2):
-        """ """
+        """Return new instance of TimeDependentHamiltonian with all input hamiltonians, now with the same dimension.
+
+        This function is used to combine hamiltonians of different channels into a single list, which allows multi-qubit simulation. This is done by performing tensor products on the hamiltonians with the identity.
+
+        Args:
+            H1: Instance of TimeIndependentHamiltonian
+            H2: Another instance of TimeIndependentHamiltonian (with or without the same hamiltonian dimension as H1)
+
+        Returns:
+            New instance of TimeIndepedentHamiltonian with H1 and H2
+        """
         ts1 = H1.ts
         ts2 = H2.ts
 
@@ -200,13 +208,8 @@ class SimulatorBackend(QuantumBackend):
         num_levels: Number of energy levels to be simulated.
         static_hamiltonian: A mapping from every single qubit to its corresponding
             static hamiltonian.
-        drive_hamiltonian: A mapping from qubits of turned on channels to their drive
-            hamiltonians, consisting of the operator and drive array.
         channel_map: A list of mappings from an IQ channel to its parameters.
-        H: A mapping from qubits of turned on channels to their hamiltonian,
-            with both the static and drive components.
-        ts: A mapping from qubits of turned on channels to their time array, used for
-            the simulation in acquire.
+        H: A list of TimeDependentHamiltonian's for each element with active channels.
     """
 
     uploaded: CompiledSequence | None = None
@@ -216,11 +219,10 @@ class SimulatorBackend(QuantumBackend):
     H: list[TimeDependentHamiltonian] = field(factory=list)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
-        """Updates parameters from the QPU -- creating mappings from channels to parameters
-            and qubits to static hamiltonians.
+        """Updates parameters from the QPU -- creating mappings from channels to parameters and qubits to static hamiltonians.
 
         Args:
-            qpu: T
+            qpu: Loaded config file
         """
 
         channels = qpu.db["compilation"]["channels"]
@@ -264,7 +266,13 @@ class SimulatorBackend(QuantumBackend):
                 raise ValueError(f"I component of channel {qubit} missing")
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
-        """ """
+        """Constructs the drive hamiltonians for elements of active channels to later be simulated.
+
+        Stores a list of TimeIndependentHamiltonian's in self.H which correspond to each element with active channels. Both the drive and static hamiltonian of all active channels are in the attribute H of TimeIndependentHamiltonian. If there is more than one active channel, dimensions of individual hamiltonians are properly adjusted by tensor producting with the identity.
+
+        Args:
+            cseq: Compiled sequence
+        """
         self.H = []  # Clear list of hamiltonians to simulate
         self.uploaded = cseq
 
@@ -278,6 +286,7 @@ class SimulatorBackend(QuantumBackend):
             drive_hamiltonians = dict()
             for ch_info in self.channel_map:
                 match ch_info.channels:
+                    # Map active channels to its parameters
                     case I_index, Q_index if {I_index, Q_index} <= set(active_channels):
                         Omega = 2 * np.pi * ch_info.amplitude_factor
 
@@ -289,6 +298,7 @@ class SimulatorBackend(QuantumBackend):
                             sampling_rate, pulse, ch_info.LO_frequency
                         )
 
+                        # Encode static and dynamic hamiltonian info
                         H_t = TimeDependentHamiltonian(
                             H=[
                                 (
@@ -325,7 +335,15 @@ class SimulatorBackend(QuantumBackend):
             )
 
     def acquire(self, cseq: CompiledSequence, full_seq=True, **kwargs) -> list:
-        """ """
+        """Simulate the Hamiltonians using mesolve.
+
+        Args:
+            full_seq: An option to simulate all the elements of the sequence, otherwise, only the last element.
+
+        Returns:
+            results: A list of mesolve outputs, which are expectation values of the basis vectors (made from get_basis() of TimeIndependentHamiltonian).
+
+        """
         if not self.H:
             raise ValueError("No sequence has been uploaded")
 

@@ -159,7 +159,6 @@ class TestTimeDependentHamiltonian:
         plot_states(result_three_qubit, ts, list(psis.keys()))
 
     def test_tensor(self):
-        # TODO test cases
         f = 1e9
         H1 = 2 * np.pi * f * qt.sigmax()
         H2 = 2 * np.pi * f * qt.sigmaz()
@@ -399,7 +398,7 @@ class TestSimulatorBackend:
 
         assert_allclose(expected, results.expect)
 
-    # TODO Add test with multiple channel pairs on
+    # Multiple channel pairs on
 
     def test_acquire_Q0X90_Q1X90_seq(self, qpu_01, sim_backend, compile_Q0X90_Q1X90):
         sim_backend.update_parameters(qpu_01)
