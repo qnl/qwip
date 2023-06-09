@@ -228,7 +228,7 @@ class TimeDependentHamiltonian:
 
         The resulting Hamiltonian will look like
 
-        $$H_\mathrm{joint} = \sum_n H_n \product I_M + \sum_m I_N \otimes H_m$$
+        $$H_\mathrm{joint} = \sum_n H_n \otimes I_M + \sum_m I_N \otimes H_m$$
 
         where $N$ and $M$ are the dimensions of $H_1$ and $H_2$.
 
