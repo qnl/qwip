@@ -128,7 +128,36 @@ def plot_states(result, ts, labels):
 
 
 class TestTimeDependentHamiltonian:
-    @pytest.mark.skip
+    @pytest.mark.parametrize(
+        "H,shape",
+        [
+            ([], None),
+            ([qt.sigmax()], (2, 2)),
+            ([qt.tensor(qt.sigmax(), qt.destroy(5))], (10, 10))
+        ]
+    )
+    def test_shape(self, H, shape):
+        H_list = [(Hi, np.ones(10)) for Hi in H]
+
+        H_t = TimeDependentHamiltonian(H=H_list, ts=np.arange(10))
+
+        assert H_t.shape == shape
+
+    @pytest.mark.parametrize(
+        "H,dims",
+        [
+            ([], None),
+            ([qt.sigmax()], [[2], [2]]),
+            ([qt.tensor(qt.sigmax(), qt.destroy(5))], [[2, 5], [2, 5]])
+        ]
+    )
+    def test_dims(self, H, dims):
+        H_list = [(Hi, np.ones(10)) for Hi in H]
+
+        H_t = TimeDependentHamiltonian(H=H_list, ts=np.arange(10))
+
+        assert H_t.dims == dims
+
     def test_simulate(self):
         f = 1e9
         ts = np.linspace(0, 20e-9, 101)

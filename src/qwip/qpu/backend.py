@@ -5,7 +5,8 @@ from collections.abc import Callable
 from functools import reduce
 from typing import TYPE_CHECKING
 
-import matplotlib.pyplot as plt
+from typing_extensions import Self
+
 import numpy as np
 from attrs import field
 from numpy.random import Generator, default_rng
@@ -45,7 +46,30 @@ class QuantumBackend(metaclass=ABCMeta):
 ## SimulatorBackend utils
 
 
-def upconvert(sampling_rate, pulse, f_LO):
+def upconvert(
+    sampling_rate: float,
+    pulse: np.ndarray,
+    f_LO: float,
+    interpolation_factor: int = 100
+):
+    """Upconverts a pulse at a given sampling rate.
+    
+    Since pulses are typically sampled at a much lower frequency than the final target
+    frequency, the waveform envelope is linearly interpolated at a faster sampling rate.
+
+    Args:
+        sampling_rate: The sampling rate in samples/second of the pulse.
+        pulse: The sampled complex amplitudes at each time point.
+        f_LO: The carrier frequency to multiply against the pulse.
+        interpolation_factor: The number of samples to interpolate between each sample
+            of the pulse envelope. The final upconverted pulse will have length
+            `N * interpolation_factor + 1` where `N` is the number of samples in the
+            pulse.
+    
+    Returns:
+        A tuple of numpy arrays corresponding to the complex valued amplitudes and the
+        timepoints.
+    """
     sample_time = 1 / sampling_rate
 
     N = len(
@@ -68,7 +92,10 @@ def upconvert(sampling_rate, pulse, f_LO):
 
 
 def get_active_channels(waveform_data: np.ndarray):
-    """Return indices of active channels for a single sequence element by checking whether it's empty.
+    """Return indices of active channels for a single sequence element.
+     
+    This function assumes that channels are indexed along the first dimension of the
+    waveform data array.
 
     Args:
         waveform_data: Specific element of a compiled sequence array
@@ -84,14 +111,15 @@ def get_active_channels(waveform_data: np.ndarray):
 
 @qdefine
 class OperatorChannelMap:
-    """Maps IQ channel pair to its parameters.
+    """Maps a channel (or pair of IQ channels) to its simulation parameters.
 
     Attributes:
-        target: Name of the channel pair "Q0"
+        target: Name of the subsytem corresponding to the drive operator (i.e. "Q0")
         operator: Operator corresponding to dynamic hamiltonian
-        channels: Channel indices in tuple format
+        channels: A tuple of channel indices that map to the same drive operator.
         amplitude_factor: Drive amplitude
-        LO_frequency: LO frequency
+        LO_frequency: If non-zero, signals are upconverted (multiplied) by this
+            frequency before simulation.
 
     """
     target: str
@@ -103,11 +131,17 @@ class OperatorChannelMap:
 
 @qdefine
 class TimeDependentHamiltonian:
-    """Hamiltonian (including static and dynamic) and time corresponding to sequence element.
+    """A time-dependent Hamiltonian.
+
+    (including static and dynamic) and time corresponding to sequence element
 
     Attributes:
-        H: List of tuples consisting of the operator and its amplitude.
-        ts: Time
+        H: A list of tuples consisting of the `QObj` operator and its amplitude at each
+            point in time. Every operator in the list is expected to have the same
+            dimension and same number of time-dependent coefficients. This is passed
+            directly to `qutip.mesolve`.
+        ts: An array of times. Should match the shapes of all time-dependendent
+            coefficients in `H`.
     """
 
     H: list[tuple[Qobj, np.ndarray]]
@@ -123,6 +157,14 @@ class TimeDependentHamiltonian:
 
     @property
     def shape(self) -> tuple | None:
+        """Returns the shape of the Hamiltonians in H.
+        
+        It is assumed that all hamiltonians in the list have the same dimension, since
+        this is required by `qutip.mesolve`.
+
+        Returns:
+            `None` if no hamiltonians are preesent.
+        """
         if not self.H:
             return None
 
@@ -130,10 +172,12 @@ class TimeDependentHamiltonian:
         return qobj.shape
 
     def get_basis(self) -> dict:
-        """Produces dictionary of all bases based on number of qubits and levels."""
-        N = self.dims[0]
-        if not N:
+        """Returns a dictionary mapping fock state labels to basis state vectors."""
+
+        if self.dims is None:
             raise ValueError("No hamiltonian to retrieve basis of.")
+        
+        N = self.dims[0]
 
         psis = {i: qt.basis(N, list(i)) for i in it.product(*(range(Ni) for Ni in N))}
         return psis
@@ -157,17 +201,22 @@ class TimeDependentHamiltonian:
         return result
 
     @classmethod
-    def tensor(cls, H1, H2):
-        """Return new instance of TimeDependentHamiltonian with all input hamiltonians, now with the same dimension.
+    def tensor(cls, H1: Self, H2: Self):
+        """Return new instance of TimeDependentHamiltonian with all input hamiltonians
+        expanded into the full multi-qubit Hilbert space.
 
-        This function is used to combine hamiltonians of different channels into a single list, which allows multi-qubit simulation. This is done by performing tensor products on the hamiltonians with the identity.
+        The resulting Hamiltonian will look like
 
+        $$H_\mathrm{joint} = \sum_n H_n \product I_M + \sum_m I_N \otimes H_m$$
+
+        where $N$ and $M$ are the dimensions of $H_1$ and $H_2$.
+        
         Args:
-            H1: Instance of TimeIndependentHamiltonian
-            H2: Another instance of TimeIndependentHamiltonian (with or without the same hamiltonian dimension as H1)
+            H1: A `TimeDependentHamiltonian`
+            H2: A `TimeDependentHamiltonian`
 
         Returns:
-            New instance of TimeIndepedentHamiltonian with H1 and H2
+            New instance of `TimeIndepedentHamiltonian`
         """
         ts1 = H1.ts
         ts2 = H2.ts
