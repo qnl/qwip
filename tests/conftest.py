@@ -1,7 +1,10 @@
 import re
+import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
+from loguru import logger
 from sqlalchemy.engine import make_url
 
 try:
@@ -17,6 +20,18 @@ from qwip.config.schema import ConfigSchema
 from qwip.qpu.qpu import QPU
 
 
+def ignore_config_commit(record: dict) -> bool:
+    """Ignores warning messages from database config not matching current commit."""
+    should_log = not (
+        record["module"] == "database" and record["function"] == "init_config"
+    )
+    return should_log
+
+
+logger.remove()
+logger.add(sys.stdout, level="WARNING", filter=ignore_config_commit)
+
+
 def pytest_addoption(parser):
     parser.addoption(
         "--db_url", action="store", default="sqlite://", help="The database url."
@@ -30,6 +45,11 @@ def db_url(request):
 
 
 @pytest.fixture(scope="session")
+def seed(request):
+    return int(request.config.getoption("--seed"))
+
+
+@pytest.fixture(scope="module")
 def seed(request):
     return int(request.config.getoption("--seed"))
 
@@ -101,7 +121,7 @@ def session_with_models(session, models):
 
 @pytest.fixture
 def configdb_01():
-    db_file = Path(__file__).parent / "sample_configs/config_01.sqlite"
+    db_file = Path(__file__).parent / r"sample_configs/config_02.sqlite"
     db = OfflineConfigDB(url=f"sqlite:///{db_file}", schema=ConfigSchema)
     db.connect()
 

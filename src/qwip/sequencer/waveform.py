@@ -305,8 +305,7 @@ class CWWaveform(InfiniteWaveform):
     frequency: ModulationFrequency
     phase: float | str = 0
     offset: float | complex | str = field(
-        default=0,
-        converter=lambda v: float(v) if isinstance(v, int) else v
+        default=0, converter=lambda v: float(v) if isinstance(v, int) else v
     )
     mod_key: ModulationFrequency | None = None
 
@@ -355,7 +354,10 @@ class CWWaveform(InfiniteWaveform):
             phase *= np.pi / 180
             phis *= np.pi / 180
 
-        wave = amplitude * np.exp(1j * (freq * ts + phis + phase), dtype=np.complex64) + offset
+        wave = (
+            amplitude * np.exp(1j * (freq * ts + phis + phase), dtype=np.complex64)
+            + offset
+        )
 
         if complex_out:
             return wave
