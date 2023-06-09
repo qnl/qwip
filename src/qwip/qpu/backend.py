@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 from typing_extensions import Self
 
 import numpy as np
-from attrs import field
+from attrs import field, cmp_using
 from numpy.random import Generator, default_rng
 from numpy.testing import assert_allclose
 
@@ -20,7 +20,7 @@ except ImportError:
 import qutip as qt
 from qutip import Qobj
 
-from qwip.attrs import qdefine
+from qwip.attrs import qdefine, _numpy_equals
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence
@@ -72,16 +72,10 @@ def upconvert(
     """
     sample_time = 1 / sampling_rate
 
-    N = len(
-        pulse
-    )  # In order for different sequences to be simulated, ts must be same, how to guarantee?
+    N = len(pulse)  
     T = N * sample_time
 
-    ts = np.linspace(0, T, N * 100 + 1)
-
-    # This compensates for rounding error
-    ts = ts[: N * 100]
-    ts = np.append(ts, [T])
+    ts = np.linspace(0, T, N * interpolation_factor + 1)
 
     envelope = np.interp(x=ts, xp=np.linspace(0, T, N + 1), fp=np.append(pulse, [0]))
 
@@ -129,6 +123,25 @@ class OperatorChannelMap:
     LO_frequency: float = 0
 
 
+def _compare_H_list(
+    H1: list[tuple[Qobj, np.ndarray]],
+    H2: list[tuple[Qobj, np.ndarray]]
+) -> bool:
+    """Compares two hamiltonian lists.
+    
+    Returns `True` if `H1` and `H2` are equivalent.
+    """
+    if len(H1) != len(H2):
+        return False
+
+    for (o1, c1), (o2, c2) in zip(H1, H2):
+        if o1 != o2:
+            return False
+
+        if not _numpy_equals(c1, c2):
+            return False
+
+    return True
 @qdefine
 class TimeDependentHamiltonian:
     """A time-dependent Hamiltonian.
@@ -144,8 +157,8 @@ class TimeDependentHamiltonian:
             coefficients in `H`.
     """
 
-    H: list[tuple[Qobj, np.ndarray]]
-    ts: np.ndarray
+    H: list[tuple[Qobj, np.ndarray]] = field(eq=cmp_using(_compare_H_list))
+    ts: np.ndarray = field(eq=cmp_using(eq=_numpy_equals))
 
     @property
     def dims(self) -> list | None:
@@ -218,30 +231,28 @@ class TimeDependentHamiltonian:
         Returns:
             New instance of `TimeIndepedentHamiltonian`
         """
-        ts1 = H1.ts
-        ts2 = H2.ts
+        if H1.dims is None:
+            return cls(H=H2.H, ts=H2.ts)
 
-        try:
-            assert_allclose(ts1, ts2)
-        except AssertionError as a:
+        if H2.dims is None:
+            return cls(H=H1.H, ts=H1.ts)
+
+        if not np.all((H1.ts == H2.ts)):
             raise ValueError("Times not equal (pulse length not equal)")
-
-        shape_H1, dims_H1 = H1.shape[0], H1.dims
-        shape_H2, dims_H2 = H2.shape[0], H2.dims
 
         H_list = []
 
         for H, coeffs in H1.H:
-            eye_H2 = qt.Qobj(np.eye(shape_H2), dims=dims_H2)
+            eye_H2 = qt.Qobj(np.eye(H2.shape[0]), dims=H2.dims)
             H1_expanded = qt.tensor(H, eye_H2)
             H_list.append((H1_expanded, coeffs))
 
         for H, coeffs in H2.H:
-            eye_H1 = qt.Qobj(np.eye(shape_H1), dims=dims_H1)
+            eye_H1 = qt.Qobj(np.eye(H1.shape[0]), dims=H1.dims)
             H2_expanded = qt.tensor(eye_H1, H)
             H_list.append((H2_expanded, coeffs))
 
-        return cls(H=H_list, ts=ts1)
+        return cls(H=H_list, ts=H1.ts)
 
 
 @qdefine

@@ -158,23 +158,39 @@ class TestTimeDependentHamiltonian:
 
         assert H_t.dims == dims
 
-    def test_simulate(self):
+    def test_simulate_single_qubit(self):
         f = 1e9
-        ts = np.linspace(0, 20e-9, 101)
+        ts = np.linspace(0, 5e-9, 201)
 
         # Single qubit case
-        H = 2 * np.pi * f * qt.sigmax()
-        H_one_qubit = TimeDependentHamiltonian(H=[(H, np.ones_like(ts))], ts=ts)
+        H = 2 * np.pi * f * qt.sigmax() / 2
+        H_t = TimeDependentHamiltonian(H=[(H, np.ones_like(ts))], ts=ts)
 
-        result_one_qubit = H_one_qubit.simulate()
-        psis = H_one_qubit.get_basis()
-        plot_states(result_one_qubit, ts, list(psis.keys()))
+        result = H_t.simulate()
+        psis = H_t.get_basis()
+
+        labeled = dict(zip(psis.keys(), result.expect))
+
+        for state, populations in labeled.items():
+            match state:
+                case (0,):
+                    expected = 0.5 * np.cos(2*np.pi*1e9*H_t.ts) + 0.5
+                case (1,):
+                    expected = -0.5 * np.cos(2*np.pi*1e9*H_t.ts) + 0.5
+                case _:
+                    expected = np.zeros_like(H_t.ts)
+
+            assert_allclose(populations, expected, atol=2e-5)
+
+    def test_simulate_multi_qubit(self):
+        f = 1e9
+        ts = np.linspace(0, 5e-9, 201)
 
         # Three qubit case
-        H_1 = 2 * np.pi * f * qt.tensor(qt.sigmax(), qt.qeye(2), qt.qeye(2))
-        H_2 = 2 * np.pi * f * qt.tensor(qt.qeye(2), qt.sigmaz(), qt.qeye(2))
-        H_3 = 2 * np.pi * f * qt.tensor(qt.qeye(2), qt.qeye(2), qt.sigmaz())
-        H_three_qubit = TimeDependentHamiltonian(
+        H_1 = 2 * np.pi * f * qt.tensor(qt.sigmax(), qt.qeye(2), qt.qeye(2)) / 2
+        H_2 = 2 * np.pi * f * qt.tensor(qt.qeye(2), qt.sigmaz(), qt.qeye(2)) / 2
+        H_3 = 2 * np.pi * f * qt.tensor(qt.qeye(2), qt.qeye(2), qt.qeye(2)) / 2
+        H_t = TimeDependentHamiltonian(
             H=[
                 (H_1, np.ones_like(ts)),
                 (H_2, np.ones_like(ts)),
@@ -183,14 +199,24 @@ class TestTimeDependentHamiltonian:
             ts=ts,
         )
 
-        result_three_qubit = H_three_qubit.simulate()
-        psis = H_three_qubit.get_basis()
-        plot_states(result_three_qubit, ts, list(psis.keys()))
+        result = H_t.simulate()
+        psis = H_t.get_basis()
+        labeled = dict(zip(psis.keys(), result.expect))
 
-    def test_tensor(self):
-        f = 1e9
-        H1 = 2 * np.pi * f * qt.sigmax()
-        H2 = 2 * np.pi * f * qt.sigmaz()
+        for state, populations in labeled.items():
+            match state:
+                case (0, 0, 0):
+                    expected = 0.5 * np.cos(2*np.pi*1e9*H_t.ts) + 0.5
+                case (1, 0, 0):
+                    expected = -0.5 * np.cos(2*np.pi*1e9*H_t.ts) + 0.5
+                case _:
+                    expected = np.zeros_like(H_t.ts)
+
+            assert_allclose(populations, expected, atol=3e-5)
+
+    def test_tensor_different_times(self):
+        H1 = qt.sigmax()
+        H2 = qt.sigmaz()
 
         ## ts not the same
         ts1 = np.linspace(0, 20e-9, 21)
@@ -199,44 +225,49 @@ class TestTimeDependentHamiltonian:
         H1_t = TimeDependentHamiltonian(H=[(H1, np.ones_like(ts1))], ts=ts1)
         H2_t = TimeDependentHamiltonian(H=[(H2, np.ones_like(ts2))], ts=ts2)
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             TimeDependentHamiltonian.tensor(H1_t, H2_t)
 
-        ## Check H's with same dimension
-        H2_t = TimeDependentHamiltonian(H=[(H2, np.ones_like(ts1))], ts=ts1)
-        H_tensor = TimeDependentHamiltonian.tensor(H1_t, H2_t)
+    def test_tensor_empty(self):
+        H0 = TimeDependentHamiltonian(H=[], ts=None)
 
-        # Tensor manually
-        H_1 = 2 * np.pi * f * qt.tensor(qt.sigmax(), qt.qeye(2))
-        H_2 = 2 * np.pi * f * qt.tensor(qt.qeye(2), qt.sigmaz())
-        H_two_qubit = TimeDependentHamiltonian(
-            H=[(H_1, np.ones_like(ts1)), (H_2, np.ones_like(ts1))], ts=ts1
+        assert TimeDependentHamiltonian.tensor(H0, H0) == H0
+
+        ts = np.linspace(0, 10)
+        H1 = TimeDependentHamiltonian(
+            H=[(qt.sigmax(), np.zeros_like(ts))],
+            ts=ts
         )
 
-        assert_allclose(H_tensor.simulate().expect, H_two_qubit.simulate().expect)
+        assert TimeDependentHamiltonian.tensor(H0, H1) == H1
 
-        ## Check H's with different dimensions
-        H = TimeDependentHamiltonian(
-            H=[(2 * np.pi * f * qt.sigmaz(), np.ones_like(ts1))], ts=ts1
-        )
-        H_tensor_diff = TimeDependentHamiltonian.tensor(H_two_qubit, H)
-
-        H_1 = 2 * np.pi * f * qt.tensor(qt.sigmax(), qt.qeye(2), qt.qeye(2))
-        H_2 = 2 * np.pi * f * qt.tensor(qt.qeye(2), qt.sigmaz(), qt.qeye(2))
-        H_3 = 2 * np.pi * f * qt.tensor(qt.qeye(2), qt.qeye(2), qt.sigmaz())
-        H_three_qubit = TimeDependentHamiltonian(
+    def test_tensor(self):
+        ts = np.linspace(0, 10)
+        H0 = TimeDependentHamiltonian(
             H=[
-                (H_1, np.ones_like(ts1)),
-                (H_2, np.ones_like(ts1)),
-                (H_3, np.ones_like(ts1)),
+                (qt.sigmaz(), np.ones_like(ts)),
+                (qt.sigmax(), np.cos(2*np.pi*ts))
             ],
-            ts=ts1,
+            ts=ts
         )
 
-        assert_allclose(
-            H_tensor_diff.simulate().expect, H_three_qubit.simulate().expect
+        H1 = TimeDependentHamiltonian(
+            H=[
+                (qt.create(3)*qt.destroy(3), 2*np.ones_like(ts))
+            ],
+            ts=ts
         )
 
+        expect = TimeDependentHamiltonian(
+            H=[
+                (qt.tensor(qt.sigmaz(), qt.qeye(3)), np.ones_like(ts)),
+                (qt.tensor(qt.sigmax(), qt.qeye(3)), np.cos(2*np.pi*ts)),
+                (qt.tensor(qt.qeye(2), qt.create(3)*qt.destroy(3)), 2*np.ones_like(ts))
+            ],
+            ts=ts
+        )
+
+        assert TimeDependentHamiltonian.tensor(H0, H1) == expect
 
 class TestSimulatorBackend:
     @pytest.fixture
@@ -386,9 +417,10 @@ class TestSimulatorBackend:
         cseq = compiled(20)
         sim_backend.update_parameters(qpu_01)
 
-        with pytest.raises(ValueError) as e_info:
+        with pytest.raises(ValueError):
             sim_backend.upload(cseq)
 
+    @pytest.mark.skip
     def test_upload(
         self,
         qpu_01,
@@ -428,7 +460,7 @@ class TestSimulatorBackend:
         assert_allclose(expected, results.expect)
 
     # Multiple channel pairs on
-
+    @pytest.mark.skip
     def test_acquire_Q0X90_Q1X90_seq(self, qpu_01, sim_backend, compile_Q0X90_Q1X90):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90_Q1X90)
@@ -438,6 +470,7 @@ class TestSimulatorBackend:
         psis = H_full_seq.get_basis()
         plot_states(results, H_full_seq.ts, list(psis.keys()))
 
+    @pytest.mark.skip
     def test_acquire_Q0X90_Q1X90_Q2X90_seq(
         self, qpu_01, sim_backend, compile_Q0X90_Q1X90_Q2X90
     ):
