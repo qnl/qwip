@@ -8,7 +8,7 @@ from numpy.testing import assert_allclose, assert_array_equal
 import qwip
 from qwip.analysis.frequency import simple_fft
 from qwip.processing.processors import GMMClassification, StatePopulations
-from qwip.qpu.backend import (
+from qwip.backends.backend import (
     FakeBackend,
     OperatorChannelMap,
     SimulatorBackend,

@@ -26,7 +26,7 @@ from qwip.processing.data_processor import (
     ReadoutPipeline,
 )
 from qwip.processing.processors import FormatLegacyIQ, GMMClassification, IQRotation
-from qwip.qpu.backend import QuantumBackend
+from qwip.backends.backend import QuantumBackend
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
 from qwip.sequencer.compilation import (
     ChannelGroup,
