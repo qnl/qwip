@@ -2,6 +2,7 @@ import functools
 from contextlib import contextmanager
 
 import attrs
+import numpy as np
 from attrs import define, frozen
 from attrs.validators import set_disabled
 
@@ -43,3 +44,11 @@ def disable_validation():
 
 
 danger = disable_validation
+
+def _numpy_equals(a: np.ndarray, b: np.ndarray) -> bool:
+    """Checks if two numpy arrays are equal.
+
+    Returns:
+        True if a and b are equal otherwise False.
+    """
+    return (a == b).all()
