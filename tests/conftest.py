@@ -1,8 +1,10 @@
 import re
+import sys
 from pathlib import Path
 
 import numpy as np
 import pytest
+from loguru import logger
 from sqlalchemy.engine import make_url
 
 try:
@@ -17,6 +19,18 @@ from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.config.schema import ConfigSchema
 from qwip.qpu.qpu import QPU
 
+
+def ignore_config_commit(record: dict) -> bool:
+    """Ignores warning messages from database config not matching current commit."""
+    should_log =  not (
+        record["module"] == "database" and 
+        record["function"] == "init_config"
+    )
+    return should_log
+
+
+logger.remove()
+logger.add(sys.stdout, level="WARNING", filter=ignore_config_commit)
 
 def pytest_addoption(parser):
     parser.addoption(
