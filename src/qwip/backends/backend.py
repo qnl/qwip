@@ -17,7 +17,6 @@ except ImportError:
     ...
 
 
-
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
@@ -39,7 +38,6 @@ class QuantumBackend(metaclass=ABCMeta):
     @abstractmethod
     def update_parameters(self, qpu: "QPU", **kwargs):
         ...
-
 
 
 @qdefine

@@ -12,6 +12,7 @@ from loguru import logger
 
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
+from qwip.backends.backend import QuantumBackend
 from qwip.config.database import (
     ConfigDB,
     ConfigFolder,
@@ -26,7 +27,6 @@ from qwip.processing.data_processor import (
     ReadoutPipeline,
 )
 from qwip.processing.processors import FormatLegacyIQ, GMMClassification, IQRotation
-from qwip.backends.backend import QuantumBackend
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
 from qwip.sequencer.compilation import (
     ChannelGroup,

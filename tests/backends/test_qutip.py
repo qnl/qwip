@@ -14,7 +14,6 @@ from qwip.backends.qutip import (
 from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 
-
 def check_fft(ts, drive):
     fs, yfs = simple_fft(ts, drive)
     return fs[np.argmax(yfs)]

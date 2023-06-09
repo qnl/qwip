@@ -4,16 +4,17 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import qutip as qt
-from qutip import Qobj
 from attrs import cmp_using, field
+from qutip import Qobj
 from typing_extensions import Self
 
-from qwip.backends.backend import QuantumBackend
 from qwip.attrs import _numpy_equals, qdefine
+from qwip.backends.backend import QuantumBackend
 from qwip.sequencer.compilation import CompiledSequence
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
+
 
 def upconvert(
     sampling_rate: float,
