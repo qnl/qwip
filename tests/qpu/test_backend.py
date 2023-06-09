@@ -126,6 +126,7 @@ def plot_states(result, ts, labels):
     ax.legend()
     return fig
 
+
 def plot_multi_qubit_states(results, ts, labels):
     labeled = dict(zip(labels, results.expect))
 
@@ -156,8 +157,8 @@ class TestTimeDependentHamiltonian:
         [
             ([], None),
             ([qt.sigmax()], (2, 2)),
-            ([qt.tensor(qt.sigmax(), qt.destroy(5))], (10, 10))
-        ]
+            ([qt.tensor(qt.sigmax(), qt.destroy(5))], (10, 10)),
+        ],
     )
     def test_shape(self, H, shape):
         H_list = [(Hi, np.ones(10)) for Hi in H]
@@ -171,8 +172,8 @@ class TestTimeDependentHamiltonian:
         [
             ([], None),
             ([qt.sigmax()], [[2], [2]]),
-            ([qt.tensor(qt.sigmax(), qt.destroy(5))], [[2, 5], [2, 5]])
-        ]
+            ([qt.tensor(qt.sigmax(), qt.destroy(5))], [[2, 5], [2, 5]]),
+        ],
     )
     def test_dims(self, H, dims):
         H_list = [(Hi, np.ones(10)) for Hi in H]
@@ -197,9 +198,9 @@ class TestTimeDependentHamiltonian:
         for state, populations in labeled.items():
             match state:
                 case (0,):
-                    expected = 0.5 * np.cos(2*np.pi*1e9*H_t.ts) + 0.5
+                    expected = 0.5 * np.cos(2 * np.pi * 1e9 * H_t.ts) + 0.5
                 case (1,):
-                    expected = -0.5 * np.cos(2*np.pi*1e9*H_t.ts) + 0.5
+                    expected = -0.5 * np.cos(2 * np.pi * 1e9 * H_t.ts) + 0.5
                 case _:
                     expected = np.zeros_like(H_t.ts)
 
@@ -229,9 +230,9 @@ class TestTimeDependentHamiltonian:
         for state, populations in labeled.items():
             match state:
                 case (0, 0, 0):
-                    expected = 0.5 * np.cos(2*np.pi*1e9*H_t.ts) + 0.5
+                    expected = 0.5 * np.cos(2 * np.pi * 1e9 * H_t.ts) + 0.5
                 case (1, 0, 0):
-                    expected = -0.5 * np.cos(2*np.pi*1e9*H_t.ts) + 0.5
+                    expected = -0.5 * np.cos(2 * np.pi * 1e9 * H_t.ts) + 0.5
                 case _:
                     expected = np.zeros_like(H_t.ts)
 
@@ -257,40 +258,35 @@ class TestTimeDependentHamiltonian:
         assert TimeDependentHamiltonian.tensor(H0, H0) == H0
 
         ts = np.linspace(0, 10)
-        H1 = TimeDependentHamiltonian(
-            H=[(qt.sigmax(), np.zeros_like(ts))],
-            ts=ts
-        )
+        H1 = TimeDependentHamiltonian(H=[(qt.sigmax(), np.zeros_like(ts))], ts=ts)
 
         assert TimeDependentHamiltonian.tensor(H0, H1) == H1
 
     def test_tensor(self):
         ts = np.linspace(0, 10)
         H0 = TimeDependentHamiltonian(
-            H=[
-                (qt.sigmaz(), np.ones_like(ts)),
-                (qt.sigmax(), np.cos(2*np.pi*ts))
-            ],
-            ts=ts
+            H=[(qt.sigmaz(), np.ones_like(ts)), (qt.sigmax(), np.cos(2 * np.pi * ts))],
+            ts=ts,
         )
 
         H1 = TimeDependentHamiltonian(
-            H=[
-                (qt.create(3)*qt.destroy(3), 2*np.ones_like(ts))
-            ],
-            ts=ts
+            H=[(qt.create(3) * qt.destroy(3), 2 * np.ones_like(ts))], ts=ts
         )
 
         expect = TimeDependentHamiltonian(
             H=[
                 (qt.tensor(qt.sigmaz(), qt.qeye(3)), np.ones_like(ts)),
-                (qt.tensor(qt.sigmax(), qt.qeye(3)), np.cos(2*np.pi*ts)),
-                (qt.tensor(qt.qeye(2), qt.create(3)*qt.destroy(3)), 2*np.ones_like(ts))
+                (qt.tensor(qt.sigmax(), qt.qeye(3)), np.cos(2 * np.pi * ts)),
+                (
+                    qt.tensor(qt.qeye(2), qt.create(3) * qt.destroy(3)),
+                    2 * np.ones_like(ts),
+                ),
             ],
-            ts=ts
+            ts=ts,
         )
 
         assert TimeDependentHamiltonian.tensor(H0, H1) == expect
+
 
 class TestSimulatorBackend:
     @pytest.fixture
@@ -454,52 +450,66 @@ class TestSimulatorBackend:
         sim_backend.update_parameters(qpu_01)
 
         sim_backend.upload(compile_Q0X90)
-        assert len(sim_backend.H) == 20
-        assert len(sim_backend.H[0].H) == 2
+        assert len(sim_backend.H) == 21
+        assert len(sim_backend.H[1].H) == 2
 
         sim_backend.upload(compile_Q0X90_Q1X90)
-        assert len(sim_backend.H[0].H) == 4
+        assert len(sim_backend.H[1].H) == 4
 
         sim_backend.upload(compile_Q0X90_Q1X90_Q2X90)
-        assert len(sim_backend.H[0].H) == 6
+        assert len(sim_backend.H[1].H) == 6
 
     def test_aqcuire_Q0X90_seq(self, qpu_01, sim_backend, compile_Q0X90, data_file):
         expected = np.loadtxt(str(data_file), delimiter=",")
 
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90)
-        results = sim_backend.acquire(compile_Q0X90, False)[0]
+        results = sim_backend.acquire(compile_Q0X90)[0]
 
         assert_allclose(expected, results.expect)
+
+        with pytest.raises(ValueError):
+            sim_backend.acquire(compile_Q0X90, [0])
+
+        assert len(sim_backend.acquire(compile_Q0X90, [-2, -1])) == 2
 
     def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180, data_file):
         expected = np.loadtxt(str(data_file), delimiter=",")
 
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0_X180)
-        results = sim_backend.acquire(compile_Q0_X180, False)[0]
+        results = sim_backend.acquire(compile_Q0_X180)[0]
 
         assert_allclose(expected, results.expect)
 
-    def test_acquire_Q0X90_Q1X90_seq(self, qpu_01, sim_backend, compile_Q0X90_Q1X90):
+    def test_acquire_Q0X90_Q1X90_seq(
+        self, qpu_01, sim_backend, compile_Q0X90_Q1X90, data_file
+    ):
+        expected = np.loadtxt(str(data_file), delimiter=",")
+
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90_Q1X90)
-        results = sim_backend.acquire(compile_Q0X90_Q1X90, False)[0]
+        results = sim_backend.acquire(compile_Q0X90_Q1X90)[0]
 
         H_t = sim_backend.H[-1]
         psis = H_t.get_basis()
 
-        plot_multi_qubit_states(results, H_t.ts, list(psis.keys()))
+        assert_allclose(expected, results.expect)
 
+        # plot_multi_qubit_states(results, H_t.ts, list(psis.keys()))
 
     def test_acquire_Q0X90_Q1X90_Q2X90_seq(
-        self, qpu_01, sim_backend, compile_Q0X90_Q1X90_Q2X90
+        self, qpu_01, sim_backend, compile_Q0X90_Q1X90_Q2X90, data_file
     ):
+        expected = np.loadtxt(str(data_file), delimiter=",")
+
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90_Q1X90_Q2X90)
-        results = sim_backend.acquire(compile_Q0X90_Q1X90_Q2X90, False)[0]
+        results = sim_backend.acquire(compile_Q0X90_Q1X90_Q2X90)[0]
 
         H_t = sim_backend.H[-1]
         psis = H_t.get_basis()
-        plot_multi_qubit_states(results, H_t.ts, list(psis.keys()))
 
+        assert_allclose(expected, results.expect)
+
+        # plot_multi_qubit_states(results, H_t.ts, list(psis.keys()))

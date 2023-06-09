@@ -5,12 +5,11 @@ from collections.abc import Callable
 from functools import reduce
 from typing import TYPE_CHECKING
 
-from typing_extensions import Self
-
 import numpy as np
-from attrs import field, cmp_using
+from attrs import cmp_using, field
 from numpy.random import Generator, default_rng
 from numpy.testing import assert_allclose
+from typing_extensions import Self
 
 try:
     from qtrl.managers import MetaManager
@@ -20,7 +19,7 @@ except ImportError:
 import qutip as qt
 from qutip import Qobj
 
-from qwip.attrs import qdefine, _numpy_equals
+from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence
@@ -50,10 +49,10 @@ def upconvert(
     sampling_rate: float,
     pulse: np.ndarray,
     f_LO: float,
-    interpolation_factor: int = 100
+    interpolation_factor: int = 100,
 ):
     """Upconverts a pulse at a given sampling rate.
-    
+
     Since pulses are typically sampled at a much lower frequency than the final target
     frequency, the waveform envelope is linearly interpolated at a faster sampling rate.
 
@@ -65,14 +64,14 @@ def upconvert(
             of the pulse envelope. The final upconverted pulse will have length
             `N * interpolation_factor + 1` where `N` is the number of samples in the
             pulse.
-    
+
     Returns:
         A tuple of numpy arrays corresponding to the complex valued amplitudes and the
         timepoints.
     """
     sample_time = 1 / sampling_rate
 
-    N = len(pulse)  
+    N = len(pulse)
     T = N * sample_time
 
     ts = np.linspace(0, T, N * interpolation_factor + 1)
@@ -87,7 +86,7 @@ def upconvert(
 
 def get_active_channels(waveform_data: np.ndarray):
     """Return indices of active channels for a single sequence element.
-     
+
     This function assumes that channels are indexed along the first dimension of the
     waveform data array.
 
@@ -116,6 +115,7 @@ class OperatorChannelMap:
             frequency before simulation.
 
     """
+
     target: str
     operator: Qobj
     channels: tuple[int, ...] = field(factory=tuple)
@@ -124,11 +124,10 @@ class OperatorChannelMap:
 
 
 def _compare_H_list(
-    H1: list[tuple[Qobj, np.ndarray]],
-    H2: list[tuple[Qobj, np.ndarray]]
+    H1: list[tuple[Qobj, np.ndarray]], H2: list[tuple[Qobj, np.ndarray]]
 ) -> bool:
     """Compares two hamiltonian lists.
-    
+
     Returns `True` if `H1` and `H2` are equivalent.
     """
     if len(H1) != len(H2):
@@ -142,6 +141,8 @@ def _compare_H_list(
             return False
 
     return True
+
+
 @qdefine
 class TimeDependentHamiltonian:
     """A time-dependent Hamiltonian.
@@ -157,7 +158,9 @@ class TimeDependentHamiltonian:
             coefficients in `H`.
     """
 
-    H: list[tuple[Qobj, np.ndarray]] = field(eq=cmp_using(_compare_H_list), factory=list)
+    H: list[tuple[Qobj, np.ndarray]] = field(
+        eq=cmp_using(_compare_H_list), factory=list
+    )
     ts: np.ndarray | None = field(eq=cmp_using(eq=_numpy_equals), default=None)
 
     @property
@@ -171,7 +174,7 @@ class TimeDependentHamiltonian:
     @property
     def shape(self) -> tuple | None:
         """Returns the shape of the Hamiltonians in H.
-        
+
         It is assumed that all hamiltonians in the list have the same dimension, since
         this is required by `qutip.mesolve`.
 
@@ -189,7 +192,7 @@ class TimeDependentHamiltonian:
 
         if self.dims is None:
             raise ValueError("No hamiltonian to retrieve basis of.")
-        
+
         N = self.dims[0]
 
         psis = {i: qt.basis(N, list(i)) for i in it.product(*(range(Ni) for Ni in N))}
@@ -201,6 +204,11 @@ class TimeDependentHamiltonian:
         Returns:
             result: Qobj from mesolve
         """
+        if not self.H:
+            raise ValueError(
+                "No Hamiltonian to simulate for this element. \
+                             Empty Hamiltonian here to preserve indexing."
+            )
         N = self.dims[0]
 
         # Get all basis states for possibly multi-qubit states.
@@ -223,7 +231,7 @@ class TimeDependentHamiltonian:
         $$H_\mathrm{joint} = \sum_n H_n \product I_M + \sum_m I_N \otimes H_m$$
 
         where $N$ and $M$ are the dimensions of $H_1$ and $H_2$.
-        
+
         Args:
             H1: A `TimeDependentHamiltonian`
             H2: A `TimeDependentHamiltonian`
@@ -279,7 +287,8 @@ class SimulatorBackend(QuantumBackend):
     H: list[TimeDependentHamiltonian] = field(factory=list)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
-        """Updates parameters from the QPU -- creating mappings from channels to parameters and qubits to static hamiltonians.
+        """Updates parameters from the QPU -- creating mappings from channels to
+        parameters and qubits to static hamiltonians.
 
         Args:
             qpu: Loaded config file
@@ -326,9 +335,14 @@ class SimulatorBackend(QuantumBackend):
                 raise ValueError(f"I component of channel {qubit} missing")
 
     def upload(self, cseq: CompiledSequence, **kwargs) -> None:
-        """Constructs the drive hamiltonians for elements of active channels to later be simulated.
+        """Constructs the drive hamiltonians for elements of active channels
+        to later be simulated.
 
-        Stores a list of TimeIndependentHamiltonian's in self.H which correspond to each element with active channels. Both the drive and static hamiltonian of all active channels are in the attribute H of TimeIndependentHamiltonian. If there is more than one active channel, dimensions of individual hamiltonians are properly adjusted by tensor producting with the identity.
+        Stores a list of TimeIndependentHamiltonian's in self.H which correspond
+        to each element with active channels. Both the drive and static hamiltonian
+        of all active channels are in the attribute H of TimeIndependentHamiltonian.
+        If there is more than one active channel, dimensions of individual hamiltonians
+        are properly adjusted by tensor producting with the identity.
 
         Args:
             cseq: Compiled sequence
@@ -387,28 +401,32 @@ class SimulatorBackend(QuantumBackend):
                 H_t = reduce(
                     TimeDependentHamiltonian.tensor, drive_hamiltonians.values()
                 )
-            else:
-                H_t = TimeDependentHamiltonian()
-
-            self.H.append(H_t)
+                self.H.append(H_t)
 
         if len(self.H) == 0:
             raise ValueError(
                 "No active channels to simulate. Check that sequence is non-empty."
             )
 
-    def acquire(self,
+        # Make sure H same length as number of elements so indexing is preserved
+        if len(self.H) < N_elements:
+            for i in range(N_elements - len(self.H)):
+                self.H.insert(0, TimeDependentHamiltonian())
+
+    def acquire(
+        self,
         cseq: CompiledSequence,
-        elements: int | list | slice = -1,
-        **kwargs
+        elements: list[int] = [-1],  # how to set default value?
+        **kwargs,
     ) -> list:
         """Simulate the Hamiltonians using mesolve.
 
         Args:
-            elements: Any index specifier.
+            elements: A list of indices indicating which elements to simulate.
 
         Returns:
-            results: A list of mesolve outputs, which are expectation values of the basis vectors (made from get_basis() of TimeIndependentHamiltonian).
+            results: A list of mesolve outputs, which are expectation values of the
+                basis vectors (made from get_basis() of TimeIndependentHamiltonian).
 
         """
         if not self.H:
