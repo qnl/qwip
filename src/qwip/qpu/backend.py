@@ -157,8 +157,8 @@ class TimeDependentHamiltonian:
             coefficients in `H`.
     """
 
-    H: list[tuple[Qobj, np.ndarray]] = field(eq=cmp_using(_compare_H_list))
-    ts: np.ndarray = field(eq=cmp_using(eq=_numpy_equals))
+    H: list[tuple[Qobj, np.ndarray]] = field(eq=cmp_using(_compare_H_list), factory=list)
+    ts: np.ndarray | None = field(eq=cmp_using(eq=_numpy_equals), default=None)
 
     @property
     def dims(self) -> list | None:
@@ -387,18 +387,25 @@ class SimulatorBackend(QuantumBackend):
                 H_t = reduce(
                     TimeDependentHamiltonian.tensor, drive_hamiltonians.values()
                 )
-                self.H.append(H_t)
+            else:
+                H_t = TimeDependentHamiltonian()
+
+            self.H.append(H_t)
 
         if len(self.H) == 0:
             raise ValueError(
                 "No active channels to simulate. Check that sequence is non-empty."
             )
 
-    def acquire(self, cseq: CompiledSequence, full_seq=True, **kwargs) -> list:
+    def acquire(self,
+        cseq: CompiledSequence,
+        elements: int | list | slice = -1,
+        **kwargs
+    ) -> list:
         """Simulate the Hamiltonians using mesolve.
 
         Args:
-            full_seq: An option to simulate all the elements of the sequence, otherwise, only the last element.
+            elements: Any index specifier.
 
         Returns:
             results: A list of mesolve outputs, which are expectation values of the basis vectors (made from get_basis() of TimeIndependentHamiltonian).
@@ -409,11 +416,10 @@ class SimulatorBackend(QuantumBackend):
 
         results = []
 
-        if full_seq:
-            for H_t in self.H:
-                results.append(H_t.simulate())
-        else:
-            results.append(self.H[-1].simulate())
+        to_simulate = np.arange(cseq.shape[1])[elements]
+
+        for el in to_simulate:
+            results.append(self.H[el].simulate())
 
         return results
 

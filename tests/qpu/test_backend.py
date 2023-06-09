@@ -124,7 +124,30 @@ def plot_states(result, ts, labels):
     for level in range(N):
         ax.plot(ts, states[level], label=f"$|{labels[level]}⟩$")
     ax.legend()
-    plt.show()
+    return fig
+
+def plot_multi_qubit_states(results, ts, labels):
+    labeled = dict(zip(labels, results.expect))
+
+    N_sys = len(labels[0])
+
+    qdicts = [dict() for _ in range(N_sys)]
+    for q in range(N_sys):
+        for state, populations in labeled.items():
+            if state[q] not in qdicts[q]:
+                qdicts[q][state[q]] = np.array(populations)
+            else:
+                qdicts[q][state[q]] += populations
+
+    fig, axes = plt.subplots(N_sys, 1)
+
+    for q, ax in enumerate(axes):
+        for s, pops in qdicts[q].items():
+            ax.plot(ts, pops, label=f"$|{s}⟩$")
+        ax.legend()
+        ax.set_ylabel(f"Q{q}")
+
+    return fig
 
 
 class TestTimeDependentHamiltonian:
@@ -420,7 +443,6 @@ class TestSimulatorBackend:
         with pytest.raises(ValueError):
             sim_backend.upload(cseq)
 
-    @pytest.mark.skip
     def test_upload(
         self,
         qpu_01,
@@ -459,18 +481,17 @@ class TestSimulatorBackend:
 
         assert_allclose(expected, results.expect)
 
-    # Multiple channel pairs on
-    @pytest.mark.skip
     def test_acquire_Q0X90_Q1X90_seq(self, qpu_01, sim_backend, compile_Q0X90_Q1X90):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90_Q1X90)
         results = sim_backend.acquire(compile_Q0X90_Q1X90, False)[0]
 
-        H_full_seq = sim_backend.H[-1]
-        psis = H_full_seq.get_basis()
-        plot_states(results, H_full_seq.ts, list(psis.keys()))
+        H_t = sim_backend.H[-1]
+        psis = H_t.get_basis()
 
-    @pytest.mark.skip
+        plot_multi_qubit_states(results, H_t.ts, list(psis.keys()))
+
+
     def test_acquire_Q0X90_Q1X90_Q2X90_seq(
         self, qpu_01, sim_backend, compile_Q0X90_Q1X90_Q2X90
     ):
@@ -478,6 +499,7 @@ class TestSimulatorBackend:
         sim_backend.upload(compile_Q0X90_Q1X90_Q2X90)
         results = sim_backend.acquire(compile_Q0X90_Q1X90_Q2X90, False)[0]
 
-        H_full_seq = sim_backend.H[-1]
-        psis = H_full_seq.get_basis()
-        plot_states(results, H_full_seq.ts, list(psis.keys()))
+        H_t = sim_backend.H[-1]
+        psis = H_t.get_basis()
+        plot_multi_qubit_states(results, H_t.ts, list(psis.keys()))
+
