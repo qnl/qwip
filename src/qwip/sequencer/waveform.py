@@ -308,6 +308,7 @@ class CWWaveform(InfiniteWaveform):
         default=0, converter=lambda v: float(v) if isinstance(v, int) else v
     )
     mod_key: ModulationFrequency | None = None
+    hardware_modulation: bool = False
 
     @dynamic_default(phase_unit="units/phase")
     def evaluate_timepoints(
@@ -319,7 +320,7 @@ class CWWaveform(InfiniteWaveform):
         phase_tracker: PhaseTracker | None = None,
         modulations: dict[str, ModulationFrequency] = {},
         phase_unit: str = None,
-        complex_out: str = False,
+        complex_out: bool = False,
         **kwargs,
     ):
         """Single frequency waveform.
@@ -354,8 +355,10 @@ class CWWaveform(InfiniteWaveform):
             phase *= np.pi / 180
             phis *= np.pi / 180
 
+        # Add base modulation at the relevant frequency if doing software modulation
+        oscillator = 0 if self.hardware_modulation else freq * ts
         wave = (
-            amplitude * np.exp(1j * (freq * ts + phis + phase), dtype=np.complex64)
+            amplitude * np.exp(1j * (oscillator + phis + phase), dtype=np.complex64)
             + offset
         )
 
@@ -397,13 +400,20 @@ class ModulatedWaveform(Waveform):
     def channels(self) -> tuple[Channel]:
         return self.modulation.channels
 
-    def evaluate_timepoints(self, ts, **kwargs) -> np.ndarray:
+    def evaluate_timepoints(
+        self,
+        ts: np.ndarray,
+        complex_out: bool = False,
+        **kwargs
+    ) -> np.ndarray:
         modulation = self.modulation(ts, complex_out=True, **kwargs)
         envelope = self.envelope(ts, **kwargs)
 
         wave = envelope * modulation
 
-        if len(self.channels) <= 1:
+        if complex_out:
+            return wave
+        elif len(self.channels) <= 1:
             return wave.real
         elif len(self.channels) == 2:
             return wave.view(np.float32).reshape(-1, 2).T
