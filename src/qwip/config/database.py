@@ -938,7 +938,7 @@ class Database:
 
     @property
     def database(self) -> str:
-        return self.url.database()
+        return self.url.database
 
     @session_context
     def tables(self) -> set[str]:
