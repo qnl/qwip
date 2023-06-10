@@ -7,6 +7,7 @@ from typing import get_args
 import attrs
 import numpy as np
 from attrs import field, validators
+from cattr import Converter
 from loguru import logger
 from scipy.fft import fft, fftfreq, fftshift
 from typing_extensions import Self
@@ -14,6 +15,7 @@ from typing_extensions import Self
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine, qfrozen
+from qwip.attrs.serialization import _TypeConverter
 from qwip.defaults import dynamic_default
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import LinearExpression, Location
@@ -29,12 +31,6 @@ def register_waveform(cls) -> type:
     REGISTERED_WAVEFORMS[cls.__name__] = cls
 
     return cls
-
-
-@qfrozen(kw_only=False)
-class Channel:
-    name: str
-    subchannel: int = 0
 
 
 def update_fields(inst, /, **kwargs) -> dict:
@@ -95,7 +91,7 @@ class Waveform:
                     variables.add((f.name, v))
 
             text = (
-                f"The following string variables need to be resolved:\n\t"
+                "The following string variables need to be resolved:\n\t"
                 + "\n\t".join(f"{n} = {v}" for n, v in variables)
             )
 
@@ -243,11 +239,33 @@ class Waveform:
         return var in self.variables()
 
 
+# Custom structuring of waveform channels to account for legacy serialization.
+def structure_channel(value, cls: type):
+    try:
+        return value["name"]
+    except (KeyError, TypeError):
+        ...
+
+    return qwip.converter.structure(value, str)
+
+channels_converter = Converter()
+channels_converter.register_structure_hook(
+    str, structure_channel
+)
+
+def _channels_converter(value):
+    try:        
+        return channels_converter.structure(value, tuple[str, ...])
+    except Exception:
+        ...
+
+    return _TypeConverter(tuple[str, ...])(value)
+
 @register_waveform
 @qfrozen
 class BasicWaveform(Waveform):
-    channels: tuple[Channel, ...] = field(
-        factory=tuple, metadata=dict(allow_override=False)
+    channels: tuple[str, ...] = field(
+        factory=tuple, metadata=dict(allow_override=False), converter=_channels_converter
     )
     width: Location = Location()
     amplitude: float | str = 1
@@ -397,7 +415,7 @@ class ModulatedWaveform(Waveform):
             return f"{A_e} * {A_f}"
 
     @property
-    def channels(self) -> tuple[Channel]:
+    def channels(self) -> tuple[str, ...]:
         return self.modulation.channels
 
     def evaluate_timepoints(
@@ -621,22 +639,6 @@ def convert_number_or_string(v, cls):
 qwip.converter.register_structure_hook(float | str, convert_number_or_string)
 
 
-def make_channel_structure_fn(cls):
-    structure_attrs = make_attrs_structure_fn(cls)
-
-    def structure_fn(obj, cls):
-        if isinstance(obj, (str, int)):
-            return cls(str(obj))
-
-        return structure_attrs(obj, cls)
-
-    return structure_fn
-
-
-qwip.converter.register_structure_hook_factory(
-    lambda cls: issubclass(cls, Channel), make_channel_structure_fn
-)
-
 # ========== Waveform converters ========== #
 
 
@@ -679,7 +681,6 @@ qwip.converter.register_unstructure_hook_factory(
 
 __all__ = [
     "register_waveform",
-    "Channel",
     "Waveform",
     "BasicWaveform",
     "InfiniteWaveform",

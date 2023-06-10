@@ -7,7 +7,6 @@ import qwip
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
-    Channel,
     CompositeWidthMarker,
     CosineRampWaveform,
     GaussianWaveform,
@@ -32,7 +31,7 @@ class TestSequenceElement:
         assert se.locations == dict()
         assert se.constraints == dict()
         assert se.channels == set()
-        assert se.width == None
+        assert se.width is None
 
         se = SequenceElement(
             locations=dict(start=[WAVEFORMS["g1"]]),
@@ -42,7 +41,7 @@ class TestSequenceElement:
 
         assert se.locations == {Location("start"): [WAVEFORMS["g1"]]}
         assert se.constraints == dict(start=Location())
-        assert se.channels == set({Channel("I")})
+        assert se.channels == set({"I"})
         assert se.width == Location("width")
 
     @pytest.mark.parametrize(
@@ -290,7 +289,7 @@ class TestSequenceElement:
             [(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)]
         )
 
-        channel_map = {Channel(c): waves for c, waves in channel_map.items()}
+        channel_map = {c: waves for c, waves in channel_map.items()}
         assert se.get_channel_map(*channels) == channel_map
 
     @pytest.mark.parametrize(
@@ -307,7 +306,7 @@ class TestSequenceElement:
                         "1 + width": [
                             {
                                 "channels": ignore_order(
-                                    [{"name": "I"}, {"name": "Q"}]
+                                    ["I", "Q"]
                                 ),
                                 "width": 3.2e-8,
                                 "__class__": "SquareWaveform",

@@ -16,8 +16,6 @@ from typing_extensions import Self
 from qwip.attrs import qdefine
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
-    Channel,
-    CompositeWidthMarker,
     CosineRampWaveform,
     Marker,
     Waveform,
@@ -25,7 +23,7 @@ from qwip.sequencer.waveform import (
 from qwip.visualization.utils import all_legend_handles_labels
 
 LocationLike = Location | str | Real
-TChannelMap = dict[Channel, tuple[Location, Waveform]]
+TChannelMap = dict[str, tuple[Location, Waveform]]
 
 
 class UnderconstrainedSolveError(np.linalg.LinAlgError):
@@ -37,7 +35,7 @@ class SequenceElement:
     locations: dict[Location, list[Waveform]] = field(factory=dict)
     width: Location | None = None
     constraints: dict[str, Location] = field(factory=dict)
-    channels: set[Channel] = field(factory=set, metadata=dict(serialize=False))
+    channels: set[str] = field(factory=set, metadata=dict(serialize=False))
 
     def __attrs_post_init__(self):
         # Update channels from waveforms
@@ -486,8 +484,8 @@ class SequenceElement:
 
     @staticmethod
     def locations_to_channel_map(
-        locations: dict[Location, list[Waveform]], *channels: str | Channel
-    ) -> dict[Channel, list[tuple[Location, Waveform]]]:
+        locations: dict[Location, list[Waveform]], *channels: str
+    ) -> dict[str, list[tuple[Location, Waveform]]]:
         """Splits a location dict by channel.
 
         Makes a single pass through the location dict. This static method
@@ -499,8 +497,6 @@ class SequenceElement:
         Returns:
             A dictionary mapping channels to (location, waveform) pairs.
         """
-
-        channels = (Channel(c) if isinstance(c, str) else c for c in channels)
 
         channel_map = {c: [] for c in channels}
 
@@ -514,8 +510,8 @@ class SequenceElement:
         return channel_map
 
     def get_channel_map(
-        self, *channels: str | Channel
-    ) -> dict[Channel, list[tuple[Location, Waveform]]]:
+        self, *channels: str
+    ) -> dict[str, list[tuple[Location, Waveform]]]:
         """Splits the location dict by channel.
 
         Makes a single pass through the location dict.
@@ -533,7 +529,7 @@ class SequenceElement:
 
     def plot(
         self,
-        channels: list[tuple[Channel | str, ...]] | None = None,
+        channels: list[tuple[str, ...]] | None = None,
         constraints: dict[str, Location] = {},
         filter_func: Callable[[Location, Waveform], bool] = None,
         axes: Collection[Axes] = None,
@@ -550,9 +546,8 @@ class SequenceElement:
         rendered.
 
         Args:
-            channels: An optional list of channel groups. Groups can be
-                specified as a tuple of Channels or strings that will be
-                converted to Channels.
+            channels: An optional list of channel groups. Groups can be specified as a 
+                tuple of channel names.
             constraints: A constraint dict to apply to the sequence element
                 before resolving locations.
             filter_func: A callable used to filter the waveforms. Takes a
@@ -657,7 +652,7 @@ class SequenceElementPlotter:
     sort_channels: bool = True
     separate_none: bool = False
     channel_grouper: Callable[
-        [Self, Collection[Channel]], list[tuple[Channel, ...]]
+        [Self, Collection[str]], list[tuple[str, ...]]
     ] | None = None
 
     def make_axes(
@@ -692,13 +687,10 @@ class SequenceElementPlotter:
         return fig
 
     def group_channels(
-        self, channels: list[tuple[Channel, ...]] | None, channel_map: TChannelMap
-    ) -> list[tuple[Channel, ...]]:
+        self, channels: list[tuple[str, ...]] | None, channel_map: TChannelMap
+    ) -> list[tuple[str, ...]]:
+        # TODO: this can probably be removed since Channels are now just strings.
         if channels:
-            channels = [
-                (Channel(ch) if ch else ch for ch in group) for group in channels
-            ]
-
             return channels
 
         if self.channel_grouper:
@@ -762,7 +754,7 @@ class SequenceElementPlotter:
     def plot(
         self,
         se: SequenceElement,
-        channels: list[tuple[Channel | str, ...]] | None = None,
+        channels: list[tuple[str, ...]] | None = None,
         constraints: dict[str, Location] = {},
         filter_func: Callable[[Location, Waveform], bool] = None,
         axes: Collection[Axes] = None,

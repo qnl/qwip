@@ -11,7 +11,6 @@ from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     DRAG,
     BasicWaveform,
-    Channel,
     CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
@@ -103,7 +102,7 @@ class TestBasicWaveform:
     def test_convert(self):
         w = BasicWaveform(channels=(0, "Q1"), width=1, amplitude="A")
 
-        assert w.channels == (Channel("0"), Channel("Q1"))
+        assert w.channels == ("0", "Q1")
         assert w.width == Location(1)
         assert w.amplitude == "A"
 
@@ -325,7 +324,7 @@ class TestModulatedWaveform:
                         width=4e-8, amplitude=0.5, __class__="GaussianWaveform"
                     ),
                     modulation=dict(
-                        channels=[dict(name="I"), dict(name="Q")],
+                        channels=["I", "Q"],
                         frequency="f",
                         __class__="CWWaveform",
                     ),

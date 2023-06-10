@@ -20,7 +20,7 @@ from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
-from qwip.sequencer.waveform import Channel, Marker, ReadoutMarker, Waveform
+from qwip.sequencer.waveform import Marker, ReadoutMarker, Waveform
 from qwip.visualization.utils import all_legend_handles_labels
 
 
@@ -508,8 +508,8 @@ class WaveformSequencer:
                     w_t = w_t[np.newaxis, :]
 
                 for i, c in enumerate(w.channels):
-                    ch_idx = (channel_group[c.name].index,)
-                    subchannel = c.subchannel
+                    ch_idx = (channel_group[c].index,)
+                    subchannel = channel_group[c].subchannel
                     waveform_array[ch_idx, s_idx:e_idx, subchannel] += w_t[i]
 
         return waveform_array
