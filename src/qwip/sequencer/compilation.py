@@ -428,6 +428,26 @@ class WaveformSequencer:
         channels = {ch_group.name: ch_group for ch_group in channel_groups}
 
         return WaveformSequencer(channels=channels, **kwargs)
+    
+    def get_channel_info(self, name: str) -> ChannelInfo | None:
+        """Returns the `ChannelInfo` with the given name.
+        
+        It is assumed that there are no repeated channel names between channel groups,
+        so this method will short circuit on the first channel that matches the name.
+
+        Args:
+            name: The name of the channel to get.
+        
+        Returns:
+            A `ChannelInfo` or `None`, if no channel matching the name exists.
+        """
+        for group in self.channels.values():
+            try:
+                return group[name]
+            except KeyError:
+                continue
+
+        return None
 
     def compile_phases(self, locations: dict[Location, list[Waveform]]) -> PhaseTracker:
         """Returns a new phase tracker instance with all virtual phase updates.
