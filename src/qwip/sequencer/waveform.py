@@ -254,6 +254,11 @@ channels_converter.register_structure_hook(
 )
 
 def _channels_converter(value):
+    """Converter for Waveform channels.
+    
+    This is needed for compatibility with legacy `Channel` classes, which were
+    unstructured as a dictionary with a `"name"` parameter.
+    """
     try:        
         return channels_converter.structure(value, tuple[str, ...])
     except Exception:
