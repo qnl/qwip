@@ -36,12 +36,16 @@ class Transmon(QuantumSystem):
         return ("GE", "EF")
 
     def mod_frequency(self, local_oscillators, key="GE"):
-        lo_freq = local_oscillators.get(self.local_oscillator)
+        if self.local_oscillator is None:
+            lo_freq = 0
+        else:
+            lo_freq = local_oscillators.get(self.local_oscillator)
 
-        if not lo_freq:
-            raise KeyError(
-                f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}."
-            )
+            if not lo_freq:
+                raise KeyError(
+                    f"Specified LO '{self.local_oscillator}' is not present in "
+                    f"{local_oscillators}."
+                )
 
         match key:
             case "GE":
@@ -63,12 +67,16 @@ class ReadoutResonator(QuantumSystem):
     local_oscillator: str | None = None
 
     def mod_frequency(self, local_oscillators) -> float:
-        lo_freq = local_oscillators.get(self.local_oscillator)
+        if self.local_oscillator is None:
+            lo_freq = 0
+        else:
+            lo_freq = local_oscillators.get(self.local_oscillator)
 
-        if not lo_freq:
-            raise KeyError(
-                f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}."
-            )
+            if not lo_freq:
+                raise KeyError(
+                    f"Specified LO '{self.local_oscillator}' is not present in "
+                    f"{local_oscillators}."
+                )
 
         return self.frequency - lo_freq
 
