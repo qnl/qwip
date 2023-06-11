@@ -18,7 +18,12 @@ from qwip.config.schema import Target
 from qwip.processing.data_processor import DATA_PROCESSORS, ReadoutPipeline
 from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
-from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequencer
+from qwip.sequencer.compilation import (
+    REGISTERED_SEQUENCERS,
+    ChannelGroup,
+    ChannelInfo,
+    WaveformSequencer,
+)
 from qwip.sequencer.phase_tracker import ModulationFrequency
 
 
@@ -94,7 +99,13 @@ class QPU:
         if not modulations:
             modulations = dict()
 
-        sequencer = WaveformSequencer.from_channel_groups(
+        sequencer_cls = compilation.get("sequencer_class", "WaveformSequencer")
+        try:
+            sequencer_cls = REGISTERED_SEQUENCERS[sequencer_cls]
+        except KeyError:
+            raise KeyError(f"'{sequencer_cls}' is not a registered Sequencer.")
+
+        sequencer = sequencer_cls.from_channel_groups(
             channel_groups, modulations=modulations
         )
 

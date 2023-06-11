@@ -23,6 +23,17 @@ from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import Marker, ReadoutMarker, Waveform
 from qwip.visualization.utils import all_legend_handles_labels
 
+REGISTERED_SEQUENCERS: dict[str, "WaveformSequencer"] = dict()
+
+
+def register_sequencer(cls: type["WaveformSequencer"]) -> type["WaveformSequencer"]:
+    if not issubclass(cls, WaveformSequencer):
+        raise TypeError(f"Registered sequencer must subclass {WaveformSequencer}")
+
+    REGISTERED_SEQUENCERS[cls.__name__] = cls
+
+    return cls
+
 
 def find_end_marker(locations, name="end") -> Location | None:
     for loc, waves in locations.items():
@@ -699,6 +710,9 @@ class WaveformSequencer:
         cseq._readout._readout = rinfo
 
         return cseq
+
+
+register_sequencer(WaveformSequencer)
 
 
 @qdefine
