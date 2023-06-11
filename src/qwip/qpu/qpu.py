@@ -212,8 +212,13 @@ class QPU:
                     case {"name": name, "__class__": cls, **parameters}:
                         self.config.subsystems[name]["system_class"] = cls
 
+                        config_params = self.config[f"subsystems/{name}/parameters"]
+
                         for k, v in parameters.items():
-                            self.config[f"subsystems/{name}/parameters/{k}"] = v
+                            try:
+                                config_params[k] = v
+                            except KeyError:
+                                config_params.create_parameter(name=k, value=v)
                     case _:
                         raise ValueError(
                             f"Model data is missing parameters: {system_data}"
