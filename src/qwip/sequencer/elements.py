@@ -15,11 +15,7 @@ from typing_extensions import Self
 
 from qwip.attrs import qdefine
 from qwip.sequencer.utils import Location
-from qwip.sequencer.waveform import (
-    CosineRampWaveform,
-    Marker,
-    Waveform,
-)
+from qwip.sequencer.waveform import CosineRampWaveform, Marker, Waveform
 from qwip.visualization.utils import all_legend_handles_labels
 
 LocationLike = Location | str | Real
@@ -546,7 +542,7 @@ class SequenceElement:
         rendered.
 
         Args:
-            channels: An optional list of channel groups. Groups can be specified as a 
+            channels: An optional list of channel groups. Groups can be specified as a
                 tuple of channel names.
             constraints: A constraint dict to apply to the sequence element
                 before resolving locations.

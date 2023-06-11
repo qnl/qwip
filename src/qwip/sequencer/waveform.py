@@ -248,29 +248,32 @@ def structure_channel(value, cls: type):
 
     return qwip.converter.structure(value, str)
 
+
 channels_converter = Converter()
-channels_converter.register_structure_hook(
-    str, structure_channel
-)
+channels_converter.register_structure_hook(str, structure_channel)
+
 
 def _channels_converter(value):
     """Converter for Waveform channels.
-    
+
     This is needed for compatibility with legacy `Channel` classes, which were
     unstructured as a dictionary with a `"name"` parameter.
     """
-    try:        
+    try:
         return channels_converter.structure(value, tuple[str, ...])
     except Exception:
         ...
 
     return _TypeConverter(tuple[str, ...])(value)
 
+
 @register_waveform
 @qfrozen
 class BasicWaveform(Waveform):
     channels: tuple[str, ...] = field(
-        factory=tuple, metadata=dict(allow_override=False), converter=_channels_converter
+        factory=tuple,
+        metadata=dict(allow_override=False),
+        converter=_channels_converter,
     )
     width: Location = Location()
     amplitude: float | str = 1
@@ -424,10 +427,7 @@ class ModulatedWaveform(Waveform):
         return self.modulation.channels
 
     def evaluate_timepoints(
-        self,
-        ts: np.ndarray,
-        complex_out: bool = False,
-        **kwargs
+        self, ts: np.ndarray, complex_out: bool = False, **kwargs
     ) -> np.ndarray:
         modulation = self.modulation(ts, complex_out=True, **kwargs)
         envelope = self.envelope(ts, **kwargs)

@@ -305,9 +305,7 @@ class TestSequenceElement:
                     locations={
                         "1 + width": [
                             {
-                                "channels": ignore_order(
-                                    ["I", "Q"]
-                                ),
+                                "channels": ignore_order(["I", "Q"]),
                                 "width": 3.2e-8,
                                 "__class__": "SquareWaveform",
                             }
