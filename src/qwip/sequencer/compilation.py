@@ -427,7 +427,7 @@ class WaveformSequencer:
         """
         channels = {ch_group.name: ch_group for ch_group in channel_groups}
 
-        return WaveformSequencer(channels=channels, **kwargs)
+        return cls(channels=channels, **kwargs)
     
     def get_channel_info(self, name: str) -> ChannelInfo | None:
         """Returns the `ChannelInfo` with the given name.

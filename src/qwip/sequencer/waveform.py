@@ -288,7 +288,7 @@ class InfiniteWaveform(BasicWaveform):
 class Marker(Waveform):
     @property
     def channels(self):
-        return set()
+        return tuple()
 
     @property
     def width(self):
