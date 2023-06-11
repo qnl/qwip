@@ -5,15 +5,17 @@ import pytest
 
 import qwip
 from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     CompositeWidthMarker,
     CosineRampWaveform,
+    CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
-    ModulationFrequency,
     SquareWaveform,
     VirtualZWaveform,
+    Waveform,
 )
 from qwip.testing import ignore_order
 
@@ -238,6 +240,42 @@ class TestSequenceElement:
         context = result if hasattr(result, "__enter__") else noerror()
         with context:
             assert se1 + se2 == result
+
+    def test_transform_waveforms(self):
+        lws = [
+            (Location(), VirtualZWaveform(mod_key="mod_Q0_GE", phase="zphase")),
+            (
+                Location(),
+                ModulatedWaveform(
+                    envelope=GaussianWaveform(amplitude="amplitude", width="width"),
+                    modulation=CWWaveform(
+                        frequency="mod_Q0_GE", channels=("Q0_I", "Q0_Q")
+                    ),
+                ),
+            ),
+            (Location("width"), VirtualZWaveform(mod_key="mod_Q0_GE", phase="zphase")),
+        ]
+        se = SequenceElement.fromtuples(lws, width="width")
+
+        def transformer(loc, wave):
+            match wave:
+                case VirtualZWaveform():
+                    new_wave = wave.evolve(mod_key="Q0.mod_GE")
+                case ModulatedWaveform():
+                    new_wave = wave.evolve(modulation_frequency="Q0.mod_GE")
+                case _:
+                    new_wave = wave
+
+            return new_wave
+
+        assert se.transform_waveforms(transformer) == 3
+
+        for _, wave in se.get_location_pairs():
+            match wave:
+                case VirtualZWaveform():
+                    assert wave.mod_key == ModulationFrequency("Q0.mod_GE")
+                case ModulatedWaveform():
+                    assert wave.modulation.frequency == ModulationFrequency("Q0.mod_GE")
 
     @pytest.mark.parametrize(
         "se",

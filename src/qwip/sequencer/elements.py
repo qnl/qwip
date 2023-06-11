@@ -462,6 +462,31 @@ class SequenceElement:
 
         return self
 
+    def transform_waveforms(
+        self, transformer: Callable[[Location, Waveform], Waveform]
+    ) -> int:
+        """Applies a waveform transformer to every waveform in the sequence element.
+
+        Args:
+            transformer: A callable that takes a location, waveform pair and returns
+                a possibly modified waveform.
+
+        Returns:
+            The number of waveforms that were modified by the transformer.
+        """
+
+        modified = 0
+
+        for loc, waves in self.locations.items():
+            for w_idx in range(len(waves)):
+                orig_wf = waves[w_idx]
+                new_wf = transformer(loc, orig_wf)
+                if new_wf != orig_wf:
+                    modified += 1
+                    waves[w_idx] = new_wf
+
+        return modified
+
     def copy(self, deep: bool = True) -> Self:
         """Copies a sequence element.
 
