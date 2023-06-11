@@ -11,32 +11,15 @@ from attrs import field
 from loguru import logger
 
 import qwip
-from qwip._cattr import make_attrs_unstructure_fn
+from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
-from qwip.config.database import (
-    ConfigDB,
-    ConfigFolder,
-    OfflineConfigDB,
-    SequenceElementFolder,
-)
+from qwip.config.database import ConfigFolder, OfflineConfigDB, SequenceElementFolder
 from qwip.config.schema import Target
-from qwip.processing.data_processor import (
-    DATA_PROCESSORS,
-    DataProcessor,
-    MeasurementResult,
-    ReadoutPipeline,
-)
-from qwip.processing.processors import FormatLegacyIQ, GMMClassification, IQRotation
+from qwip.processing.data_processor import DATA_PROCESSORS, ReadoutPipeline
+from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
-from qwip.sequencer.compilation import (
-    ChannelGroup,
-    ChannelInfo,
-    CompiledSequence,
-    WaveformSequencer,
-)
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequencer
 from qwip.sequencer.phase_tracker import ModulationFrequency
-from qwip.settings import Settings, qdefine
 
 
 @qdefine
@@ -147,20 +130,10 @@ class QPU:
             for key, LO_info in self.config["hardware/local_oscillators"].items()
         }
 
-        for name, system in self.subsystems.items():
+        for system in self.subsystems.values():
             match system:
-                case QuantumSystem(mod_keys=_, mod_frequency=_):
-                    for key in system.mod_keys:
-                        mod_freq = system.mod_frequency(local_oscillators, key=key)
-
-                        if mod_freq:
-                            modulation_keys[f"mod_{name}_{key}"] = ModulationFrequency(
-                                mod_freq
-                            )
-                case QuantumSystem(mod_frequency=_):
-                    modulation_keys[f"mod_{name}"] = ModulationFrequency(
-                        system.mod_frequency(local_oscillators)
-                    )
+                case QuantumSystem(get_modulations=_):
+                    modulation_keys |= system.get_modulations(local_oscillators)
                 case _:
                     logger.info(
                         f"Skipping modulation frequency for system {system.name}"
