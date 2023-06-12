@@ -385,7 +385,7 @@ class ConfigFolder(FlatMapping):
             return None
 
         return self.folder.name
-    
+
     @session_context
     def parent(self) -> Self | None:
         if self.folder is None:
@@ -393,12 +393,14 @@ class ConfigFolder(FlatMapping):
         elif self.folder.parent is None:
             return ConfigFolder.from_name(self.session, "/")
         else:
-            return ConfigFolder.from_folder_id(self.session, self.folder.parent.folder_id)
-        
+            return ConfigFolder.from_folder_id(
+                self.session, self.folder.parent.folder_id
+            )
+
     @session_context
     def rename(self, name: str) -> str:
         """Renames a folder.
-        
+
         The root folder `"/"` cannot be renamed.
 
         Args:
@@ -413,7 +415,7 @@ class ConfigFolder(FlatMapping):
         """
         if self.folder is None:
             raise ValueError(f"Cannot rename root directory: {self.path()}")
-        
+
         parent = self.parent()
         if name in parent:
             existing_path = parent[name].path()
@@ -421,7 +423,7 @@ class ConfigFolder(FlatMapping):
                 f"Cannot rename {self.path()} to {name} because {existing_path} already"
                 f" exists."
             )
-        
+
         self.folder.name = name
         return self.path()
 
