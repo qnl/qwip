@@ -362,7 +362,7 @@ class TestQutipBackend:
         sim_backend.upload(compile_Q0X90_Q1X90_Q2X90)
         assert len(sim_backend.H[1].H) == 6
 
-    def test_aqcuire_Q0X90_seq(self, qpu_01, sim_backend, compile_Q0X90, data_file):
+    def test_acquire_Q0X90_seq(self, qpu_01, sim_backend, compile_Q0X90, data_file):
         expected = np.loadtxt(str(data_file), delimiter=",")
 
         sim_backend.update_parameters(qpu_01)
@@ -372,9 +372,9 @@ class TestQutipBackend:
         assert_allclose(expected, results.expect)
 
         with pytest.raises(ValueError):
-            sim_backend.acquire(compile_Q0X90, [0])
+            sim_backend.acquire(compile_Q0X90, elements=[0])
 
-        assert len(sim_backend.acquire(compile_Q0X90, [-2, -1])) == 2
+        assert len(sim_backend.acquire(compile_Q0X90, elements=[-2, -1])) == 2
 
     def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180, data_file):
         expected = np.loadtxt(str(data_file), delimiter=",")

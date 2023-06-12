@@ -1,3 +1,6 @@
+import numpy as np
+from collections.abc import Callable
+
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
@@ -86,6 +89,7 @@ class ReadoutResonator(QuantumSystem):
     frequency: float
     kappa: float | None = None
     chi: float | None = None
+    eta: float | None = None
     local_oscillator: str | None = None
     modulation_name: str = "{name}.mod"
 
@@ -122,6 +126,53 @@ class ReadoutResonator(QuantumSystem):
         """Returns the modulation frequency for a specific modulation_key"""
         name = self.modulation_name.format(name=self.name, mod_key=mod_key)
         return self.get_modulations(LO_map)[name]
+    
+    def get_cavity_field_equation(
+        self,
+        drive_envelope: Callable[[float], complex],
+        drive_frequency: float | None = None,
+        qubit_state: int = 0,
+    ) -> Callable[[float, complex], complex]:
+        """Returns the semi-classical cavity field equation for a given qubit state.
+        
+        Args:
+            drive_envelope: A function that takes in single time value and returns the 
+                amplitude of the driving field envelope at that point in time.
+            drive_frequency: The modulation frequency of the resonator driving field.
+                If `None`, it is assumed to be equal to the resonator frequency.
+            qubit_state: The corresponding qubit state. This determines the sign of the
+                dispersive shift in the cavity field equation.
+
+        Returns:
+            A function that takes in a time value and the complex cavity field amplitude
+            at that point in time and returns the evaluated derivative of the cavity
+            field alpha.
+        """
+        drive_frequency = drive_frequency or self.frequency
+
+    def solve_cavity_field_equation(
+        self,
+        ts: np.ndarray,
+        drive_envelope: Callable[[float], complex],
+        drive_frequency: float | None = None,
+        qubit_state: int = 0,
+        alpha_0: complex = 0j,
+    ) -> np.ndarray:
+        """Solves the semi-classical cavity field equation for a given qubit state.
+        
+        Args:
+            drive_envelope: A function that takes in single time value and returns the 
+                amplitude of the driving field envelope at that point in time.
+            drive_frequency: The modulation frequency of the resonator driving field.
+                If `None`, it is assumed to be equal to the resonator frequency.
+            qubit_state: The corresponding qubit state. This determines the sign of the
+                dispersive shift in the cavity field equation.
+            alpha_0: The initial cavity field amplitude.
+
+        Returns:
+            The cavity field amplitude at each of the given time points.
+        """
+        ...
 
 
 def make_quantum_system_unstructure_fn(cls):

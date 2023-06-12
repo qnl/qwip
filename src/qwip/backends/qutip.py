@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 import qutip as qt
+from numpy.random import default_rng, Generator
 from attrs import cmp_using, field
 from qutip import Qobj
 from typing_extensions import Self
@@ -256,6 +257,7 @@ class QutipBackend(QuantumBackend):
     static_hamiltonian: dict[str, Qobj] = field(factory=dict)
     channel_map: list[OperatorChannelMap] = field(factory=list)
     H: list[TimeDependentHamiltonian] = field(factory=list)
+    rng: Generator = field(factory=default_rng)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU -- creating mappings from channels to
@@ -305,7 +307,7 @@ class QutipBackend(QuantumBackend):
             elif t == "Q" and qubit + "_I" not in channels:
                 raise ValueError(f"I component of channel {qubit} missing")
 
-    def upload(self, cseq: CompiledSequence, **kwargs) -> None:
+    def upload(self, exe: CompiledSequence, **kwargs) -> None:
         """Constructs the drive hamiltonians for elements of active channels
         to later be simulated.
 
@@ -319,7 +321,8 @@ class QutipBackend(QuantumBackend):
             cseq: Compiled sequence
         """
         self.H = []  # Clear list of hamiltonians to simulate
-        self.uploaded = cseq
+        self.uploaded = exe
+        cseq = exe
 
         N_elements = cseq.array.shape[1]
         sampling_rate = self.uploaded.waveforms.get("seq").sample_rate
@@ -386,7 +389,8 @@ class QutipBackend(QuantumBackend):
 
     def acquire(
         self,
-        cseq: CompiledSequence,
+        exe: CompiledSequence,
+        repetitions: int = 512,
         elements: list[int] = [-1],  # how to set default value?
         **kwargs,
     ) -> list:
@@ -402,6 +406,8 @@ class QutipBackend(QuantumBackend):
         """
         if not self.H:
             raise ValueError("No sequence has been uploaded")
+
+        cseq = exe
 
         results = []
 
