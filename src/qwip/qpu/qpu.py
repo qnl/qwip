@@ -36,9 +36,8 @@ from qwip.sequencer.compilation import (
 )
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency
-from qwip.settings import Settings, qdefine
 from qwip.sequencer.sequence import Sequence
-
+from qwip.settings import Settings, qdefine
 
 
 @qdefine

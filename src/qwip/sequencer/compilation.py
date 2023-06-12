@@ -6,9 +6,8 @@ from collections.abc import Sequence as TSequence
 from typing import Protocol, runtime_checkable
 
 import matplotlib.pyplot as plt
-import plotly.graph_objects as go
-
 import numpy as np
+import plotly.graph_objects as go
 from attrs import evolve, field
 from loguru import logger
 from matplotlib.axes import Axes
@@ -379,14 +378,16 @@ class CompiledSequence:
     def plot(
         self,
         element: int | None = None,
-        title: str = 'Pulse Sequence Simulation',
+        title: str = "Pulse Sequence Simulation",
         channels: list[tuple[int, ...]] | None = None,
         axes: Collection[Axes] | None = None,
         fig_props: dict = {},
     ) -> Figure:
         plotter = CompiledSequencePlotter()
 
-        return plotter.plot(self, element, title, channels, axes, fig_props) # plotter.plot(self, element, channels, axes, fig_props)
+        return plotter.plot(
+            self, element, title, channels, axes, fig_props
+        )  # plotter.plot(self, element, channels, axes, fig_props)
 
 
 @qdefine
@@ -783,89 +784,110 @@ class CompiledSequencePlotter:
         return fig
 
 
-@qdefine 
+@qdefine
 class CompiledSequencePlotter:
     def plot(
-            self,
-            cseq: CompiledSequence,
+        self,
+        cseq: CompiledSequence,
         element: int,
         title: str,
         channels: list[tuple[int, ...]] | None = None,
         axes: Collection[Axes] | None = None,
         fig_props: dict = {},
     ) -> Figure:
-        
         fig = go.Figure()
 
-        ts_pulse = np.arange(cseq.waveforms["seq"].array.shape[2]) / cseq.waveforms["seq"].sample_rate
-        N_channels, N_elements, N_steps, N_subchannels = cseq.waveforms["seq"].array.shape
+        ts_pulse = (
+            np.arange(cseq.waveforms["seq"].array.shape[2])
+            / cseq.waveforms["seq"].sample_rate
+        )
+        N_channels, N_elements, N_steps, N_subchannels = cseq.waveforms[
+            "seq"
+        ].array.shape
 
         active_elements = dict()
         num_traces = 0
 
         for i in range(N_elements):
-            active_channels = np.where(np.any(cseq.waveforms["seq"].array[:, i, :, 0].reshape(N_channels, -1), axis=1))[0]
-            
-            for ch in active_channels:
-                
-                if (ch+1) and ch%2==0 in active_channels: 
-                    I_index, Q_index = ch, ch+1
-                    
-                    I_seq = cseq.waveforms["seq"].array[I_index, i, :, 0]   # channel, element, timestep, subchannel
-                    Q_seq = cseq.waveforms["seq"].array[Q_index, i, :, 0]
-                    
-                    ch_target = int(ch/2)
+            active_channels = np.where(
+                np.any(
+                    cseq.waveforms["seq"].array[:, i, :, 0].reshape(N_channels, -1),
+                    axis=1,
+                )
+            )[0]
 
-                    fig.add_trace(go.Scatter(x=ts_pulse, y=0.01*I_seq, visible=False, name=f"Q{ch_target}_I")) 
-                    fig.add_trace(go.Scatter(x=ts_pulse, y=Q_seq, visible=False, name=f"Q{ch_target}_Q"))
-                    
+            for ch in active_channels:
+                if (ch + 1) and ch % 2 == 0 in active_channels:
+                    I_index, Q_index = ch, ch + 1
+
+                    I_seq = cseq.waveforms["seq"].array[
+                        I_index, i, :, 0
+                    ]  # channel, element, timestep, subchannel
+                    Q_seq = cseq.waveforms["seq"].array[Q_index, i, :, 0]
+
+                    ch_target = int(ch / 2)
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=ts_pulse,
+                            y=0.01 * I_seq,
+                            visible=False,
+                            name=f"Q{ch_target}_I",
+                        )
+                    )
+                    fig.add_trace(
+                        go.Scatter(
+                            x=ts_pulse, y=Q_seq, visible=False, name=f"Q{ch_target}_Q"
+                        )
+                    )
+
                     num_traces += 2
-                    
+
                     if i not in active_elements:
                         active_elements[i] = []
                     active_elements[i].extend([I_seq, Q_seq])
-            
+
         # Slider to filter Sequence Element
         steps_seq, start = [], 0
         last_element = 0
 
         for index, (element, targets) in enumerate(active_elements.items()):
-            visible_seq = [False]*num_traces
+            visible_seq = [False] * num_traces
             end = start + len(targets)
-            
-            visible_seq[start:end] = [True]*(end-start)
-            steps_seq.append(dict(label=f"{element}",
-                                    method="update",
-                                    args=[{"visible": visible_seq}]))                       
-            if index == len(active_elements.items())-1:
+
+            visible_seq[start:end] = [True] * (end - start)
+            steps_seq.append(
+                dict(
+                    label=f"{element}", method="update", args=[{"visible": visible_seq}]
+                )
+            )
+            if index == len(active_elements.items()) - 1:
                 for i in range(start, end):
                     fig.data[i].visible = True
-                last_element=index
-                
+                last_element = index
+
             start = end
 
-        sliders = [dict(
-            active=last_element,
-            currentvalue={"prefix": "Sequence Element: "},
-            pad={"t": 50, "b":50},
-            steps=steps_seq,
-            borderwidth=2
-        )]
-                            
+        sliders = [
+            dict(
+                active=last_element,
+                currentvalue={"prefix": "Sequence Element: "},
+                pad={"t": 50, "b": 50},
+                steps=steps_seq,
+                borderwidth=2,
+            )
+        ]
+
         fig.update_layout(
             sliders=sliders,
             dragmode="pan",
-            title={
-                    'text' : title,
-                    'x':0.5,
-                    'xanchor': 'center'
-                },
+            title={"text": title, "x": 0.5, "xanchor": "center"},
             yaxis_title="Amplitude",
             xaxis_title="Time",
             width=1000,
             height=600,
             autosize=False,
-            margin=dict(t=50, b=0, l=0, r=0)
+            margin=dict(t=50, b=0, l=0, r=0),
         )
 
         fig.update_yaxes(fixedrange=True)
@@ -873,7 +895,8 @@ class CompiledSequencePlotter:
         # config = {'scrollZoom': True}
         # fig.show(config=config)
 
-        return (fig)
+        return fig
+
 
 __all__ = [
     "ChannelInfo",
