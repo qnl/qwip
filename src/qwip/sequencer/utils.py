@@ -4,7 +4,7 @@ import operator
 import re
 from functools import lru_cache
 from numbers import Real
-from typing import ForwardRef, TypeVar, Union
+from typing import Any, ForwardRef, TypeVar, Union
 
 import attrs
 from attrs import field, resolve_types
@@ -72,6 +72,11 @@ class _ExprParser(ast.NodeVisitor):
 
     def visit_Load(self, node: ast.Load):
         return self.visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute) -> Any:
+        """Allows names like `Q0.freq` to be used in linear expressions."""
+        value = self.visit(node.value)
+        return attrs.evolve(value, offset=f"{value}.{node.attr}")
 
 
 @qfrozen(kw_only=False, repr=False)

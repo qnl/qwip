@@ -258,6 +258,8 @@ class TestLinearExpression:
         ("a + 1", 1 + LE("a")),
         ("a - 5*b", LE("a") - 5 * LE("b")),
         ("1 + 5 * (a + b + 2 * c)", 1 + 5 * (LE("a") + LE("b") + 2 * LE("c"))),
+        ("Q0.freq", LE("Q0.freq")),
+        ("Q0.freq - Q1.freq", LE("Q0.freq") - LE("Q1.freq")),
         ("a + ", pytest.raises(ValueError)),
         ("a * b", pytest.raises(ValueError)),
         (1, pytest.raises(TypeError)),

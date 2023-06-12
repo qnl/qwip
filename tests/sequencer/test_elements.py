@@ -5,16 +5,17 @@ import pytest
 
 import qwip
 from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
-    Channel,
     CompositeWidthMarker,
     CosineRampWaveform,
+    CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
-    ModulationFrequency,
     SquareWaveform,
     VirtualZWaveform,
+    Waveform,
 )
 from qwip.testing import ignore_order
 
@@ -32,7 +33,7 @@ class TestSequenceElement:
         assert se.locations == dict()
         assert se.constraints == dict()
         assert se.channels == set()
-        assert se.width == None
+        assert se.width is None
 
         se = SequenceElement(
             locations=dict(start=[WAVEFORMS["g1"]]),
@@ -42,7 +43,7 @@ class TestSequenceElement:
 
         assert se.locations == {Location("start"): [WAVEFORMS["g1"]]}
         assert se.constraints == dict(start=Location())
-        assert se.channels == set({Channel("I")})
+        assert se.channels == set({"I"})
         assert se.width == Location("width")
 
     @pytest.mark.parametrize(
@@ -240,6 +241,42 @@ class TestSequenceElement:
         with context:
             assert se1 + se2 == result
 
+    def test_transform_waveforms(self):
+        lws = [
+            (Location(), VirtualZWaveform(mod_key="mod_Q0_GE", phase="zphase")),
+            (
+                Location(),
+                ModulatedWaveform(
+                    envelope=GaussianWaveform(amplitude="amplitude", width="width"),
+                    modulation=CWWaveform(
+                        frequency="mod_Q0_GE", channels=("Q0_I", "Q0_Q")
+                    ),
+                ),
+            ),
+            (Location("width"), VirtualZWaveform(mod_key="mod_Q0_GE", phase="zphase")),
+        ]
+        se = SequenceElement.fromtuples(lws, width="width")
+
+        def transformer(loc, wave):
+            match wave:
+                case VirtualZWaveform():
+                    new_wave = wave.evolve(mod_key="Q0.mod_GE")
+                case ModulatedWaveform():
+                    new_wave = wave.evolve(modulation_frequency="Q0.mod_GE")
+                case _:
+                    new_wave = wave
+
+            return new_wave
+
+        assert se.transform_waveforms(transformer) == 3
+
+        for _, wave in se.get_location_pairs():
+            match wave:
+                case VirtualZWaveform():
+                    assert wave.mod_key == ModulationFrequency("Q0.mod_GE")
+                case ModulatedWaveform():
+                    assert wave.modulation.frequency == ModulationFrequency("Q0.mod_GE")
+
     @pytest.mark.parametrize(
         "se",
         [
@@ -290,7 +327,7 @@ class TestSequenceElement:
             [(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)]
         )
 
-        channel_map = {Channel(c): waves for c, waves in channel_map.items()}
+        channel_map = {c: waves for c, waves in channel_map.items()}
         assert se.get_channel_map(*channels) == channel_map
 
     @pytest.mark.parametrize(
@@ -306,9 +343,7 @@ class TestSequenceElement:
                     locations={
                         "1 + width": [
                             {
-                                "channels": ignore_order(
-                                    [{"name": "I"}, {"name": "Q"}]
-                                ),
+                                "channels": ignore_order(["I", "Q"]),
                                 "width": 3.2e-8,
                                 "__class__": "SquareWaveform",
                             }

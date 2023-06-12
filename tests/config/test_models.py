@@ -142,6 +142,20 @@ class TestSequenceElements:
         )
         return se
 
+    @pytest.fixture
+    def se_no_width(self):
+        z_correction = VirtualZWaveform(mod_key="mod_GE", phase="z_phase")
+        x90 = ModulatedWaveform(
+            name="X90",
+            envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),
+            modulation=CWWaveform(channels=("I", "Q"), frequency="mod_GE"),
+        )
+        se = SequenceElement.fromtuples(
+            [("t0", z_correction), ("t0", x90), ("t0" + x90.width, z_correction)],
+            constraints=dict(t0=0),
+        )
+        return se
+
     def test_insert_select(self, session, models, x90_se):
         se_model = SequenceElementModel.from_sequence_element(x90_se, name="x90")
         session.add(se_model)
@@ -186,3 +200,14 @@ class TestSequenceElements:
 
         assert num_waves == 1
         assert num_pairs == 0
+
+    def test_round_trip(self, session, models, se_no_width):
+        se_model = SequenceElementModel.from_sequence_element(se_no_width, name="x90")
+
+        session.add(se_model)
+        session.flush()
+
+        new_model = session.scalars(sa.select(SequenceElementModel)).one()
+        new_se = new_model.to_sequence_element()
+
+        assert new_se == se_no_width
