@@ -3,7 +3,9 @@ from collections import Counter, defaultdict
 import attrs
 import cattrs
 import numpy as np
+import pandas as pd
 from attrs import field
+from loguru import logger
 
 try:
     import qubic.rpc_client as rc
@@ -11,16 +13,19 @@ try:
     from distproc.compiler import CompiledProgram
     from distproc.hwconfig import FPGAConfig, load_channel_configs
     from qubic.rpc_client import CircuitRunnerClient
+    from qubitconfig.qchip import QChip
 except ImportError:
     ...
 
 import qwip
 from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import QuantumBackend
+from qwip.flatdict import FlatDict
+from qwip.processing.processors import IQResult
 from qwip.sequencer.compilation import (
-    CompiledSequence,
     WaveformSequencer,
     find_end_marker,
+    register_sequencer,
 )
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
@@ -123,20 +128,67 @@ class QubicFPGAConfig:
     pulse_regwrite_clks: int = 5
 
 
-@qdefine
+@qfrozen
+class QubicChannelConfig:
+    """A Qubic channel config object.
+
+    Attributes:
+        group: The channel group that the channel belongs to. Should be one of
+            `[qdrv, rdrv, rdlo]`.
+        core_ind: The core index for the channel.
+        elem_ind: The element index for the channel.
+        elem_params: A dictionary with the clock samples and interpolation ratio.
+        env_mem_name: The name of the envelope memory for the channel.
+        freq_mem_name: The name of the frequency memory for the channel.
+        acc_mem_name: The name of the acc buffer for the channel.
+    """
+
+    group: str
+    core_ind: int
+    elem_ind: int = 0
+    elem_params: dict[str, int] = dict(samples_per_clk=16, interp_ratio=1)
+    env_mem_name: str = field()
+    freq_mem_name: str = field()
+    acc_mem_name: str = field()
+
+    @env_mem_name.default
+    def _default_env_mem_name(self) -> str:
+        return f"{self.group}env{self.core_ind}"
+
+    @freq_mem_name.default
+    def _default_freq_mem_name(self) -> str:
+        return f"{self.group}freq{self.core_ind}"
+
+    @acc_mem_name.default
+    def _default_acc_mem_name(self) -> str:
+        return f"accbuf{self.core_ind}"
+
+
+@qfrozen
 class QubicExecutable:
-    programs: list[CompiledProgram]
-    assembly: list[list]
+    program: CompiledProgram = field(eq=id)
+    # cattrs will always copy a dict when converting, so we disable autoconversion
+    # to allow QubicExecutable's to be copied with the exact same assembly
+    assembly: dict = field(eq=id, metadata=dict(auto_convert=False))
     repetition_delay: float
+    reads_per_element: tuple[int, ...] = tuple()
+
+    @property
+    def total_reads(self) -> int:
+        return sum(self.reads_per_element)
+
+    @property
+    def num_elements(self) -> int:
+        return len(self.reads_per_element)
 
 
+@register_sequencer
 @qdefine
-class QubicCompiler(WaveformSequencer):
+class QubicSequencer(WaveformSequencer):
     """Qubic-specific compiler"""
 
     fpga_config: QubicFPGAConfig = field(factory=QubicFPGAConfig)
     reset_delay: float = 500e-6
-    interleave: bool = False
 
     def compile_instruction(
         self,
@@ -144,6 +196,7 @@ class QubicCompiler(WaveformSequencer):
         wave: Waveform,
         unique_waveforms: dict[Waveform, np.ndarray],
         channel_times: dict[str, Location],
+        reads: Counter[str],
         pulse_kwargs: dict = {},
     ) -> list[QubicInstruction]:
         """Compiles a single waveform into a list of qubic instructions"""
@@ -164,10 +217,17 @@ class QubicCompiler(WaveformSequencer):
                     f"{wave} with channels {wave.channels}"
                 )
 
-        if channel and start > channel_times[channel]:
-            delay = start - channel_times[channel]
-            instructions.append(DelayInstruction(t=delay.offset, qubits=(channel,)))
-            channel_times[channel] = end
+        if channel:
+            if (ch_info := self.get_channel_info(channel)) is None:
+                raise ValueError(f"Channel {channel} is not a valid channel.")
+
+            if ch_info.read:
+                reads[channel] += 1
+
+            if start > channel_times[channel]:
+                delay = start - channel_times[channel]
+                instructions.append(DelayInstruction(t=delay.offset, qubits=(channel,)))
+                channel_times[channel] = end
 
         match wave:
             case VirtualZWaveform(mod_key=mod_key, phase=phase):
@@ -198,8 +258,6 @@ class QubicCompiler(WaveformSequencer):
                 if env in unique_waveforms:
                     w_t = unique_waveforms[env]
                 else:
-                    if (ch_info := self.get_channel_info(channel)) is None:
-                        raise ValueError(f"Channel {channel} is not a valid channel.")
                     sample_rate = self.channels[ch_info.group].sample_rate
 
                     N = np.ceil(width.offset * sample_rate).astype(int)
@@ -258,12 +316,12 @@ class QubicCompiler(WaveformSequencer):
         self,
         locations: dict[Location, list[Waveform]],
         pulse_kwargs: dict = {},
-    ):
+    ) -> tuple[list[QubicInstruction], Counter[str]]:
         """Compiles a single sequence element."""
         instructions = []
-        channel_times = defaultdict(Location)
-
         unique_waveforms = dict()
+        channel_times = defaultdict(Location)
+        reads = Counter()
 
         for loc, waves in locations.items():
             for w in waves:
@@ -273,11 +331,12 @@ class QubicCompiler(WaveformSequencer):
                         wave=w,
                         unique_waveforms=unique_waveforms,
                         channel_times=channel_times,
+                        reads=reads,
                         pulse_kwargs=pulse_kwargs,
                     )
                 )
 
-        return instructions
+        return instructions, reads
 
     def compile(
         self,
@@ -294,33 +353,74 @@ class QubicCompiler(WaveformSequencer):
         reset_delay = kwargs.get("reset_delay", self.reset_delay)
 
         repetition_delay = 0
-        batch = []
+        reads_per_element = []
+        circuit = []
         for i, (se_locs, se) in enumerate(zip(locations, seq.flat)):
             t_se = find_end_marker(se_locs, self.end_marker).offset + reset_delay
+            repetition_delay += t_se
 
-            if self.interleave:
-                repetition_delay += t_se
-            else:
-                repetition_delay = max(repetition_delay, t_se)
-
-            instructions = self.compile_sequence_element(
+            instructions, reads = self.compile_sequence_element(
                 se_locs,
                 se.constraints | pulse_kwargs,
             )
 
+            reads_per_channel = set(cts[1] for cts in reads.most_common())
+            if len(reads_per_channel) > 1:
+                logger.warning(
+                    f"Sequence element {i} has an unequal number of reads accross"
+                    f"channels. {reads}"
+                )
+
             reset = DelayInstruction(t=reset_delay)
 
-            circuit = [reset.todict(), *(ins.todict() for ins in instructions)]
-            if self.interleave:
-                batch.extend(circuit)
-            else:
-                batch.append(circuit)
+            sub_circuit = [reset.todict(), *(ins.todict() for ins in instructions)]
+            circuit.extend(sub_circuit)
+            reads_per_element.append(max(reads_per_channel))
 
-        if self.interleave:
-            # batch is really a single instruction list in this case
-            batch = [batch]
+        qchip = self.get_qchip()
+        channel_config = self.get_channel_config()
 
-        return batch
+        prog = tc.run_compile_stage(circuit, self.fpga_config, qchip)
+        asm = tc.run_assemble_stage(prog, channel_config)
+        return QubicExecutable(
+            program=prog,
+            assembly=asm,
+            repetition_delay=repetition_delay,
+            reads_per_element=reads_per_element,
+        )
+
+    def get_qchip(self) -> QChip:
+        """Returns a Qubic QChip object with the named modulation frequencies."""
+        modulations = FlatDict(
+            {k.replace(".", "/"): f.offset for k, f in self.modulations.items()}
+        )
+
+        return QChip(dict(Qubits=modulations, Gates=dict()))
+
+    def get_channel_config(self) -> dict:
+        """"""
+        channel_config = dict(fpga_clk_freq=self.fpga_config.fpga_clk_freq)
+
+        for ch_group in self.channels.values():
+            sample_rate = ch_group.sample_rate
+
+            for ch in ch_group.channels:
+                _, group = ch.name.split(".")
+                samples_per_clk = 4 if group.lower() == "rdlo" else 16
+                interp_ratio = round(
+                    samples_per_clk / (sample_rate * self.fpga_config.fpga_clk_period)
+                )
+
+                channel_config[ch.name] = QubicChannelConfig(
+                    group=group,
+                    core_ind=ch.index,
+                    elem_ind=ch.subchannel,
+                    elem_params=dict(
+                        samples_per_clk=samples_per_clk, interp_ratio=interp_ratio
+                    ),
+                )
+
+        return channel_config
 
 
 @qdefine
@@ -328,36 +428,78 @@ class QubicBackend(QuantumBackend):
     """A hardware backend for interfacing with qubic."""
 
     runner: CircuitRunnerClient
+    delay_buffer: float = 50e-6
+    uploaded: QubicExecutable | None = None
+    result_map: dict = field(factory=dict)
 
-    def upload(self, cseq: CompiledSequence, **kwargs) -> None:
-        ...
-        # self.meta.write_sequence(cseq)
+    def upload(self, exe: QubicExecutable, **kwargs) -> None:
+        """Loads a circuit onto the qubic board.
 
-    def acquire(self, cseq: CompiledSequence, repetitions: int = 512, **kwargs) -> dict:
-        # acquisition_kwargs = dict(n_reps=repetitions, save_data=False) | kwargs
+        Args:
+            exe: A `QubicExecutable` which contains the assembly dict to load.
+            kwargs: Additional keyword arguments are passed to `CircuitRunner.load_circuit`.
+        """
+        self.runner.load_circuit(exe.assembly, **kwargs)
+        self.uploaded = exe
 
-        # meas = self.meta.acquire(**acquisition_kwargs)
-        # iqdata = {
-        #     k: meas[k]["Heterodyne"] for k in meas.keys() if re.match(r"R(\d+)", k)
-        # }
-        # return iqdata
-        ...
+    def acquire(
+        self, exe: QubicExecutable | None = None, repetitions: int = 512, **kwargs
+    ) -> dict[str, IQResult]:
+        """Acquires data from the qubic board.
+
+        Args:
+            exe: A `QubicExecutable` to run. If `None`, the last uploaded program is run.
+            repetitions: The number of shots to acquire for the given circuit.
+        """
+        if exe is None and self.uploaded is None:
+            raise ValueError(
+                "No asm to execute! Call upload to load an executable or pass an "
+                "executable to acquire."
+            )
+
+        if exe != self.uploaded:
+            self.runner.load_circuit(exe.assembly)
+            self.uploaded = exe
+
+        exe = self.uploaded
+
+        delay_per_shot = exe.repetition_delay + self.delay_buffer * exe.num_elements
+        result = self.runner.run_circuit(
+            repetitions,
+            reads_per_shot=exe.total_reads,
+            delay_per_shot=delay_per_shot,
+        )
+
+        num_se = exe.num_elements
+
+        iq_results = {}
+        for k, data in result.items():
+            index = pd.MultiIndex.from_tuples(
+                (
+                    (se, ro)
+                    for se in range(num_se)
+                    for ro in range(exe.reads_per_element[se])
+                ),
+                names=["element", "readout"],
+            )
+
+            columns = pd.RangeIndex(repetitions, name="shot")
+            df = pd.DataFrame(data.T, index=index, columns=columns)
+
+            name = self.result_map.get(k, k)
+            iq_results[name] = IQResult(name=name, data=df)
+
+        return iq_results
 
     def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU.
 
-        The QTRL backend requires that all readout frequencies are specified in the
-        variables config because this is where the ADCManager pulls the demod
-        frequencies from.
+        This method updates the mapping from readout indices to readout channels.
         """
-        # for sys in qpu.subsystems.values():
-        #     match sys:
-        #         case ReadoutResonator(name=n, frequency=f):
-        #             if not (m := re.match(r"R(\d+)", n)):
-        #                 raise ValueError(
-        #                     f"Resonator names must be of the form 'R\\d+' for the "
-        #                     f"QTRL backend. Got {n}"
-        #                 )
 
-        #             self.meta.variables[f"Q{m[1]}/res_freq"] = f
-        ...
+        for groups in qpu.sequencer.channels.values():
+            for ch_info in groups.channels:
+                if not ch_info.read:
+                    continue
+
+                self.result_map.update({str(ch_info.index): ch_info.name})
