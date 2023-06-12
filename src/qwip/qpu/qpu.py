@@ -144,7 +144,10 @@ class QPU:
         for system in self.subsystems.values():
             match system:
                 case QuantumSystem(get_modulations=_):
-                    modulation_keys |= system.get_modulations(local_oscillators)
+                    modulation_keys |= qwip.converter.structure(
+                        system.get_modulations(local_oscillators),
+                        dict[str, ModulationFrequency],
+                    )
                 case _:
                     logger.info(
                         f"Skipping modulation frequency for system {system.name}"
