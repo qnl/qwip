@@ -236,6 +236,7 @@ class ChannelInfo:
         index: The physical channel index (0-indexed) corresponding to the hardware channel.
         group: The name of the channel group this channel belongs to.
         subchannel: The subchannel (used for markers) that this channel name refers to.
+        read: True if the channel is an ADC channel.
         delay: A channel delay in ns to add to all waves on this channel.
     """
 
@@ -243,6 +244,7 @@ class ChannelInfo:
     index: int
     group: str | None = None
     subchannel: int = 0  # Use nonzero for markers
+    read: bool = False
     delay: float = 0
 
 

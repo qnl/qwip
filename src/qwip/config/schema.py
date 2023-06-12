@@ -89,6 +89,7 @@ class ChannelInfoSchema(ValidatedConfigFolder):
     index: int
     group: str
     subchannel: int = 0
+    read: bool = False
     delay: float = 0
 
 
