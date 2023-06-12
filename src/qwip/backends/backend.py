@@ -20,7 +20,7 @@ except ImportError:
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
-from qwip.sequencer.compilation import CompiledSequence
+from qwip.sequencer.compilation import CompiledSequence, QuantumExecutable
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
@@ -38,6 +38,10 @@ class QuantumBackend(metaclass=ABCMeta):
     @abstractmethod
     def update_parameters(self, qpu: "QPU", **kwargs):
         ...
+
+    @property
+    def exe_formats(self) -> set[type[QuantumExecutable]]:
+        return set()
 
 
 @qdefine
@@ -75,6 +79,9 @@ class QTRLBackend(QuantumBackend):
                         )
 
                     self.meta.variables[f"Q{m[1]}/res_freq"] = f
+
+    def exe_formats(self) -> set[type[QuantumExecutable]]:
+        return {CompiledSequence}
 
 
 def random_data_sampler(

@@ -1,5 +1,4 @@
-import functools
-import itertools as it
+from abc import ABCMeta
 from collections import defaultdict
 from collections.abc import Collection, Iterable
 from collections.abc import Sequence as TSequence
@@ -41,6 +40,12 @@ def find_end_marker(locations, name="end") -> Location | None:
             return loc
 
     return None
+
+
+class QuantumExecutable(metaclass=ABCMeta):
+    """An abstract base class for hardware-specific executables."""
+
+    ...
 
 
 def find_readout_marker(locations) -> Location | None:
@@ -337,6 +342,7 @@ class ChannelGroup:
             raise KeyError(f"'{channel_name}'") from e
 
 
+@QuantumExecutable.register
 @qdefine
 class CompiledSequence:
     """Compiled sequence.
