@@ -785,7 +785,7 @@ class CompiledSequencePlotter:
 
 
 @qdefine
-class CompiledSequencePlotter:
+class InteractiveSequencePlotter:
     def plot(
         self,
         cseq: CompiledSequence,
@@ -903,6 +903,7 @@ __all__ = [
     "ChannelGroup",
     "CompiledSequence",
     "CompiledSequencePlotter",
+    "InteractiveSequencePlotter",
     "WaveformData",
     "WaveformSequencer",
 ]
