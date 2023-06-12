@@ -20,7 +20,8 @@ except ImportError:
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
-from qwip.sequencer.compilation import CompiledSequence
+from qwip.sequencer.compilation import CompiledSequence, QuantumExecutable
+from qwip.sequencer.elements import SequenceElement
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
@@ -28,16 +29,20 @@ if TYPE_CHECKING:
 
 class QuantumBackend(metaclass=ABCMeta):
     @abstractmethod
-    def upload(self, cseq: CompiledSequence, **kwargs) -> None:
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
         ...
 
     @abstractmethod
-    def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
+    def acquire(self, exe: QuantumExecutable, **kwargs) -> dict:
         ...
 
     @abstractmethod
     def update_parameters(self, qpu: "QPU", **kwargs):
         ...
+
+    @property
+    def exe_formats(self) -> set[type[QuantumExecutable]]:
+        return set()
 
 
 @qdefine
@@ -45,11 +50,12 @@ class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
 
     meta: "MetaManager"
+    ro_se: SequenceElement = field(factory=SequenceElement)
 
-    def upload(self, cseq: CompiledSequence, **kwargs) -> None:
-        self.meta.write_sequence(cseq)
+    def upload(self, exe: CompiledSequence, **kwargs) -> None:
+        self.meta.write_sequence(exe)
 
-    def acquire(self, cseq: CompiledSequence, repetitions: int = 512, **kwargs) -> dict:
+    def acquire(self, exe: CompiledSequence, repetitions: int = 512, **kwargs) -> dict:
         acquisition_kwargs = dict(n_reps=repetitions, save_data=False) | kwargs
 
         meas = self.meta.acquire(**acquisition_kwargs)
@@ -58,7 +64,9 @@ class QTRLBackend(QuantumBackend):
         }
         return iqdata
 
-    def update_parameters(self, qpu: "QPU", **kwargs):
+    def update_parameters(
+        self, qpu: "QPU", readout: dict | SequenceElement = {}, **kwargs
+    ):
         """Updates parameters from the QPU.
 
         The QTRL backend requires that all readout frequencies are specified in the
@@ -75,6 +83,52 @@ class QTRLBackend(QuantumBackend):
                         )
 
                     self.meta.variables[f"Q{m[1]}/res_freq"] = f
+
+        match readout:
+            case dict():
+                ro_se = self.get_readout_sequence(qpu, **readout)
+            case SequenceElement():
+                ro_se = readout
+            case _:
+                raise ValueError(
+                    f"Readout must be a sequence element or a dictionary of parameters. "
+                    f"Got {readout}"
+                )
+
+        self.ro_se = ro_se
+
+    def get_readout_sequence(
+        self,
+        qpu: "QPU",
+        readout: str = "default",
+        length: float | None = None,
+        length_variable: str = "width",
+    ) -> SequenceElement:
+        """Constructs a readout sequence element from the readout config.
+
+        Args:
+            readout: The name of the readout config.
+            length: The readout length in seconds.
+            length_variable: The pulse variable that corresponds to the pulse width in
+                the readout pulse.
+
+        Returns:
+            The readout sequence element.
+        """
+        readout_config = qpu.config.readout[readout]
+
+        ro_se = SequenceElement()
+        length = length or readout_config.length
+
+        for r in qpu.sequencer.readout_qubits:
+            pulse_name = readout_config.drives[f"R{r}"]
+
+            ro_se += qpu.db.load_pulse(pulse_name, {length_variable: length})
+
+        return ro_se
+
+    def exe_formats(self) -> set[type[QuantumExecutable]]:
+        return {CompiledSequence}
 
 
 def random_data_sampler(

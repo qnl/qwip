@@ -1,5 +1,4 @@
-import functools
-import itertools as it
+from abc import ABCMeta
 from collections import defaultdict
 from collections.abc import Collection, Iterable
 from collections.abc import Sequence as TSequence
@@ -21,8 +20,19 @@ from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
-from qwip.sequencer.waveform import Channel, Marker, ReadoutMarker, Waveform
+from qwip.sequencer.waveform import Marker, ReadoutMarker, Waveform
 from qwip.visualization.utils import all_legend_handles_labels
+
+REGISTERED_SEQUENCERS: dict[str, "WaveformSequencer"] = dict()
+
+
+def register_sequencer(cls: type["WaveformSequencer"]) -> type["WaveformSequencer"]:
+    if not issubclass(cls, WaveformSequencer):
+        raise TypeError(f"Registered sequencer must subclass {WaveformSequencer}")
+
+    REGISTERED_SEQUENCERS[cls.__name__] = cls
+
+    return cls
 
 
 def find_end_marker(locations, name="end") -> Location | None:
@@ -31,6 +41,12 @@ def find_end_marker(locations, name="end") -> Location | None:
             return loc
 
     return None
+
+
+class QuantumExecutable(metaclass=ABCMeta):
+    """An abstract base class for hardware-specific executables."""
+
+    ...
 
 
 def find_readout_marker(locations) -> Location | None:
@@ -226,6 +242,7 @@ class ChannelInfo:
         index: The physical channel index (0-indexed) corresponding to the hardware channel.
         group: The name of the channel group this channel belongs to.
         subchannel: The subchannel (used for markers) that this channel name refers to.
+        read: True if the channel is an ADC channel.
         delay: A channel delay in ns to add to all waves on this channel.
     """
 
@@ -233,6 +250,7 @@ class ChannelInfo:
     index: int
     group: str | None = None
     subchannel: int = 0  # Use nonzero for markers
+    read: bool = False
     delay: float = 0
 
 
@@ -325,6 +343,7 @@ class ChannelGroup:
             raise KeyError(f"'{channel_name}'") from e
 
 
+@QuantumExecutable.register
 @qdefine
 class CompiledSequence:
     """Compiled sequence.
@@ -431,7 +450,27 @@ class WaveformSequencer:
         """
         channels = {ch_group.name: ch_group for ch_group in channel_groups}
 
-        return WaveformSequencer(channels=channels, **kwargs)
+        return cls(channels=channels, **kwargs)
+
+    def get_channel_info(self, name: str) -> ChannelInfo | None:
+        """Returns the `ChannelInfo` with the given name.
+
+        It is assumed that there are no repeated channel names between channel groups,
+        so this method will short circuit on the first channel that matches the name.
+
+        Args:
+            name: The name of the channel to get.
+
+        Returns:
+            A `ChannelInfo` or `None`, if no channel matching the name exists.
+        """
+        for group in self.channels.values():
+            try:
+                return group[name]
+            except KeyError:
+                continue
+
+        return None
 
     def compile_phases(self, locations: dict[Location, list[Waveform]]) -> PhaseTracker:
         """Returns a new phase tracker instance with all virtual phase updates.
@@ -512,8 +551,8 @@ class WaveformSequencer:
                     w_t = w_t[np.newaxis, :]
 
                 for i, c in enumerate(w.channels):
-                    ch_idx = (channel_group[c.name].index,)
-                    subchannel = c.subchannel
+                    ch_idx = (channel_group[c].index,)
+                    subchannel = channel_group[c].subchannel
                     waveform_array[ch_idx, s_idx:e_idx, subchannel] += w_t[i]
 
         return waveform_array
@@ -683,6 +722,9 @@ class WaveformSequencer:
         cseq._readout._readout = rinfo
 
         return cseq
+
+
+register_sequencer(WaveformSequencer)
 
 
 @qdefine

@@ -89,6 +89,7 @@ class ChannelInfoSchema(ValidatedConfigFolder):
     index: int
     group: str
     subchannel: int = 0
+    read: bool = False
     delay: float = 0
 
 
@@ -103,6 +104,7 @@ class ChannelGroupSchema(ValidatedConfigFolder):
 class CompilationSchema(ValidatedConfigFolder):
     channels: ConfigFolder[str, ChannelInfoSchema]
     channel_groups: ConfigFolder[str, ChannelGroupSchema]
+    sequencer_class: str = "WaveformSequencer"
     X90: ConfigFolder[Target, NativeGateSchema]
     EF_X90: ConfigFolder[Target, NativeGateSchema]
     Z: ConfigFolder[Target, NativeGateSchema]

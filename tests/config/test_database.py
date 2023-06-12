@@ -150,6 +150,34 @@ class TestConfigFolder:
         config.create_folder("dir_a")
         assert config["dir_a"].folder_name() == "dir_a"
 
+    def test_parent(self, config):
+        config.create_folder("child_dir")
+        config["child_dir"].create_folder("grandchild_dir")
+        assert config.parent() is None
+
+        parent = config["child_dir"].parent()
+        assert isinstance(parent, ConfigFolder)
+        assert parent.path() == "/"
+
+        parent = config["child_dir/grandchild_dir"].parent()
+        assert isinstance(parent, ConfigFolder)
+        assert parent.path() == "/child_dir/"
+
+    def test_rename(self, config):
+        with pytest.raises(ValueError):
+            config.rename("root")
+
+        config.create_folder("test_rename_1")
+        config.create_folder("test_rename_2")
+
+        with pytest.raises(ValueError):
+            config["test_rename_1"].rename("test_rename_2")
+
+        folder_id = config["test_rename_1"].folder_id
+        assert config["test_rename_1"].rename("test_rename_3") == "/test_rename_3/"
+        assert "test_rename_1" not in config
+        assert config["test_rename_3"].folder_id == folder_id
+
     def test_get_parameter(self, config):
         config.create_parameter("tunable", False)
         now = pendulum.now()

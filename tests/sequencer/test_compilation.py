@@ -116,6 +116,17 @@ class TestWaveformSequencer:
             Q0_X90=Q0_X90, Q1_X90=Q1_X90, Q0_Z90=Q0_Z90, Q1_Z90=Q1_Z90, R0=R0, R1=R1
         )
 
+    @pytest.mark.parametrize(
+        "name,expect",
+        [
+            ("Q0_I", ChannelInfo(name="Q0_I", index=0, group="seq")),
+            ("RO_Q", ChannelInfo(name="RO_Q", index=1, group="readout")),
+            ("random", None),
+        ],
+    )
+    def test_get_channel_info(self, sequencer, name, expect):
+        assert sequencer.get_channel_info(name) == expect
+
     def test_end_to_end(self, sequencer, pulses, data_file):
         import matplotlib.pyplot as plt
         import numpy as np

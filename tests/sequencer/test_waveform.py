@@ -11,7 +11,6 @@ from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     DRAG,
     BasicWaveform,
-    Channel,
     CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
@@ -103,7 +102,7 @@ class TestBasicWaveform:
     def test_convert(self):
         w = BasicWaveform(channels=(0, "Q1"), width=1, amplitude="A")
 
-        assert w.channels == (Channel("0"), Channel("Q1"))
+        assert w.channels == ("0", "Q1")
         assert w.width == Location(1)
         assert w.amplitude == "A"
 
@@ -186,6 +185,32 @@ class TestCWWaveform:
         w_three_channel = w.evolve(channels=("a", "b", "c"))
         wave = w_three_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
         assert_allclose(wave, np.stack([expected[0] for i in range(3)]))
+
+    @pytest.mark.parametrize(
+        "ts,phase_jumps",
+        [
+            (np.linspace(0, 15e-9, 61), np.array([(0, 0), (10e-9, 90), (25e-9, -180)])),
+            (np.linspace(0, 20e-9, 81), np.array([(0, 0), (5e-9, -90), (15e-9, 45)])),
+        ],
+    )
+    def test_hardware_modulation(self, ts, phase_jumps, data_file):
+        expected = np.loadtxt(str(data_file), dtype=np.complex64)
+        w = CWWaveform(
+            frequency=ModulationFrequency(5e9),
+            channels=("Q0.drv",),
+            hardware_modulation=True,
+        )
+
+        phase_tracker = PhaseTracker(
+            phases={
+                ModulationFrequency(5e9): [PhaseJump(t, pj) for t, pj in phase_jumps]
+            }
+        )
+
+        wave = w(
+            ts, phase_tracker=phase_tracker, phase_unit="degrees", complex_out=True
+        )
+        assert_allclose(wave, expected)
 
     @pytest.mark.parametrize(
         "ts,phase_jumps",
@@ -301,7 +326,7 @@ class TestModulatedWaveform:
                         width=4e-8, amplitude=0.5, __class__="GaussianWaveform"
                     ),
                     modulation=dict(
-                        channels=[dict(name="I"), dict(name="Q")],
+                        channels=["I", "Q"],
                         frequency="f",
                         __class__="CWWaveform",
                     ),

@@ -1,6 +1,7 @@
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
+from qwip.sequencer.phase_tracker import ModulationFrequency
 
 REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
 
@@ -18,6 +19,9 @@ def register_qsystem(cls) -> type:
 class QuantumSystem:
     name: str
 
+    def get_modulations(self, **kwargs) -> dict[str, ModulationFrequency]:
+        return dict()
+
 
 @register_qsystem
 @qdefine
@@ -25,6 +29,7 @@ class Transmon(QuantumSystem):
     frequency: float
     anharmonicity: float | None = None
     local_oscillator: str | None = None
+    modulation_name: str = "{name}.mod_{mod_key}"
 
     @property
     def frequency_EF(self) -> float:
@@ -35,23 +40,44 @@ class Transmon(QuantumSystem):
     def mod_keys(self) -> tuple[str, ...]:
         return ("GE", "EF")
 
-    def mod_frequency(self, local_oscillators, key="GE"):
-        lo_freq = local_oscillators.get(self.local_oscillator)
+    def get_modulations(
+        self, LO_map: dict = {}, **kwargs
+    ) -> dict[str, ModulationFrequency]:
+        """Get the modulation dictionary associated with this system.
 
-        if not lo_freq:
-            raise KeyError(
-                f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}."
-            )
+        Args:
+            LO_map: A mapping of local oscillator names to their current frequencies.
 
-        match key:
-            case "GE":
-                return self.frequency - lo_freq
-            case "EF":
-                return self.frequency_EF - lo_freq if self.frequency_EF else None
-            case _:
+        Returns:
+            A mapping of named modulation keys to frequencies.
+        """
+        if self.local_oscillator is None:
+            lo_freq = 0
+        else:
+            try:
+                lo_freq = LO_map[self.local_oscillator]
+            except KeyError as e:
                 raise KeyError(
-                    f"'{key}' is not a valid frequency key for {type(self).__name__}."
-                )
+                    f"Specified LO '{self.local_oscillator}' is not present in "
+                    f"{LO_map}."
+                ) from e
+
+        modulations = dict()
+        mod_name = self.modulation_name.format(name=self.name, mod_key="GE")
+        modulations[mod_name] = self.frequency - lo_freq
+
+        if self.frequency_EF is not None:
+            mod_name = self.modulation_name.format(name=self.name, mod_key="EF")
+            modulations[mod_name] = self.frequency_EF - lo_freq
+
+        return modulations
+
+    def mod_frequency(
+        self, mod_key: str = "GE", LO_map: dict = {}
+    ) -> ModulationFrequency:
+        """Returns the modulation frequency for a specific modulation_key"""
+        name = self.modulation_name.format(name=self.name, mod_key=mod_key)
+        return self.get_modulations(LO_map)[name]
 
 
 @register_qsystem
@@ -61,16 +87,41 @@ class ReadoutResonator(QuantumSystem):
     kappa: float | None = None
     chi: float | None = None
     local_oscillator: str | None = None
+    modulation_name: str = "{name}.mod"
 
-    def mod_frequency(self, local_oscillators) -> float:
-        lo_freq = local_oscillators.get(self.local_oscillator)
+    def get_modulations(
+        self, LO_map: dict = {}, **kwargs
+    ) -> dict[str, ModulationFrequency]:
+        """Get the modulation dictionary associated with this system.
 
-        if not lo_freq:
-            raise KeyError(
-                f"Specified LO '{self.local_oscillator}' is not present in {local_oscillators}."
-            )
+        Args:
+            LO_map: A mapping of local oscillator names to their current frequencies.
 
-        return self.frequency - lo_freq
+        Returns:
+            A mapping of named modulation keys to frequencies.
+        """
+        if self.local_oscillator is None:
+            lo_freq = 0
+        else:
+            try:
+                lo_freq = LO_map[self.local_oscillator]
+            except KeyError as e:
+                raise KeyError(
+                    f"Specified LO '{self.local_oscillator}' is not present in "
+                    f"{LO_map}."
+                ) from e
+
+        modulations = dict()
+        mod_name = self.modulation_name.format(name=self.name, mod_key="GE")
+        modulations[mod_name] = self.frequency - lo_freq
+        return modulations
+
+    def mod_frequency(
+        self, mod_key: str = "GE", LO_map: dict = {}
+    ) -> ModulationFrequency:
+        """Returns the modulation frequency for a specific modulation_key"""
+        name = self.modulation_name.format(name=self.name, mod_key=mod_key)
+        return self.get_modulations(LO_map)[name]
 
 
 def make_quantum_system_unstructure_fn(cls):
