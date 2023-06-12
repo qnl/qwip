@@ -830,7 +830,7 @@ class CompiledSequencePlotter:
                     fig.add_trace(
                         go.Scatter(
                             x=ts_pulse,
-                            y=0.01 * I_seq,
+                            y=I_seq,
                             visible=False,
                             name=f"Q{ch_target}_I",
                         )
