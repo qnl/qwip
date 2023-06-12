@@ -41,6 +41,31 @@ from qwip.settings import Settings, qdefine
 
 @qdefine
 class QPU:
+    """Quantum Processing Unit.
+
+    The QPU is meant to be the main interface for users to take measurements on a
+    device. It orchestrates the execution of various subcomponents to take a
+    circuit or sequence, execute it on hardware, and process the results.
+
+    !!! note
+
+        While the QPU wraps a lot of functionality into a simple user-facing
+        interface, it is not meant to hold the actual logic for all these routines.
+        Rather, these are delegated to submodules so that behavior can be modified
+        by passing the QPU different submodules where the implementation details
+        are contained.
+
+    Attributes:
+        db: A config database object. This is where all the configuration settings
+            representing a quantum device are stored and referenced.
+        subsystems: A mapping of targets to QuantumSystems, which together form a
+            model of the quantum device.
+        sequencer: A sequencer instance that controls the compilation from Sequences
+            to waveform data and programs that are uploaded to hardware.
+        pipeline: A data processing pipeline.
+
+    """
+
     db: OfflineConfigDB = field(repr=lambda db: db.database)
     subsystems: dict[Target, QuantumSystem] = field(
         repr=lambda sys: repr([s for s in sys])
@@ -245,3 +270,118 @@ class QPU:
                         raise ValueError(
                             f"Model data is missing parameters: {system_data}"
                         )
+
+    def run(
+        self,
+        program: Sequence | CompiledSequence,
+        processor: type[DataProcessor]
+        | dict[str, type[DataProcessor]] = FormatLegacyIQ,
+        repetitions: int = 512,
+        readout: dict | SequenceElement = {},
+        compilation: dict = {},
+        backend: dict = {},
+    ) -> dict[str, MeasurementResult]:
+        """Uploads a sequence and acquires data from a backend.
+
+        Args:
+            program: A `Sequence` or a `CompiledSequence` object. If given a `Sequence`,
+                it will be compiled with any specified compilation parameters.
+            processor: The data processor to use. See `qpu.process_results`.
+            repetitions: The number of shots to take for each sequence element.
+            readout: Can be either a `SequenceElement` or a dictionary of keyword
+                arguments, which are passed to `qpu.get_readout_sequence`. If a
+                `SequenceElement` is given, it will be used with no modifications. This
+                is ignored if the program is already compiled.
+            compilation: The compilation arguments, which are passed to
+                `WaveformSequencer.compile`.
+
+        Returns:
+            A dictionary mapping measurement keys to the acquired and processed data.
+        """
+        match readout:
+            case dict():
+                ro_se = self.get_readout_sequence(**readout)
+            case SequenceElement():
+                ro_se = readout
+            case _:
+                raise ValueError(
+                    f"Readout must be a sequence element or a dictionary of parameters. "
+                    f"Got {readout}"
+                )
+
+        ## Update all frequencies before compilation
+        self.update_modulations()
+        self.backend.update_parameters(self)
+
+        match program:
+            case Sequence():
+                cseq = self.sequencer.compile(program, readout=ro_se, **compilation)
+                seq = cseq.sequence
+            case CompiledSequence():
+                cseq = program
+                seq = cseq.sequence
+
+            case _:
+                raise NotImplementedError(
+                    f"Only 'Sequence' and 'CompiledSequence' programs are currently "
+                    f"supported. Got {program}"
+                )
+
+        self.backend.upload(cseq)
+        meas = self.backend.acquire(cseq, repetitions=repetitions)
+
+        return self.process_results(meas, processor)
+
+    def get_readout_sequence(
+        self,
+        readout: str = "default",
+        length: float | None = None,
+        length_variable: str = "width",
+    ) -> SequenceElement:
+        """Constructs a readout sequence element from the readout config.
+
+        Args:
+            readout: The name of the readout config.
+            length: The readout length in seconds.
+            length_variable: The pulse variable that corresponds to the pulse width in
+                the readout pulse.
+
+        Returns:
+            The readout sequence element.
+        """
+        readout_config = self.config.readout[readout]
+
+        ro_se = SequenceElement()
+        length = length or readout_config.length
+
+        for r in self.sequencer.readout_qubits:
+            pulse_name = readout_config.drives[f"R{r}"]
+
+            ro_se += self.db.load_pulse(pulse_name, {length_variable: length})
+
+        return ro_se
+
+    def process_results(
+        self,
+        raw_data: dict,
+        processor: type[DataProcessor]
+        | dict[str, type[DataProcessor]] = FormatLegacyIQ,
+    ) -> dict[str, MeasurementResult]:
+        """Runs the readout pipeline and returns the processed data.
+
+        Args:
+            raw_data: A mapping from measurement keys to the raw data.
+            processor: The final data processor. If it is a single data processor it
+                will be used for all measurement keys. If it is a dictionary, each
+                measurement key can specify a different data processor.
+
+        Returns:
+            A mapping from measurement keys to `MeasurementResult` instances.
+        """
+        if not isinstance(processor, dict):
+            processor = {f"R{r}": processor for r in self.sequencer.readout_qubits}
+
+        return self.pipeline.process_results(raw_data, processor)
+
+
+__all__ = ["QPU"]

@@ -368,26 +368,6 @@ class ReadoutPipeline:
             processor: The DataProcessor to be added.
         """
 
-        def should_remove(other):
-            return (
-                type(other) == type(processor)
-                and other.measurement_key == processor.measurement_key
-            )
-
-        self.processors = (
-            *(proc for proc in self.processors if not should_remove(proc)),
-            processor,
-        )
-
-    def add_processor(self, processor: DataProcessor) -> None:
-        """Adds a processor to the pipeline.
-
-        If a processor with matching type and key already exists, it will be replaced.
-
-        Args:
-            processor: The DataProcessor to be added.
-        """
-
         self.get_processor.cache_clear()
 
         def should_remove(other):

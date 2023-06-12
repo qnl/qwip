@@ -49,11 +49,6 @@ def seed(request):
     return int(request.config.getoption("--seed"))
 
 
-@pytest.fixture(scope="module")
-def seed(request):
-    return int(request.config.getoption("--seed"))
-
-
 @pytest.fixture
 def data_file(request):
     fspath = Path(request.fspath)
