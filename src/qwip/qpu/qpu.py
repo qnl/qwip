@@ -15,13 +15,20 @@ from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
 from qwip.config.database import ConfigFolder, OfflineConfigDB, SequenceElementFolder
 from qwip.config.schema import Target
-from qwip.processing.data_processor import DATA_PROCESSORS, ReadoutPipeline
-from qwip.processing.processors import GMMClassification, IQRotation
+from qwip.processing.data_processor import (
+    DATA_PROCESSORS,
+    DataProcessor,
+    MeasurementResult,
+    ReadoutPipeline,
+)
+from qwip.processing.processors import FormatLegacyIQ, GMMClassification, IQRotation
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
+from qwip.sequencer import Sequence, SequenceElement
 from qwip.sequencer.compilation import (
     REGISTERED_SEQUENCERS,
     ChannelGroup,
     ChannelInfo,
+    QuantumExecutable,
     WaveformSequencer,
 )
 from qwip.sequencer.phase_tracker import ModulationFrequency
@@ -265,9 +272,8 @@ class QPU:
 
     def run(
         self,
-        program: Sequence | CompiledSequence,
-        processor: type[DataProcessor]
-        | dict[str, type[DataProcessor]] = FormatLegacyIQ,
+        program: Sequence | QuantumExecutable,
+        processor: type[DataProcessor] | dict[str, type[DataProcessor]] | None = None,
         repetitions: int = 512,
         readout: dict | SequenceElement = {},
         compilation: dict = {},
@@ -290,28 +296,21 @@ class QPU:
         Returns:
             A dictionary mapping measurement keys to the acquired and processed data.
         """
-        match readout:
-            case dict():
-                ro_se = self.get_readout_sequence(**readout)
-            case SequenceElement():
-                ro_se = readout
-            case _:
-                raise ValueError(
-                    f"Readout must be a sequence element or a dictionary of parameters. "
-                    f"Got {readout}"
-                )
 
         ## Update all frequencies before compilation
         self.update_modulations()
-        self.backend.update_parameters(self)
+        self.backend.update_parameters(self, readout=readout)
 
         match program:
+            # TODO: Fix this ugliness by implementing more flexible readout for ZI
+            case Sequence() if type(self.backend).__name__ == "QTRLBackend":
+                ro_se = self.backend.ro_se
+                exe = self.sequencer.compile(program, readout=ro_se, **compilation)
+                seq = exe.sequence
             case Sequence():
-                cseq = self.sequencer.compile(program, readout=ro_se, **compilation)
-                seq = cseq.sequence
-            case CompiledSequence():
-                cseq = program
-                seq = cseq.sequence
+                exe = self.sequencer.compile(program)
+            case QuantumExecutable():
+                exe = program
 
             case _:
                 raise NotImplementedError(
@@ -319,45 +318,18 @@ class QPU:
                     f"supported. Got {program}"
                 )
 
-        self.backend.upload(cseq)
-        meas = self.backend.acquire(cseq, repetitions=repetitions)
+        self.backend.upload(exe)
+        raw_data = self.backend.acquire(exe, repetitions=repetitions, **backend)
 
-        return self.process_results(meas, processor)
+        if processor is None:
+            return raw_data
 
-    def get_readout_sequence(
-        self,
-        readout: str = "default",
-        length: float | None = None,
-        length_variable: str = "width",
-    ) -> SequenceElement:
-        """Constructs a readout sequence element from the readout config.
-
-        Args:
-            readout: The name of the readout config.
-            length: The readout length in seconds.
-            length_variable: The pulse variable that corresponds to the pulse width in
-                the readout pulse.
-
-        Returns:
-            The readout sequence element.
-        """
-        readout_config = self.config.readout[readout]
-
-        ro_se = SequenceElement()
-        length = length or readout_config.length
-
-        for r in self.sequencer.readout_qubits:
-            pulse_name = readout_config.drives[f"R{r}"]
-
-            ro_se += self.db.load_pulse(pulse_name, {length_variable: length})
-
-        return ro_se
+        return self.process_results(raw_data, processor)
 
     def process_results(
         self,
         raw_data: dict,
-        processor: type[DataProcessor]
-        | dict[str, type[DataProcessor]] = FormatLegacyIQ,
+        processor: type[DataProcessor] | dict[str, type[DataProcessor]],
     ) -> dict[str, MeasurementResult]:
         """Runs the readout pipeline and returns the processed data.
 

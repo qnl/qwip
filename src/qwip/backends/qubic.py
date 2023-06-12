@@ -1,4 +1,5 @@
 from collections import Counter, defaultdict
+from typing import TYPE_CHECKING
 
 import attrs
 import cattrs
@@ -23,6 +24,7 @@ from qwip.backends.backend import QuantumBackend
 from qwip.flatdict import FlatDict
 from qwip.processing.processors import IQResult
 from qwip.sequencer.compilation import (
+    QuantumExecutable,
     WaveformSequencer,
     find_end_marker,
     register_sequencer,
@@ -36,6 +38,9 @@ from qwip.sequencer.waveform import (
     VirtualZWaveform,
     Waveform,
 )
+
+if TYPE_CHECKING:
+    from qwip.qpu.qpu import QPU
 
 
 @qfrozen
@@ -164,12 +169,15 @@ class QubicChannelConfig:
         return f"accbuf{self.core_ind}"
 
 
+@QuantumExecutable.register
 @qfrozen
 class QubicExecutable:
     program: CompiledProgram = field(eq=id)
     # cattrs will always copy a dict when converting, so we disable autoconversion
     # to allow QubicExecutable's to be copied with the exact same assembly
-    assembly: dict = field(eq=id, metadata=dict(auto_convert=False))
+    assembly: dict = field(
+        eq=id, metadata=dict(auto_convert=False), repr=lambda asm: asm.keys()
+    )
     repetition_delay: float
     reads_per_element: tuple[int, ...] = tuple()
 
