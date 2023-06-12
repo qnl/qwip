@@ -157,6 +157,7 @@ class ConfigFolder(FlatMapping):
     folder: Folder | None = field(default=None, metadata=dict(db=False))
 
     @property
+    @session_context
     def folder_id(self):
         return self.folder.folder_id if self.folder else None
 
@@ -384,6 +385,45 @@ class ConfigFolder(FlatMapping):
             return None
 
         return self.folder.name
+    
+    @session_context
+    def parent(self) -> Self | None:
+        if self.folder is None:
+            return None
+        elif self.folder.parent is None:
+            return ConfigFolder.from_name(self.session, "/")
+        else:
+            return ConfigFolder.from_folder_id(self.session, self.folder.parent.folder_id)
+        
+    @session_context
+    def rename(self, name: str) -> str:
+        """Renames a folder.
+        
+        The root folder `"/"` cannot be renamed.
+
+        Args:
+            name: The new name for the folder.
+
+        Returns:
+            The new path for the folder.
+
+        Raises:
+            ValueError: If the folder being renamed is the root folder or if the new
+                path already exists.
+        """
+        if self.folder is None:
+            raise ValueError(f"Cannot rename root directory: {self.path()}")
+        
+        parent = self.parent()
+        if name in parent:
+            existing_path = parent[name].path()
+            raise ValueError(
+                f"Cannot rename {self.path()} to {name} because {existing_path} already"
+                f" exists."
+            )
+        
+        self.folder.name = name
+        return self.path()
 
     @session_context
     def __proxy_getitem__(self, name):
