@@ -19,7 +19,6 @@ from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.config.schema import ConfigSchema
 from qwip.qpu.qpu import QPU
 
-
 def ignore_config_commit(record: dict) -> bool:
     """Ignores warning messages from database config not matching current commit."""
     should_log = not (
