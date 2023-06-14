@@ -1,7 +1,12 @@
 import pytest
 from numpy.testing import assert_array_almost_equal
 
-from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequencer
+from qwip.sequencer.compilation import (
+    ChannelGroup,
+    ChannelInfo,
+    QuantumExecutable,
+    WaveformSequencer,
+)
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.sequence import Sequence
@@ -13,6 +18,17 @@ from qwip.sequencer.waveform import (
     SquareWaveform,
     VirtualZWaveform,
 )
+
+
+class TestQuantumExecutable:
+    def test_equality(self):
+        qxe1 = QuantumExecutable(sequence=Sequence([]))
+        qxe2 = QuantumExecutable(sequence=Sequence([]))
+        qxe3 = QuantumExecutable(sequence=qxe1.seq)
+
+        assert qxe1 != qxe2
+        assert qxe1 == qxe3
+        assert QuantumExecutable(sequence=None) == QuantumExecutable(sequence=None)
 
 
 class TestChannelGroup:

@@ -17,6 +17,7 @@ from qwip.sequencer import (
     GaussianWaveform,
     ModulatedWaveform,
     ModulationFrequency,
+    Sequence,
     SequenceElement,
 )
 from qwip.sequencer.compilation import ChannelGroup, ChannelInfo
@@ -95,6 +96,14 @@ class TestQubicExecutable:
         assert exe1 != exe2
         assert exe1 == exe3
         assert hash(exe1) == hash(exe3)
+
+    def test_frozen(self):
+        exe1 = QubicExecutable(
+            program=CompiledProgram([]), assembly={}, repetition_delay=1
+        )
+
+        with pytest.raises(attrs.exceptions.FrozenInstanceError):
+            exe1.seq = Sequence([])
 
 
 class TestQubicSequencer:

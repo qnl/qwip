@@ -169,9 +169,8 @@ class QubicChannelConfig:
         return f"accbuf{self.core_ind}"
 
 
-@QuantumExecutable.register
 @qfrozen
-class QubicExecutable:
+class QubicExecutable(QuantumExecutable):
     program: CompiledProgram = field(eq=id)
     # cattrs will always copy a dict when converting, so we disable autoconversion
     # to allow QubicExecutable's to be copied with the exact same assembly

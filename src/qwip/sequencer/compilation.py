@@ -43,10 +43,15 @@ def find_end_marker(locations, name="end") -> Location | None:
     return None
 
 
+@qdefine
 class QuantumExecutable(metaclass=ABCMeta):
     """An abstract base class for hardware-specific executables."""
 
-    ...
+    sequence: Sequence | None = field(eq=id, default=None)
+
+    @property
+    def seq(self) -> Sequence | None:
+        return self.sequence
 
 
 def find_readout_marker(locations) -> Location | None:
@@ -343,9 +348,8 @@ class ChannelGroup:
             raise KeyError(f"'{channel_name}'") from e
 
 
-@QuantumExecutable.register
 @qdefine
-class CompiledSequence:
+class CompiledSequence(QuantumExecutable):
     """Compiled sequence.
 
     Compiled sequences should be specific to the hardware it is meant to be run
@@ -353,7 +357,6 @@ class CompiledSequence:
     """
 
     waveforms: dict[str, WaveformData] = field(factory=dict)
-    sequence: Sequence
 
     @property
     def array(self) -> np.ndarray:
