@@ -136,6 +136,7 @@ class TimeDependentHamiltonian:
         eq=cmp_using(_compare_H_list), factory=list
     )
     ts: np.ndarray | None = field(eq=cmp_using(eq=_numpy_equals), default=None)
+    targets: tuple[str, ...] = field(factory=tuple)
 
     @property
     def dims(self) -> list | None:
@@ -277,6 +278,7 @@ class QutipBackend(QuantumBackend):
     channel_map: list[OperatorChannelMap] = field(factory=list)
     H: list[TimeDependentHamiltonian] = field(factory=list)
     rng: Generator = field(factory=default_rng)
+    readouts: dict[str, ReadoutResonator] = field(factory=dict)
 
     # data_func: Callable[..., np.ndarray] = field(factory=random_state_sampler)
 
@@ -327,6 +329,12 @@ class QutipBackend(QuantumBackend):
 
             elif t == "Q" and qubit + "_I" not in channels:
                 raise ValueError(f"I component of channel {qubit} missing")
+            
+        self.readouts = {}
+        for name, sys in qpu.subsystems.items():
+            match sys:
+                case ReadoutResonator():
+                    self.readouts[name] = sys
 
     def upload(self, exe: CompiledSequence, **kwargs) -> None:
         """Constructs the drive hamiltonians for elements of active channels
@@ -432,8 +440,20 @@ class QutipBackend(QuantumBackend):
         results = []
         to_simulate = np.arange(cseq.shape[1])[elements]
 
+        # pick out relevant resonators and get trajectories for each state
+        # hard code a drive envelope and times for now.
+ 
         for el in to_simulate:
-            results.append(self.H[el].simulate())
+            qt_result = self.H[el].simulate()
+            # get labels in a list with same ordering as qt_result.expect
+            for shot in range(repetitions):
+                ...
+                # use rng.choice with non-uniform distribution matching last time step
+                # pull out trajectories matching this multi-qubit state
+                # add noise corresponding to eta
+
+        ## return an array indexed by (num_elements, num_shots, num_timesteps)
+
 
         ## Dispersive readout for single element, single qubit
 
