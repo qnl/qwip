@@ -134,7 +134,7 @@ class ReadoutResonator(QuantumSystem):
         drive_envelope: Callable[[float], complex],
         drive_frequency: float | None = None,
     ) -> Callable[[float, complex], complex]:
-        """Returns the semi-classical cavity field equation for a given qubit state.
+        """Returns the semi-classical cavity field equation for a given resonator.
 
         Args:
             drive_envelope: A function that takes in single time value and returns the
@@ -154,7 +154,7 @@ class ReadoutResonator(QuantumSystem):
         def alpha_derivative(t, alpha_t):
             return -self.kappa * alpha_t / 2 - 1j * (
                 drive_envelope(t)
-                + (detuning + np.array(self.chi)[:, np.newaxis]) * alpha_t
+                + (detuning + np.array(self.chi).reshape(-1, 1)) * alpha_t
             )
 
         return alpha_derivative
@@ -175,7 +175,7 @@ class ReadoutResonator(QuantumSystem):
             drive_frequency: The modulation frequency of the resonator driving field.
                 If `None`, it is assumed to be equal to the resonator frequency.
             alpha_0: The initial cavity field amplitudes for all states in an array.
-                Assumed to be the same length as tuple of chi values.
+                Must be the same length as tuple of chi values.
 
         Returns:
             The cavity field amplitude at each of the given time points for each state.
@@ -190,8 +190,8 @@ class ReadoutResonator(QuantumSystem):
 
         if len(alpha_0) != len(self.chi):
             raise ValueError(
-                "Number of starting values does not match number of \
-                             states to be simulated."
+                "Number of initial values does not match number of states to be "
+                "simulated."
             )
 
         time_interval = [ts[0], ts[-1]]
