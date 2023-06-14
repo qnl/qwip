@@ -398,15 +398,14 @@ class QutipBackend(QuantumBackend):
                 )
                 self.H.append(H_t)
 
+            else:
+                self.H.append(TimeDependentHamiltonian())
+
         if len(self.H) == 0:
             raise ValueError(
                 "No active channels to simulate. Check that sequence is non-empty."
             )
 
-        # Make sure H same length as number of elements so indexing is preserved
-        if len(self.H) < N_elements:
-            for i in range(N_elements - len(self.H)):
-                self.H.insert(0, TimeDependentHamiltonian())
 
     def acquire(
         self,
