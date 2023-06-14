@@ -1,12 +1,12 @@
-import numpy as np
 from collections.abc import Callable
+
+import numpy as np
+from scipy.integrate import solve_ivp
 
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.phase_tracker import ModulationFrequency
-
-from scipy.integrate import solve_ivp
 
 REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
 
@@ -128,7 +128,7 @@ class ReadoutResonator(QuantumSystem):
         """Returns the modulation frequency for a specific modulation_key"""
         name = self.modulation_name.format(name=self.name, mod_key=mod_key)
         return self.get_modulations(LO_map)[name]
-    
+
     def get_cavity_field_equation(
         self,
         drive_envelope: Callable[[float], complex],
@@ -136,9 +136,9 @@ class ReadoutResonator(QuantumSystem):
         qubit_state: int = 0,
     ) -> Callable[[float, complex], complex]:
         """Returns the semi-classical cavity field equation for a given qubit state.
-        
+
         Args:
-            drive_envelope: A function that takes in single time value and returns the 
+            drive_envelope: A function that takes in single time value and returns the
                 amplitude of the driving field envelope at that point in time.
             drive_frequency: The modulation frequency of the resonator driving field.
                 If `None`, it is assumed to be equal to the resonator frequency.
@@ -157,9 +157,13 @@ class ReadoutResonator(QuantumSystem):
         detuning = self.frequency - drive_frequency
 
         chi = self.chi[qubit_state]
-        diff_field_equation = lambda t, field: -self.kappa*field/2 - \
-                                    (drive_envelope(t) + (detuning + chi)*field)*1j
-        return diff_field_equation
+
+        def alpha_derivative(t, alpha_t):
+            return -self.kappa * alpha_t / 2 - 1j * (
+                drive_envelope(t) + (detuning + chi) * alpha_t
+            )
+
+        return alpha_derivative
 
     def solve_cavity_field_equation(
         self,
@@ -167,13 +171,13 @@ class ReadoutResonator(QuantumSystem):
         drive_envelope: Callable[[float], complex],
         drive_frequency: float | None = None,
         qubit_state: int = 0,
-        alpha_0: np.ndarray[complex] = [0+0j],
+        alpha_0: complex = 0j,
     ) -> np.ndarray:
         """Solves the semi-classical cavity field equation for a given qubit state.
-        
+
         Args:
-            ts: A list of time points at which to evaluate the field amplitude. 
-            drive_envelope: A function that takes in single time value and returns the 
+            ts: A list of time points at which to evaluate the field amplitude.
+            drive_envelope: A function that takes in single time value and returns the
                 amplitude of the driving field envelope at that point in time.
             drive_frequency: The modulation frequency of the resonator driving field.
                 If `None`, it is assumed to be equal to the resonator frequency.
@@ -184,18 +188,21 @@ class ReadoutResonator(QuantumSystem):
         Returns:
             The cavity field amplitude at each of the given time points.
         """
-        if ts.size == 0:
+        if len(ts) == 0:
             raise ValueError("No time points given.")
-        
-        time_interval = [ts[0], ts[-1]]
-        field_equation = self.get_cavity_field_equation(drive_envelope, drive_frequency, qubit_state)
 
-        # When qubit state > # of provided chi values, the field_equation is None
+        time_interval = [ts[0], ts[-1]]
+        field_equation = self.get_cavity_field_equation(
+            drive_envelope, drive_frequency, qubit_state
+        )
+
+        # When qubit state does not have a matching chi value, we return np.nan
         if not field_equation:
-            return np.full(ts.shape, np.nan)   # return NaN values
-        
-        field_solution = solve_ivp(field_equation, time_interval, alpha_0, t_eval=ts).y
-        return field_solution
+            return np.full(ts.shape, np.nan)
+
+        alpha_0 = np.array([alpha_0]).astype(complex)
+        alphas = solve_ivp(field_equation, time_interval, alpha_0, t_eval=ts).y
+        return alphas
 
 
 def make_quantum_system_unstructure_fn(cls):

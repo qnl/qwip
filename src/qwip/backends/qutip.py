@@ -1,21 +1,19 @@
 import itertools as it
+from collections.abc import Callable
 from functools import reduce
 from typing import TYPE_CHECKING
 
 import numpy as np
 import qutip as qt
-from numpy.random import default_rng, Generator
 from attrs import cmp_using, field
+from numpy.random import Generator, default_rng
 from qutip import Qobj
 from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
-from qwip.backends.backend import QuantumBackend
-from qwip.backends.backend import random_data_sampler
-from qwip.sequencer.compilation import CompiledSequence
-
+from qwip.backends.backend import QuantumBackend, random_data_sampler
 from qwip.qpu.systems import ReadoutResonator
-from collections.abc import Callable
+from qwip.sequencer.compilation import CompiledSequence
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
@@ -243,15 +241,14 @@ def random_state_sampler(
     populations: np.ndarray,
     rng: Generator = default_rng(),
 ) -> Callable[..., np.ndarray]:
-    
     def generate(
         readout_key: str,
         element_index: int,
         readout_index: int,
         repetitions: int,
-        num_states: int
+        num_states: int,
     ) -> np.ndarray:
-        p = p[:-1] + [1-np.sum(p[:-1])]
+        p = p[:-1] + [1 - np.sum(p[:-1])]
         return rng.choice(num_states, size=repetitions, p=p)
 
     return generate
@@ -416,7 +413,7 @@ class QutipBackend(QuantumBackend):
         exe: CompiledSequence,
         repetitions: int = 512,
         num_readouts: int = 1,
-        elements: list[int] = [-1], 
+        elements: list[int] = [-1],
         **kwargs,
     ) -> list:
         """Simulate the Hamiltonians using mesolve.
@@ -439,7 +436,6 @@ class QutipBackend(QuantumBackend):
         for el in to_simulate:
             results.append(self.H[el].simulate())
 
-
         ## Dispersive readout for single element, single qubit
 
         # Get expectation values
@@ -449,28 +445,31 @@ class QutipBackend(QuantumBackend):
         # Classify blobs
 
         # Default num of diff states: 4^n, Need to process to extract individual qubits
-        expectation_vals = results[0].expect[:, -1]  
-        num_states_to_sim = len(expectation_vals)              
+        expectation_vals = results[0].expect[:, -1]
+        num_states_to_sim = len(expectation_vals)
 
-        chi_values = (2*np.pi*1e6, 2*np.pi*1e6, 2*np.pi*1e6, 2*np.pi*1e6)
+        chi_values = (
+            2 * np.pi * 1e6,
+            2 * np.pi * 1e6,
+            2 * np.pi * 1e6,
+            2 * np.pi * 1e6,
+        )
         ro = ReadoutResonator(
-            frequency=7e9*2*np.pi, 
-            kappa=0.5e6*2*np.pi, 
-            chi=chi_values, 
+            frequency=7e9 * 2 * np.pi,
+            kappa=0.5e6 * 2 * np.pi,
+            chi=chi_values,
             eta=1.0,
-            name="R0"
-            )
-        
+            name="R0",
+        )
+
         # Implement later, extract from specific element compiled sequence
-        drive_envelope, ts = lambda t: 1e7, np.arange(0, 1e-5, 1e-5/1000)  
-        
+        drive_envelope, ts = lambda t: 1e7, np.arange(0, 1e-5, 1e-5 / 1000)
+
         field_solutions = []
         for level in range(num_states_to_sim):
-            field_solutions.append(ro.solve_cavity_field_equation(
-                ts, 
-                drive_envelope,
-                qubit_state = level
-            ))
+            field_solutions.append(
+                ro.solve_cavity_field_equation(ts, drive_envelope, qubit_state=level)
+            )
 
         data = np.zeros((num_states_to_sim, repetitions))
         self.data_func = random_state_sampler(expectation_vals)
@@ -481,8 +480,4 @@ class QutipBackend(QuantumBackend):
             iq = get_iq(field_solutions[s], V_IF, omega_IF)
             # store iq along with specific state
 
-
         return results
-    
-
-

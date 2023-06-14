@@ -1,8 +1,9 @@
-import pytest
 import numpy as np
+import pytest
+from numpy.testing import assert_allclose
 
 from qwip.qpu.systems import QuantumSystem, ReadoutResonator, Transmon
-from numpy.testing import assert_allclose
+
 
 class TestQuantumSystem:
     def test_get_modulations(self):
@@ -37,147 +38,124 @@ class TestTransmon:
 
 
 class TestReadoutResonator:
-
     @pytest.fixture
-    def compile_resonator(self):
+    def resonator(self):
         r = ReadoutResonator(
-            frequency=7e9*2*np.pi, 
-            kappa=0.5e6*2*np.pi, 
-            chi=(-0.5e6*2*np.pi, +1*0.5e6*2*np.pi, 0.5e6*2*np.pi), 
+            frequency=7e9 * 2 * np.pi,
+            kappa=0.5e6 * 2 * np.pi,
+            chi=(-0.5e6 * 2 * np.pi, 0.5e6 * 2 * np.pi, 0.5e6 * 2 * np.pi),
             eta=1.0,
-            name="R0")   # Implement eta later
+            name="R0",
+        )  # Implement eta later
         return r
 
-    @pytest.fixture
-    def compile_resonator_kappa(self):
-        r = ReadoutResonator(
-            frequency=7e9*2*np.pi, 
-            kappa=0.5e6*2*np.pi, 
-            chi=(0, 0, 0), 
-            eta=1.0,
-            name="R0")   
-        return r
-    
     def test_get_modulations(self):
         r = ReadoutResonator(name="R0", frequency=6e9)
         assert r.get_modulations() == {"R0.mod": 6e9}
-    
-    def test_get_cavity_field_equation(
-            self,
-            compile_resonator,
-            data_file
-    ):
-        expected = np.loadtxt(str(data_file), delimiter=',', dtype=complex)
-        drive_envelope=lambda t: 1e7
-        r = compile_resonator
 
+    @pytest.mark.parametrize(
+        "drive,chis",
+        [
+            (1e7, (-0.5e6 * 2 * np.pi, 0.5e6 * 2 * np.pi, 0.5e6 * 2 * np.pi)),
+            (0, (0, 0, 0)),
+            (1, (0, 0, 0)),
+        ],
+    )
+    def test_get_cavity_field_equation(self, drive, chis, resonator, data_file):
+        expected = np.loadtxt(str(data_file), delimiter=",", dtype=complex)
+        resonator.chi = chis
+
+        def drive_env(t):
+            return drive
+
+        alpha_0 = resonator.get_cavity_field_equation(
+            drive_envelope=drive_env, qubit_state=0
+        )
+        alpha_1 = resonator.get_cavity_field_equation(
+            drive_envelope=drive_env, qubit_state=1
+        )
+
+        assert_allclose(
+            expected,
+            [
+                alpha_0(np.linspace(0, 1, 100), np.linspace(0, 0.5, 100)),
+                alpha_1(np.linspace(0, 1, 100), np.linspace(0, 0.5, 100)),
+            ],
+        )
+
+    def test_get_cavity_field_equation_none(self, resonator):
         # Check None returned when no chi value exists for state
         assert (
-            r.get_cavity_field_equation(qubit_state=3, drive_envelope=drive_envelope)
-                is None
+            resonator.get_cavity_field_equation(
+                qubit_state=3, drive_envelope=lambda t: 1
+            )
+            is None
         )
 
-        # Check ground |0> state
-        field_equation_0 = r.get_cavity_field_equation(
-            drive_envelope=drive_envelope)
-        
-        # Check excited |1> state
-        field_equation_1 = r.get_cavity_field_equation(
-            qubit_state=1,
-            drive_envelope=drive_envelope)
-        
-        assert_allclose(expected, [
-            field_equation_0(np.linspace(0, 1, 100), np.linspace(0, 0.5, 100)),
-            field_equation_1(np.linspace(0, 1, 100), np.linspace(0, 0.5, 100))
-        ])
-    
-    def test_get_cavity_field_equation_kappa(
-            self, 
-            compile_resonator_kappa,
-            data_file
-    ):
-        ## Test: Kappa is the only nonzero parameter
-        expected = np.loadtxt(str(data_file), delimiter=',', dtype=complex)
-        r = compile_resonator_kappa
+    def test_solve_cavity_field_equation_empty(self, resonator):
+        with pytest.raises(ValueError):
+            resonator.solve_cavity_field_equation(ts=[], drive_envelope=lambda t: 1e7)
 
-        # Check zero drive -- no imag component
-        drive = lambda t: 0
-        field_equation_0 = r.get_cavity_field_equation(
-            drive_envelope=drive,
-            qubit_state=0
-        )
-        field_equation_1 = r.get_cavity_field_equation(
-            drive_envelope=drive,
-            qubit_state=1
-        )
-        
-        # Check nonzero drive -- has imag component
-        drive = lambda t: 1
-        field_equation_2 = r.get_cavity_field_equation(
-            drive_envelope=drive,
-            qubit_state=0
-        )
-        field_equation_3 = r.get_cavity_field_equation(
-            drive_envelope=drive,
-            qubit_state=1
+    def test_solve_cavity_field_equation_nan(self, resonator):
+        ts = np.linspace(0, 1e-5, 100)
+
+        alphas = resonator.solve_cavity_field_equation(
+            ts=ts, drive_envelope=lambda t: 1, qubit_state=3, alpha_0=0
         )
 
-        assert_allclose(expected, [
-            field_equation_0(np.linspace(0, 1, 100), np.linspace(0, 0.5, 100)),
-            field_equation_1(np.linspace(0, 1, 100), np.linspace(0, 0.5, 100)),
-            field_equation_2(np.linspace(0, 1, 100), np.linspace(0, 0.5, 100)),
-            field_equation_3(np.linspace(0, 1, 100), np.linspace(0, 0.5, 100))
-        ])
+        assert np.isnan(alphas).all()
 
-    def test_solve_cavity_field_equation(self, compile_resonator, data_file):
-        r = compile_resonator
+    def test_solve_cavity_field_equation(self, resonator, data_file):
         expected = np.loadtxt(str(data_file), delimiter=",", dtype=complex)
 
-        with pytest.raises(ValueError):
-            r.solve_cavity_field_equation(ts=np.array([]),
-                                          drive_envelope=lambda t: 1e7)
-        
-        # Check returns array of NaN values when no chi value for qubit state
-        assert np.isnan(r.solve_cavity_field_equation(
-            ts=np.array([1, 2, 3]),
-            qubit_state=3,
-            drive_envelope=lambda t: 1e7)
-        ).all()
-        
-        # General case with all nonzero parameters
-        field_amplitudes = r.solve_cavity_field_equation(
-            ts = np.linspace(0, 1e-5, 1000),
-            drive_envelope = lambda t: 1e7,
-            qubit_state = 1
-        )
-        assert_allclose(expected, field_amplitudes[0])
-
-        # Check limit when t becomes very large (if drive envelope = 0, then the field
-        # equation is exponential and approaches 0)
-        field_amplitudes = r.solve_cavity_field_equation(
-            ts = np.linspace(0, 2e-5, 1000),
-            drive_envelope = lambda t: 0,
-            qubit_state = 1,
-            alpha_0 = [1]
+        alphas = resonator.solve_cavity_field_equation(
+            ts=np.linspace(0, 1e-5, 1000),
+            drive_envelope=lambda t: 1e7,
+            qubit_state=1,
+            alpha_0=0,
         )
 
-        assert abs(field_amplitudes[0][-1]) < 1e-4
-    
-    def test_solve_cavity_field_equation_exp(
-            self, 
-            compile_resonator_kappa,
+        assert_allclose(alphas, expected.reshape(alphas.shape))
+
+    def test_solve_cavity_field_equation_decay(
+        self,
+        resonator,
     ):
-        r = compile_resonator_kappa
+        resonator.chi = (0, 0, 0)
 
+        ts = np.linspace(0, 1e-6, 1000)
         # When drive = 0, field equation should be an exponential function
-        field_amplitudes = r.solve_cavity_field_equation(
-            ts = np.linspace(0, 1e-6, 1000),
-            drive_envelope = lambda t: 0,
-            qubit_state = 1,
-            alpha_0 = [1.0]
+        alphas = resonator.solve_cavity_field_equation(
+            ts=ts, drive_envelope=lambda t: 0, qubit_state=1, alpha_0=1.0
         )
 
-        expected_amplitudes = np.exp(np.linspace(0, 1e-6, 1000)*-r.kappa/2)
-        assert_allclose(field_amplitudes[0], expected_amplitudes, atol=1e-3)
+        expected_amplitudes = np.exp(-resonator.kappa / 2 * ts)
+        assert_allclose(alphas.flatten(), expected_amplitudes, atol=1e-3)
 
+    @pytest.mark.parametrize("drive,chi,kappa", [(1, 0.5, 1), (1, 5, 0.5), (1, 0.5, 5)])
+    def test_solve_cavity_field_equation_steady_state(
+        self,
+        drive,
+        chi,
+        kappa,
+        resonator,
+    ):
+        ts = np.linspace(0, 50 / kappa, 201)
+        resonator.kappa = kappa
+        resonator.chi = (-chi, chi)
 
+        alphas_0 = resonator.solve_cavity_field_equation(
+            ts=ts,
+            drive_envelope=lambda t: drive,
+            qubit_state=0,
+        ).flatten()
+
+        alphas_1 = resonator.solve_cavity_field_equation(
+            ts=ts, drive_envelope=lambda t: drive, qubit_state=1
+        ).flatten()
+
+        # expected steady state value
+        alpha_s0 = -drive / (-chi - 1j * kappa / 2)
+        alpha_s1 = -drive / (chi - 1j * kappa / 2)
+
+        assert_allclose([alphas_0[-1], alphas_1[-1]], [alpha_s0, alpha_s1], atol=2e-3)

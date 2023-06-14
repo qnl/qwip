@@ -866,7 +866,7 @@ class InteractiveSequencePlotter:
                         x=ts_pulse,
                         y=cseq.waveforms["seq"].array[ch, i, :, 0],
                         visible=False,
-                        name=f"CH {ch}"
+                        name=f"CH {ch}",
                     )
                 )
                 num_traces += 1
