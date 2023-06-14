@@ -133,7 +133,6 @@ class ReadoutResonator(QuantumSystem):
         self,
         drive_envelope: Callable[[float], complex],
         drive_frequency: float | None = None,
-        qubit_state: int = 0,
     ) -> Callable[[float, complex], complex]:
         """Returns the semi-classical cavity field equation for a given qubit state.
 
@@ -142,25 +141,20 @@ class ReadoutResonator(QuantumSystem):
                 amplitude of the driving field envelope at that point in time.
             drive_frequency: The modulation frequency of the resonator driving field.
                 If `None`, it is assumed to be equal to the resonator frequency.
-            qubit_state: The corresponding qubit state. This determines the sign of the
-                dispersive shift in the cavity field equation.
 
         Returns:
-            A function that takes in a time value and the complex cavity field amplitude
+            A function that takes in time value(s) and the complex cavity field amplitude
             at that point in time and returns the evaluated derivative of the cavity
-            field alpha.
+            field alpha for all states, dependent on the number chi values provided.
         """
-        if qubit_state >= len(self.chi):
-            return None
 
         drive_frequency = drive_frequency or self.frequency
         detuning = self.frequency - drive_frequency
 
-        chi = self.chi[qubit_state]
-
         def alpha_derivative(t, alpha_t):
             return -self.kappa * alpha_t / 2 - 1j * (
-                drive_envelope(t) + (detuning + chi) * alpha_t
+                drive_envelope(t)
+                + (detuning + np.array(self.chi)[:, np.newaxis]) * alpha_t
             )
 
         return alpha_derivative
@@ -170,10 +164,9 @@ class ReadoutResonator(QuantumSystem):
         ts: np.ndarray,
         drive_envelope: Callable[[float], complex],
         drive_frequency: float | None = None,
-        qubit_state: int = 0,
-        alpha_0: complex = 0j,
+        alpha_0: np.ndarray[complex] | None = None,
     ) -> np.ndarray:
-        """Solves the semi-classical cavity field equation for a given qubit state.
+        """Solves the semi-classical cavity field equation for all states of a qubit.
 
         Args:
             ts: A list of time points at which to evaluate the field amplitude.
@@ -181,27 +174,35 @@ class ReadoutResonator(QuantumSystem):
                 amplitude of the driving field envelope at that point in time.
             drive_frequency: The modulation frequency of the resonator driving field.
                 If `None`, it is assumed to be equal to the resonator frequency.
-            qubit_state: The corresponding qubit state. This determines the sign of the
-                dispersive shift in the cavity field equation.
-            alpha_0: The initial cavity field amplitude in an array.
+            alpha_0: The initial cavity field amplitudes for all states in an array.
+                Assumed to be the same length as tuple of chi values.
 
         Returns:
-            The cavity field amplitude at each of the given time points.
+            The cavity field amplitude at each of the given time points for each state.
+            Has a shape of (S, N) where S = number of states, N = len(ts)
         """
         if len(ts) == 0:
             raise ValueError("No time points given.")
 
+        # Default start value is 0.0 for all levels
+        if not alpha_0:
+            alpha_0 = np.zeros_like(self.chi).astype(complex)
+
+        if len(alpha_0) != len(self.chi):
+            raise ValueError(
+                "Number of starting values does not match number of \
+                             states to be simulated."
+            )
+
         time_interval = [ts[0], ts[-1]]
         field_equation = self.get_cavity_field_equation(
-            drive_envelope, drive_frequency, qubit_state
+            drive_envelope,
+            drive_frequency,
         )
 
-        # When qubit state does not have a matching chi value, we return np.nan
-        if not field_equation:
-            return np.full(ts.shape, np.nan)
-
-        alpha_0 = np.array([alpha_0]).astype(complex)
-        alphas = solve_ivp(field_equation, time_interval, alpha_0, t_eval=ts).y
+        alphas = solve_ivp(
+            field_equation, time_interval, alpha_0, t_eval=ts, vectorized=True
+        ).y
         return alphas
 
 
