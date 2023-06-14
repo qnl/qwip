@@ -11,7 +11,11 @@ from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.backends.backend import QuantumBackend
+from qwip.backends.backend import random_data_sampler
 from qwip.sequencer.compilation import CompiledSequence
+
+from qwip.qpu.systems import ReadoutResonator
+from collections.abc import Callable
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
@@ -235,6 +239,24 @@ class TimeDependentHamiltonian:
         return cls(H=H_list, ts=H1.ts)
 
 
+def random_state_sampler(
+    populations: np.ndarray,
+    rng: Generator = default_rng(),
+) -> Callable[..., np.ndarray]:
+    
+    def generate(
+        readout_key: str,
+        element_index: int,
+        readout_index: int,
+        repetitions: int,
+        num_states: int
+    ) -> np.ndarray:
+        p = p[:-1] + [1-np.sum(p[:-1])]
+        return rng.choice(num_states, size=repetitions, p=p)
+
+    return generate
+
+
 @qdefine
 class QutipBackend(QuantumBackend):
     """A simulator backend used to simulate pulse sequences.
@@ -258,6 +280,8 @@ class QutipBackend(QuantumBackend):
     channel_map: list[OperatorChannelMap] = field(factory=list)
     H: list[TimeDependentHamiltonian] = field(factory=list)
     rng: Generator = field(factory=default_rng)
+
+    # data_func: Callable[..., np.ndarray] = field(factory=random_state_sampler)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU -- creating mappings from channels to
@@ -391,7 +415,8 @@ class QutipBackend(QuantumBackend):
         self,
         exe: CompiledSequence,
         repetitions: int = 512,
-        elements: list[int] = [-1],  # how to set default value?
+        num_readouts: int = 1,
+        elements: list[int] = [-1], 
         **kwargs,
     ) -> list:
         """Simulate the Hamiltonians using mesolve.
@@ -408,12 +433,56 @@ class QutipBackend(QuantumBackend):
             raise ValueError("No sequence has been uploaded")
 
         cseq = exe
-
         results = []
-
         to_simulate = np.arange(cseq.shape[1])[elements]
 
         for el in to_simulate:
             results.append(self.H[el].simulate())
 
+
+        ## Dispersive readout for single element, single qubit
+
+        # Get expectation values
+        # Generate states
+        # Store solved cavity field equation -- change chi format
+        # IQ processing (Add noise)
+        # Classify blobs
+
+        # Default num of diff states: 4^n, Need to process to extract individual qubits
+        expectation_vals = results[0].expect[:, -1]  
+        num_states_to_sim = len(expectation_vals)              
+
+        chi_values = (2*np.pi*1e6, 2*np.pi*1e6, 2*np.pi*1e6, 2*np.pi*1e6)
+        ro = ReadoutResonator(
+            frequency=7e9*2*np.pi, 
+            kappa=0.5e6*2*np.pi, 
+            chi=chi_values, 
+            eta=1.0,
+            name="R0"
+            )
+        
+        # Implement later, extract from specific element compiled sequence
+        drive_envelope, ts = lambda t: 1e7, np.arange(0, 1e-5, 1e-5/1000)  
+        
+        field_solutions = []
+        for level in range(num_states_to_sim):
+            field_solutions.append(ro.solve_cavity_field_equation(
+                ts, 
+                drive_envelope,
+                qubit_state = level
+            ))
+
+        data = np.zeros((num_states_to_sim, repetitions))
+        self.data_func = random_state_sampler(expectation_vals)
+        states_sample = self.data_func(key, el, ro, repetitions, num_states_to_sim)
+
+        for s in states_sample:
+            # single shot iq value
+            iq = get_iq(field_solutions[s], V_IF, omega_IF)
+            # store iq along with specific state
+
+
         return results
+    
+
+

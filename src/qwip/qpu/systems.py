@@ -6,6 +6,8 @@ from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.phase_tracker import ModulationFrequency
 
+from scipy.integrate import solve_ivp
+
 REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
 
 
@@ -88,7 +90,7 @@ class Transmon(QuantumSystem):
 class ReadoutResonator(QuantumSystem):
     frequency: float
     kappa: float | None = None
-    chi: float | None = None
+    chi: tuple[float, ...] | None = None
     eta: float | None = None
     local_oscillator: str | None = None
     modulation_name: str = "{name}.mod"
@@ -148,7 +150,16 @@ class ReadoutResonator(QuantumSystem):
             at that point in time and returns the evaluated derivative of the cavity
             field alpha.
         """
+        if qubit_state >= len(self.chi):
+            return None
+
         drive_frequency = drive_frequency or self.frequency
+        detuning = self.frequency - drive_frequency
+
+        chi = self.chi[qubit_state]
+        diff_field_equation = lambda t, field: -self.kappa*field/2 - \
+                                    (drive_envelope(t) + (detuning + chi)*field)*1j
+        return diff_field_equation
 
     def solve_cavity_field_equation(
         self,
@@ -156,23 +167,35 @@ class ReadoutResonator(QuantumSystem):
         drive_envelope: Callable[[float], complex],
         drive_frequency: float | None = None,
         qubit_state: int = 0,
-        alpha_0: complex = 0j,
+        alpha_0: np.ndarray[complex] = [0+0j],
     ) -> np.ndarray:
         """Solves the semi-classical cavity field equation for a given qubit state.
         
         Args:
+            ts: A list of time points at which to evaluate the field amplitude. 
             drive_envelope: A function that takes in single time value and returns the 
                 amplitude of the driving field envelope at that point in time.
             drive_frequency: The modulation frequency of the resonator driving field.
                 If `None`, it is assumed to be equal to the resonator frequency.
             qubit_state: The corresponding qubit state. This determines the sign of the
                 dispersive shift in the cavity field equation.
-            alpha_0: The initial cavity field amplitude.
+            alpha_0: The initial cavity field amplitude in an array.
 
         Returns:
             The cavity field amplitude at each of the given time points.
         """
-        ...
+        if ts.size == 0:
+            raise ValueError("No time points given.")
+        
+        time_interval = [ts[0], ts[-1]]
+        field_equation = self.get_cavity_field_equation(drive_envelope, drive_frequency, qubit_state)
+
+        # When qubit state > # of provided chi values, the field_equation is None
+        if not field_equation:
+            return np.full(ts.shape, np.nan)   # return NaN values
+        
+        field_solution = solve_ivp(field_equation, time_interval, alpha_0, t_eval=ts).y
+        return field_solution
 
 
 def make_quantum_system_unstructure_fn(cls):
