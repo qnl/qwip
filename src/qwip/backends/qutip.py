@@ -235,7 +235,10 @@ class TimeDependentHamiltonian:
             H2_expanded = qt.tensor(eye_H1, H)
             H_list.append((H2_expanded, coeffs))
 
-        return cls(H=H_list, ts=H1.ts)
+        print(H1.targets, H2.targets, H1.targets + H2.targets)
+        new_targets = H1.targets + H2.targets
+
+        return cls(H=H_list, ts=H1.ts, targets=new_targets)
 
 
 def random_state_sampler(
@@ -385,6 +388,7 @@ class QutipBackend(QuantumBackend):
                                 (ch_info.operator, Omega * np.real(drive)),
                             ],
                             ts=ts,
+                            targets=(ch_info.target,)
                         )
 
                         drive_hamiltonians[ch_info.target] = H_t
@@ -409,7 +413,7 @@ class QutipBackend(QuantumBackend):
             else:
                 self.H.append(TimeDependentHamiltonian())
 
-        if len(self.H) == 0:
+        if self.H == [TimeDependentHamiltonian()]*N_elements:
             raise ValueError(
                 "No active channels to simulate. Check that sequence is non-empty."
             )
@@ -437,19 +441,36 @@ class QutipBackend(QuantumBackend):
             raise ValueError("No sequence has been uploaded")
 
         cseq = exe
-        results = []
+        results = dict()
         to_simulate = np.arange(cseq.shape[1])[elements]
 
-        # pick out relevant resonators and get trajectories for each state
-        # hard code a drive envelope and times for now.
+        # Hard code a drive envelope and times for now.
+        drive_envelope = lambda t: 1e7
+        ts = np.linspace(0, 1e-5, 1000)
+
+        # Dictionary mapping from qubit to results
+        for el in to_simulate:
+            for qubit in self.H[el].targets:
+                if qubit not in results:
+                    results[qubit] = np.zeros((len(elements), num_readouts, len(ts)))
  
         for el in to_simulate:
-            qt_result = self.H[el].simulate()
+            H_obj = self.H[el]
+            qt_result = H_obj.simulate()
+
+            ## Loop through targets -- get from TimeDependentHamiltonian
+            # get expectation value for a single qubit at last time step
             # get labels in a list with same ordering as qt_result.expect
+            
+            # {"Q0": [p1, p2, p3, p4], "Q1": [p1, p2, p3, p4]}
+            qt_states = get_qubit_states(qt_result, H_obj)     # Implement
+
             for shot in range(repetitions):
                 ...
                 # use rng.choice with non-uniform distribution matching last time step
-                # pull out trajectories matching this multi-qubit state
+                # pull out trajectories matching this multi-qubit state 
+                    # Pull ReadoutResonator corresponding to the correct qubit
+                    # Call ReadoutResonator.solve_cavity_field_equation(ts, drive_envelope, drive_frequency, alpha_0)
                 # add noise corresponding to eta
 
         ## return an array indexed by (num_elements, num_shots, num_timesteps)

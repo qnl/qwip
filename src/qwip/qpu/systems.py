@@ -184,7 +184,7 @@ class ReadoutResonator(QuantumSystem):
         if len(ts) == 0:
             raise ValueError("No time points given.")
 
-        # Default start value is 0.0 for all levels
+        # Default start value is 0.0 for all possible levels
         if not alpha_0:
             alpha_0 = np.zeros_like(self.chi).astype(complex)
 
