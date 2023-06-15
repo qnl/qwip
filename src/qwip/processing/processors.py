@@ -16,8 +16,24 @@ from qwip.processing.data_processor import (  # register_data_processor
 
 
 @qdefine
+class IQTraceResult(MeasurementResult):
+    """Raw IQ data vs time."""
+    ...
+
+@qdefine
 class IQResult(MeasurementResult):
     ...
+
+
+@qdefine
+class HeterodyneDemodulation(DataProcessor):
+    """A data processor to demodulate raw IQ traces vs. time."""
+
+    frequencies: dict[str, float] = field(factory=list)
+
+    def run(self, meas: IQTraceResult, **kwargs) -> dict[str, IQResult]:
+        """Demodulates the raw IQ traces at the specified frequencies."""
+        ...
 
 
 @DATA_PROCESSORS.register
