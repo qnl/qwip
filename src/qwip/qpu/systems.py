@@ -1,3 +1,8 @@
+from collections.abc import Callable
+
+import numpy as np
+from scipy.integrate import solve_ivp
+
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
@@ -85,7 +90,8 @@ class Transmon(QuantumSystem):
 class ReadoutResonator(QuantumSystem):
     frequency: float
     kappa: float | None = None
-    chi: float | None = None
+    chi: tuple[float, ...] | None = None
+    eta: float | None = None
     local_oscillator: str | None = None
     modulation_name: str = "{name}.mod"
 
@@ -122,6 +128,82 @@ class ReadoutResonator(QuantumSystem):
         """Returns the modulation frequency for a specific modulation_key"""
         name = self.modulation_name.format(name=self.name, mod_key=mod_key)
         return self.get_modulations(LO_map)[name]
+
+    def get_cavity_field_equation(
+        self,
+        drive_envelope: Callable[[float], complex],
+        drive_frequency: float | None = None,
+    ) -> Callable[[float, complex], complex]:
+        """Returns the semi-classical cavity field equation for a given resonator.
+
+        Args:
+            drive_envelope: A function that takes in single time value and returns the
+                amplitude of the driving field envelope at that point in time.
+            drive_frequency: The modulation frequency of the resonator driving field.
+                If `None`, it is assumed to be equal to the resonator frequency.
+
+        Returns:
+            A function that takes in time value(s) and the complex cavity field amplitude
+            at that point in time and returns the evaluated derivative of the cavity
+            field alpha for all states, dependent on the number chi values provided.
+        """
+
+        drive_frequency = drive_frequency or self.frequency
+        detuning = self.frequency - drive_frequency
+
+        def alpha_derivative(t, alpha_t):
+            return -2 * np.pi * self.kappa * alpha_t / 2 - 1j * (
+                2*np.pi*drive_envelope(t)
+                + 2 * np.pi * (detuning + np.array(self.chi).reshape(-1, 1)) * alpha_t
+            )
+
+        return alpha_derivative
+
+    def solve_cavity_field_equation(
+        self,
+        ts: np.ndarray,
+        drive_envelope: Callable[[float], complex],
+        drive_frequency: float | None = None,
+        alpha_0: np.ndarray[complex] | None = None,
+    ) -> np.ndarray:
+        """Solves the semi-classical cavity field equation for all states of a qubit.
+
+        Args:
+            ts: A list of time points at which to evaluate the field amplitude.
+            drive_envelope: A function that takes in single time value and returns the
+                amplitude of the driving field envelope at that point in time.
+            drive_frequency: The modulation frequency of the resonator driving field.
+                If `None`, it is assumed to be equal to the resonator frequency.
+            alpha_0: The initial cavity field amplitudes for all states in an array.
+                Must be the same length as tuple of chi values.
+
+        Returns:
+            The cavity field amplitude at each of the given time points for each state.
+            Has a shape of (S, N) where S = number of states, N = len(ts)
+        """
+        if len(ts) == 0:
+            raise ValueError("No time points given.")
+
+        # Default start value is 0.0 for all possible levels
+        if not alpha_0:
+            alpha_0 = np.zeros_like(self.chi).astype(complex)
+
+        if len(alpha_0) != len(self.chi):
+            raise ValueError(
+                "Number of initial values does not match number of states to be "
+                "simulated."
+            )
+
+        time_interval = [ts[0], ts[-1]]
+        field_equation = self.get_cavity_field_equation(
+            drive_envelope,
+            drive_frequency,
+        )
+
+        alphas = solve_ivp(
+            field_equation, time_interval, alpha_0, t_eval=ts, vectorized=True
+        ).y
+        return alphas
 
 
 def make_quantum_system_unstructure_fn(cls):
