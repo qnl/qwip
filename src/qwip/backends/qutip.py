@@ -495,7 +495,7 @@ class QutipBackend(QuantumBackend):
 
 
 def gaussian_noise(eta, num_samples):
-    noise_scaling = np.sqrt(1 / (2**0.5) / eta)
+    noise_scaling = 1 / (2**0.5) / eta
     return noise_scaling * (
         np.random.normal(size=(num_samples, 2)).view(np.complex128).squeeze()
     )
