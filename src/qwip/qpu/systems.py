@@ -153,7 +153,7 @@ class ReadoutResonator(QuantumSystem):
 
         def alpha_derivative(t, alpha_t):
             return -2 * np.pi * self.kappa * alpha_t / 2 - 1j * (
-                drive_envelope(t)
+                2*np.pi*drive_envelope(t)
                 + 2 * np.pi * (detuning + np.array(self.chi).reshape(-1, 1)) * alpha_t
             )
 
