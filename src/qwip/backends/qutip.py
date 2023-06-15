@@ -130,6 +130,8 @@ class TimeDependentHamiltonian:
             directly to `qutip.mesolve`.
         ts: An array of times. Should match the shapes of all time-dependendent
             coefficients in `H`.
+        targets: A tuple of strings corresponding to which qubits the Hamiltonian acts
+            upon based on ordering.
     """
 
     H: list[tuple[Qobj, np.ndarray]] = field(
@@ -235,7 +237,6 @@ class TimeDependentHamiltonian:
             H2_expanded = qt.tensor(eye_H1, H)
             H_list.append((H2_expanded, coeffs))
 
-        print(H1.targets, H2.targets, H1.targets + H2.targets)
         new_targets = H1.targets + H2.targets
 
         return cls(H=H_list, ts=H1.ts, targets=new_targets)
@@ -273,6 +274,10 @@ class QutipBackend(QuantumBackend):
             static hamiltonian.
         channel_map: A list of mappings from an IQ channel to its parameters.
         H: A list of TimeDependentHamiltonian's for each element with active channels.
+        rng: A `numpy.random.Generator` for sampling iq data from the expected gaussian
+            distributions.
+        readouts: A mapping from readout resonator to its correspondign ReadoutResonator
+            object which stores its parameters and can solve for its field equation.
     """
 
     uploaded: CompiledSequence | None = None
@@ -282,8 +287,6 @@ class QutipBackend(QuantumBackend):
     H: list[TimeDependentHamiltonian] = field(factory=list)
     rng: Generator = field(factory=default_rng)
     readouts: dict[str, ReadoutResonator] = field(factory=dict)
-
-    # data_func: Callable[..., np.ndarray] = field(factory=random_state_sampler)
 
     def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU -- creating mappings from channels to
@@ -332,7 +335,7 @@ class QutipBackend(QuantumBackend):
 
             elif t == "Q" and qubit + "_I" not in channels:
                 raise ValueError(f"I component of channel {qubit} missing")
-            
+
         self.readouts = {}
         for name, sys in qpu.subsystems.items():
             match sys:
@@ -388,7 +391,7 @@ class QutipBackend(QuantumBackend):
                                 (ch_info.operator, Omega * np.real(drive)),
                             ],
                             ts=ts,
-                            targets=(ch_info.target,)
+                            targets=(ch_info.target,),
                         )
 
                         drive_hamiltonians[ch_info.target] = H_t
@@ -413,111 +416,86 @@ class QutipBackend(QuantumBackend):
             else:
                 self.H.append(TimeDependentHamiltonian())
 
-        if self.H == [TimeDependentHamiltonian()]*N_elements:
+        if self.H == [TimeDependentHamiltonian()] * N_elements:
             raise ValueError(
                 "No active channels to simulate. Check that sequence is non-empty."
             )
-
 
     def acquire(
         self,
         exe: CompiledSequence,
         repetitions: int = 512,
-        num_readouts: int = 1,
         elements: list[int] = [-1],
+        drive: float = 1e7,
         **kwargs,
     ) -> list:
         """Simulate the Hamiltonians using mesolve.
 
         Args:
+            repetitions: Number of shots
             elements: A list of indices indicating which elements to simulate.
+            drive: Readout driving amplitude.
 
         Returns:
-            results: A list of mesolve outputs, which are expectation values of the
-                basis vectors (made from get_basis() of TimeIndependentHamiltonian).
-
+            results: A dictionary mapping all qubits to their corresponding IQ outputs
+                in the form of a 3D array with shape (elements x shots x time steps).
+                For not targeted qubits, they default to the ground trajectory. And for
+                states with no corresponding chi value, they default to zero values.
         """
-        if not self.H:
-            raise ValueError("No sequence has been uploaded")
-
         cseq = exe
-        results = dict()
         to_simulate = np.arange(cseq.shape[1])[elements]
 
-        # Hard code a drive envelope and times for now.
-        drive_envelope = lambda t: 1e7
+        # Hard code drive envelope and times for now.
+        def drive_envelope(t):
+            return 2 * np.pi * drive
+
         ts = np.linspace(0, 1e-5, 1000)
 
-        # Dictionary mapping from qubit to results
-        for el in to_simulate:
-            for qubit in self.H[el].targets:
-                if qubit not in results:
-                    results[qubit] = np.zeros((len(elements), num_readouts, len(ts)))
- 
-        for el in to_simulate:
+        # Dictionary mapping from qubit to results, cavity fields
+        all_targets = list(self.static_hamiltonian.keys())
+        results = {
+            target: np.zeros((len(elements), repetitions, len(ts))).astype(complex)
+            for target in all_targets
+        }
+        readout_fields = {
+            target: R.solve_cavity_field_equation(ts, drive_envelope)
+            for target, R in self.readouts.items()
+        }
+
+        for i, el in enumerate(to_simulate):
             H_obj = self.H[el]
+            H_basis = H_obj.get_basis()
+
+            # Expectation values for all possible states at last time step
             qt_result = H_obj.simulate()
+            qt_expect = [r[-1] for r in qt_result.expect]
 
-            ## Loop through targets -- get from TimeDependentHamiltonian
-            # get expectation value for a single qubit at last time step
-            # get labels in a list with same ordering as qt_result.expect
-            
-            # {"Q0": [p1, p2, p3, p4], "Q1": [p1, p2, p3, p4]}
-            qt_states = get_qubit_states(qt_result, H_obj)     # Implement
-
-            for shot in range(repetitions):
-                ...
-                # use rng.choice with non-uniform distribution matching last time step
-                # pull out trajectories matching this multi-qubit state 
-                    # Pull ReadoutResonator corresponding to the correct qubit
-                    # Call ReadoutResonator.solve_cavity_field_equation(ts, drive_envelope, drive_frequency, alpha_0)
-                # add noise corresponding to eta
-
-        ## return an array indexed by (num_elements, num_shots, num_timesteps)
-
-
-        ## Dispersive readout for single element, single qubit
-
-        # Get expectation values
-        # Generate states
-        # Store solved cavity field equation -- change chi format
-        # IQ processing (Add noise)
-        # Classify blobs
-
-        # Default num of diff states: 4^n, Need to process to extract individual qubits
-        expectation_vals = results[0].expect[:, -1]
-        num_states_to_sim = len(expectation_vals)
-
-        chi_values = (
-            2 * np.pi * 1e6,
-            2 * np.pi * 1e6,
-            2 * np.pi * 1e6,
-            2 * np.pi * 1e6,
-        )
-        ro = ReadoutResonator(
-            frequency=7e9 * 2 * np.pi,
-            kappa=0.5e6 * 2 * np.pi,
-            chi=chi_values,
-            eta=1.0,
-            name="R0",
-        )
-
-        # Implement later, extract from specific element compiled sequence
-        drive_envelope, ts = lambda t: 1e7, np.arange(0, 1e-5, 1e-5 / 1000)
-
-        field_solutions = []
-        for level in range(num_states_to_sim):
-            field_solutions.append(
-                ro.solve_cavity_field_equation(ts, drive_envelope, qubit_state=level)
+            # List of N tuples with length number of targets, states chosen
+            # using rng.choice with non-uniform distribution matching last time step
+            shots_sample = default_rng().choice(
+                np.array(list(H_basis.keys())), repetitions, p=qt_expect
             )
 
-        data = np.zeros((num_states_to_sim, repetitions))
-        self.data_func = random_state_sampler(expectation_vals)
-        states_sample = self.data_func(key, el, ro, repetitions, num_states_to_sim)
+            for shot, state in enumerate(shots_sample):
+                H_targets = [H_obj.targets[q].split("Q")[1] for q in range(len(state))]
 
-        for s in states_sample:
-            # single shot iq value
-            iq = get_iq(field_solutions[s], V_IF, omega_IF)
-            # store iq along with specific state
+                for q in range(len(all_targets)):
+                    if str(q) in H_targets:
+                        level = state[q]
+                    else:
+                        level = 0  # untargeted qubits are by default at ground state
+
+                    # pull out trajectories matching this multi-qubit state
+                    if level < len(readout_fields[f"R{q}"]):
+                        noise = gaussian_noise(self.readouts[f"R{q}"].eta, len(ts))
+                        trajectory = (readout_fields[f"R{q}"][level]) + noise
+                        results[f"Q{q}"][i, shot, :] = trajectory
 
         return results
+
+
+def gaussian_noise(eta, num_samples):
+    noise_scaling = np.sqrt(1 / (2**0.5) / eta)
+    return noise_scaling * (
+        np.random.normal(size=(num_samples, 2)).view(np.complex128).squeeze()
+    )

@@ -170,11 +170,13 @@ class TestTimeDependentHamiltonian:
         H0 = TimeDependentHamiltonian(
             H=[(qt.sigmaz(), np.ones_like(ts)), (qt.sigmax(), np.cos(2 * np.pi * ts))],
             ts=ts,
-            targets=("Q0",)
+            targets=("Q0",),
         )
 
         H1 = TimeDependentHamiltonian(
-            H=[(qt.create(3) * qt.destroy(3), 2 * np.ones_like(ts))], ts=ts, targets=("Q1",)
+            H=[(qt.create(3) * qt.destroy(3), 2 * np.ones_like(ts))],
+            ts=ts,
+            targets=("Q1",),
         )
 
         expect = TimeDependentHamiltonian(
@@ -187,7 +189,7 @@ class TestTimeDependentHamiltonian:
                 ),
             ],
             ts=ts,
-            targets=("Q0", "Q1")
+            targets=("Q0", "Q1"),
         )
 
         assert TimeDependentHamiltonian.tensor(H0, H1) == expect
@@ -213,6 +215,21 @@ class TestQutipBackend:
     def sim_backend(self):
         backend = QutipBackend()
         return backend
+
+    @pytest.fixture
+    def readout_fields(self, sim_backend, qpu_01):
+        sim_backend.update_parameters(qpu_01)
+
+        def drive_envelope(t):
+            return 1e7
+
+        ts = np.linspace(0, 1e-5, 1000)
+
+        readout_fields = {
+            target: R.solve_cavity_field_equation(ts, drive_envelope)
+            for target, R in sim_backend.readouts.items()
+        }
+        return readout_fields
 
     ## Pulse sequence fixtures
 
@@ -310,8 +327,6 @@ class TestQutipBackend:
                 f"Q{i}" for i in range(8)
             ]
 
-        # TODO: test error thrown correctly
-
     @pytest.mark.parametrize(
         "data,expect",
         [
@@ -367,61 +382,39 @@ class TestQutipBackend:
         assert len(sim_backend.H[1].H) == 6
         assert sim_backend.H[1].targets == ("Q0", "Q1", "Q2")
 
-    @pytest.mark.skip
-    def test_acquire_Q0X90_seq(self, qpu_01, sim_backend, compile_Q0X90, data_file):
-        expected = np.loadtxt(str(data_file), delimiter=",")
+    def test_upload_readouts(self, qpu_01, sim_backend):
+        sim_backend.update_parameters(qpu_01)
 
+        assert len(sim_backend.readouts) == 8
+        assert sim_backend.readouts["R0"].chi == (-1e6, 1e6)
+
+    def test_acquire_Q0X90_seq(
+        self, qpu_01, sim_backend, compile_Q0X90, readout_fields
+    ):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90)
-        results = sim_backend.acquire(compile_Q0X90)[0]
+        results = sim_backend.acquire(compile_Q0X90, elements=[-2, -1])
 
-        assert_allclose(expected, results.expect)
+        assert list(results.keys()) == [f"Q{i}" for i in range(8)]
+        for fields in results.values():
+            assert fields.shape == (2, 512, 1000)
 
-        with pytest.raises(ValueError):
-            sim_backend.acquire(compile_Q0X90, elements=[0])
+        results_2 = sim_backend.acquire(compile_Q0X90, elements=[5, -2, -1])
+        for fields in results_2.values():
+            assert fields.shape == (3, 512, 1000)
 
-        assert len(sim_backend.acquire(compile_Q0X90, elements=[-2, -1])) == 2
-
+    ## Plots field amplitudes with strong drive to observe "Q0" bias
+    # towards excited state on the left
     @pytest.mark.skip
-    def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180, data_file):
-        expected = np.loadtxt(str(data_file), delimiter=",")
-
+    def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0_X180)
-        results = sim_backend.acquire(compile_Q0_X180)[0]
+        results = sim_backend.acquire(compile_Q0_X180, drive=20e6)
 
-        assert_allclose(expected, results.expect)
-
-    @pytest.mark.skip
-    def test_acquire_Q0X90_Q1X90_seq(
-        self, qpu_01, sim_backend, compile_Q0X90_Q1X90, data_file
-    ):
-        expected = np.loadtxt(str(data_file), delimiter=",")
-
-        sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(compile_Q0X90_Q1X90)
-        results = sim_backend.acquire(compile_Q0X90_Q1X90)[0]
-
-        H_t = sim_backend.H[-1]
-        psis = H_t.get_basis()
-
-        assert_allclose(expected, results.expect)
-
-        # plot_multi_qubit_states(results, H_t.ts, list(psis.keys()))
-
-    @pytest.mark.skip
-    def test_acquire_Q0X90_Q1X90_Q2X90_seq(
-        self, qpu_01, sim_backend, compile_Q0X90_Q1X90_Q2X90, data_file
-    ):
-        expected = np.loadtxt(str(data_file), delimiter=",")
-
-        sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(compile_Q0X90_Q1X90_Q2X90)
-        results = sim_backend.acquire(compile_Q0X90_Q1X90_Q2X90)[0]
-
-        H_t = sim_backend.H[-1]
-        psis = H_t.get_basis()
-
-        assert_allclose(expected, results.expect)
-
-        # plot_multi_qubit_states(results, H_t.ts, list(psis.keys()))
+        # All qubits except "Q0" should be in ground state
+        for target, fields in results.items():
+            t = target.split("Q")[1]
+            if t == "0":
+                fig, ax = plt.subplots()
+                ax.plot(fields[0][0].real, fields[0][0].imag)
+                plt.show()

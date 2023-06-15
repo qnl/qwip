@@ -152,9 +152,9 @@ class ReadoutResonator(QuantumSystem):
         detuning = self.frequency - drive_frequency
 
         def alpha_derivative(t, alpha_t):
-            return -self.kappa * alpha_t / 2 - 1j * (
+            return -2 * np.pi * self.kappa * alpha_t / 2 - 1j * (
                 drive_envelope(t)
-                + (detuning + np.array(self.chi).reshape(-1, 1)) * alpha_t
+                + 2 * np.pi * (detuning + np.array(self.chi).reshape(-1, 1)) * alpha_t
             )
 
         return alpha_derivative
