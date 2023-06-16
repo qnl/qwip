@@ -227,6 +227,18 @@ class TestSequenceIndexing:
                 dict(a=np.arange(10), b=np.arange(11), c=np.arange(12)),
             ),
             ((3, 4, 5), ("a", "b", "c"), np.s_[:, 2, ..., 3], dict(a=np.arange(3))),
+            (
+                (4, 8, 2),
+                ("a", "b", "c"),
+                np.s_[0, :, :],
+                dict(b=np.arange(8), c=np.arange(2)),
+            ),
+            (
+                (4, 4),
+                ("a", "b"),
+                np.s_[np.newaxis, :, ::2],
+                dict(a=np.arange(4), b=np.arange(4)[::2]),
+            ),
         ],
     )
     def test_basic_indexing_with_names_and_labels(self, shape, names, index, expected):
@@ -249,7 +261,10 @@ class TestSequenceShaping:
         s = Sequence.empty((4, 5, 3), names=("a", "b", "c"), a=np.arange(4))
 
         r = s.reshape(4, -1)
-        # print(r.shape, r.names, r.labels, r.base is s)
+        print(r.shape, r.names, r.labels, r.base is s)
+
+        r1 = s[np.newaxis, ...]
+        print(r1.shape, r1.names, r1.labels, r1.base is s)
 
     @pytest.mark.parametrize(
         "seq,axes,shape,names",
@@ -290,7 +305,8 @@ class TestSequenceShaping:
         s = Sequence.empty((2, 4), names=("x", "a"), a=np.arange(4), x=np.arange(2))
         r = Sequence.empty((4, 1, 1), names=("b", "x", ...), x=np.arange(1))
 
-        broadcast_names_and_labels(s, r)
+        n, l = broadcast_names_and_labels(s, r)
+        print(n, l)
 
 
 class TestSequenceJoins:
