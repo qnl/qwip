@@ -426,12 +426,13 @@ class QutipBackend(QuantumBackend):
         exe: CompiledSequence,
         repetitions: int = 512,
         elements: list[int] = [-1],
-        drive: float = 1e7,
+        drive: float = 1e6,
         **kwargs,
     ) -> list:
         """Simulate the Hamiltonians using mesolve.
 
         Args:
+            exe: Compiled sequence.
             repetitions: Number of shots
             elements: A list of indices indicating which elements to simulate.
             drive: Readout driving amplitude.

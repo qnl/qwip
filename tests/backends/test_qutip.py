@@ -393,14 +393,18 @@ class TestQutipBackend:
     ):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90)
-        results = sim_backend.acquire(compile_Q0X90, elements=[-2, -1])
 
-        assert list(results.keys()) == [f"Q{i}" for i in range(8)]
-        for fields in results.values():
+        results1 = sim_backend.acquire(compile_Q0X90)
+        assert list(results1.keys()) == [f"Q{i}" for i in range(8)]
+        for fields in results1.values():
+            assert fields.shape == (1, 512, 1000)
+
+        results2 = sim_backend.acquire(compile_Q0X90, elements=[-2, -1])
+        for fields in results2.values():
             assert fields.shape == (2, 512, 1000)
 
-        results_2 = sim_backend.acquire(compile_Q0X90, elements=[5, -2, -1])
-        for fields in results_2.values():
+        results_3 = sim_backend.acquire(compile_Q0X90, elements=[5, -2, -1])
+        for fields in results_3.values():
             assert fields.shape == (3, 512, 1000)
 
     ## Plots field amplitudes with strong drive to observe "Q0" bias
@@ -409,7 +413,7 @@ class TestQutipBackend:
     def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0_X180)
-        results = sim_backend.acquire(compile_Q0_X180, drive=20e6)
+        results = sim_backend.acquire(compile_Q0_X180)
 
         # All qubits except "Q0" should be in ground state
         for target, fields in results.items():
