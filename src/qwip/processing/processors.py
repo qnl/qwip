@@ -20,45 +20,59 @@ from qwip.processing.data_processor import (  # register_data_processor
 class IQTraceResult(MeasurementResult):
     """Stores raw IQ data vs time in a multi indexed DataFrame for a single target."""
 
-    def create_df(self, IQ_raw: np.ndarray, ts: np.ndarray):
-        """Creates data frame from trajectory data obtained from QutipBackend.
-
-        Args:
-            IQ_raw: Field amplitudes of a single target in the form of
-            (elements x shots x len(time points)) acquired from QutipBackend.
-            ts: Time points.
-
-        Returns:
-            Multi indexed data frame with indices (element, readout, shot, time point)
-            corresponding to the cavity field amplitude.
-        """
+    def create_df(self, IQ_raw: np.ndarray):
         elements, shots, N = IQ_raw.shape
-        N_ts = len(ts)
+        
+        e_idx = np.concatenate([i * np.ones(shots).astype(int) for i in range(elements)])
+        ro_idx = np.zeros(elements * shots).astype(int)
+        shot_idx = np.tile(np.arange(shots), elements)
 
-        if N != N_ts:
-            raise ValueError(
-                f"Length of trajectory not equal to length of time scale {N} != {N_ts}"
-            )
+        data = IQ_raw.reshape((elements*shots, N))
+        idx = [e_idx, ro_idx, shot_idx]
 
-        e_idx = np.concatenate(
-            [i * np.ones(shots * N).astype(int) for i in range(elements)]
-        )
-        shot_idx = np.tile(
-            np.concatenate([i * np.ones(N).astype(int) for i in range(shots)]), elements
-        )
-        t_idx = np.tile(ts, elements * shots)
-        ro_idx = np.zeros(elements * shots * N).astype(int)
-
-        df = pd.DataFrame(
-            IQ_raw.flatten(),
-            columns=["field"],
-            index=pd.MultiIndex.from_arrays(
-                [e_idx, ro_idx, shot_idx, t_idx],
-                names=["element", "readout", "shot", "time"],
-            ),
-        )
+        df = pd.DataFrame(data, index = pd.MultiIndex.from_arrays(idx, names=["element", "readout", "shot"]), dtype=complex)
 
         self.data = df
+
+    # def create_df(self, IQ_raw: np.ndarray, ts: np.ndarray):
+    #     """Creates data frame from trajectory data obtained from QutipBackend.
+
+    #     Args:
+    #         IQ_raw: Field amplitudes of a single target in the form of
+    #         (elements x shots x len(time points)) acquired from QutipBackend.
+    #         ts: Time points.
+
+    #     Returns:
+    #         Multi indexed data frame with indices (element, readout, shot, time point)
+    #         corresponding to the cavity field amplitude.
+    #     """
+    #     elements, shots, N = IQ_raw.shape
+    #     N_ts = len(ts)
+
+    #     if N != N_ts:
+    #         raise ValueError(
+    #             f"Length of trajectory not equal to length of time scale {N} != {N_ts}"
+    #         )
+
+    #     e_idx = np.concatenate(
+    #         [i * np.ones(shots * N).astype(int) for i in range(elements)]
+    #     )
+    #     shot_idx = np.tile(
+    #         np.concatenate([i * np.ones(N).astype(int) for i in range(shots)]), elements
+    #     )
+    #     t_idx = np.tile(ts, elements * shots)
+    #     ro_idx = np.zeros(elements * shots * N).astype(int)
+
+    #     df = pd.DataFrame(
+    #         IQ_raw.flatten(),
+    #         columns=["field"],
+    #         index=pd.MultiIndex.from_arrays(
+    #             [e_idx, ro_idx, shot_idx, t_idx],
+    #             names=["element", "readout", "shot", "time"],
+    #         ),
+    #     )
+
+    #     self.data = df
 
 
 @qdefine
@@ -87,35 +101,53 @@ class HeterodyneDemodulation(DataProcessor):
 
     frequencies: dict[str, float] = field(factory=list)
 
-    def run(self, meas: IQTraceResult, **kwargs) -> dict[str, IQResult]:
-        """Demodulates the raw IQ traces at the specified frequencies.
-
-        Args:
-            meas: IQTraceResult
-
-        Returns:
-            IQResult object containing the processed IQ traces in the `data` attribute.
-            For the specific format of the data frame, go to the IQResult documentation.
-        """
+    def run(self, meas: IQTraceResult, ts: np.ndarray, **kwargs) -> dict[str, IQResult]:
 
         IF_freq = self.frequencies[meas.name]
-
-        if meas.data.empty:
-            raise ValueError("Nothing to process -- dataframe is empty.")
 
         def weighted_IQ(IF_freq, ts):
             return np.exp(-1j * 2 * np.pi * IF_freq * ts)
 
         def integrate(g):
-            fields = g.unstack()
-            ts = fields.columns.droplevel(0).to_numpy()
             weights = weighted_IQ(IF_freq, ts)
-            IQ = pd.Series(np.dot(fields.to_numpy(), weights) / weights.shape[0])
-            IQ.index.name = "shots"
-            return IQ
+            IQ_data = g.dot(weights) / weights.shape[0]
+            return IQ_data
+        
+        df_process = meas.data[[0]].copy()
+        df_process.loc[:, 0] = integrate(meas.data)
+        df_process = df_process.pivot_table(0, ['element', 'readout'], 'shot')
 
-        df = meas.data.groupby(level=[0, 1]).apply(integrate)
-        return IQResult(name=meas.name, data=df)
+        return IQResult(name=meas.name, data=df_process)
+
+    # def run(self, meas: IQTraceResult, **kwargs) -> dict[str, IQResult]:
+    #     """Demodulates the raw IQ traces at the specified frequencies.
+
+    #     Args:
+    #         meas: IQTraceResult
+
+    #     Returns:
+    #         IQResult object containing the processed IQ traces in the `data` attribute.
+    #         For the specific format of the data frame, go to the IQResult documentation.
+    #     """
+
+    #     IF_freq = self.frequencies[meas.name]
+
+    #     if meas.data.empty:
+    #         raise ValueError("Nothing to process -- dataframe is empty.")
+
+    #     def weighted_IQ(IF_freq, ts):
+    #         return np.exp(-1j * 2 * np.pi * IF_freq * ts)
+
+    #     def integrate(g):
+    #         fields = g.unstack()
+    #         ts = fields.columns.droplevel(0).to_numpy()
+    #         weights = weighted_IQ(IF_freq, ts)
+    #         IQ = pd.Series(np.dot(fields.to_numpy(), weights) / weights.shape[0])
+    #         IQ.index.name = "shots"
+    #         return IQ
+
+    #     df = meas.data.groupby(level=[0, 1]).apply(integrate)
+    #     return IQResult(name=meas.name, data=df)
 
 
 @DATA_PROCESSORS.register
