@@ -27,12 +27,9 @@ class TestIQTraceResult:
     def test_create_df_ts_not_equal(self):
         IQ_obj = IQTraceResult(name="Q0", data=pd.DataFrame())
 
-        with pytest.raises(ValueError):
-            IQ_obj.create_df(np.ones((2, 50, 100)), np.arange(90))
-
-        IQ_obj.create_df(np.ones((2, 50, 100)), np.arange(100))
-        assert IQ_obj.data.index.levshape == (2, 1, 50, 100)
-        assert IQ_obj.data.shape == (2 * 50 * 100, 1)
+        IQ_obj.create_df(np.ones((2, 50, 100)))
+        assert IQ_obj.data.index.levshape == (2, 1, 50)
+        assert IQ_obj.data.shape == (2 * 50, 100)
 
 
 class TestHeterodyneDemodulation:
@@ -58,19 +55,28 @@ class TestHeterodyneDemodulation:
 
         IQ_empty = IQTraceResult(name="Q0", data=pd.DataFrame())
         with pytest.raises(ValueError):
-            demodulator.run(IQ_empty)
+            demodulator.run(IQ_empty, np.arange(10))
+
+    def test_run_ts_not_equal(self):
+        freqs = {f"Q{t}": 0 for t in range(3)}
+        demodulator = HeterodyneDemodulation(frequencies=freqs)
+
+        IQ_100 = IQTraceResult(name="Q3", data=pd.DataFrame())
+        IQ_100.create_df(np.arange(2 * 50 * 100).reshape((2, 50, 100)))
+        ts_50 = np.arange(50)
+
+        with pytest.raises(ValueError):
+            demodulator.run(IQ_100, ts_50)
 
     def test_run_no_freq(self):
         freqs = {f"Q{t}": 0 for t in range(3)}
         demodulator = HeterodyneDemodulation(frequencies=freqs)
 
         IQ_wrong_key = IQTraceResult(name="Q3", data=pd.DataFrame())
-        IQ_wrong_key.create_df(
-            np.arange(2 * 50 * 100).reshape((2, 50, 100)), np.arange(100)
-        )
+        IQ_wrong_key.create_df(np.arange(2 * 50 * 100).reshape((2, 50, 100)))
 
         with pytest.raises(KeyError):
-            demodulator.run(IQ_wrong_key)
+            demodulator.run(IQ_wrong_key, np.arange(100))
 
     def test_run_no_noise(self):
         f1, f2 = 0, 0
@@ -87,8 +93,8 @@ class TestHeterodyneDemodulation:
         )
 
         IQ_raw = IQTraceResult(name="Q0", data=pd.DataFrame())
-        IQ_raw.create_df(results_test * np.tile(freq_weight, (e, shot, 1)), ts)
-        IQ_processed = demodulator.run(IQ_raw)
+        IQ_raw.create_df(results_test * np.tile(freq_weight, (e, shot, 1)))
+        IQ_processed = demodulator.run(IQ_raw, ts)
 
         assert_allclose(
             IQ_processed.data.to_numpy(),
@@ -115,9 +121,9 @@ class TestHeterodyneDemodulation:
 
         for key in results.keys():
             IQ_raw = IQTraceResult(name=key, data=pd.DataFrame())
-            IQ_raw.create_df(results[key], ts)
+            IQ_raw.create_df(results[key])
 
-            IQ_process = demodulator.run(IQ_raw)
+            IQ_process = demodulator.run(IQ_raw, ts)
             IQ_results[key] = IQ_process
 
         # Should observe two blobs for "Q0" and one blob for all other qubits because
