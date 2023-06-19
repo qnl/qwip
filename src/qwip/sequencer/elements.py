@@ -15,7 +15,12 @@ from typing_extensions import Self
 
 from qwip.attrs import qdefine
 from qwip.sequencer.utils import Location
-from qwip.sequencer.waveform import CosineRampWaveform, Marker, Waveform
+from qwip.sequencer.waveform import (
+    CosineRampWaveform,
+    InfiniteWaveform,
+    Marker,
+    Waveform,
+)
 from qwip.visualization.utils import all_legend_handles_labels
 
 LocationLike = Location | str | Real
@@ -420,7 +425,11 @@ class SequenceElement:
 
             locations[loc].extend(waves)
 
-            t = loc + max(w.width.resolve(**constraints) for w in waves)
+            t = loc + max(
+                w.width.resolve(**constraints)
+                for w in waves
+                if not isinstance(w, InfiniteWaveform)
+            )
 
             t_max = t if t > t_max else t_max
 

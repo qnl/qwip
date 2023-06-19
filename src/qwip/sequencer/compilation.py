@@ -536,7 +536,8 @@ class WaveformSequencer:
                 width = w.width.resolve(**pulse_kwargs)
                 start, end = loc.offset, loc.offset + width.offset
 
-                s_idx, e_idx = int(start * sample_rate), int(end * sample_rate) + 1
+                s_idx = int(start * sample_rate)
+                e_idx = num_timepoints if np.isinf(end) else int(end * sample_rate) + 1
                 if s_idx == e_idx - 1:
                     continue
 
