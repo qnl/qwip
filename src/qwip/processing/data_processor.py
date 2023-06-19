@@ -42,7 +42,12 @@ class DataProcessor:
 
     def __call__(self, meas: "MeasurementResult", /, **kwargs) -> "MeasurementResult":
         result = self.run(meas, **kwargs)
-        result.processors = (*result.processors, self)
+        match result:
+            case dict():
+                for res in result.values():
+                    res.processors = (*res.processors, self)
+            case _:
+                result.processors = (*result.processors, self)
         return result
 
     def run(self, meas: "MeasurementResult", /, **kwargs) -> "MeasurementResult":

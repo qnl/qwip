@@ -24,6 +24,9 @@ from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 
 class TestIQTraceResult:
+    def test_create_from_numpy(self):
+        ...
+
     def test_create_df_ts_not_equal(self):
         IQ_obj = IQTraceResult(name="Q0", data=pd.DataFrame())
 
@@ -49,34 +52,105 @@ class TestHeterodyneDemodulation:
 
         return cseq
 
-    def test_run_empty(self):
-        freqs = {f"Q{t}": 0 for t in range(3)}
-        demodulator = HeterodyneDemodulation(frequencies=freqs)
+    # def test_run_empty(self):
+    #     freqs = {f"Q{t}": 0 for t in range(3)}
+    #     demodulator = HeterodyneDemodulation(frequencies=freqs)
 
-        IQ_empty = IQTraceResult(name="Q0", data=pd.DataFrame())
-        with pytest.raises(ValueError):
-            demodulator.run(IQ_empty, np.arange(10))
+    #     IQ_empty = IQTraceResult(name="Q0", data=pd.DataFrame())
+    #     with pytest.raises(ValueError):
+    #         demodulator.run(IQ_empty, np.arange(10))
 
-    def test_run_ts_not_equal(self):
-        freqs = {f"Q{t}": 0 for t in range(3)}
-        demodulator = HeterodyneDemodulation(frequencies=freqs)
+    # def test_run_ts_not_equal(self):
+    #     freqs = {f"Q{t}": 0 for t in range(3)}
+    #     demodulator = HeterodyneDemodulation(frequencies=freqs)
 
-        IQ_100 = IQTraceResult(name="Q3", data=pd.DataFrame())
-        IQ_100.create_df(np.arange(2 * 50 * 100).reshape((2, 50, 100)))
-        ts_50 = np.arange(50)
+    #     IQ_100 = IQTraceResult(name="Q3", data=pd.DataFrame())
+    #     IQ_100.create_df(np.arange(2 * 50 * 100).reshape((2, 50, 100)))
+    #     ts_50 = np.arange(50)
 
-        with pytest.raises(ValueError):
-            demodulator.run(IQ_100, ts_50)
+    #     with pytest.raises(ValueError):
+    #         demodulator.run(IQ_100, ts_50)
 
-    def test_run_no_freq(self):
-        freqs = {f"Q{t}": 0 for t in range(3)}
-        demodulator = HeterodyneDemodulation(frequencies=freqs)
+    # def test_run_no_freq(self):
+    #     freqs = {f"Q{t}": 0 for t in range(3)}
+    #     demodulator = HeterodyneDemodulation(frequencies=freqs)
 
-        IQ_wrong_key = IQTraceResult(name="Q3", data=pd.DataFrame())
-        IQ_wrong_key.create_df(np.arange(2 * 50 * 100).reshape((2, 50, 100)))
+    #     IQ_wrong_key = IQTraceResult(name="Q3", data=pd.DataFrame())
+    #     IQ_wrong_key.create_df(np.arange(2 * 50 * 100).reshape((2, 50, 100)))
 
-        with pytest.raises(KeyError):
-            demodulator.run(IQ_wrong_key, np.arange(100))
+    #     with pytest.raises(KeyError):
+    #         demodulator.run(IQ_wrong_key, np.arange(100))
+    @pytest.fixture(scope="function")
+    def signal_generator(self, seed):
+        rng = default_rng(seed=seed)
+
+        def generate(IQ, freqs, ts, shape):
+            IQ = IQ.reshape(-1, 1)
+            freqs = freqs.reshape(-1, 1)
+
+            V_t = np.sum(IQ * np.exp(1j * 2 * np.pi * freqs * ts), axis=0)
+
+            noise = rng.random((*shape, ts.shape[0], 2)).view(np.complex128)
+            noise = noise.reshape(*noise.shape[:-1])
+
+            return V_t + noise
+
+        return generate
+
+    @pytest.mark.parametrize(
+        "IQ,freq",
+        [
+            (10 + 5j, 0.5),
+            (10 - 5j, 0.3),
+        ],
+    )
+    def test_single(self, IQ, freq, signal_generator):
+        ts = np.arange(4096) / 1.8
+        freqs = np.array([freq])
+        IQ = np.array([IQ])
+
+        shape = (20, 1, 1000)
+
+        data = signal_generator(IQ, freqs, ts, shape)
+
+        res = IQTraceResult.from_numpy("raw", data)
+
+        weight = np.exp(-1j * 2 * np.pi * freqs[0] * ts)
+
+        processor = HeterodyneDemodulation(weights={"Q0": weight})
+        processed = processor(res)
+
+        demod_IQ = processed["Q0"].data.mean(axis=1).mean()
+
+        assert_allclose(IQ[0], demod_IQ, atol=1e-3)
+
+    @pytest.mark.parametrize(
+        "IQ,freqs",
+        [
+            (np.array([10 + 5j, 10 - 5j]), np.array([0.5, 0.6])),
+        ],
+    )
+    def test_multiplexed(self, IQ, freqs, signal_generator):
+        ts = np.arange(4096) / 1.8
+
+        shape = (20, 1, 1000)
+
+        data = signal_generator(IQ, freqs, ts, shape)
+
+        res = IQTraceResult.from_numpy("raw", data)
+
+        weights = {
+            f"Q{i}": np.exp(-1j * 2 * np.pi * freqs[i] * ts) for i in range(len(freqs))
+        }
+
+        processor = HeterodyneDemodulation(weights=weights)
+        processed = processor(res)
+
+        demod_IQ = np.array(
+            [res.data.mean(axis=1).mean() for res in processed.values()]
+        )
+
+        assert_allclose(IQ, demod_IQ, atol=5e-2)
 
     def test_run_no_noise(self):
         f1, f2 = 0, 0
