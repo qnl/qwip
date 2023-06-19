@@ -64,9 +64,6 @@ class IQTraceResult(MeasurementResult):
 class IQResult(MeasurementResult):
     """Demodulated IQ results.
 
-    To access in array form, IQ_obj.data.to_numpy()[i] for the ith row of
-    data with all shots corresponding to a specific index (element, readout).
-
     Attributes:
         data: Multi indexed data frame with row indices (element, readout) and column
         indices (shot) mapping to an I+iQ value.
@@ -80,11 +77,12 @@ class HeterodyneDemodulation(DataProcessor):
     """A data processor to demodulate raw IQ traces vs. time.
 
     Takes in IQTraceResult, a formatted data frame, and demodulates it by
-    integrating it with a weighting function to isolate the information at a
-    specific frequency.
+    integrating it with different weighting functions to isolate the information at
+    various frequencies specific to readouts.
 
     Attributes:
-        frequencies: Mapping from channel to demodulation frequency.
+        weights: A mapping from readout to the weights used to demodulate the raw
+            IQ traces (ex. np.exp(-1j*2pi*freq*ts)).
     """
 
     weights: dict[str, NDArray[complex]] = field(factory=dict)
@@ -98,11 +96,11 @@ class HeterodyneDemodulation(DataProcessor):
 
         Args:
             meas: IQTraceResult.
-            ts: Time points; must be the same length as the traces in `meas`.
 
         Returns:
-            IQResult object containing the processed IQ traces in the `data` attribute.
-            For the specific format of the data frame, go to the IQResult documentation.
+            A dictionary mapping readout to its IQResult object containing the processed
+            IQ traces in the `data` attribute. For the specific format of the data frame,
+            go to the IQResult documentation.
         """
 
         weight_arr = np.stack(self.weights.values())

@@ -25,61 +25,20 @@ from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 class TestIQTraceResult:
     def test_create_from_numpy(self):
-        ...
+        IQ_data = np.ones((10, 2, 512, 1000))
+        IQ_default = IQTraceResult.from_numpy(name="Q0", IQ_raw=IQ_data)
+        assert IQ_default.data.to_numpy().shape == (10 * 2 * 512, 1000)
+        assert IQ_default.data.index.names == ["element", "readout", "shot"]
 
-    def test_create_df_ts_not_equal(self):
-        IQ_obj = IQTraceResult(name="Q0", data=pd.DataFrame())
-
-        IQ_obj.create_df(np.ones((2, 50, 100)))
-        assert IQ_obj.data.index.levshape == (2, 1, 50)
-        assert IQ_obj.data.shape == (2 * 50, 100)
+        IQ_data_no_readout = np.ones((10, 512, 1000))
+        IQ_no_readout = IQTraceResult.from_numpy(
+            name="Q1", IQ_raw=IQ_data_no_readout, labels=["element", "shot"]
+        )
+        assert IQ_no_readout.data.to_numpy().shape == (10 * 512, 1000)
+        assert IQ_no_readout.data.index.names == ["element", "shot"]
 
 
 class TestHeterodyneDemodulation:
-    @pytest.fixture
-    def compile_Q0X90(self, qpu_01):
-        db = qpu_01.db
-        Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
-
-        rabi_se = SequenceElement()
-        rabi_se.append(Q0_X)
-        rabi_se.add_waveform(ReadoutMarker(), location=Q0_X.width)
-        ro_se = SequenceElement()
-
-        ts = np.linspace(0, 34.8e-9, 21)
-        seq = Sequence.sweep(rabi_se, rabi_width=ts)
-        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
-
-        return cseq
-
-    # def test_run_empty(self):
-    #     freqs = {f"Q{t}": 0 for t in range(3)}
-    #     demodulator = HeterodyneDemodulation(frequencies=freqs)
-
-    #     IQ_empty = IQTraceResult(name="Q0", data=pd.DataFrame())
-    #     with pytest.raises(ValueError):
-    #         demodulator.run(IQ_empty, np.arange(10))
-
-    # def test_run_ts_not_equal(self):
-    #     freqs = {f"Q{t}": 0 for t in range(3)}
-    #     demodulator = HeterodyneDemodulation(frequencies=freqs)
-
-    #     IQ_100 = IQTraceResult(name="Q3", data=pd.DataFrame())
-    #     IQ_100.create_df(np.arange(2 * 50 * 100).reshape((2, 50, 100)))
-    #     ts_50 = np.arange(50)
-
-    #     with pytest.raises(ValueError):
-    #         demodulator.run(IQ_100, ts_50)
-
-    # def test_run_no_freq(self):
-    #     freqs = {f"Q{t}": 0 for t in range(3)}
-    #     demodulator = HeterodyneDemodulation(frequencies=freqs)
-
-    #     IQ_wrong_key = IQTraceResult(name="Q3", data=pd.DataFrame())
-    #     IQ_wrong_key.create_df(np.arange(2 * 50 * 100).reshape((2, 50, 100)))
-
-    #     with pytest.raises(KeyError):
-    #         demodulator.run(IQ_wrong_key, np.arange(100))
     @pytest.fixture(scope="function")
     def signal_generator(self, seed):
         rng = default_rng(seed=seed)
@@ -151,64 +110,6 @@ class TestHeterodyneDemodulation:
         )
 
         assert_allclose(IQ, demod_IQ, atol=5e-2)
-
-    def test_run_no_noise(self):
-        f1, f2 = 0, 0
-        demodulator = HeterodyneDemodulation(
-            frequencies={f"Q{i}": f1 for i in range(0, 8)}
-        )
-
-        e, shot, N = 2, 3, 5
-        results_test = np.arange(e * shot * N).reshape((e, shot, N))
-        ts = np.arange(N)
-
-        freq_weight = 0.5 * np.exp(-1j * 2 * np.pi * f1 * ts) + 0.5 * np.exp(
-            -1j * 2 * np.pi * f2 * ts
-        )
-
-        IQ_raw = IQTraceResult(name="Q0", data=pd.DataFrame())
-        IQ_raw.create_df(results_test * np.tile(freq_weight, (e, shot, 1)))
-        IQ_processed = demodulator.run(IQ_raw, ts)
-
-        assert_allclose(
-            IQ_processed.data.to_numpy(),
-            np.array(
-                [
-                    [2.0 + 0.0j, 7.0 + 0.0j, 12.0 + 0.0j],
-                    [17.0 + 0.0j, 22.0 + 0.0j, 27.0 + 0.0j],
-                ]
-            ),
-        )
-
-    def test_run_Q0X90(self, qpu_01, compile_Q0X90):
-        sim_backend = QutipBackend()
-        sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(compile_Q0X90)
-
-        results = sim_backend.acquire(compile_Q0X90)
-        demodulator = HeterodyneDemodulation(
-            frequencies={f"Q{i}": 0 for i in range(0, 8)}
-        )
-
-        IQ_results = dict()
-        ts = np.linspace(0, 1e-5, 1000)
-
-        for key in results.keys():
-            IQ_raw = IQTraceResult(name=key, data=pd.DataFrame())
-            IQ_raw.create_df(results[key])
-
-            IQ_process = demodulator.run(IQ_raw, ts)
-            IQ_results[key] = IQ_process
-
-        # Should observe two blobs for "Q0" and one blob for all other qubits because
-        # only a pi/2 pulse on Q0 was applied
-        IQ_Q0 = IQ_results["Q0"].data.to_numpy()[0]
-
-        fig, ax = plt.subplots(figsize=(5, 5))
-        ax.scatter(np.real(IQ_Q0), np.imag(IQ_Q0))
-        ax.set_aspect("equal", adjustable="box")
-        ax.set_title("Test: Should see two distinct blobs")
-        plt.show()
 
 
 class TestFormatLegacyIQ:

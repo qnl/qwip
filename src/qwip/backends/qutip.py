@@ -455,7 +455,7 @@ class QutipBackend(QuantumBackend):
         # Dictionary mapping from qubit to results, cavity fields
         all_targets = list(self.static_hamiltonian.keys())
         results = {
-            target: np.zeros((len(elements), repetitions, len(ts))).astype(complex)
+            target: np.zeros((len(elements), 1, repetitions, len(ts))).astype(complex)
             for target in all_targets
         }
         readout_fields = {
@@ -490,7 +490,7 @@ class QutipBackend(QuantumBackend):
                     if level < len(readout_fields[f"R{q}"]):
                         noise = gaussian_noise(self.readouts[f"R{q}"].eta, len(ts))
                         trajectory = (readout_fields[f"R{q}"][level]) + noise
-                        results[f"Q{q}"][i, shot, :] = trajectory
+                        results[f"Q{q}"][i, 0, shot, :] = trajectory
 
         return results
 

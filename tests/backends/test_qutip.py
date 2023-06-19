@@ -11,6 +11,7 @@ from qwip.backends.qutip import (
     TimeDependentHamiltonian,
     get_active_channels,
 )
+from qwip.processing.processors import HeterodyneDemodulation, IQTraceResult
 from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 
@@ -388,37 +389,78 @@ class TestQutipBackend:
         assert len(sim_backend.readouts) == 8
         assert sim_backend.readouts["R0"].chi == (-1e6, 1e6)
 
-    def test_acquire_Q0X90_seq(
-        self, qpu_01, sim_backend, compile_Q0X90, readout_fields
-    ):
+    def test_acquire_Q0X90_seq(self, qpu_01, sim_backend, compile_Q0X90):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90)
 
         results1 = sim_backend.acquire(compile_Q0X90)
         assert list(results1.keys()) == [f"Q{i}" for i in range(8)]
         for fields in results1.values():
-            assert fields.shape == (1, 512, 1000)
+            assert fields.shape == (1, 1, 512, 1000)
 
         results2 = sim_backend.acquire(compile_Q0X90, elements=[-2, -1])
         for fields in results2.values():
-            assert fields.shape == (2, 512, 1000)
+            assert fields.shape == (2, 1, 512, 1000)
 
         results_3 = sim_backend.acquire(compile_Q0X90, elements=[5, -2, -1])
         for fields in results_3.values():
-            assert fields.shape == (3, 512, 1000)
+            assert fields.shape == (3, 1, 512, 1000)
+
+    # @pytest.mark.skip
+    def test_acquire_Q0X90_blobs(self, qpu_01, sim_backend, compile_Q0X90):
+        sim_backend.update_parameters(qpu_01)
+        sim_backend.upload(compile_Q0X90)
+
+        raw_IQ = sim_backend.acquire(compile_Q0X90)
+        raw_IQ_df = dict()
+        processed_IQ_df = dict()
+
+        freqs = np.array([0])
+        ts = np.linspace(0, 1e-5, 1000)
+        weights = {
+            f"Q{i}": np.exp(-1j * 2 * np.pi * ts * freqs[i]) for i in range(len(freqs))
+        }
+
+        processor = HeterodyneDemodulation(weights=weights)
+
+        for ch, data in raw_IQ.items():
+            raw_IQ_df[ch] = IQTraceResult.from_numpy(name=ch, IQ_raw=data)
+            processed_IQ_df[ch] = processor.run(raw_IQ_df[ch])
+
+        IQ_Q0 = processed_IQ_df["Q0"]["Q0"].data.to_numpy()[0]
+        fig, ax = plt.subplots()
+        ax.scatter(np.real(IQ_Q0), np.imag(IQ_Q0))
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_title("Test: Should see two distinct blobs")
+        plt.show()
 
     ## Plots field amplitudes with strong drive to observe "Q0" bias
-    # towards excited state on the left
-    @pytest.mark.skip
+    #  towards excited state on the left
+    # @pytest.mark.skip
     def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0_X180)
-        results = sim_backend.acquire(compile_Q0_X180)
 
-        # All qubits except "Q0" should be in ground state
-        for target, fields in results.items():
-            t = target.split("Q")[1]
-            if t == "0":
-                fig, ax = plt.subplots()
-                ax.plot(fields[0][0].real, fields[0][0].imag)
-                plt.show()
+        raw_IQ = sim_backend.acquire(compile_Q0_X180)
+        raw_IQ_df = dict()
+        processed_IQ_df = dict()
+
+        freqs = np.array([0])
+        ts = np.linspace(0, 1e-5, 1000)
+        weights = {
+            f"Q{i}": np.exp(-1j * 2 * np.pi * ts * freqs[i]) for i in range(len(freqs))
+        }
+
+        processor = HeterodyneDemodulation(weights=weights)
+
+        for ch, data in raw_IQ.items():
+            raw_IQ_df[ch] = IQTraceResult.from_numpy(name=ch, IQ_raw=data)
+            processed_IQ_df[ch] = processor.run(raw_IQ_df[ch])
+
+        IQ_Q0 = processed_IQ_df["Q0"]["Q0"].data.to_numpy()[0]
+        fig, ax = plt.subplots()
+        ax.scatter(np.real(IQ_Q0), np.imag(IQ_Q0))
+        ax.set_xlim(-1.5, 1.5)
+        ax.set_aspect("equal", adjustable="box")
+        ax.set_title("Test: Should see one distinct blob on left")
+        plt.show()
