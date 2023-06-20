@@ -428,11 +428,12 @@ class TestQutipBackend:
             processed_IQ_df[ch] = processor.run(raw_IQ_df[ch])
 
         IQ_Q0 = processed_IQ_df["Q0"]["Q0"].data.to_numpy()[0]
-        fig, ax = plt.subplots()
-        ax.scatter(np.real(IQ_Q0), np.imag(IQ_Q0))
-        ax.set_aspect("equal", adjustable="box")
-        ax.set_title("Test: Should see two distinct blobs")
-        plt.show()
+
+        I_Q0 = np.real(IQ_Q0)
+        num_excited = np.sum(np.array(I_Q0) >= 0, axis=0)
+        num_ground = len(IQ_Q0) - num_excited
+
+        assert abs(num_excited - num_ground) / len(IQ_Q0) < 0.05
 
     ## Plots field amplitudes with strong drive to observe "Q0" bias
     #  towards excited state on the left
@@ -458,9 +459,8 @@ class TestQutipBackend:
             processed_IQ_df[ch] = processor.run(raw_IQ_df[ch])
 
         IQ_Q0 = processed_IQ_df["Q0"]["Q0"].data.to_numpy()[0]
-        fig, ax = plt.subplots()
-        ax.scatter(np.real(IQ_Q0), np.imag(IQ_Q0))
-        ax.set_xlim(-1.5, 1.5)
-        ax.set_aspect("equal", adjustable="box")
-        ax.set_title("Test: Should see one distinct blob on left")
-        plt.show()
+
+        I_Q0 = np.real(IQ_Q0)
+        num_excited = np.sum(np.array(I_Q0) >= 0, axis=0)
+
+        assert abs(num_excited) / len(IQ_Q0) < 0.01
