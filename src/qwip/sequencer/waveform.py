@@ -300,12 +300,6 @@ class Marker(Waveform):
 
 @register_waveform
 @qfrozen
-class CompositeWidthMarker(Marker):
-    ...
-
-
-@register_waveform
-@qfrozen
 class TriggerMarker(Marker):
     ...
 
@@ -690,7 +684,6 @@ __all__ = [
     "BasicWaveform",
     "InfiniteWaveform",
     "Marker",
-    "CompositeWidthMarker",
     "TriggerMarker",
     "ReadoutMarker",
     "DCWaveform",

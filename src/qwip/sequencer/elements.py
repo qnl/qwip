@@ -425,11 +425,12 @@ class SequenceElement:
 
             locations[loc].extend(waves)
 
-            t = loc + max(
+            widths = [
                 w.width.resolve(**constraints)
                 for w in waves
                 if not isinstance(w, InfiniteWaveform)
-            )
+            ]
+            t = loc + (max(widths) if widths else 0)
 
             t_max = t if t > t_max else t_max
 

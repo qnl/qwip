@@ -8,12 +8,12 @@ from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
-    CompositeWidthMarker,
     CosineRampWaveform,
     CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
     SquareWaveform,
+    DCWaveform,
     VirtualZWaveform,
     Waveform,
 )
@@ -160,8 +160,26 @@ class TestSequenceElement:
             assert result.keys() == expect.keys()
             assert all(np.allclose(result[k], expect[k]) for k in result.keys())
 
-    def test_solve_timings(self):
-        ...
+    def test_resolve_locations_negative(self):
+        se = SequenceElement().fromtuples([
+            (-20e-9, SquareWaveform(width=30e-9)),
+            (0, GaussianWaveform(width=20e-9))
+        ])
+
+        locations = se.resolve_locations()
+
+        assert list(locations.keys()) == [Location(0), Location(20e-9), Location(40e-9)]
+
+    def test_resolve_locations_infinite(self):
+        se = SequenceElement().fromtuples([
+            (-10e-9, DCWaveform()),
+            (0, GaussianWaveform(width=20e-9)),
+            (10e-9, GaussianWaveform(width=30e-9))
+        ])
+
+        locations = se.resolve_locations()
+
+        assert list(locations.keys()) == [Location(t) for t in (0, 10e-9, 20e-9, 50e-9)]
 
     def test_append_sequence(self):
         se1 = SequenceElement.fromtuples([("a", None), ("b", None)])
