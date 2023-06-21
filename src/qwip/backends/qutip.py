@@ -426,12 +426,13 @@ class QutipBackend(QuantumBackend):
         exe: CompiledSequence,
         repetitions: int = 512,
         elements: list[int] = [-1],
-        drive: float = 1e7,
+        drive: float = 1e6,
         **kwargs,
     ) -> list:
         """Simulate the Hamiltonians using mesolve.
 
         Args:
+            exe: Compiled sequence.
             repetitions: Number of shots
             elements: A list of indices indicating which elements to simulate.
             drive: Readout driving amplitude.
@@ -454,7 +455,7 @@ class QutipBackend(QuantumBackend):
         # Dictionary mapping from qubit to results, cavity fields
         all_targets = list(self.static_hamiltonian.keys())
         results = {
-            target: np.zeros((len(elements), repetitions, len(ts))).astype(complex)
+            target: np.zeros((len(elements), 1, repetitions, len(ts))).astype(complex)
             for target in all_targets
         }
         readout_fields = {
@@ -489,13 +490,13 @@ class QutipBackend(QuantumBackend):
                     if level < len(readout_fields[f"R{q}"]):
                         noise = gaussian_noise(self.readouts[f"R{q}"].eta, len(ts))
                         trajectory = (readout_fields[f"R{q}"][level]) + noise
-                        results[f"Q{q}"][i, shot, :] = trajectory
+                        results[f"Q{q}"][i, 0, shot, :] = trajectory
 
         return results
 
 
 def gaussian_noise(eta, num_samples):
-    noise_scaling = np.sqrt(1 / (2**0.5) / eta)
+    noise_scaling = 1 / (2**0.5) / eta
     return noise_scaling * (
         np.random.normal(size=(num_samples, 2)).view(np.complex128).squeeze()
     )
