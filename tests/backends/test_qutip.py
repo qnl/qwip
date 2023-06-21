@@ -406,7 +406,6 @@ class TestQutipBackend:
         for fields in results_3.values():
             assert fields.shape == (3, 1, 512, 1000)
 
-    # @pytest.mark.skip
     def test_acquire_Q0X90_blobs(self, qpu_01, sim_backend, compile_Q0X90):
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0X90)
@@ -435,10 +434,12 @@ class TestQutipBackend:
 
         assert abs(num_excited - num_ground) / len(IQ_Q0) < 0.05
 
-    ## Plots field amplitudes with strong drive to observe "Q0" bias
-    #  towards excited state on the left
-    # @pytest.mark.skip
     def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180):
+        """Tests uneven distribution.
+
+        Plots field amplitudes with strong drive to observe "Q0" bias towards excited
+        state blob on the left
+        """
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0_X180)
 
@@ -463,4 +464,4 @@ class TestQutipBackend:
         I_Q0 = np.real(IQ_Q0)
         num_excited = np.sum(np.array(I_Q0) >= 0, axis=0)
 
-        assert abs(num_excited) / len(IQ_Q0) < 0.01
+        assert num_excited / len(IQ_Q0) < 0.01

@@ -43,7 +43,6 @@ class IQTraceResult(MeasurementResult):
             labels: Index labels for the array axes. These should specify labels for all
                 but the last axis.
 
-
         Returns:
             An IQ trace result with the data formatted as a multi-indexed dataframe.
         """
@@ -68,8 +67,6 @@ class IQResult(MeasurementResult):
         data: Multi indexed data frame with row indices (element, readout) and column
         indices (shot) mapping to an I+iQ value.
     """
-
-    data: pd.DataFrame
 
 
 @qdefine
