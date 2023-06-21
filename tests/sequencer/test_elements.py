@@ -10,10 +10,10 @@ from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
     CWWaveform,
+    DCWaveform,
     GaussianWaveform,
     ModulatedWaveform,
     SquareWaveform,
-    DCWaveform,
     VirtualZWaveform,
     Waveform,
 )
@@ -161,21 +161,22 @@ class TestSequenceElement:
             assert all(np.allclose(result[k], expect[k]) for k in result.keys())
 
     def test_resolve_locations_negative(self):
-        se = SequenceElement().fromtuples([
-            (-20e-9, SquareWaveform(width=30e-9)),
-            (0, GaussianWaveform(width=20e-9))
-        ])
+        se = SequenceElement().fromtuples(
+            [(-20e-9, SquareWaveform(width=30e-9)), (0, GaussianWaveform(width=20e-9))]
+        )
 
         locations = se.resolve_locations()
 
         assert list(locations.keys()) == [Location(0), Location(20e-9), Location(40e-9)]
 
     def test_resolve_locations_infinite(self):
-        se = SequenceElement().fromtuples([
-            (-10e-9, DCWaveform()),
-            (0, GaussianWaveform(width=20e-9)),
-            (10e-9, GaussianWaveform(width=30e-9))
-        ])
+        se = SequenceElement().fromtuples(
+            [
+                (-10e-9, DCWaveform()),
+                (0, GaussianWaveform(width=20e-9)),
+                (10e-9, GaussianWaveform(width=30e-9)),
+            ]
+        )
 
         locations = se.resolve_locations()
 
