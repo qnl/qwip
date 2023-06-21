@@ -45,6 +45,29 @@ class QuantumBackend(metaclass=ABCMeta):
         return set()
 
 
+def populate_unpaired(cseq: CompiledSequence, fill: float = 1 / 2**15) -> None:
+    """Ensures that waveform data is paired.
+
+    Currently there is still a bug when uploading waves to a ZI HDAWG where waves are
+    uploaded incorrectly unless they are paired. This function modifies a compiled
+    qtrl sequence so that all channels with waveform data are paired.
+
+    Args:
+        cseq: The compiled sequence to modify.
+        fill: The DAC amplitude to set on an empty unpaired channel. This should be
+            small to avoid any adverse affect on the system. This value is added to the
+            first sample only.
+    """
+    has_wave = np.any(cseq.array, axis=2)[..., 0]  # ignore marker array
+
+    for ch1, ch2 in np.arange(cseq.shape[0]).reshape(-1, 2):
+        # bitwise xor to find all unpaired channels
+        unpaired = has_wave[ch1] ^ has_wave[ch2]
+
+        cseq.array[ch1, unpaired & ~has_wave[ch1], 0, 0] = fill
+        cseq.array[ch2, unpaired & ~has_wave[ch2], 0, 0] = fill
+
+
 @qdefine
 class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
@@ -53,6 +76,7 @@ class QTRLBackend(QuantumBackend):
     ro_se: SequenceElement = field(factory=SequenceElement)
 
     def upload(self, exe: CompiledSequence, **kwargs) -> None:
+        populate_unpaired(exe)
         self.meta.write_sequence(exe)
 
     def acquire(self, exe: CompiledSequence, repetitions: int = 512, **kwargs) -> dict:
