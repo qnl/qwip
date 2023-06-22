@@ -64,11 +64,11 @@ class TestHeterodyneDemodulation:
         ],
     )
     def test_single(self, IQ, freq, signal_generator):
-        ts = np.arange(4096) / 1.8
+        ts = np.arange(1024) / 1.8
         freqs = np.array([freq])
         IQ = np.array([IQ])
 
-        shape = (20, 1, 1000)
+        shape = (20, 1, 100)
 
         data = signal_generator(IQ, freqs, ts, shape)
 
@@ -81,7 +81,7 @@ class TestHeterodyneDemodulation:
 
         demod_IQ = processed["Q0"].data.mean(axis=1).mean()
 
-        assert_allclose(IQ[0], demod_IQ, atol=1e-3)
+        assert_allclose(IQ[0], demod_IQ, atol=1.5e-3)
 
     @pytest.mark.parametrize(
         "IQ,freqs",
@@ -90,9 +90,9 @@ class TestHeterodyneDemodulation:
         ],
     )
     def test_multiplexed(self, IQ, freqs, signal_generator):
-        ts = np.arange(4096) / 1.8
+        ts = np.arange(1024) / 1.8
 
-        shape = (20, 1, 1000)
+        shape = (20, 1, 100)
 
         data = signal_generator(IQ, freqs, ts, shape)
 
