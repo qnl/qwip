@@ -310,7 +310,7 @@ class SequenceElementModel(VersionControlled):
 
     @classmethod
     def from_sequence_element(cls, se, name):
-        se_model = cls(name=name, width=str(se.width))
+        se_model = cls(name=name, width=qwip.converter.unstructure(se.width))
 
         for loc, wave in se.get_location_pairs():
             wave_model = WaveformModel.from_waveform(wave)

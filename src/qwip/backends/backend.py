@@ -1,21 +1,27 @@
+import itertools as it
 import re
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable
+from functools import reduce
 from typing import TYPE_CHECKING
 
 import numpy as np
-from attrs import field
+from attrs import cmp_using, field
 from numpy.random import Generator, default_rng
+from numpy.testing import assert_allclose
+from typing_extensions import Self
 
 try:
     from qtrl.managers import MetaManager
 except ImportError:
     ...
 
-from qwip.attrs import qdefine
+
+from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.processors import GMMClassification
 from qwip.qpu.systems import ReadoutResonator
-from qwip.sequencer.compilation import CompiledSequence
+from qwip.sequencer.compilation import CompiledSequence, QuantumExecutable
+from qwip.sequencer.elements import SequenceElement
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
@@ -23,21 +29,43 @@ if TYPE_CHECKING:
 
 class QuantumBackend(metaclass=ABCMeta):
     @abstractmethod
-    def upload(self, cseq: CompiledSequence, **kwargs) -> None:
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
         ...
 
     @abstractmethod
-    def acquire(self, cseq: CompiledSequence, **kwargs) -> dict:
+    def acquire(self, exe: QuantumExecutable, **kwargs) -> dict:
         ...
 
     @abstractmethod
     def update_parameters(self, qpu: "QPU", **kwargs):
         ...
 
+    @property
+    def exe_formats(self) -> set[type[QuantumExecutable]]:
+        return set()
 
-@qdefine
-class SimulatorBackend(QuantumBackend):
-    ...
+
+def populate_unpaired(cseq: CompiledSequence, fill: float = 1 / 2**15) -> None:
+    """Ensures that waveform data is paired.
+
+    Currently there is still a bug when uploading waves to a ZI HDAWG where waves are
+    uploaded incorrectly unless they are paired. This function modifies a compiled
+    qtrl sequence so that all channels with waveform data are paired.
+
+    Args:
+        cseq: The compiled sequence to modify.
+        fill: The DAC amplitude to set on an empty unpaired channel. This should be
+            small to avoid any adverse affect on the system. This value is added to the
+            first sample only.
+    """
+    has_wave = np.any(cseq.array, axis=2)[..., 0]  # ignore marker array
+
+    for ch1, ch2 in np.arange(cseq.shape[0]).reshape(-1, 2):
+        # bitwise xor to find all unpaired channels
+        unpaired = has_wave[ch1] ^ has_wave[ch2]
+
+        cseq.array[ch1, unpaired & ~has_wave[ch1], 0, 0] = fill
+        cseq.array[ch2, unpaired & ~has_wave[ch2], 0, 0] = fill
 
 
 @qdefine
@@ -45,11 +73,13 @@ class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
 
     meta: "MetaManager"
+    ro_se: SequenceElement = field(factory=SequenceElement)
 
-    def upload(self, cseq: CompiledSequence, **kwargs) -> None:
-        self.meta.write_sequence(cseq)
+    def upload(self, exe: CompiledSequence, **kwargs) -> None:
+        populate_unpaired(exe)
+        self.meta.write_sequence(exe)
 
-    def acquire(self, cseq: CompiledSequence, repetitions: int = 512, **kwargs) -> dict:
+    def acquire(self, exe: CompiledSequence, repetitions: int = 512, **kwargs) -> dict:
         acquisition_kwargs = dict(n_reps=repetitions, save_data=False) | kwargs
 
         meas = self.meta.acquire(**acquisition_kwargs)
@@ -58,7 +88,9 @@ class QTRLBackend(QuantumBackend):
         }
         return iqdata
 
-    def update_parameters(self, qpu: "QPU", **kwargs):
+    def update_parameters(
+        self, qpu: "QPU", readout: dict | SequenceElement = {}, **kwargs
+    ):
         """Updates parameters from the QPU.
 
         The QTRL backend requires that all readout frequencies are specified in the
@@ -75,6 +107,52 @@ class QTRLBackend(QuantumBackend):
                         )
 
                     self.meta.variables[f"Q{m[1]}/res_freq"] = f
+
+        match readout:
+            case dict():
+                ro_se = self.get_readout_sequence(qpu, **readout)
+            case SequenceElement():
+                ro_se = readout
+            case _:
+                raise ValueError(
+                    f"Readout must be a sequence element or a dictionary of parameters. "
+                    f"Got {readout}"
+                )
+
+        self.ro_se = ro_se
+
+    def get_readout_sequence(
+        self,
+        qpu: "QPU",
+        readout: str = "default",
+        length: float | None = None,
+        length_variable: str = "width",
+    ) -> SequenceElement:
+        """Constructs a readout sequence element from the readout config.
+
+        Args:
+            readout: The name of the readout config.
+            length: The readout length in seconds.
+            length_variable: The pulse variable that corresponds to the pulse width in
+                the readout pulse.
+
+        Returns:
+            The readout sequence element.
+        """
+        readout_config = qpu.config.readout[readout]
+
+        ro_se = SequenceElement()
+        length = length or readout_config.length
+
+        for r in qpu.sequencer.readout_qubits:
+            pulse_name = readout_config.drives[f"R{r}"]
+
+            ro_se += qpu.db.load_pulse(pulse_name, {length_variable: length})
+
+        return ro_se
+
+    def exe_formats(self) -> set[type[QuantumExecutable]]:
+        return {CompiledSequence}
 
 
 def random_data_sampler(
@@ -201,4 +279,4 @@ class FakeBackend(QuantumBackend):
                     self.gmms[key] = proc
 
 
-__all__ = ["QTRLBackend", "SimulatorBackend", "FakeBackend"]
+__all__ = ["QTRLBackend", "FakeBackend"]

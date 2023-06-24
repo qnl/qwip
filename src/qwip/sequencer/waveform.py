@@ -7,6 +7,7 @@ from typing import get_args
 import attrs
 import numpy as np
 from attrs import field, validators
+from cattr import Converter
 from loguru import logger
 from scipy.fft import fft, fftfreq, fftshift
 from typing_extensions import Self
@@ -14,6 +15,7 @@ from typing_extensions import Self
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine, qfrozen
+from qwip.attrs.serialization import _TypeConverter
 from qwip.defaults import dynamic_default
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import LinearExpression, Location
@@ -29,12 +31,6 @@ def register_waveform(cls) -> type:
     REGISTERED_WAVEFORMS[cls.__name__] = cls
 
     return cls
-
-
-@qfrozen(kw_only=False)
-class Channel:
-    name: str
-    subchannel: int = 0
 
 
 def update_fields(inst, /, **kwargs) -> dict:
@@ -95,7 +91,7 @@ class Waveform:
                     variables.add((f.name, v))
 
             text = (
-                f"The following string variables need to be resolved:\n\t"
+                "The following string variables need to be resolved:\n\t"
                 + "\n\t".join(f"{n} = {v}" for n, v in variables)
             )
 
@@ -243,11 +239,41 @@ class Waveform:
         return var in self.variables()
 
 
+# Custom structuring of waveform channels to account for legacy serialization.
+def structure_channel(value, cls: type):
+    try:
+        return value["name"]
+    except (KeyError, TypeError):
+        ...
+
+    return qwip.converter.structure(value, str)
+
+
+channels_converter = Converter()
+channels_converter.register_structure_hook(str, structure_channel)
+
+
+def _channels_converter(value):
+    """Converter for Waveform channels.
+
+    This is needed for compatibility with legacy `Channel` classes, which were
+    unstructured as a dictionary with a `"name"` parameter.
+    """
+    try:
+        return channels_converter.structure(value, tuple[str, ...])
+    except Exception:
+        ...
+
+    return _TypeConverter(tuple[str, ...])(value)
+
+
 @register_waveform
 @qfrozen
 class BasicWaveform(Waveform):
-    channels: tuple[Channel, ...] = field(
-        factory=tuple, metadata=dict(allow_override=False)
+    channels: tuple[str, ...] = field(
+        factory=tuple,
+        metadata=dict(allow_override=False),
+        converter=_channels_converter,
     )
     width: Location = Location()
     amplitude: float | str = 1
@@ -265,17 +291,11 @@ class InfiniteWaveform(BasicWaveform):
 class Marker(Waveform):
     @property
     def channels(self):
-        return set()
+        return tuple()
 
     @property
     def width(self):
         return Location()
-
-
-@register_waveform
-@qfrozen
-class CompositeWidthMarker(Marker):
-    ...
 
 
 @register_waveform
@@ -305,10 +325,10 @@ class CWWaveform(InfiniteWaveform):
     frequency: ModulationFrequency
     phase: float | str = 0
     offset: float | complex | str = field(
-        default=0,
-        converter=lambda v: float(v) if isinstance(v, int) else v
+        default=0, converter=lambda v: float(v) if isinstance(v, int) else v
     )
     mod_key: ModulationFrequency | None = None
+    hardware_modulation: bool = False
 
     @dynamic_default(phase_unit="units/phase")
     def evaluate_timepoints(
@@ -320,7 +340,7 @@ class CWWaveform(InfiniteWaveform):
         phase_tracker: PhaseTracker | None = None,
         modulations: dict[str, ModulationFrequency] = {},
         phase_unit: str = None,
-        complex_out: str = False,
+        complex_out: bool = False,
         **kwargs,
     ):
         """Single frequency waveform.
@@ -355,7 +375,12 @@ class CWWaveform(InfiniteWaveform):
             phase *= np.pi / 180
             phis *= np.pi / 180
 
-        wave = amplitude * np.exp(1j * (freq * ts + phis + phase), dtype=np.complex64) + offset
+        # Add base modulation at the relevant frequency if doing software modulation
+        oscillator = 0 if self.hardware_modulation else freq * ts
+        wave = (
+            amplitude * np.exp(1j * (oscillator + phis + phase), dtype=np.complex64)
+            + offset
+        )
 
         if complex_out:
             return wave
@@ -392,16 +417,20 @@ class ModulatedWaveform(Waveform):
             return f"{A_e} * {A_f}"
 
     @property
-    def channels(self) -> tuple[Channel]:
+    def channels(self) -> tuple[str, ...]:
         return self.modulation.channels
 
-    def evaluate_timepoints(self, ts, **kwargs) -> np.ndarray:
+    def evaluate_timepoints(
+        self, ts: np.ndarray, complex_out: bool = False, **kwargs
+    ) -> np.ndarray:
         modulation = self.modulation(ts, complex_out=True, **kwargs)
         envelope = self.envelope(ts, **kwargs)
 
         wave = envelope * modulation
 
-        if len(self.channels) <= 1:
+        if complex_out:
+            return wave
+        elif len(self.channels) <= 1:
             return wave.real
         elif len(self.channels) == 2:
             return wave.view(np.float32).reshape(-1, 2).T
@@ -609,22 +638,6 @@ def convert_number_or_string(v, cls):
 qwip.converter.register_structure_hook(float | str, convert_number_or_string)
 
 
-def make_channel_structure_fn(cls):
-    structure_attrs = make_attrs_structure_fn(cls)
-
-    def structure_fn(obj, cls):
-        if isinstance(obj, (str, int)):
-            return cls(str(obj))
-
-        return structure_attrs(obj, cls)
-
-    return structure_fn
-
-
-qwip.converter.register_structure_hook_factory(
-    lambda cls: issubclass(cls, Channel), make_channel_structure_fn
-)
-
 # ========== Waveform converters ========== #
 
 
@@ -667,12 +680,10 @@ qwip.converter.register_unstructure_hook_factory(
 
 __all__ = [
     "register_waveform",
-    "Channel",
     "Waveform",
     "BasicWaveform",
     "InfiniteWaveform",
     "Marker",
-    "CompositeWidthMarker",
     "TriggerMarker",
     "ReadoutMarker",
     "DCWaveform",

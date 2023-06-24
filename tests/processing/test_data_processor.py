@@ -61,7 +61,7 @@ class TestMeasurementResult:
     def test_unstructure(self):
         res = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3, 4]))
 
-        assert qwip.converter.unstructure(res) == dict(name="name", processors=[])
+        assert qwip.converter.unstructure(res) == dict(name="name", processors=[], __class__="MeasurementResult")
 
 
 class TestDataProcessor:

@@ -2,6 +2,7 @@ import itertools as it
 from collections.abc import Sequence as TSequence
 
 import numpy as np
+from loguru import logger
 from numpy.typing import NDArray
 from typing_extensions import Self
 
@@ -117,9 +118,8 @@ class Sequence(np.ndarray):
         n = len(self.shape) - len(tuple(i for i in index if i not in (..., np.newaxis)))
 
         # Must return a single element interable if not ellipse for itertools.chain
-        replace_ellipsis = (
-            lambda i: (slice(None) for _ in range(n)) if i is ... else (i,)
-        )
+        def replace_ellipsis(idx: tuple):
+            return (slice(None) for _ in range(n)) if idx is ... else (idx,)
 
         return tuple(it.chain(*(replace_ellipsis(i) for i in index)))
 
@@ -157,14 +157,19 @@ class Sequence(np.ndarray):
             return obj
 
         expanded = self._expand_basic_index(key)
+        logger.debug(f"Expanded form of {key} is {expanded}")
         obj.names = self._get_names_from_index(expanded)  # Set names
 
+        slices = tuple(idx for idx in expanded if idx is not None)
         # Copy over label views
-        for n in self.labels:
-            if n not in obj.names:
+        for level, n in enumerate(self.names):
+            if n not in obj.names or n not in self.labels:
                 continue
 
-            obj.labels[n] = self.labels[n][expanded[obj.names.index(n)]]
+            logger.debug(
+                f"Slicing {slices[level]} from label for {n} which was level {level}"
+            )
+            obj.labels[n] = self.labels[n][slices[level]]
 
         return obj
 

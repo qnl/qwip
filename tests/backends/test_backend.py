@@ -2,9 +2,8 @@ import numpy as np
 import pytest
 from numpy.random import default_rng
 
-import qwip
+from qwip.backends.backend import FakeBackend
 from qwip.processing.processors import GMMClassification, StatePopulations
-from qwip.qpu.backend import FakeBackend
 from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 

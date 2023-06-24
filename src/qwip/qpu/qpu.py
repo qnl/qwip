@@ -12,6 +12,7 @@ from loguru import logger
 
 import qwip
 from qwip.attrs import qdefine
+from qwip.backends.backend import QuantumBackend
 from qwip.config.database import ConfigFolder, OfflineConfigDB, SequenceElementFolder
 from qwip.config.schema import Target
 from qwip.processing.data_processor import (
@@ -20,18 +21,17 @@ from qwip.processing.data_processor import (
     MeasurementResult,
     ReadoutPipeline,
 )
-from qwip.processing.processors import FormatLegacyIQ, GMMClassification, IQRotation
-from qwip.qpu.backend import QuantumBackend
+from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
+from qwip.sequencer import Sequence, SequenceElement
 from qwip.sequencer.compilation import (
+    REGISTERED_SEQUENCERS,
     ChannelGroup,
     ChannelInfo,
-    CompiledSequence,
+    QuantumExecutable,
     WaveformSequencer,
 )
-from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency
-from qwip.sequencer.sequence import Sequence
 
 
 @qdefine
@@ -131,7 +131,13 @@ class QPU:
         if not modulations:
             modulations = dict()
 
-        sequencer = WaveformSequencer.from_channel_groups(
+        sequencer_cls = compilation.get("sequencer_class", "WaveformSequencer")
+        try:
+            sequencer_cls = REGISTERED_SEQUENCERS[sequencer_cls]
+        except KeyError:
+            raise KeyError(f"'{sequencer_cls}' is not a registered Sequencer.")
+
+        sequencer = sequencer_cls.from_channel_groups(
             channel_groups, modulations=modulations
         )
 
@@ -167,19 +173,12 @@ class QPU:
             for key, LO_info in self.config["hardware/local_oscillators"].items()
         }
 
-        for name, system in self.subsystems.items():
+        for system in self.subsystems.values():
             match system:
-                case QuantumSystem(mod_keys=_, mod_frequency=_):
-                    for key in system.mod_keys:
-                        mod_freq = system.mod_frequency(local_oscillators, key=key)
-
-                        if mod_freq:
-                            modulation_keys[f"mod_{name}_{key}"] = ModulationFrequency(
-                                mod_freq
-                            )
-                case QuantumSystem(mod_frequency=_):
-                    modulation_keys[f"mod_{name}"] = ModulationFrequency(
-                        system.mod_frequency(local_oscillators)
+                case QuantumSystem(get_modulations=_):
+                    modulation_keys |= qwip.converter.structure(
+                        system.get_modulations(local_oscillators),
+                        dict[str, ModulationFrequency],
                     )
                 case _:
                     logger.info(
@@ -259,8 +258,13 @@ class QPU:
                     case {"name": name, "__class__": cls, **parameters}:
                         self.config.subsystems[name]["system_class"] = cls
 
+                        config_params = self.config[f"subsystems/{name}/parameters"]
+
                         for k, v in parameters.items():
-                            self.config[f"subsystems/{name}/parameters/{k}"] = v
+                            try:
+                                config_params[k] = v
+                            except KeyError:
+                                config_params.create_parameter(name=k, value=v)
                     case _:
                         raise ValueError(
                             f"Model data is missing parameters: {system_data}"
@@ -268,9 +272,8 @@ class QPU:
 
     def run(
         self,
-        program: Sequence | CompiledSequence | None,
-        processor: type[DataProcessor]
-        | dict[str, type[DataProcessor]] = FormatLegacyIQ,
+        program: Sequence | QuantumExecutable | None,
+        processor: type[DataProcessor] | dict[str, type[DataProcessor]] | None = None,
         repetitions: int = 512,
         readout: dict | SequenceElement = {},
         compilation: dict = {},
@@ -279,8 +282,10 @@ class QPU:
         """Uploads a sequence and acquires data from a backend.
 
         Args:
-            program: A `Sequence` or a `CompiledSequence` object. If given a `Sequence`,
-                it will be compiled with any specified compilation parameters.
+            program: A `Sequence` or a `QuantumExecutable` object. If given a `Sequence`,
+                it will be compiled with any specified compilation parameters. If an
+                executable, it should match the backend being used. Otherwise, if `None`,
+                the previously uploaded sequence is run.
             processor: The data processor to use. See `qpu.process_results`.
             repetitions: The number of shots to take for each sequence element.
             readout: Can be either a `SequenceElement` or a dictionary of keyword
@@ -293,76 +298,42 @@ class QPU:
         Returns:
             A dictionary mapping measurement keys to the acquired and processed data.
         """
-        match readout:
-            case dict():
-                ro_se = self.get_readout_sequence(**readout)
-            case SequenceElement():
-                ro_se = readout
-            case _:
-                raise ValueError(
-                    f"Readout must be a sequence element or a dictionary of parameters. "
-                    f"Got {readout}"
-                )
 
         ## Update all frequencies before compilation
         self.update_modulations()
-        self.backend.update_parameters(self)
+        self.backend.update_parameters(self, readout=readout)
 
         match program:
+            # TODO: Fix this ugliness by implementing more flexible readout for ZI
+            case Sequence() if type(self.backend).__name__ == "QTRLBackend":
+                ro_se = self.backend.ro_se
+                exe = self.sequencer.compile(program, readout=ro_se, **compilation)
+                seq = exe.sequence
             case Sequence():
-                cseq = self.sequencer.compile(program, readout=ro_se, **compilation)
-                seq = cseq.sequence
-            case CompiledSequence():
-                cseq = program
-                seq = cseq.sequence
+                exe = self.sequencer.compile(program)
+            case QuantumExecutable():
+                exe = program
             case None:
-                cseq = None
+                exe = None
             case _:
                 raise NotImplementedError(
                     f"Only 'Sequence' and 'CompiledSequence' programs are currently "
                     f"supported. Got {program}"
                 )
 
-        if cseq:
-            self.backend.upload(cseq)
-        meas = self.backend.acquire(cseq, repetitions=repetitions)
+        if exe:
+            self.backend.upload(exe)
+        raw_data = self.backend.acquire(exe, repetitions=repetitions, **backend)
 
-        return self.process_results(meas, processor)
+        if processor is None:
+            return raw_data
 
-    def get_readout_sequence(
-        self,
-        readout: str = "default",
-        length: float | None = None,
-        length_variable: str = "width",
-    ) -> SequenceElement:
-        """Constructs a readout sequence element from the readout config.
-
-        Args:
-            readout: The name of the readout config.
-            length: The readout length in seconds.
-            length_variable: The pulse variable that corresponds to the pulse width in
-                the readout pulse.
-
-        Returns:
-            The readout sequence element.
-        """
-        readout_config = self.config.readout[readout]
-
-        ro_se = SequenceElement()
-        length = length or readout_config.length
-
-        for r in self.sequencer.readout_qubits:
-            pulse_name = readout_config.drives[f"R{r}"]
-
-            ro_se += self.db.load_pulse(pulse_name, {length_variable: length})
-
-        return ro_se
+        return self.process_results(raw_data, processor)
 
     def process_results(
         self,
         raw_data: dict,
-        processor: type[DataProcessor]
-        | dict[str, type[DataProcessor]] = FormatLegacyIQ,
+        processor: type[DataProcessor] | dict[str, type[DataProcessor]],
     ) -> dict[str, MeasurementResult]:
         """Runs the readout pipeline and returns the processed data.
 

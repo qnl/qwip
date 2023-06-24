@@ -149,13 +149,14 @@ converter.register_unstructure_hook(pendulum.Date, lambda dt: dt.isoformat())
 
 
 def make_attrs_structure_fn(cls):
-    def should_structure(field):
-        return field.init
+    def get_override(field):
+        if override := field.metadata.get("unstructure_override"):
+            return override
+        elif field.init is False:
+            return cattr.override(omit=True)
 
     to_structure = {
-        f.name: cattr.override(omit=True)
-        for f in attrs.fields(cls)
-        if not should_structure(f)
+        f.name: override for f in attrs.fields(cls) if (override := get_override(f))
     }
 
     structure_from_dict = make_dict_structure_fn(cls, converter, **to_structure)
@@ -172,13 +173,18 @@ def make_attrs_structure_fn(cls):
 
 
 def make_attrs_unstructure_fn(cls, omit_defaults: bool = True):
-    def should_unstructure(field):
-        return field.init and field.metadata.get("serialize", True)
+    def get_override(field):
+        if override := field.metadata.get("unstructure_override"):
+            return override
+        elif field.init is False and "serialize" not in field.metadata:
+            return cattr.override(omit=True)
+        elif field.metadata.get("serialize") is False:
+            return cattr.override(omit=True)
+        elif field.metadata.get("serialize") is True:
+            return cattr.override(omit_if_default=False)
 
     to_unstructure = {
-        f.name: cattr.override(omit=True)
-        for f in attrs.fields(cls)
-        if not should_unstructure(f)
+        f.name: override for f in attrs.fields(cls) if (override := get_override(f))
     }
 
     unstructure_from_dict = make_dict_unstructure_fn(

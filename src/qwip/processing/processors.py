@@ -4,7 +4,8 @@ from collections.abc import Collection
 import attrs
 import numpy as np
 import pandas as pd
-from attrs import field
+from attrs import cmp_using, field
+from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
 
 from qwip.attrs import qdefine
@@ -16,8 +17,100 @@ from qwip.processing.data_processor import (  # register_data_processor
 
 
 @qdefine
+class IQTraceResult(MeasurementResult):
+    """Stores raw IQ data vs time step in a multi indexed DataFrame for a single target.
+
+    Time points are assumed to be the same across all elements, readouts, and shots.
+    Thus there are N columns corresponding to the field values at the N time steps.
+    """
+
+    @classmethod
+    def from_numpy(
+        cls,
+        name: str,
+        IQ_raw: np.ndarray,
+        labels=("element", "readout", "shot"),
+        **kwargs,
+    ):
+        """Creates data frame from trajectory data obtained from QutipBackend.
+
+        Args:
+            name: The name of the `IQTraceResult`.
+            IQ_raw: Complex field amplitudes from a single ADC channel. The default
+                indexing is assumed to be (elements, readouts, shots, timepoints), but
+                this can be specified by passing in a tuple of labels. The last index
+                must always be timepoints.
+            labels: Index labels for the array axes. These should specify labels for all
+                but the last axis.
+
+        Returns:
+            An IQ trace result with the data formatted as a multi-indexed dataframe.
+        """
+
+        index = pd.MultiIndex.from_tuples(
+            it.product(*(range(N) for N in IQ_raw.shape[:-1])), names=labels
+        )
+
+        data = pd.DataFrame(
+            IQ_raw.reshape(-1, IQ_raw.shape[-1]),
+            index=index,
+        )
+
+        return cls(name=name, data=data, **kwargs)
+
+
+@qdefine
 class IQResult(MeasurementResult):
-    ...
+    """Demodulated IQ results.
+
+    Attributes:
+        data: Multi indexed data frame with row indices (element, readout) and column
+        indices (shot) mapping to an I+iQ value.
+    """
+
+
+@qdefine
+class HeterodyneDemodulation(DataProcessor):
+    """A data processor to demodulate raw IQ traces vs. time.
+
+    Takes in IQTraceResult, a formatted data frame, and demodulates it by
+    integrating it with different weighting functions to isolate the information at
+    various frequencies specific to readouts.
+
+    Attributes:
+        weights: A mapping from readout to the weights used to demodulate the raw
+            IQ traces (ex. np.exp(-1j*2pi*freq*ts)).
+    """
+
+    weights: dict[str, NDArray[complex]] = field(factory=dict)
+
+    def run(self, meas: IQTraceResult, **kwargs) -> dict[str, IQResult]:
+        """Demodulates the raw IQ traces at the specified frequencies.
+
+        For now, time points are assumed to be the same across all elements, readouts,
+        and shots. Weights later on will be added to account for differences across
+        elements and readouts.
+
+        Args:
+            meas: IQTraceResult.
+
+        Returns:
+            A dictionary mapping readout to its IQResult object containing the processed
+            IQ traces in the `data` attribute. For the specific format of the data frame,
+            go to the IQResult documentation.
+        """
+
+        weight_arr = np.stack(self.weights.values())
+
+        integrated = np.dot(weight_arr, meas.data.values.T) / weight_arr.shape[-1]
+
+        result = dict()
+        for i, k in enumerate(self.weights):
+            data_k = pd.DataFrame(integrated[i], index=meas.data.index).unstack(-1)
+
+            result[k] = IQResult(name=f"{meas.name}_{k}", data=data_k)
+
+        return result
 
 
 @DATA_PROCESSORS.register

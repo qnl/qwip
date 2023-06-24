@@ -1,5 +1,4 @@
-import functools
-import itertools as it
+from abc import ABCMeta
 from collections import defaultdict
 from collections.abc import Collection, Iterable
 from collections.abc import Sequence as TSequence
@@ -7,6 +6,7 @@ from typing import Protocol, runtime_checkable
 
 import matplotlib.pyplot as plt
 import numpy as np
+import plotly.graph_objects as go
 from attrs import evolve, field
 from loguru import logger
 from matplotlib.axes import Axes
@@ -20,8 +20,19 @@ from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
-from qwip.sequencer.waveform import Channel, Marker, ReadoutMarker, Waveform
+from qwip.sequencer.waveform import Marker, ReadoutMarker, Waveform
 from qwip.visualization.utils import all_legend_handles_labels
+
+REGISTERED_SEQUENCERS: dict[str, "WaveformSequencer"] = dict()
+
+
+def register_sequencer(cls: type["WaveformSequencer"]) -> type["WaveformSequencer"]:
+    if not issubclass(cls, WaveformSequencer):
+        raise TypeError(f"Registered sequencer must subclass {WaveformSequencer}")
+
+    REGISTERED_SEQUENCERS[cls.__name__] = cls
+
+    return cls
 
 
 def find_end_marker(locations, name="end") -> Location | None:
@@ -30,6 +41,17 @@ def find_end_marker(locations, name="end") -> Location | None:
             return loc
 
     return None
+
+
+@qdefine
+class QuantumExecutable(metaclass=ABCMeta):
+    """An abstract base class for hardware-specific executables."""
+
+    sequence: Sequence | None = field(eq=id, default=None)
+
+    @property
+    def seq(self) -> Sequence | None:
+        return self.sequence
 
 
 def find_readout_marker(locations) -> Location | None:
@@ -225,6 +247,7 @@ class ChannelInfo:
         index: The physical channel index (0-indexed) corresponding to the hardware channel.
         group: The name of the channel group this channel belongs to.
         subchannel: The subchannel (used for markers) that this channel name refers to.
+        read: True if the channel is an ADC channel.
         delay: A channel delay in ns to add to all waves on this channel.
     """
 
@@ -232,6 +255,7 @@ class ChannelInfo:
     index: int
     group: str | None = None
     subchannel: int = 0  # Use nonzero for markers
+    read: bool = False
     delay: float = 0
 
 
@@ -325,7 +349,7 @@ class ChannelGroup:
 
 
 @qdefine
-class CompiledSequence:
+class CompiledSequence(QuantumExecutable):
     """Compiled sequence.
 
     Compiled sequences should be specific to the hardware it is meant to be run
@@ -333,7 +357,6 @@ class CompiledSequence:
     """
 
     waveforms: dict[str, WaveformData] = field(factory=dict)
-    sequence: Sequence
 
     @property
     def array(self) -> np.ndarray:
@@ -376,14 +399,17 @@ class CompiledSequence:
 
     def plot(
         self,
-        element: int,
+        element: int | None = None,
+        title: str = "Pulse Sequence Simulation",
         channels: list[tuple[int, ...]] | None = None,
         axes: Collection[Axes] | None = None,
         fig_props: dict = {},
     ) -> Figure:
         plotter = CompiledSequencePlotter()
 
-        return plotter.plot(self, element, channels, axes, fig_props)
+        return plotter.plot(
+            self, element, title, channels, axes, fig_props
+        )  # plotter.plot(self, element, channels, axes, fig_props)
 
 
 @qdefine
@@ -427,7 +453,27 @@ class WaveformSequencer:
         """
         channels = {ch_group.name: ch_group for ch_group in channel_groups}
 
-        return WaveformSequencer(channels=channels, **kwargs)
+        return cls(channels=channels, **kwargs)
+
+    def get_channel_info(self, name: str) -> ChannelInfo | None:
+        """Returns the `ChannelInfo` with the given name.
+
+        It is assumed that there are no repeated channel names between channel groups,
+        so this method will short circuit on the first channel that matches the name.
+
+        Args:
+            name: The name of the channel to get.
+
+        Returns:
+            A `ChannelInfo` or `None`, if no channel matching the name exists.
+        """
+        for group in self.channels.values():
+            try:
+                return group[name]
+            except KeyError:
+                continue
+
+        return None
 
     def compile_phases(self, locations: dict[Location, list[Waveform]]) -> PhaseTracker:
         """Returns a new phase tracker instance with all virtual phase updates.
@@ -490,7 +536,8 @@ class WaveformSequencer:
                 width = w.width.resolve(**pulse_kwargs)
                 start, end = loc.offset, loc.offset + width.offset
 
-                s_idx, e_idx = int(start * sample_rate), int(end * sample_rate) + 1
+                s_idx = int(start * sample_rate)
+                e_idx = num_timepoints if np.isinf(end) else int(end * sample_rate) + 1
                 if s_idx == e_idx - 1:
                     continue
 
@@ -508,8 +555,8 @@ class WaveformSequencer:
                     w_t = w_t[np.newaxis, :]
 
                 for i, c in enumerate(w.channels):
-                    ch_idx = (channel_group[c.name].index,)
-                    subchannel = c.subchannel
+                    ch_idx = (channel_group[c].index,)
+                    subchannel = channel_group[c].subchannel
                     waveform_array[ch_idx, s_idx:e_idx, subchannel] += w_t[i]
 
         return waveform_array
@@ -681,6 +728,9 @@ class WaveformSequencer:
         return cseq
 
 
+register_sequencer(WaveformSequencer)
+
+
 @qdefine
 class CompiledSequencePlotter:
     axsize: tuple[float, float] = (8, 1)
@@ -720,6 +770,7 @@ class CompiledSequencePlotter:
         self,
         cseq: CompiledSequence,
         element: int,
+        title: str,
         channels: list[tuple[int, ...]] | None = None,
         axes: Collection[Axes] | None = None,
         fig_props: dict = {},
@@ -779,11 +830,108 @@ class CompiledSequencePlotter:
         return fig
 
 
+@qdefine
+class InteractiveSequencePlotter:
+    def plot(
+        self,
+        cseq: CompiledSequence,
+        title: str = "Pulse Sequence Simulation",
+        channels: list[tuple[int, ...]] | None = None,
+        axes: Collection[Axes] | None = None,
+        fig_props: dict = {},
+    ) -> Figure:
+        fig = go.Figure()
+
+        ts_pulse = (
+            np.arange(cseq.waveforms["seq"].array.shape[2])
+            / cseq.waveforms["seq"].sample_rate
+        )
+        N_channels, N_elements, N_steps, N_subchannels = cseq.waveforms[
+            "seq"
+        ].array.shape
+
+        active_elements = dict()
+        num_traces = 0
+
+        for i in range(N_elements):
+            active_channels = np.where(
+                np.any(
+                    cseq.waveforms["seq"].array[:, i, :, 0].reshape(N_channels, -1),
+                    axis=1,
+                )
+            )[0]
+
+            if len(active_channels) != 0:
+                active_elements[i] = active_channels
+
+            for ch in active_channels:
+                fig.add_trace(
+                    go.Scatter(
+                        x=ts_pulse,
+                        y=cseq.waveforms["seq"].array[ch, i, :, 0],
+                        visible=False,
+                        name=f"CH {ch}",
+                    )
+                )
+                num_traces += 1
+
+        # Slider to filter Sequence Element
+        steps_seq, start = [], 0
+        last_element = 0
+
+        for index, (element, targets) in enumerate(active_elements.items()):
+            visible_seq = [False] * num_traces
+            end = start + len(targets)
+
+            visible_seq[start:end] = [True] * (end - start)
+            steps_seq.append(
+                dict(
+                    label=f"{element}", method="update", args=[{"visible": visible_seq}]
+                )
+            )
+            if index == len(active_elements.items()) - 1:
+                for i in range(start, end):
+                    fig.data[i].visible = True
+                last_element = index
+
+            start = end
+
+        sliders = [
+            dict(
+                active=last_element,
+                currentvalue={"prefix": "Sequence Element: "},
+                pad={"t": 50, "b": 50},
+                steps=steps_seq,
+                borderwidth=2,
+            )
+        ]
+
+        fig.update_layout(
+            sliders=sliders,
+            dragmode="pan",
+            title={"text": title, "x": 0.5, "xanchor": "center"},
+            yaxis_title="Amplitude",
+            xaxis_title="Time",
+            width=1000,
+            height=600,
+            autosize=False,
+            margin=dict(t=50, b=0, l=0, r=0),
+        )
+
+        fig.update_yaxes(fixedrange=True)
+
+        # config = {'scrollZoom': True}
+        # fig.show(config=config)
+
+        return fig
+
+
 __all__ = [
     "ChannelInfo",
     "ChannelGroup",
     "CompiledSequence",
     "CompiledSequencePlotter",
+    "InteractiveSequencePlotter",
     "WaveformData",
     "WaveformSequencer",
 ]

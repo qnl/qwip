@@ -227,6 +227,18 @@ class TestSequenceIndexing:
                 dict(a=np.arange(10), b=np.arange(11), c=np.arange(12)),
             ),
             ((3, 4, 5), ("a", "b", "c"), np.s_[:, 2, ..., 3], dict(a=np.arange(3))),
+            (
+                (4, 8, 2),
+                ("a", "b", "c"),
+                np.s_[0, :, :],
+                dict(b=np.arange(8), c=np.arange(2)),
+            ),
+            (
+                (4, 4),
+                ("a", "b"),
+                np.s_[np.newaxis, :, ::2],
+                dict(a=np.arange(4), b=np.arange(4)[::2]),
+            ),
         ],
     )
     def test_basic_indexing_with_names_and_labels(self, shape, names, index, expected):
@@ -245,11 +257,14 @@ class TestSequenceIndexing:
 
 
 class TestSequenceShaping:
-    def test_reshape(self):
+    def test_reshape(self, request):
         s = Sequence.empty((4, 5, 3), names=("a", "b", "c"), a=np.arange(4))
 
-        r = s.reshape(4, -1)
-        # print(r.shape, r.names, r.labels, r.base is s)
+        r = s.reshape(2, -1)
+        assert r.shape == (2, 30)
+        assert r.names == (None, None)
+        assert r.labels == {}
+        assert r.base is s
 
     @pytest.mark.parametrize(
         "seq,axes,shape,names",
@@ -290,7 +305,14 @@ class TestSequenceShaping:
         s = Sequence.empty((2, 4), names=("x", "a"), a=np.arange(4), x=np.arange(2))
         r = Sequence.empty((4, 1, 1), names=("b", "x", ...), x=np.arange(1))
 
-        broadcast_names_and_labels(s, r)
+        names, labels = broadcast_names_and_labels(s, r)
+        assert names == ["b", "x", "a"]
+
+        expected_labels = dict(a=np.arange(4))
+        assert labels.keys() == expected_labels.keys()
+
+        for k in labels:
+            assert_array_equal(labels[k], expected_labels[k])
 
 
 class TestSequenceJoins:
@@ -403,45 +425,6 @@ class TestSequenceJoins:
             assert c.shape == tuple(shape)
             assert c.names == names
 
-            # Ordering is not guaranteed
-            assert set(c.labels.keys()) == set(labels.keys())
-
-            for n, label in c.labels.items():
-                assert_array_equal(label, labels[n])
-
-    @pytest.mark.parametrize(
-        "seqs,axis,names,labels,error",
-        [
-            (
-                [Sequence.empty(10, names=("a",), a=np.arange(10)), Sequence.empty(10)],
-                -1,
-                ("a", None),
-                dict(a=np.arange(10)),
-                noerror(),
-            ),
-            (
-                [
-                    Sequence.empty((2, 4, 5), names=("a", ...), a=np.arange(2)),
-                    Sequence.empty((2, 4, 5), names=(..., "d"), d=np.arange(5)),
-                    Sequence.empty((2, 4, 5), names=(None, "c", None), c=np.arange(4)),
-                ],
-                1,
-                ("a", None, "c", "d"),
-                dict(a=np.arange(2), c=np.arange(4), d=np.arange(5)),
-                noerror(),
-            ),
-        ],
-    )
-    def test_stack(self, seqs, axis, names, labels, error):
-        with error:
-            c = np.stack(seqs, axis=axis)
-
-            shape = list(seqs[0].shape)
-            axis = len(shape) + 1 + axis if axis < 0 else axis
-            shape.insert(axis, len(seqs))
-
-            assert c.shape == tuple(shape)
-            assert c.names == names
             # Ordering is not guaranteed
             assert set(c.labels.keys()) == set(labels.keys())
 

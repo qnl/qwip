@@ -1,7 +1,12 @@
 import pytest
 from numpy.testing import assert_array_almost_equal
 
-from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, WaveformSequencer
+from qwip.sequencer.compilation import (
+    ChannelGroup,
+    ChannelInfo,
+    QuantumExecutable,
+    WaveformSequencer,
+)
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.sequence import Sequence
@@ -13,6 +18,17 @@ from qwip.sequencer.waveform import (
     SquareWaveform,
     VirtualZWaveform,
 )
+
+
+class TestQuantumExecutable:
+    def test_equality(self):
+        qxe1 = QuantumExecutable(sequence=Sequence([]))
+        qxe2 = QuantumExecutable(sequence=Sequence([]))
+        qxe3 = QuantumExecutable(sequence=qxe1.seq)
+
+        assert qxe1 != qxe2
+        assert qxe1 == qxe3
+        assert QuantumExecutable(sequence=None) == QuantumExecutable(sequence=None)
 
 
 class TestChannelGroup:
@@ -115,6 +131,17 @@ class TestWaveformSequencer:
         return dict(
             Q0_X90=Q0_X90, Q1_X90=Q1_X90, Q0_Z90=Q0_Z90, Q1_Z90=Q1_Z90, R0=R0, R1=R1
         )
+
+    @pytest.mark.parametrize(
+        "name,expect",
+        [
+            ("Q0_I", ChannelInfo(name="Q0_I", index=0, group="seq")),
+            ("RO_Q", ChannelInfo(name="RO_Q", index=1, group="readout")),
+            ("random", None),
+        ],
+    )
+    def test_get_channel_info(self, sequencer, name, expect):
+        assert sequencer.get_channel_info(name) == expect
 
     def test_end_to_end(self, sequencer, pulses, data_file):
         import matplotlib.pyplot as plt

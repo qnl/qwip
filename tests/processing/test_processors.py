@@ -1,22 +1,116 @@
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
 from numpy.random import default_rng
-from numpy.testing import assert_array_almost_equal, assert_array_equal
+from numpy.testing import assert_allclose, assert_array_almost_equal, assert_array_equal
 
 import qwip
+from qwip.backends.qutip import QutipBackend
 from qwip.processing.processors import (
     ClassifiedResult,
     FormatLegacyIQ,
     GMMClassification,
+    HeterodyneDemodulation,
     HistogramResult,
     IQResult,
     IQRotation,
+    IQTraceResult,
     PopulationResult,
     ReadoutBitstring,
     ReadoutHistogram,
     StatePopulations,
 )
+from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
+
+
+class TestIQTraceResult:
+    def test_create_from_numpy(self):
+        IQ_data = np.ones((10, 2, 512, 1000))
+        IQ_default = IQTraceResult.from_numpy(name="Q0", IQ_raw=IQ_data)
+        assert IQ_default.data.to_numpy().shape == (10 * 2 * 512, 1000)
+        assert IQ_default.data.index.names == ["element", "readout", "shot"]
+
+        IQ_data_no_readout = np.ones((10, 512, 1000))
+        IQ_no_readout = IQTraceResult.from_numpy(
+            name="Q1", IQ_raw=IQ_data_no_readout, labels=["element", "shot"]
+        )
+        assert IQ_no_readout.data.to_numpy().shape == (10 * 512, 1000)
+        assert IQ_no_readout.data.index.names == ["element", "shot"]
+
+
+class TestHeterodyneDemodulation:
+    @pytest.fixture(scope="function")
+    def signal_generator(self, seed):
+        rng = default_rng(seed=seed)
+
+        def generate(IQ, freqs, ts, shape):
+            IQ = IQ.reshape(-1, 1)
+            freqs = freqs.reshape(-1, 1)
+
+            V_t = np.sum(IQ * np.exp(1j * 2 * np.pi * freqs * ts), axis=0)
+
+            noise = rng.random((*shape, ts.shape[0], 2)).view(np.complex128)
+            noise = noise.reshape(*noise.shape[:-1])
+
+            return V_t + noise
+
+        return generate
+
+    @pytest.mark.parametrize(
+        "IQ,freq",
+        [
+            (10 + 5j, 0.5),
+            (10 - 5j, 0.3),
+        ],
+    )
+    def test_single(self, IQ, freq, signal_generator):
+        ts = np.arange(4096) / 1.8
+        freqs = np.array([freq])
+        IQ = np.array([IQ])
+
+        shape = (20, 1, 1000)
+
+        data = signal_generator(IQ, freqs, ts, shape)
+
+        res = IQTraceResult.from_numpy("raw", data)
+
+        weight = np.exp(-1j * 2 * np.pi * freqs[0] * ts)
+
+        processor = HeterodyneDemodulation(weights={"Q0": weight})
+        processed = processor(res)
+
+        demod_IQ = processed["Q0"].data.mean(axis=1).mean()
+
+        assert_allclose(IQ[0], demod_IQ, atol=1e-3)
+
+    @pytest.mark.parametrize(
+        "IQ,freqs",
+        [
+            (np.array([10 + 5j, 10 - 5j]), np.array([0.5, 0.6])),
+        ],
+    )
+    def test_multiplexed(self, IQ, freqs, signal_generator):
+        ts = np.arange(4096) / 1.8
+
+        shape = (20, 1, 1000)
+
+        data = signal_generator(IQ, freqs, ts, shape)
+
+        res = IQTraceResult.from_numpy("raw", data)
+
+        weights = {
+            f"Q{i}": np.exp(-1j * 2 * np.pi * freqs[i] * ts) for i in range(len(freqs))
+        }
+
+        processor = HeterodyneDemodulation(weights=weights)
+        processed = processor(res)
+
+        demod_IQ = np.array(
+            [res.data.mean(axis=1).mean() for res in processed.values()]
+        )
+
+        assert_allclose(IQ, demod_IQ, atol=5e-2)
 
 
 class TestFormatLegacyIQ:
