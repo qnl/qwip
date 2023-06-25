@@ -15,6 +15,7 @@ from qwip.processing.data_processor import (
     ReadoutPipeline,
 )
 from qwip.processing.processors import (
+    Averaged,
     ClassifiedResult,
     GMMClassification,
     HeterodyneDemodulation,
@@ -22,6 +23,7 @@ from qwip.processing.processors import (
     IQResult,
     IQRotation,
     IQTraceResult,
+    Labeled,
     PopulationResult,
     ReadoutBitstring,
     ReadoutHistogram,
@@ -239,7 +241,7 @@ class TestPipeline:
             PopulationResult,
         }
 
-    def test_dependency_resolution(self, single_qubit):
+    def test_resolve_dependencies(self, single_qubit):
         pipeline = ReadoutPipeline(processors=single_qubit)
         pipeline.add_processor(ReadoutBitstring())
 
@@ -271,6 +273,30 @@ class TestPipeline:
             ("R0,R1", "StatePopulations")
         )
 
+    def test_resolve_dependencies_none(self, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        assert pipeline.resolve_dependencies(dict(R0=None)) == []
+
+    def test_resolve_dependencies_generic(self, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+        pipeline.add_processor(Averaged())
+        pipeline.add_processor(Labeled())
+
+        resolved = pipeline.resolve_dependencies(dict(R0=Labeled))
+        assert resolved == [("R0", Labeled(), ())]
+
+        resolved = pipeline.resolve_dependencies(dict(R0=Labeled[StatePopulations]))
+        assert resolved[-1] == ("R0", Labeled(), (("R0", StatePopulations),))
+
+        resolved = pipeline.resolve_dependencies(
+            dict(R0=Labeled[Averaged[HeterodyneDemodulation]])
+        )
+        assert resolved[-2:] == [
+            ("R0", Averaged(), (("R0", HeterodyneDemodulation),)),
+            ("R0", Labeled(), (("R0", Averaged),)),
+        ]
+
     def test_get_inputs(self, cache, single_qubit):
         pipeline = ReadoutPipeline(processors=single_qubit)
 
@@ -283,3 +309,10 @@ class TestPipeline:
         assert pipeline._get_inputs("R0", None, gmm) == res
         assert pipeline._get_inputs("R0", HeterodyneDemodulation, gmm) == res
         assert pipeline._get_inputs("R0", GMMClassification, bitstrings) is None
+
+    def test_process_results_none(self, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        inputs = dict(R0=IQResult.from_numpy(np.zeros((4, 2, 10), dtype=np.complex64)))
+
+        assert pipeline.process_results(inputs, dict(R0=None)) == inputs

@@ -2,7 +2,7 @@ import functools
 import inspect
 import itertools as it
 from collections.abc import Collection
-from typing import get_args
+from typing import GenericAlias, TypeVar, get_args, get_origin
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from loguru import logger
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import _dataframe_equals, qdefine
-from qwip.typing import is_generic_type
+from qwip.typing import is_generic_type, issubtype
 
 DATA_PROCESSOR_LOOKUP = dict()
 DATA_PROCESSOR_DEPENDENCIES = dict()
@@ -33,8 +33,8 @@ class DataProcessor:
     def __call__(self, meas: "MeasurementResult", /, **kwargs) -> "MeasurementResult":
         result = self.run(meas, **kwargs)
         match result:
-            case dict():
-                for res in result.values():
+            case Collection():
+                for res in result:
                     res.processors = (*res.processors, self)
             case _:
                 result.processors = (*result.processors, self)
@@ -45,6 +45,22 @@ class DataProcessor:
 
     def output_keys(self) -> set[str]:
         return {self.measurement_key}
+
+
+@qdefine
+class GenericDataProcessor(DataProcessor):
+    """A data processor that can act on any measurement result.
+
+    These data processors have no dependencies, so are not added to the dependency
+    graph. Instead they are applied at the end, after getting the result from the
+    data processor specified as the argument to the class.
+    """
+
+    # Using this method for defining a Generic instead of subclassing from Generic
+    # because the latter yields a typing._GenericAlias when subscripted instead of
+    # a typing.GenericAlias. This makes instance and subclass checks fail.
+    # See https://github.com/python/cpython/blob/dbe416b82b8a4ba69d263b915167ea1650ff2412/Lib/_collections_abc.py#L268C5-L268C50
+    __class_getitem__ = classmethod(GenericAlias)
 
 
 @qdefine
@@ -107,7 +123,7 @@ class DataProcessorGraph:
     ) -> tuple[type[MeasurementResult], type[MeasurementResult]]:
         sig = inspect.signature(cls.run)
 
-        in_type = sig.parameters["meas"].annotation
+        in_type = sig.parameters["result"].annotation
         out_type = sig.return_annotation
 
         match get_args(in_type):
@@ -536,7 +552,7 @@ class ReadoutPipeline:
                 type(processor), replace_generic=True
             )
 
-            if prev_in != curr_out:
+            if prev_in != curr_out and TypeVar not in (type(prev_in), type(curr_out)):
                 raise ValueError(
                     f"Input result type for {type(prev.processor).__name__} "
                     f"does not match output result type for {dep.__name__ }. "
@@ -560,7 +576,7 @@ class ReadoutPipeline:
             )
 
     def dependency_graph(
-        self, output_types: dict[str, type[DataProcessor]]
+        self, output_types: dict[str, type[DataProcessor] | None]
     ) -> rx.PyDiGraph:
         """Builds the full dependency graph for the processing pipeline.
 
@@ -577,7 +593,27 @@ class ReadoutPipeline:
         index_map = dict()
 
         for key, processor_type in output_types.items():
-            dependencies = DATA_PROCESSORS.get_dependencies(processor_type)
+            generics = []
+            while issubtype(processor_type, GenericDataProcessor):
+                generics.append(get_origin(processor_type) or processor_type)
+
+                match get_args(processor_type):
+                    case ():
+                        processor_type = None
+                    case (processor_type,):
+                        ...
+                    case _:
+                        ValueError(
+                            f"GenericDataProcessors should only have a single argument,"
+                            f" got {processor_type}."
+                        )
+
+            if processor_type is None:
+                dependencies = [] + generics[::-1]
+            else:
+                dependencies = (
+                    DATA_PROCESSORS.get_dependencies(processor_type) + generics[::-1]
+                )
 
             self._build_processor_graph(
                 graph, key, prev=None, dependencies=dependencies, index_map=index_map
@@ -657,19 +693,25 @@ class ReadoutPipeline:
         try:
             inputs = self.dependency_cache[(key, previous)]
             # This is necessary for handling the case where previous is None
-            if isinstance(inputs, expected_input):
+            if isinstance(expected_input, TypeVar) or isinstance(
+                inputs, expected_input
+            ):
                 return inputs
         except KeyError:
             pass
 
         inputs = self.dependency_cache.get((key, None))
-        return inputs if isinstance(inputs, expected_input) else None
+        if isinstance(expected_input, TypeVar) or isinstance(inputs, expected_input):
+            return inputs
+
+        return None
 
     def process_results(
         self,
         input_data: dict[str, MeasurementResult],
         output_types: dict[str, type[DataProcessor]],
         clear_cache: bool = True,
+        **kwargs,
     ) -> dict[str, MeasurementResult]:
         """Processes the input data.
 
@@ -712,7 +754,7 @@ class ReadoutPipeline:
                 )
                 continue
 
-            result = processor(inputs)
+            result = processor(inputs, **kwargs)
             if isinstance(result, Collection):
                 self.dependency_cache.update(
                     {(res.k, type(processor)): res for res in result}
@@ -721,7 +763,9 @@ class ReadoutPipeline:
                 self.dependency_cache[(key, type(processor))] = result
 
         return {
-            key: self.dependency_cache[(key, processor_type)]
+            key: self.dependency_cache[
+                (key, get_origin(processor_type) or processor_type)
+            ]
             for key, processor_type in output_types.items()
         }
 

@@ -1,6 +1,6 @@
 import itertools as it
 from collections.abc import Collection
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 import attrs
 import numpy as np
@@ -473,7 +473,6 @@ class Averaged(GenericDataProcessor):
         return result
 
 
-@qdefine
 class Labeled(GenericDataProcessor):
     """A data processor for labeling the results according to the sequence labels."""
 

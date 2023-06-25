@@ -325,15 +325,13 @@ class QPU:
             self.backend.upload(exe)
         raw_data = self.backend.acquire(exe, repetitions=repetitions, **backend)
 
-        if processor is None:
-            return raw_data
-
-        return self.process_results(raw_data, processor)
+        return self.process_results(raw_data, processor, seq=exe.seq)
 
     def process_results(
         self,
         raw_data: dict,
         processor: type[DataProcessor] | dict[str, type[DataProcessor]],
+        **kwargs,
     ) -> dict[str, MeasurementResult]:
         """Runs the readout pipeline and returns the processed data.
 
@@ -349,7 +347,7 @@ class QPU:
         if not isinstance(processor, dict):
             processor = {f"R{r}": processor for r in self.sequencer.readout_qubits}
 
-        return self.pipeline.process_results(raw_data, processor)
+        return self.pipeline.process_results(raw_data, processor, **kwargs)
 
 
 __all__ = ["QPU"]
