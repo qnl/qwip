@@ -97,6 +97,8 @@ class TestProcessingGraph:
             ReadoutBitstring,
             ReadoutHistogram,
             StatePopulations,
+            Averaged,
+            Labeled,
         }
 
     @pytest.mark.parametrize(

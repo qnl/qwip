@@ -444,6 +444,7 @@ class StatePopulations(DataProcessor):
         )
 
 
+@DATA_PROCESSORS.register
 @qdefine
 class Averaged(GenericDataProcessor):
     """A data processor for averaging data along a specified axis.
@@ -473,6 +474,8 @@ class Averaged(GenericDataProcessor):
         return result
 
 
+@DATA_PROCESSORS.register
+@qdefine
 class Labeled(GenericDataProcessor):
     """A data processor for labeling the results according to the sequence labels."""
 

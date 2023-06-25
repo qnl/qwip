@@ -188,7 +188,11 @@ class DataProcessorGraph:
             if not issubclass(cls, DataProcessor):
                 raise TypeError(f"'{cls}' is not a subclass of {DataProcessor}.")
 
-            if cls.__name__ in self.index_map:
+            if cls.__name__ in self.registered:
+                return cls
+
+            if issubclass(cls, GenericDataProcessor):
+                self.registered[cls.__name__] = cls
                 return cls
 
             in_type, out_type = DataProcessorGraph.get_types_from_signature(
