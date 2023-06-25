@@ -115,7 +115,7 @@ class HeterodyneDemodulation(DataProcessor):
 
     weights: dict[str, NDArray[complex]] = field(factory=dict)
 
-    def run(self, meas: IQTraceResult, **kwargs) -> list[IQResult]:
+    def run(self, result: IQTraceResult, **kwargs) -> list[IQResult]:
         """Demodulates the raw IQ traces at the specified frequencies.
 
         For now, time points are assumed to be the same across all elements, readouts,
@@ -123,7 +123,7 @@ class HeterodyneDemodulation(DataProcessor):
         elements and readouts.
 
         Args:
-            meas: IQTraceResult.
+            result: IQTraceResult.
 
         Returns:
             A dictionary mapping readout to its IQResult object containing the processed
@@ -133,11 +133,11 @@ class HeterodyneDemodulation(DataProcessor):
 
         weight_arr = np.stack(self.weights.values())
 
-        integrated = np.dot(weight_arr, meas.data.values.T) / weight_arr.shape[-1]
+        integrated = np.dot(weight_arr, result.data.values.T) / weight_arr.shape[-1]
 
         result = list()
         for i, k in enumerate(self.weights):
-            data = pd.DataFrame(integrated[i], index=meas.data.index).unstack(-1)
+            data = pd.DataFrame(integrated[i], index=result.data.index).unstack(-1)
 
             result.append(IQResult(name=k, data=data))
 
@@ -159,11 +159,11 @@ class IQRotation(DataProcessor):
 
     angle: float = 0
 
-    def run(self, meas: IQResult, **kwargs) -> IQResult:
+    def run(self, result: IQResult, **kwargs) -> IQResult:
         """Rotates the IQ data in the IQ plane by a specified angle.
 
         Args:
-            meas: The `IQResult` to rotate.
+            result: The `IQResult` to rotate.
 
         Returns:
             The resulting `IQResult` with rotated points.
@@ -172,7 +172,7 @@ class IQRotation(DataProcessor):
 
         rotation = np.exp(1j * angle)
 
-        return attrs.evolve(meas, data=meas.data * rotation)
+        return attrs.evolve(result, data=result.data * rotation)
 
 
 # @DATA_PROCESSORS.register
@@ -185,7 +185,7 @@ class IQRotation(DataProcessor):
 #     """
 #     axis: int = -1
 
-#     def run(self, meas: IQResult, **kwargs) -> IQResult:
+#     def run(self, result: IQResult, **kwargs) -> IQResult:
 #         raise NotImplementedError()
 
 
@@ -260,16 +260,16 @@ class GMMClassification(DataProcessor):
 
         return model
 
-    def fit(self, meas: IQResult, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+    def fit(self, result: IQResult, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         """Fits a GMM to the given IQ data.
 
         Args:
-            meas: The IQResult whose data is used to fit the GMM.
+            result: The IQResult whose data is used to fit the GMM.
 
         Returns:
             A tuple `(means, covariances)` corresponding to the best fit model.
         """
-        IQ = GMMClassification._get_real_IQ_from_complex(meas.data.to_numpy().flatten())
+        IQ = GMMClassification._get_real_IQ_from_complex(result.data.to_numpy().flatten())
 
         model = self.get_model()
         model.means_init = self.means
@@ -277,11 +277,11 @@ class GMMClassification(DataProcessor):
 
         return model.means_, model.covariances_
 
-    def run(self, meas: IQResult, **kwargs) -> ClassifiedResult:
+    def run(self, result: IQResult, **kwargs) -> ClassifiedResult:
         """Classifies IQData according to the GMM model.
 
         Args:
-            meas: The `IQResult` to classify.
+            result: The `IQResult` to classify.
 
         Returns:
             A `ClassifiedResult`. The data will have the same shape as the `IQResult`,
@@ -290,21 +290,21 @@ class GMMClassification(DataProcessor):
         """
         model = self.get_model(initialize=True)
 
-        shape = meas.shape
+        shape = result.shape
         IQ_data = GMMClassification._get_real_IQ_from_complex(
-            meas.data.to_numpy().flatten()
+            result.data.to_numpy().flatten()
         )
 
         classified = model.predict(IQ_data).reshape(shape)
         classified = pd.DataFrame(
-            classified, index=meas.data.index, columns=meas.data.columns, dtype=str
+            classified, index=result.data.index, columns=result.data.columns, dtype=str
         )
 
         return ClassifiedResult(
-            name=meas.name,
+            name=result.name,
             data=classified,
             num_states=self.num_states,
-            processors=meas.processors,
+            processors=result.processors,
         )
 
 
@@ -319,32 +319,32 @@ class ReadoutBitstring(DataProcessor):
 
     delimiter: str = ","
 
-    def run(self, meas: Collection[ClassifiedResult], **kwargs) -> ClassifiedResult:
+    def run(self, result: Collection[ClassifiedResult], **kwargs) -> ClassifiedResult:
         """Concatenates single qudit `ClassifiedResult` into a multi-qudit result.
 
         Args:
-            meas: A list of `ClassifiedResult` to concatenate. They must have the same
+            result: A list of `ClassifiedResult` to concatenate. They must have the same
                 shape in order to be combined.
 
         Returns:
             The multi-qudit `ClassifiedResult`.
         """
-        if len(meas) == 1:
-            return meas[0]
+        if len(result) == 1:
+            return result[0]
 
-        name = self.delimiter.join(m.name for m in meas)
+        name = self.delimiter.join(m.name for m in result)
 
-        bitstrings = meas[0].data.copy()
-        for m in meas[1:]:
+        bitstrings = result[0].data.copy()
+        for m in result[1:]:
             bitstrings += m.data
-        num_states = max(m.num_states for m in meas)
+        num_states = max(m.num_states for m in result)
 
         return ClassifiedResult(
             name=name,
             data=bitstrings,
             num_states=num_states,
-            num_qudits=len(meas),
-            processors=tuple(it.chain.from_iterable(m.processors for m in meas)),
+            num_qudits=len(result),
+            processors=tuple(it.chain.from_iterable(m.processors for m in result)),
         )
 
 
@@ -369,37 +369,37 @@ class ReadoutHistogram(DataProcessor):
     fill_missing: bool | None = None
     sort: bool = True
 
-    def run(self, meas: ClassifiedResult, **kwargs) -> HistogramResult:
+    def run(self, result: ClassifiedResult, **kwargs) -> HistogramResult:
         """Bins qudit states/bitstrings to determine counts.
 
         Args:
-            meas: The per-shot bitstrings to bin.
+            result: The per-shot bitstrings to bin.
 
         Returns:
             The resulting histogram data.
         """
         fill_missing = kwargs.get("fill_missing", self.fill_missing)
         if fill_missing is None:
-            fill_missing = meas.num_qudits <= 1
+            fill_missing = result.num_qudits <= 1
 
         # Get information about dataframe shape
-        num_ilevels = meas.data.index.nlevels
-        num_clevels = meas.data.columns.nlevels
+        num_ilevels = result.data.index.nlevels
+        num_clevels = result.data.columns.nlevels
 
         index_levels = [i for i in range(num_ilevels)]
         column_levels = [i for i in range(-num_clevels, 0)]
 
         # Bin by bitstring values
-        counts = meas.data.stack().groupby(level=index_levels).value_counts()
+        counts = result.data.stack().groupby(level=index_levels).value_counts()
         counts = counts.unstack(level=column_levels)
 
         if fill_missing and num_clevels > 1:
             raise ValueError("Fill missing is unsupported for MultiIndex columns")
 
         elif fill_missing:
-            qudit_values = np.arange(meas.num_states).astype(str)
+            qudit_values = np.arange(result.num_states).astype(str)
             all_bitstrings = [
-                "".join(b) for b in it.product(qudit_values, repeat=meas.num_qudits)
+                "".join(b) for b in it.product(qudit_values, repeat=result.num_qudits)
             ]
 
             for bitstring in all_bitstrings:
@@ -410,11 +410,11 @@ class ReadoutHistogram(DataProcessor):
             counts.sort_index(axis="columns", inplace=True)
 
         return HistogramResult(
-            name=meas.name,
+            name=result.name,
             data=counts.fillna(0),
-            num_states=meas.num_states,
-            num_qudits=meas.num_qudits,
-            processors=meas.processors,
+            num_states=result.num_states,
+            num_qudits=result.num_qudits,
+            processors=result.processors,
         )
 
 
@@ -430,8 +430,8 @@ class PopulationResult(MeasurementResult):
 class StatePopulations(DataProcessor):
     """Normalizes bitstring counts to a density."""
 
-    def run(self, meas: HistogramResult, **kwargs) -> PopulationResult:
-        shots = meas.data.sum(axis="columns")
+    def run(self, result: HistogramResult, **kwargs) -> PopulationResult:
+        shots = result.data.sum(axis="columns")
 
         unique_shots = shots.unique()
         if len(unique_shots) == 1:
@@ -439,13 +439,13 @@ class StatePopulations(DataProcessor):
         else:
             num_shots = None
 
-        data = meas.data.div(shots, axis="index")
+        data = result.data.div(shots, axis="index")
 
         return PopulationResult(
-            name=meas.name,
+            name=result.name,
             data=data,
-            num_states=meas.num_states,
-            num_qudits=meas.num_qudits,
+            num_states=result.num_states,
+            num_qudits=result.num_qudits,
             num_shots=num_shots,
-            processors=meas.processors,
+            processors=result.processors,
         )
