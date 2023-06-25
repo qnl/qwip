@@ -7,8 +7,9 @@ import pandas as pd
 from attrs import cmp_using, field
 from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
+from typing_extensions import Self
 
-from qwip.attrs import qdefine
+from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.data_processor import (  # register_data_processor
     DATA_PROCESSORS,
     DataProcessor,
@@ -27,19 +28,19 @@ class IQTraceResult(MeasurementResult):
     @classmethod
     def from_numpy(
         cls,
-        name: str,
-        IQ_raw: np.ndarray,
+        arr: np.ndarray,
+        name: str = "IQTraceResult",
         labels=("element", "readout", "shot"),
         **kwargs,
     ):
         """Creates data frame from trajectory data obtained from QutipBackend.
 
         Args:
-            name: The name of the `IQTraceResult`.
-            IQ_raw: Complex field amplitudes from a single ADC channel. The default
+            arr: Complex field amplitudes from a single ADC channel. The default
                 indexing is assumed to be (elements, readouts, shots, timepoints), but
                 this can be specified by passing in a tuple of labels. The last index
                 must always be timepoints.
+            name: The result name.
             labels: Index labels for the array axes. These should specify labels for all
                 but the last axis.
 
@@ -48,11 +49,11 @@ class IQTraceResult(MeasurementResult):
         """
 
         index = pd.MultiIndex.from_tuples(
-            it.product(*(range(N) for N in IQ_raw.shape[:-1])), names=labels
+            it.product(*(range(N) for N in arr.shape[:-1])), names=labels
         )
 
         data = pd.DataFrame(
-            IQ_raw.reshape(-1, IQ_raw.shape[-1]),
+            arr.reshape(-1, arr.shape[-1]),
             index=index,
         )
 
@@ -68,7 +69,37 @@ class IQResult(MeasurementResult):
         indices (shot) mapping to an I+iQ value.
     """
 
+    @classmethod
+    def from_numpy(
+        self, arr: np.ndarray, name="IQResult", labels=("element", "readout"), **kwargs
+    ) -> Self:
+        """Reorders the memory layout of the IQ data for each measurement key.
 
+        Args:
+            arr: A numpy array of complex IQ points. The default shape is assumed to be
+                (element, readout, shot). The last axis must always be shots.
+            name: The result name.
+            labels: Index labels for the array axes. These should specify labels for all
+                but the last axis.
+
+        Returns:
+            An IQResult. The measurement data frame will have index labels as specified,
+            and the columns will be the individual shots.
+        """
+
+        num_shots = arr.shape[-1]
+
+        index = pd.MultiIndex.from_tuples(
+            it.product(*(range(N) for N in arr.shape[:-1])), names=labels
+        )
+        columns = pd.RangeIndex(num_shots, name="shot")
+
+        df = pd.DataFrame(arr.reshape(-1, num_shots), index=index, columns=columns)
+
+        return IQResult(name=name, data=df)
+
+
+@DATA_PROCESSORS.register
 @qdefine
 class HeterodyneDemodulation(DataProcessor):
     """A data processor to demodulate raw IQ traces vs. time.
@@ -84,7 +115,7 @@ class HeterodyneDemodulation(DataProcessor):
 
     weights: dict[str, NDArray[complex]] = field(factory=dict)
 
-    def run(self, meas: IQTraceResult, **kwargs) -> dict[str, IQResult]:
+    def run(self, meas: IQTraceResult, **kwargs) -> list[IQResult]:
         """Demodulates the raw IQ traces at the specified frequencies.
 
         For now, time points are assumed to be the same across all elements, readouts,
@@ -104,63 +135,20 @@ class HeterodyneDemodulation(DataProcessor):
 
         integrated = np.dot(weight_arr, meas.data.values.T) / weight_arr.shape[-1]
 
-        result = dict()
+        result = list()
         for i, k in enumerate(self.weights):
-            data_k = pd.DataFrame(integrated[i], index=meas.data.index).unstack(-1)
+            data = pd.DataFrame(integrated[i], index=meas.data.index).unstack(-1)
 
-            result[k] = IQResult(name=f"{meas.name}_{k}", data=data_k)
+            result.append(IQResult(name=k, data=data))
 
         return result
 
+    def output_keys(self) -> set[str]:
+        """Returns the set of output keys returned by the processor."""
+        return set(self.weights)
+
 
 @DATA_PROCESSORS.register
-@qdefine
-class FormatLegacyIQ(DataProcessor):
-    """A data processor to reformat legacy QTRL IQ data.
-
-    This processor will reorder the axis so that the IQ data for each shot is
-    contiguous. The legacy heterodyne array is a 4-D array where the axes correspond
-    to `(IQ, shots, elements, readouts)`. This is reformatted to a dataframe where the
-    index is `(elements, readouts)` and columns correspond to `shots`, such that the
-    data ordering is `(elements, readouts, shots, IQ)`.
-    """
-
-    def run(self, meas: np.ndarray, name="IQResult", **kwargs) -> IQResult:
-        """Reorders the memory layout of the IQ data for each measurement key.
-
-        Args:
-            meas: A `qtrl` measurement dictionary. Each measurement key maps to a 4-d
-                numpy array.
-            name: The result name.
-
-        Returns:
-            An IQResult. The measurement data frame will have index labels
-            (element, readout), and the columns will be the individual shots.
-        """
-        match meas.dtype:
-            case np.float32:
-                cast = np.complex64
-            case np.float64:
-                cast = np.complex128
-            case _:
-                meas = meas.astype(float)
-                cast = np.complex128
-
-        data = np.array(np.transpose(meas, [2, 3, 1, 0]), order="C").view(cast)
-
-        num_se, num_ro, num_shot, _ = data.shape
-
-        index = pd.MultiIndex.from_product(
-            [np.arange(num_se), np.arange(num_ro)], names=["element", "readout"]
-        )
-        columns = pd.RangeIndex(num_shot, name="shot")
-
-        df = pd.DataFrame(data.reshape(-1, num_shot), index=index, columns=columns)
-
-        return IQResult(name=name, data=df)
-
-
-@DATA_PROCESSORS.register(after=FormatLegacyIQ)
 @qdefine
 class IQRotation(DataProcessor):
     """A data processor for rotating IQ data points.
@@ -222,8 +210,8 @@ class GMMClassification(DataProcessor):
     """
 
     num_states: int = 2
-    means: np.ndarray = field()
-    covariances: np.ndarray = field()
+    means: np.ndarray = field(eq=cmp_using(_numpy_equals))
+    covariances: np.ndarray = field(eq=cmp_using(_numpy_equals))
 
     @means.default
     def _default_means(self) -> np.ndarray:
@@ -243,7 +231,7 @@ class GMMClassification(DataProcessor):
             case np.complex64:
                 cast = np.float32
             case dtype:
-                TypeError(f"IQ data should be complex type, got {dtype}.")
+                raise TypeError(f"IQ data should be complex type, got {dtype}.")
 
         return IQ_data.view(cast).reshape(*shape, 2)
 

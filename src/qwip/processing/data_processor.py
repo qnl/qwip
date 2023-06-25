@@ -1,9 +1,8 @@
 import functools
 import inspect
 import itertools as it
-from collections import defaultdict
 from collections.abc import Collection
-from typing import Type, get_args, get_origin
+from typing import get_args
 
 import numpy as np
 import pandas as pd
@@ -13,22 +12,11 @@ from loguru import logger
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
-from qwip.attrs import qdefine
+from qwip.attrs import _dataframe_equals, qdefine
 from qwip.typing import is_generic_type
 
 DATA_PROCESSOR_LOOKUP = dict()
 DATA_PROCESSOR_DEPENDENCIES = dict()
-
-
-def _dataframe_equals(a: pd.DataFrame, b: pd.DataFrame) -> bool:
-    """Checks if two dataframes are equal.
-
-    This function should only ever be called with two DataFrame arguments.
-
-    Returns:
-        True if a and b are equal otherwise False.
-    """
-    return a.equals(b)
 
 
 def _dataframe_repr(df: pd.DataFrame) -> str:
@@ -54,6 +42,9 @@ class DataProcessor:
 
     def run(self, meas: "MeasurementResult", /, **kwargs) -> "MeasurementResult":
         raise NotImplementedError()
+
+    def output_keys(self) -> set[str]:
+        return {self.measurement_key}
 
 
 @qdefine
@@ -99,9 +90,7 @@ class DataProcessorMetadata:
 GRAPH_IN = True
 GRAPH_OUT = False
 
-TMeasurementOrProcessor = (
-    type[DataProcessor] | type[MeasurementResult] | type[np.ndarray]
-)
+TMeasurementOrProcessor = type[DataProcessor] | type[MeasurementResult]
 
 
 @qdefine
@@ -124,6 +113,12 @@ class DataProcessorGraph:
         match get_args(in_type):
             case arg, if replace_generic:
                 in_type = arg
+            case _:
+                ...
+
+        match get_args(out_type):
+            case arg, if replace_generic:
+                out_type = arg
             case _:
                 ...
 
@@ -173,7 +168,7 @@ class DataProcessorGraph:
         before: type[DataProcessor] | None = None,
         after: type[DataProcessor] | None = None,
     ):
-        def decorate(cls: type[DataProcessor]) -> Type[DataProcessor]:
+        def decorate(cls: type[DataProcessor]) -> type[DataProcessor]:
             if not issubclass(cls, DataProcessor):
                 raise TypeError(f"'{cls}' is not a subclass of {DataProcessor}.")
 
@@ -203,15 +198,14 @@ class DataProcessorGraph:
                     )
 
                     self.replace_input_node(prev_v, new_v)
+                    v_in, v_out = prev_v, new_v
 
                 else:
                     self.registered[name] = in_type
-                    self.index_map[name] = (
+                    v_in, v_out = self.index_map[name] = (
                         self.graph.add_node(in_type),
                         self.graph.add_node(out_type),
                     )
-
-                v_in, v_out = prev_v, new_v
 
             else:
                 # If processor connects two different result types
@@ -249,13 +243,47 @@ class DataProcessorGraph:
 
         return decorate
 
+    def get_root_node(self) -> type[MeasurementResult]:
+        """Returns the root node of the processor graph.
+
+        Raises:
+            ValueError: If more than one root node exists for the graph, or if the graph
+                is empty.
+        """
+        visited = set()
+
+        nodes = self.graph.nodes()
+        root = None
+
+        while nodes:
+            root = nodes[0]
+            idx = self.index_map[root.__name__]
+
+            if idx in visited:
+                raise ValueError(
+                    "DataProcessorGraph contains a cycle. This should not occur."
+                )
+
+            if isinstance(idx, tuple):
+                idx, *rest = idx
+
+            nodes = self.graph.predecessors(idx)
+            visited.add(idx)
+
+        if root is None:
+            raise ValueError("Cnanot get root node of an empty graph.")
+
+        return root
+
     def get_result_type(
-        self, processor_cls: str | type[DataProcessor]
+        self, processor_cls: str | type[DataProcessor], replace_generic: bool = False
     ) -> type[MeasurementResult]:
         if isinstance(processor_cls, str):
             processor_cls = self.registered[processor_cls]
 
-        _, out_type = DataProcessorGraph.get_types_from_signature(processor_cls)
+        _, out_type = DataProcessorGraph.get_types_from_signature(
+            processor_cls, replace_generic
+        )
 
         return out_type
 
@@ -274,11 +302,12 @@ class DataProcessorGraph:
     def get_dependencies(
         self,
         processor_type: type[DataProcessor],
-        input_type: type[MeasurementResult] | type[np.ndarray] = np.ndarray,
+        input_type: type[MeasurementResult] | None = None,
     ) -> tuple[type[DataProcessor], ...]:
         edge_index = self.index_map[processor_type.__name__]
         _, result_idx, _ = self.graph.edge_index_map()[edge_index]
 
+        input_type = input_type or self.get_root_node()
         input_idx = self.index_map[input_type.__name__]
 
         try:
@@ -324,7 +353,7 @@ DATA_PROCESSORS = DataProcessorGraph()
 class KeyProcessorNode:
     """Payload data for a graph node when building out the dependency graph."""
 
-    key: str
+    key: str | None
     processor: DataProcessor
     index: int | None = None
 
@@ -333,23 +362,30 @@ class KeyProcessorNode:
 class ReadoutPipeline:
     name: str = "default"
     processors: tuple[DataProcessor, ...] = field(factory=tuple)
-    dependency_cache: dict[tuple[str, type], MeasurementResult] = field(factory=dict)
+    dependency_cache: dict[
+        tuple[str, type[DataProcessor] | None], MeasurementResult
+    ] = field(factory=dict)
 
-    def result_types(self) -> set[Type[MeasurementResult]]:
+    def result_types(self) -> set[type[MeasurementResult]]:
         """Returns the set of all MeasurementResult subclasses that could be output."""
-        return set(DATA_PROCESSORS.get_result_type(p) for p in self.processors)
+        return set(
+            DATA_PROCESSORS.get_result_type(p, replace_generic=True)
+            for p in self.processors
+        )
 
     @functools.lru_cache
     def get_processor(
         self,
         processor_type: type[DataProcessor] | str,
-        key: str | None = None,
+        input_key: str | None = None,
+        output_key: str | None = None,
     ) -> DataProcessor | None:
         """Returns a processor with a matching type and compatible measurement key.
 
         Args:
             processor_type: A `DataProcessor` subclass or a string specifying a subclass.
-            key: A measurement key.
+            input_key: A measurement key. If `None`, any measurement key will match.
+            output_key: An output meausurement key, if `None` any output key will match.
 
         Returns:
             A compatible data processor, or `None` if no data processor is found.
@@ -362,10 +398,24 @@ class ReadoutPipeline:
             if type(p).__name__ != processor_type:
                 continue
 
-            if p.measurement_key == key:
+            output_keys = p.output_keys()
+
+            if (p.measurement_key == input_key or input_key is None) and (
+                output_key in output_keys or output_key is None
+            ):
                 return p
-            elif p.measurement_key is None:
-                # We must continue checking if a more specific processor applies
+
+            # In these cases we must check if a more specific processor matches.
+            input_fallback_match = (
+                p.measurement_key == input_key
+                or input_key is None
+                or p.measurement_key is None
+            )
+            output_fallback_match = (
+                output_key in output_keys or output_key is None or None in output_keys
+            )
+
+            if input_fallback_match and output_fallback_match:
                 processor = p
 
         return processor
@@ -454,7 +504,14 @@ class ReadoutPipeline:
         in_result = DATA_PROCESSORS.get_input_type(dep)
         out_result = DATA_PROCESSORS.get_result_type(dep)
 
-        processor = self.get_processor(dep, key)
+        # Need to handle processors that return a list of results
+        if is_generic_type(out_result, Collection):
+            processor = self.get_processor(dep, None, key)
+            if processor:
+                key = processor.measurement_key
+        else:
+            processor = self.get_processor(dep, key, None)
+
         if not processor:
             # No matching processor, so we skip b/c it could be an optional dependency
             return self._build_processor_graph(
@@ -475,8 +532,11 @@ class ReadoutPipeline:
             prev_in = DATA_PROCESSORS.get_input_type(
                 type(prev.processor), replace_generic=True
             )
+            curr_out = DATA_PROCESSORS.get_result_type(
+                type(processor), replace_generic=True
+            )
 
-            if prev_in != out_result:
+            if prev_in != curr_out:
                 raise ValueError(
                     f"Input result type for {type(prev.processor).__name__} "
                     f"does not match output result type for {dep.__name__ }. "
@@ -499,14 +559,20 @@ class ReadoutPipeline:
                 index_map=index_map,
             )
 
-    def resolve_dependencies(
+    def dependency_graph(
         self, output_types: dict[str, type[DataProcessor]]
-    ) -> list[DataProcessor]:
-        def _sort_predecessors(predecessors, keys):
-            index = {k: i for i, k in enumerate(keys)}
+    ) -> rx.PyDiGraph:
+        """Builds the full dependency graph for the processing pipeline.
 
-            return tuple(sorted(predecessors, key=lambda p: index[p[0]]))
+        Args:
+            output_types: The desired final processor for each measurement key.
 
+        Returns:
+            A directed graph with `KeyProcessorNode` as the node payload. Each node
+            holds the measurement key and a data processor. A directed edge from node
+            A to node B implies that node B depeneds on the result from node A, and thus
+            must be run first.
+        """
         graph = rx.PyDiGraph()
         index_map = dict()
 
@@ -517,10 +583,39 @@ class ReadoutPipeline:
                 graph, key, prev=None, dependencies=dependencies, index_map=index_map
             )
 
+        return graph
+
+    def resolve_dependencies(
+        self, output_types: dict[str, type[DataProcessor]]
+    ) -> list[DataProcessor]:
+        """Returns a toplogical ordering of measurement key/processor pairs.
+
+        Args:
+            output_types: The desired final processor for each measurement key.
+
+        Returns:
+            A list of `(measurement_key, processor, predecessor)` tuples. The list is a
+            topological sort of the dependency graph such that all dependencies for a
+            given processor always come before that processor.
+        """
+
+        def _sort_predecessors(predecessors, keys):
+            index = {k: i for i, k in enumerate(keys)}
+
+            return tuple(sorted(predecessors, key=lambda p: index[p[0]]))
+
+        graph = self.dependency_graph(output_types)
+
         resolved_pipeline = []
         for node in rx.topological_sort(graph):
+            node_key = graph[node].key
             predecessors = tuple(
-                (p.key, type(p.processor)) for p in graph.predecessors(node)
+                (
+                    # Need to handle processors with multiple output keys
+                    node_key if len(p.processor.output_keys()) > 1 else p.key,
+                    type(p.processor),
+                )
+                for p in graph.predecessors(node)
             )
 
             ## Sort is necessary to match input order to key order.
@@ -534,12 +629,62 @@ class ReadoutPipeline:
 
         return resolved_pipeline
 
+    def _get_inputs(
+        self, key: str, previous: type[DataProcessor] | None, processor: DataProcessor
+    ) -> MeasurementResult | None:
+        """Helper method for getting an input from the dependency cache.
+
+        This method will look for a proper input result to the current processor in the
+        dependency cache. It will first look for a matching key and a matching previous
+        processor. A previous processor type of `None` is used to signify that the
+        result was passed in by the user. If no matching key and processor is found,
+        it will then look for a matching key and a matching input type. If there is
+        still no suitable input, then it will return `None`.
+
+        Args:
+            key: The current measurement key.
+            previous: The processor type that produced the previous output. `None` is
+                used to specify that the result was passed in by the user.
+            processor: The current processor that will process the input results.
+
+        Returns:
+            The requested input, or `None` if no input was found.
+        """
+        expected_input = DATA_PROCESSORS.get_input_type(
+            type(processor), replace_generic=True
+        )
+
+        try:
+            inputs = self.dependency_cache[(key, previous)]
+            # This is necessary for handling the case where previous is None
+            if isinstance(inputs, expected_input):
+                return inputs
+        except KeyError:
+            pass
+
+        inputs = self.dependency_cache.get((key, None))
+        return inputs if isinstance(inputs, expected_input) else None
+
     def process_results(
         self,
-        input_data: dict[str, MeasurementResult | np.ndarray],
+        input_data: dict[str, MeasurementResult],
         output_types: dict[str, type[DataProcessor]],
         clear_cache: bool = True,
     ) -> dict[str, MeasurementResult]:
+        """Processes the input data.
+
+        Args:
+            input_data: A mapping of measurement keys to input data.
+            output_types: The desired final processor for each measurement key.
+            clear_cache: If `True` the dependency cache is cleared before processing
+                the results.
+
+        Returns:
+            A mapping of measurement keys to results.
+
+        Raises:
+            KeyError: If any dependencies are missing in the given input data.
+        """
         if clear_cache:
             self.dependency_cache.clear()
 
@@ -551,17 +696,29 @@ class ReadoutPipeline:
         for key, processor, predecessors in resolved_pipeline:
             match predecessors:
                 case ():
-                    inputs = self.dependency_cache[(key, None)]
-                case (pred,) if is_generic_type(
+                    inputs = self._get_inputs(key, None, processor)
+                case (*pred,) if is_generic_type(
                     DATA_PROCESSORS.get_input_type(type(processor)), Collection
                 ):
-                    inputs = [self.dependency_cache[pred]]
+                    inputs = [self._get_inputs(*pair, processor) for pair in pred]
+                    if None in inputs:
+                        inputs = None
                 case (pred,):
-                    inputs = self.dependency_cache[pred]
-                case (*pred,):
-                    inputs = [self.dependency_cache[key] for key in pred]
+                    inputs = self._get_inputs(*pred, processor)
 
-            self.dependency_cache[(key, type(processor))] = processor(inputs)
+            if inputs is None:
+                logger.debug(
+                    f"Skipping {type(processor).__name__} for key {key} due to missing input."
+                )
+                continue
+
+            result = processor(inputs)
+            if isinstance(result, Collection):
+                self.dependency_cache.update(
+                    {(res.k, type(processor)): res for res in result}
+                )
+            else:
+                self.dependency_cache[(key, type(processor))] = result
 
         return {
             key: self.dependency_cache[(key, processor_type)]
@@ -573,6 +730,21 @@ class ReadoutPipeline:
         processor: type[DataProcessor] | None = None,
         keys: list[str] | None = None,
     ) -> dict[str, MeasurementResult]:
+        """Returns measurement results stored in the dependency cache.
+
+        This is useful for inspecting the partially processed data. For example, looking
+        at the raw IQ data points or the classified data on a per shot basis, without
+        rerunning the processing pipeline.
+
+        Args:
+            processor: The final processor class of the requested data.
+            keys: A list of measurement keys to get data for. If `None` all results that
+                match the processor will be returned.
+
+        Returns:
+            A mapping of measurement keys to the requested results.
+        """
+
         def filter_func(key: str, proc: type[DataProcessor]) -> bool:
             return (keys is None or key in keys) and (proc == processor)
 
@@ -586,6 +758,7 @@ class ReadoutPipeline:
 
 
 # ========== Data Processor converters ========== #
+
 
 def make_data_processor_structure_fn(cls):
     structure_attrs = make_attrs_structure_fn(cls)
@@ -619,9 +792,11 @@ def make_data_processor_unstructure_fn(cls):
 
 
 qwip.converter.register_structure_hook_factory(
-    lambda cls: cls in (DataProcessor, MeasurementResult), make_data_processor_structure_fn
+    lambda cls: cls in (DataProcessor, MeasurementResult),
+    make_data_processor_structure_fn,
 )
 
 qwip.converter.register_unstructure_hook_factory(
-    lambda cls: issubclass(cls, (DataProcessor, MeasurementResult)), make_data_processor_unstructure_fn
+    lambda cls: issubclass(cls, (DataProcessor, MeasurementResult)),
+    make_data_processor_unstructure_fn,
 )

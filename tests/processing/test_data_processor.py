@@ -16,11 +16,12 @@ from qwip.processing.data_processor import (
 )
 from qwip.processing.processors import (
     ClassifiedResult,
-    FormatLegacyIQ,
     GMMClassification,
+    HeterodyneDemodulation,
     HistogramResult,
     IQResult,
     IQRotation,
+    IQTraceResult,
     PopulationResult,
     ReadoutBitstring,
     ReadoutHistogram,
@@ -61,22 +62,26 @@ class TestMeasurementResult:
     def test_unstructure(self):
         res = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3, 4]))
 
-        assert qwip.converter.unstructure(res) == dict(name="name", processors=[], __class__="MeasurementResult")
+        assert qwip.converter.unstructure(res) == dict(
+            name="name", processors=[], __class__="MeasurementResult"
+        )
 
 
 class TestDataProcessor:
     def test_unstructure(self):
-        IQ = FormatLegacyIQ()
-        rot = IQRotation(measurement_key="R0", angle=90)
-        gmm = GMMClassification(measurement_key="R0")
-        print(qwip.converter.unstructure(gmm))
-        gmmd = qwip.converter.unstructure(gmm)
-        print(type(gmmd['means']))
+        ...
+        # IQ = FormatLegacyIQ()
+        # rot = IQRotation(measurement_key="R0", angle=90)
+        # gmm = GMMClassification(measurement_key="R0")
+        # print(qwip.converter.unstructure(gmm))
+        # gmmd = qwip.converter.unstructure(gmm)
+        # print(type(gmmd['means']))
+
 
 class TestProcessingGraph:
     def test_init(self):
         assert DATA_PROCESSORS.measurement_results() == {
-            np.ndarray,
+            IQTraceResult,
             IQResult,
             ClassifiedResult,
             HistogramResult,
@@ -84,7 +89,7 @@ class TestProcessingGraph:
         }
 
         assert DATA_PROCESSORS.data_processors() == {
-            FormatLegacyIQ,
+            HeterodyneDemodulation,
             IQRotation,
             GMMClassification,
             ReadoutBitstring,
@@ -95,7 +100,7 @@ class TestProcessingGraph:
     @pytest.mark.parametrize(
         "processor,in_type,out_type",
         [
-            (FormatLegacyIQ, np.ndarray, IQResult),
+            (HeterodyneDemodulation, IQTraceResult, list[IQResult]),
             (IQRotation, IQResult, IQResult),
             (GMMClassification, IQResult, ClassifiedResult),
             (ReadoutBitstring, Collection[ClassifiedResult], ClassifiedResult),
@@ -110,7 +115,6 @@ class TestProcessingGraph:
     @pytest.mark.parametrize(
         "processor,replace,expect",
         [
-            (FormatLegacyIQ, False, (np.ndarray, IQResult)),
             (GMMClassification, False, (IQResult, ClassifiedResult)),
             (ReadoutBitstring, False, (Collection[ClassifiedResult], ClassifiedResult)),
             (ReadoutBitstring, True, (ClassifiedResult, ClassifiedResult)),
@@ -124,10 +128,13 @@ class TestProcessingGraph:
             == expect
         )
 
+    def test_get_root_node(self):
+        assert DATA_PROCESSORS.get_root_node() == IQTraceResult
+
     def test_get_dependencies(self):
-        deps = DATA_PROCESSORS.get_dependencies(StatePopulations, input_type=np.ndarray)
+        deps = DATA_PROCESSORS.get_dependencies(StatePopulations)
         assert deps == [
-            FormatLegacyIQ,
+            HeterodyneDemodulation,
             IQRotation,
             GMMClassification,
             ReadoutBitstring,
@@ -148,7 +155,9 @@ class TestPipeline:
     @pytest.fixture
     def single_qubit(self):
         processors = [
-            FormatLegacyIQ(),
+            HeterodyneDemodulation(
+                measurement_key="ADC", weights=dict(R0=np.zeros(10), R1=np.zeros(20))
+            ),
             IQRotation(measurement_key="R0", angle=np.pi / 2),
             GMMClassification(
                 measurement_key=None, means=np.zeros((2, 2)), covariances=np.zeros(2)
@@ -168,13 +177,25 @@ class TestPipeline:
         ]
         return processors
 
-    def test_get_processor(self, single_qubit):
+    @pytest.mark.parametrize(
+        "processor,input,output,expect",
+        [
+            ("GMMClassification", "R0", None, 3),
+            ("StatePopulations", "R1", None, 6),
+            ("IQRotation", "R1", None, None),
+            ("StatePopulations", None, "R2", 6),
+            ("HeterodyneDemodulation", None, "R0", 0),
+        ],
+    )
+    def test_get_processor(self, processor, input, output, expect, single_qubit):
         processors = single_qubit
         pipeline = ReadoutPipeline(processors=processors)
 
-        assert pipeline.get_processor("GMMClassification", "R0") == processors[3]
-        assert pipeline.get_processor("StatePopulations", "R1") == processors[6]
-        assert pipeline.get_processor("IQRotation", "R1") is None
+        match expect:
+            case int():
+                expect = processors[expect]
+
+        assert pipeline.get_processor(processor, input, output) == expect
 
     def test_get_processor_cache(self, single_qubit):
         processors = single_qubit
@@ -182,9 +203,9 @@ class TestPipeline:
 
         pipeline.get_processor.cache_clear()
 
-        assert pipeline.get_processor("FormatLegacyIQ", "R0") == processors[0]
-        assert pipeline.get_processor("FormatLegacyIQ", "R0") == processors[0]
-        assert pipeline.get_processor("FormatLegacyIQ", "R0") == processors[0]
+        assert pipeline.get_processor("GMMClassification", "R0") == processors[3]
+        assert pipeline.get_processor("GMMClassification", "R0") == processors[3]
+        assert pipeline.get_processor("GMMClassification", "R0") == processors[3]
 
         cinfo = pipeline.get_processor.cache_info()
         assert cinfo.hits == 2
@@ -228,10 +249,10 @@ class TestPipeline:
 
         order = [(k, type(p).__name__) for k, p, pred in resolved]
 
-        assert order.index(("R0", "FormatLegacyIQ")) < order.index(
+        assert order.index(("ADC", "HeterodyneDemodulation")) < order.index(
             ("R0", "GMMClassification")
         )
-        assert order.index(("R1", "FormatLegacyIQ")) < order.index(
+        assert order.index(("ADC", "HeterodyneDemodulation")) < order.index(
             ("R1", "GMMClassification")
         )
         assert order.index(("R1", "GMMClassification")) < order.index(
@@ -249,3 +270,16 @@ class TestPipeline:
         assert order.index(("R0,R1", "ReadoutHistogram")) < order.index(
             ("R0,R1", "StatePopulations")
         )
+
+    def test_get_inputs(self, cache, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        res = IQResult.from_numpy(np.zeros((4, 3, 2), dtype=complex))
+        pipeline.dependency_cache.update({("R0", None): res})
+
+        gmm = pipeline.get_processor(GMMClassification, "R0")
+        bitstrings = pipeline.get_processor(ReadoutHistogram)
+
+        assert pipeline._get_inputs("R0", None, gmm) == res
+        assert pipeline._get_inputs("R0", HeterodyneDemodulation, gmm) == res
+        assert pipeline._get_inputs("R0", GMMClassification, bitstrings) is None

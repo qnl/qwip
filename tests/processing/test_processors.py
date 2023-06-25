@@ -9,7 +9,6 @@ import qwip
 from qwip.backends.qutip import QutipBackend
 from qwip.processing.processors import (
     ClassifiedResult,
-    FormatLegacyIQ,
     GMMClassification,
     HeterodyneDemodulation,
     HistogramResult,
@@ -139,9 +138,10 @@ class TestFormatLegacyIQ:
         assert unstructured == dict(
             name="IQResult",
             processors=[dict(measurement_key=None, __class__="FormatLegacyIQ")],
-            __class__="IQResult"
+            __class__="IQResult",
         )
         assert structured == iqdata
+
 
 class TestIQRotation:
     def test_rotate(self):
