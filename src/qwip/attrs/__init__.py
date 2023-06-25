@@ -3,6 +3,7 @@ from contextlib import contextmanager
 
 import attrs
 import numpy as np
+import pandas as pd
 from attrs import define, frozen
 from attrs.validators import set_disabled
 
@@ -44,6 +45,17 @@ def disable_validation():
 
 
 danger = disable_validation
+
+
+def _dataframe_equals(a: pd.DataFrame, b: pd.DataFrame) -> bool:
+    """Checks if two dataframes are equal.
+
+    This function should only ever be called with two DataFrame arguments.
+
+    Returns:
+        True if a and b are equal otherwise False.
+    """
+    return a.equals(b)
 
 
 def _numpy_equals(a: np.ndarray, b: np.ndarray) -> bool:
