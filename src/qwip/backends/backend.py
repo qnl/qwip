@@ -18,7 +18,7 @@ except ImportError:
 
 
 from qwip.attrs import _numpy_equals, qdefine
-from qwip.processing.processors import GMMClassification
+from qwip.processing.processors import GMMClassification, IQResult
 from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence, QuantumExecutable
 from qwip.sequencer.elements import SequenceElement
@@ -68,6 +68,26 @@ def populate_unpaired(cseq: CompiledSequence, fill: float = 1 / 2**15) -> None:
         cseq.array[ch2, unpaired & ~has_wave[ch2], 0, 0] = fill
 
 
+def format_legacy_IQ(arr: np.ndarray) -> np.ndarray:
+    """Reformats a QTRL result array.
+
+    This function will reorder the axis so that the IQ data for each shot is
+    contiguous. The legacy heterodyne array is a 4-D array where the axes correspond
+    to `(IQ, shots, elements, readouts)`. This is reformatted to a complex numpy array
+    where the shape is `(elements, readouts, shots)`.
+    """
+    match arr.dtype:
+        case np.float32:
+            cast = np.complex64
+        case np.float64:
+            cast = np.complex128
+        case _:
+            arr = arr.astype(float)
+            cast = np.complex128
+
+    return np.array(np.transpose(arr, [2, 3, 1, 0]), order="C").view(cast)[..., 0]
+
+
 @qdefine
 class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
@@ -83,9 +103,16 @@ class QTRLBackend(QuantumBackend):
         acquisition_kwargs = dict(n_reps=repetitions, save_data=False) | kwargs
 
         meas = self.meta.acquire(**acquisition_kwargs)
-        iqdata = {
-            k: meas[k]["Heterodyne"] for k in meas.keys() if re.match(r"R(\d+)", k)
-        }
+        iqdata = {}
+
+        for k in meas:
+            if not re.match(r"R(\d+)", k):
+                continue
+
+            IQ = format_legacy_IQ(meas[k]["Heterodyne"])
+
+            iqdata[k] = IQResult.from_numpy(IQ, name=k)
+
         return iqdata
 
     def update_parameters(
@@ -240,30 +267,30 @@ class FakeBackend(QuantumBackend):
             num_readouts: The number of readouts per sequence element.
 
         Returns:
-            A mapping of measurement keys to a numpy array of simulated data. The data
-            has shape `(IQ, shots, elements, readout)` to match the legacy QTRL format.
+            A mapping of measurement keys to `IQResult`.
         """
         readout_keys = [f"R{r}" for r in cseq._readout._readout.qubits]
         num_elements = cseq.shape[1]
 
         data = dict()
         for key in readout_keys:
-            states = np.zeros((repetitions, num_elements, num_readouts))
+            states = np.zeros((num_elements, num_readouts, repetitions))
             for el in range(num_elements):
                 for ro in range(num_readouts):
-                    states[:, el, ro] = self.data_func(key, el, ro, repetitions)
+                    states[el, ro, :] = self.data_func(key, el, ro, repetitions)
 
-            data[key] = np.zeros((2, repetitions, num_elements, num_readouts))
             gmm = self.gmms[key]
-
+            arr = np.zeros(states.shape, dtype=np.complex64)
             for s in range(gmm.num_states):
                 iq = self.rng.multivariate_normal(
                     mean=gmm.means[s],
-                    cov=np.identity(gmm.num_states) * gmm.covariances[s],
+                    cov=np.identity(2) * gmm.covariances[s],
                     size=np.count_nonzero(states == s),
-                ).T
+                ).astype(np.float32)
 
-                data[key][:, states == s] = iq
+                arr[states == s] = iq.view(np.complex64).flatten()
+
+            data[key] = IQResult.from_numpy(arr, name=key)
 
         return data
 

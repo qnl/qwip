@@ -423,10 +423,10 @@ class TestQutipBackend:
         processor = HeterodyneDemodulation(weights=weights)
 
         for ch, data in raw_IQ.items():
-            raw_IQ_df[ch] = IQTraceResult.from_numpy(name=ch, IQ_raw=data)
+            raw_IQ_df[ch] = IQTraceResult.from_numpy(data, name=ch)
             processed_IQ_df[ch] = processor.run(raw_IQ_df[ch])
 
-        IQ_Q0 = processed_IQ_df["Q0"]["Q0"].data.to_numpy()[0]
+        IQ_Q0 = processed_IQ_df["Q0"][0].data.to_numpy()[0]
 
         I_Q0 = np.real(IQ_Q0)
         num_excited = np.sum(np.array(I_Q0) >= 0, axis=0)
@@ -456,10 +456,10 @@ class TestQutipBackend:
         processor = HeterodyneDemodulation(weights=weights)
 
         for ch, data in raw_IQ.items():
-            raw_IQ_df[ch] = IQTraceResult.from_numpy(name=ch, IQ_raw=data)
+            raw_IQ_df[ch] = IQTraceResult.from_numpy(data, name=ch)
             processed_IQ_df[ch] = processor.run(raw_IQ_df[ch])
 
-        IQ_Q0 = processed_IQ_df["Q0"]["Q0"].data.to_numpy()[0]
+        IQ_Q0 = processed_IQ_df["Q0"][0].data.to_numpy()[0]
 
         I_Q0 = np.real(IQ_Q0)
         num_excited = np.sum(np.array(I_Q0) >= 0, axis=0)

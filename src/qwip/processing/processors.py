@@ -1,5 +1,6 @@
 import itertools as it
 from collections.abc import Collection
+from typing import TypeVar
 
 import attrs
 import numpy as np
@@ -10,11 +11,15 @@ from sklearn.mixture import GaussianMixture
 from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
-from qwip.processing.data_processor import (  # register_data_processor
+from qwip.processing.data_processor import (
     DATA_PROCESSORS,
     DataProcessor,
+    GenericDataProcessor,
     MeasurementResult,
 )
+from qwip.sequencer import Sequence
+
+M = TypeVar("M", bound=MeasurementResult)
 
 
 @qdefine
@@ -135,13 +140,13 @@ class HeterodyneDemodulation(DataProcessor):
 
         integrated = np.dot(weight_arr, result.data.values.T) / weight_arr.shape[-1]
 
-        result = list()
+        output = list()
         for i, k in enumerate(self.weights):
             data = pd.DataFrame(integrated[i], index=result.data.index).unstack(-1)
 
-            result.append(IQResult(name=k, data=data))
+            output.append(IQResult(name=k, data=data))
 
-        return result
+        return output
 
     def output_keys(self) -> set[str]:
         """Returns the set of output keys returned by the processor."""
@@ -173,20 +178,6 @@ class IQRotation(DataProcessor):
         rotation = np.exp(1j * angle)
 
         return attrs.evolve(result, data=result.data * rotation)
-
-
-# @DATA_PROCESSORS.register
-# @qdefine
-# class AverageIQ(DataProcessor):
-#     """A data processor for averaging IQ data points.
-
-#     Attributes:
-#         axis (int): The axes along which to average.
-#     """
-#     axis: int = -1
-
-#     def run(self, result: IQResult, **kwargs) -> IQResult:
-#         raise NotImplementedError()
 
 
 @qdefine
@@ -269,7 +260,9 @@ class GMMClassification(DataProcessor):
         Returns:
             A tuple `(means, covariances)` corresponding to the best fit model.
         """
-        IQ = GMMClassification._get_real_IQ_from_complex(result.data.to_numpy().flatten())
+        IQ = GMMClassification._get_real_IQ_from_complex(
+            result.data.to_numpy().flatten()
+        )
 
         model = self.get_model()
         model.means_init = self.means
@@ -449,3 +442,63 @@ class StatePopulations(DataProcessor):
             num_shots=num_shots,
             processors=result.processors,
         )
+
+
+@qdefine
+class Averaged(GenericDataProcessor):
+    """A data processor for averaging data along a specified axis.
+
+    Attributes:
+        axis (int): The axes along which to average.
+    """
+
+    axis: int = 1
+
+    def run(
+        self,
+        result: M,
+        axis: int | None = None,
+        level: str | None = None,
+        name: str = "averaged",
+        **kwargs,
+    ) -> M:
+        if axis is None:
+            axis = self.axis
+
+        if level:
+            result.data = result.data.groupby(level, axis=axis).mean()
+        else:
+            result.data = result.data.mean(axis=axis).to_frame(name=name)
+
+        return result
+
+
+@qdefine
+class Labeled(GenericDataProcessor):
+    """A data processor for labeling the results according to the sequence labels."""
+
+    level: str = "element"
+
+    def run(self, result: M, seq: Sequence | None = None, **kwargs) -> M:
+        if seq is None:
+            return result
+
+        old_idx = result.data.index
+
+        new_idx = pd.DataFrame(
+            it.product(
+                *(
+                    seq.labels.get(n, np.arange(seq.shape[i]))
+                    for i, n in enumerate(seq.names)
+                )
+            ),
+            columns=[name or f"{self.level}{i}" for i, name in enumerate(seq.names)],
+        ).loc[result.data.index.get_level_values(self.level)]
+
+        for index_level in old_idx.names:
+            if index_level != self.level:
+                new_idx[index_level] = old_idx.get_level_values(index_level)
+
+        result.data.index = pd.MultiIndex.from_frame(new_idx)
+
+        return result
