@@ -131,9 +131,9 @@ class HeterodyneDemodulation(DataProcessor):
             result: IQTraceResult.
 
         Returns:
-            A dictionary mapping readout to its IQResult object containing the processed
-            IQ traces in the `data` attribute. For the specific format of the data frame,
-            go to the IQResult documentation.
+            A list of IQResult objects containing the processed IQ traces in the `data`
+            attribute, where the order matches the weights provided. For the specific
+            format of the data frame, go to the IQResult documentation.
         """
 
         weight_arr = np.stack(list(self.weights.values()))

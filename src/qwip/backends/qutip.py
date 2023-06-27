@@ -12,6 +12,7 @@ from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.backends.backend import QuantumBackend, random_data_sampler
+from qwip.processing.processors import IQTraceResult
 from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence
 
@@ -300,16 +301,17 @@ class QutipBackend(QuantumBackend):
         channels = qpu.db["compilation"]["channels"]
 
         for ch in channels.keys():
-
             if len(ch.split("_")) != 2:
                 ...
-            else: 
+            else:
                 qubit, t = ch.split("_")
 
                 if t == "I" and qubit[0] == "Q":
                     if qubit + "_Q" in channels:
                         # Mapping of channels to its parameters
-                        a, adag = qt.destroy(self.num_levels), qt.create(self.num_levels)
+                        a, adag = qt.destroy(self.num_levels), qt.create(
+                            self.num_levels
+                        )
                         map_op = a + adag
 
                         map_channels = (
@@ -443,9 +445,9 @@ class QutipBackend(QuantumBackend):
             drive: Readout driving amplitude.
 
         Returns:
-            results: A dictionary mapping all qubits to their corresponding IQ outputs
-                in the form of a 3D array with shape (elements x shots x time steps).
-                For not targeted qubits, they default to the ground trajectory. And for
+            results: A dictionary mapping all qubits to an IQTraceResult containing data
+                with shape (elements x shots x time steps) in a dataframe. For not
+                targeted qubits, they default to the ground trajectory. And for
                 states with no corresponding chi value, they default to zero values.
         """
         cseq = exe
@@ -459,10 +461,7 @@ class QutipBackend(QuantumBackend):
 
         # Dictionary mapping from qubit to results, cavity fields
         all_targets = list(self.static_hamiltonian.keys())
-        results = {
-            target: np.zeros((len(elements), 1, repetitions, len(ts))).astype(complex)
-            for target in all_targets
-        }
+
         readout_fields = {
             target: R.solve_cavity_field_equation(ts, drive_envelope)
             for target, R in self.readouts.items()
@@ -476,9 +475,8 @@ class QutipBackend(QuantumBackend):
             qt_result = H_obj.simulate()
             qt_expect = [r[-1] for r in qt_result.expect]
 
-            # # Debugging Tool
+            # # # Debugging Tool
             # q_expect = []
-            # print(H_obj.targets)
             # for q in get_multi_qubit_populations(qt_result, H_basis, len(H_obj.targets)):
             #     q_state = [r[-1] for r in q.values()]
             #     q_expect.append(q_state)
@@ -489,6 +487,13 @@ class QutipBackend(QuantumBackend):
             shots_sample = default_rng().choice(
                 np.array(list(H_basis.keys())), repetitions, p=qt_expect
             )
+
+            results = {
+                target: np.zeros((len(elements), 1, repetitions, len(ts))).astype(
+                    complex
+                )
+                for target in all_targets
+            }
 
             for shot, state in enumerate(shots_sample):
                 H_targets = [H_obj.targets[q].split("Q")[1] for q in range(len(state))]
@@ -505,6 +510,11 @@ class QutipBackend(QuantumBackend):
                         trajectory = (readout_fields[f"R{q}"][level]) + noise
                         results[f"Q{q}"][i, 0, shot, :] = trajectory
 
+            results = {
+                target: IQTraceResult.from_numpy(trace, target)
+                for target, trace in results.items()
+            }
+
         return results
 
 
@@ -513,6 +523,7 @@ def gaussian_noise(eta, num_samples):
     return noise_scaling * (
         np.random.normal(size=(num_samples, 2)).view(np.complex128).squeeze()
     )
+
 
 def get_multi_qubit_populations(results, labels, N_sys):
     labeled = dict(zip(labels, results.expect))
