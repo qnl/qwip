@@ -152,12 +152,8 @@ def make_attrs_structure_fn(cls):
     def get_override(field):
         if override := field.metadata.get("unstructure_override"):
             return override
-        elif field.init is False and "serialize" not in field.metadata:
+        elif field.init is False:
             return cattr.override(omit=True)
-        elif field.metadata.get("serialize") is False:
-            return cattr.override(omit=True)
-        elif field.metadata.get("serialize") is True:
-            return cattr.override(omit_if_default=False)
 
     to_structure = {
         f.name: override for f in attrs.fields(cls) if (override := get_override(f))
@@ -176,7 +172,7 @@ def make_attrs_structure_fn(cls):
     return structure_fn
 
 
-def make_attrs_unstructure_fn(cls):
+def make_attrs_unstructure_fn(cls, omit_defaults: bool = True):
     def get_override(field):
         if override := field.metadata.get("unstructure_override"):
             return override
@@ -192,7 +188,7 @@ def make_attrs_unstructure_fn(cls):
     }
 
     unstructure_from_dict = make_dict_unstructure_fn(
-        cls, converter, _cattrs_omit_if_default=True, **to_unstructure
+        cls, converter, _cattrs_omit_if_default=omit_defaults, **to_unstructure
     )
 
     def unstructure_fn(v):
