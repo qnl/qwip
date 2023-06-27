@@ -136,7 +136,7 @@ class HeterodyneDemodulation(DataProcessor):
             go to the IQResult documentation.
         """
 
-        weight_arr = np.stack(self.weights.values())
+        weight_arr = np.stack(list(self.weights.values()))
 
         integrated = np.dot(weight_arr, result.data.values.T) / weight_arr.shape[-1]
 

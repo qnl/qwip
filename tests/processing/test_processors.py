@@ -7,6 +7,7 @@ from numpy.testing import assert_allclose, assert_array_almost_equal, assert_arr
 
 import qwip
 from qwip.backends.qutip import QutipBackend
+from qwip.processing.data_processor import DataProcessor
 from qwip.processing.processors import (
     ClassifiedResult,
     GMMClassification,
@@ -142,6 +143,17 @@ class TestIQRotation:
 
         res = IQRotation(angle=-np.pi / 2)(meas)
         assert_array_almost_equal(res.data.to_numpy(), np.roll(angles, 2).reshape(4, 2))
+
+    def test_unstructure(self):
+        processor = IQRotation(angle=np.pi / 4, measurement_key="R0")
+        unstructured = qwip.converter.unstructure(processor)
+
+        assert unstructured == dict(
+            measurement_key="R0", angle=np.pi / 4, __class__="IQRotation"
+        )
+
+        structured = qwip.converter.structure(unstructured, DataProcessor)
+        assert processor == structured
 
 
 class TestGMMClassification:
