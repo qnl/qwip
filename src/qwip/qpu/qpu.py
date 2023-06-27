@@ -21,7 +21,7 @@ from qwip.processing.data_processor import (
     MeasurementResult,
     ReadoutPipeline,
 )
-from qwip.processing.processors import FormatLegacyIQ, GMMClassification, IQRotation
+from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
 from qwip.sequencer import Sequence, SequenceElement
 from qwip.sequencer.compilation import (
@@ -272,7 +272,7 @@ class QPU:
 
     def run(
         self,
-        program: Sequence | QuantumExecutable,
+        program: Sequence | QuantumExecutable | None,
         processor: type[DataProcessor] | dict[str, type[DataProcessor]] | None = None,
         repetitions: int = 512,
         readout: dict | SequenceElement = {},
@@ -282,8 +282,10 @@ class QPU:
         """Uploads a sequence and acquires data from a backend.
 
         Args:
-            program: A `Sequence` or a `CompiledSequence` object. If given a `Sequence`,
-                it will be compiled with any specified compilation parameters.
+            program: A `Sequence` or a `QuantumExecutable` object. If given a `Sequence`,
+                it will be compiled with any specified compilation parameters. If an
+                executable, it should match the backend being used. Otherwise, if `None`,
+                the previously uploaded sequence is run.
             processor: The data processor to use. See `qpu.process_results`.
             repetitions: The number of shots to take for each sequence element.
             readout: Can be either a `SequenceElement` or a dictionary of keyword
@@ -311,25 +313,25 @@ class QPU:
                 exe = self.sequencer.compile(program)
             case QuantumExecutable():
                 exe = program
-
+            case None:
+                exe = None
             case _:
                 raise NotImplementedError(
                     f"Only 'Sequence' and 'CompiledSequence' programs are currently "
                     f"supported. Got {program}"
                 )
 
-        self.backend.upload(exe)
+        if exe:
+            self.backend.upload(exe)
         raw_data = self.backend.acquire(exe, repetitions=repetitions, **backend)
 
-        if processor is None:
-            return raw_data
-
-        return self.process_results(raw_data, processor)
+        return self.process_results(raw_data, processor, seq=exe.seq)
 
     def process_results(
         self,
         raw_data: dict,
         processor: type[DataProcessor] | dict[str, type[DataProcessor]],
+        **kwargs,
     ) -> dict[str, MeasurementResult]:
         """Runs the readout pipeline and returns the processed data.
 
@@ -345,7 +347,7 @@ class QPU:
         if not isinstance(processor, dict):
             processor = {f"R{r}": processor for r in self.sequencer.readout_qubits}
 
-        return self.pipeline.process_results(raw_data, processor)
+        return self.pipeline.process_results(raw_data, processor, **kwargs)
 
 
 __all__ = ["QPU"]

@@ -5,10 +5,11 @@ import pytest
 from numpy.random import default_rng
 from numpy.testing import assert_allclose, assert_array_almost_equal, assert_array_equal
 
+import qwip
 from qwip.backends.qutip import QutipBackend
+from qwip.processing.data_processor import DataProcessor
 from qwip.processing.processors import (
     ClassifiedResult,
-    FormatLegacyIQ,
     GMMClassification,
     HeterodyneDemodulation,
     HistogramResult,
@@ -24,15 +25,15 @@ from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
 
 class TestIQTraceResult:
-    def test_create_from_numpy(self):
+    def test_from_numpy(self):
         IQ_data = np.ones((10, 2, 512, 1000))
-        IQ_default = IQTraceResult.from_numpy(name="Q0", IQ_raw=IQ_data)
+        IQ_default = IQTraceResult.from_numpy(IQ_data, name="Q0")
         assert IQ_default.data.to_numpy().shape == (10 * 2 * 512, 1000)
         assert IQ_default.data.index.names == ["element", "readout", "shot"]
 
         IQ_data_no_readout = np.ones((10, 512, 1000))
         IQ_no_readout = IQTraceResult.from_numpy(
-            name="Q1", IQ_raw=IQ_data_no_readout, labels=["element", "shot"]
+            IQ_data_no_readout, name="Q1", labels=["element", "shot"]
         )
         assert IQ_no_readout.data.to_numpy().shape == (10 * 512, 1000)
         assert IQ_no_readout.data.index.names == ["element", "shot"]
@@ -72,14 +73,14 @@ class TestHeterodyneDemodulation:
 
         data = signal_generator(IQ, freqs, ts, shape)
 
-        res = IQTraceResult.from_numpy("raw", data)
+        res = IQTraceResult.from_numpy(data, "raw")
 
         weight = np.exp(-1j * 2 * np.pi * freqs[0] * ts)
 
         processor = HeterodyneDemodulation(weights={"Q0": weight})
         processed = processor(res)
 
-        demod_IQ = processed["Q0"].data.mean(axis=1).mean()
+        demod_IQ = processed[0].data.mean(axis=1).mean()
 
         assert_allclose(IQ[0], demod_IQ, atol=1e-3)
 
@@ -96,7 +97,7 @@ class TestHeterodyneDemodulation:
 
         data = signal_generator(IQ, freqs, ts, shape)
 
-        res = IQTraceResult.from_numpy("raw", data)
+        res = IQTraceResult.from_numpy(data, "raw")
 
         weights = {
             f"Q{i}": np.exp(-1j * 2 * np.pi * freqs[i] * ts) for i in range(len(freqs))
@@ -105,29 +106,26 @@ class TestHeterodyneDemodulation:
         processor = HeterodyneDemodulation(weights=weights)
         processed = processor(res)
 
-        demod_IQ = np.array(
-            [res.data.mean(axis=1).mean() for res in processed.values()]
-        )
+        demod_IQ = np.array([res.data.mean(axis=1).mean() for res in processed])
 
         assert_allclose(IQ, demod_IQ, atol=5e-2)
 
 
-class TestFormatLegacyIQ:
-    def test_reorder(self):
-        meas = np.arange(2 * 3 * 4 * 5).astype(float).reshape(2, 3, 4, 5)
+class TestIQResult:
+    def test_unstructure(self):
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
+        iqdata = IQResult.from_numpy(arr.reshape(3, 4, 5))
 
-        iqdata = FormatLegacyIQ()(meas)
+        unstructured = qwip.converter.unstructure(iqdata)
+        df = iqdata.data
+        structured = qwip.converter.structure(unstructured | dict(data=df), IQResult)
 
-        assert iqdata.shape == (4 * 5, 3)
-        assert iqdata.data.index.levshape == (4, 5)
-
-    def test_float32(self):
-        meas = np.arange(2 * 3 * 4 * 5).astype(np.float32).reshape(2, 3, 4, 5)
-
-        iqdata = FormatLegacyIQ()(meas)
-
-        assert iqdata.shape == (4 * 5, 3)
-        assert iqdata.data.index.levshape == (4, 5)
+        assert unstructured == dict(
+            name="IQResult",
+            processors=[],
+            __class__="IQResult",
+        )
+        assert structured == iqdata
 
 
 class TestIQRotation:
@@ -146,6 +144,17 @@ class TestIQRotation:
         res = IQRotation(angle=-np.pi / 2)(meas)
         assert_array_almost_equal(res.data.to_numpy(), np.roll(angles, 2).reshape(4, 2))
 
+    def test_unstructure(self):
+        processor = IQRotation(angle=np.pi / 4, measurement_key="R0")
+        unstructured = qwip.converter.unstructure(processor)
+
+        assert unstructured == dict(
+            measurement_key="R0", angle=np.pi / 4, __class__="IQRotation"
+        )
+
+        structured = qwip.converter.structure(unstructured, DataProcessor)
+        assert processor == structured
+
 
 class TestGMMClassification:
     @pytest.mark.parametrize(
@@ -155,7 +164,7 @@ class TestGMMClassification:
             ((5,), np.float32),
         ],
     )
-    def test_get_real_IQ_from_domplex(self, shape, dtype, seed):
+    def test_get_real_IQ_from_complex(self, shape, dtype, seed):
         rng = default_rng(seed + np.product(shape))
 
         real = rng.random(size=shape, dtype=dtype)
