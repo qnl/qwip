@@ -1,3 +1,4 @@
+import itertools as it
 from collections.abc import Collection
 
 import numpy as np
@@ -68,16 +69,18 @@ class TestMeasurementResult:
             name="name", processors=[], __class__="MeasurementResult"
         )
 
+    @pytest.mark.parametrize("attr", ["shape", "ndim", "size"])
+    def test_attribute_lookup(self, attr):
+        df = pd.DataFrame(
+            np.zeros((20, 5)),
+            columns=pd.RangeIndex(5, name="shots"),
+            index=pd.MultiIndex.from_tuples(
+                it.product(np.r_[:4], np.r_[:5]), names=["element", "shot"]
+            ),
+        )
+        res = MeasurementResult(name="name", data=df)
 
-class TestDataProcessor:
-    def test_unstructure(self):
-        ...
-        # IQ = FormatLegacyIQ()
-        # rot = IQRotation(measurement_key="R0", angle=90)
-        # gmm = GMMClassification(measurement_key="R0")
-        # print(qwip.converter.unstructure(gmm))
-        # gmmd = qwip.converter.unstructure(gmm)
-        # print(type(gmmd['means']))
+        assert getattr(res, attr) == getattr(df, attr)
 
 
 class TestProcessingGraph:

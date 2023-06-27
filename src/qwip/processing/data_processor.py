@@ -2,7 +2,7 @@ import functools
 import inspect
 import itertools as it
 from collections.abc import Collection
-from typing import GenericAlias, TypeVar, get_args, get_origin
+from typing import Any, GenericAlias, TypeVar, get_args, get_origin
 
 import numpy as np
 import pandas as pd
@@ -65,7 +65,12 @@ class GenericDataProcessor(DataProcessor):
 
 @qdefine
 class MeasurementResult:
-    """A measurement result object."""
+    """A measurement result object.
+
+    Measurement results hold additional metadata on top of a pandas dataframe that
+    stores the data. Each result has a name, that should correspond to a measurement
+    key.
+    """
 
     name: str
     data: pd.DataFrame = field(
@@ -75,16 +80,18 @@ class MeasurementResult:
     )
     processors: tuple[DataProcessor, ...] = field(factory=tuple)
 
-    def __get__(self, key):
+    def __get__(self, key: str) -> Any:
         return self.data[key]
 
-    @property
-    def loc(self):
-        return self.data.loc
+    def __getattr__(self, attr: str) -> Any:
+        """Fallback attribute access to the stored dataframe.
 
-    @property
-    def shape(self):
-        return self.data.shape
+        This makes it easy to check attributes on the dataframe. Any attribute that
+        also exists on the `MeasurementResult` itself will shadow the dataframe
+        attribute, but the dataframe attribute can still be accessed directly like
+        `result.data.attribute`.
+        """
+        return getattr(self.data, attr)
 
     def _repr_html_(self) -> str:
         description = f'<p style="font-family: monospace;">{repr(self)}</p>'
