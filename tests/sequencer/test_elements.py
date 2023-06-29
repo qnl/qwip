@@ -182,6 +182,35 @@ class TestSequenceElement:
 
         assert list(locations.keys()) == [Location(t) for t in (0, 10e-9, 20e-9, 50e-9)]
 
+    def test_rename_variables(self):
+        se = SequenceElement().fromtuples(
+            [
+                (0, SquareWaveform(amplitude="amp", width="t")),
+                ("t", GaussianWaveform(width="t"))
+            ]
+        )
+
+        se.rename_variables(lambda n: "tgate" if n == "t" else n)
+
+        assert se == SequenceElement().fromtuples(
+            [
+                (0, SquareWaveform(amplitude="amp", width="tgate")),
+                ("tgate", GaussianWaveform(width="tgate"))
+            ]
+        )
+
+        se.width = "tgate + tbuffer"
+        se.rename_variables(lambda n: n + "1" if n != "tgate" else n)
+        
+        assert se == SequenceElement().fromtuples(
+            [
+                (0, SquareWaveform(amplitude="amp1", width="tgate")),
+                ("tgate", GaussianWaveform(width="tgate")),
+            ],
+            width="tgate + tbuffer1"
+        )
+
+
     def test_append_sequence(self):
         se1 = SequenceElement.fromtuples([("a", None), ("b", None)])
         se2 = SequenceElement.fromtuples([("c", None), ("d", None)])
