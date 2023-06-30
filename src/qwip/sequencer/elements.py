@@ -280,7 +280,9 @@ class SequenceElement:
             varmap.get(name, name): loc.resolve(**varmap)
             for name, loc in self.constraints.items()
         }
-        self.width = self.width.resolve(**varmap)
+
+        if self.width:
+            self.width = self.width.resolve(**varmap)
 
         for waves in self.locations.values():
             waves[:] = [w.resolve(**varmap) for w in waves]

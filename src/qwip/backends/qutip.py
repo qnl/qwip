@@ -55,6 +55,7 @@ def upconvert(
     # Upconvert
     carrier = np.exp(1j * 2 * np.pi * f_LO * ts)
     drive = 2 * np.pi * carrier * envelope
+
     return drive, ts
 
 
@@ -299,42 +300,47 @@ class QutipBackend(QuantumBackend):
         channels = qpu.db["compilation"]["channels"]
 
         for ch in channels.keys():
-            qubit, t = ch.split("_")
+            if len(ch.split("_")) != 2:
+                ...
+            else:
+                qubit, t = ch.split("_")
 
-            if t == "I" and qubit[0] == "Q":
-                if qubit + "_Q" in channels:
-                    # Mapping of channels to its parameters
-                    a, adag = qt.destroy(self.num_levels), qt.create(self.num_levels)
-                    map_op = a + adag
+                if t == "I" and qubit[0] == "Q":
+                    if qubit + "_Q" in channels:
+                        # Mapping of channels to its parameters
+                        a, adag = qt.destroy(self.num_levels), qt.create(
+                            self.num_levels
+                        )
+                        map_op = a + adag
 
-                    map_channels = (
-                        channels[f"{qubit}_I"]["index"],
-                        channels[f"{qubit}_Q"]["index"],
-                    )
-                    map_LO_freq = qpu.db["hardware"]["local_oscillators"]["qubit"][
-                        "frequency"
-                    ]
+                        map_channels = (
+                            channels[f"{qubit}_I"]["index"],
+                            channels[f"{qubit}_Q"]["index"],
+                        )
+                        map_LO_freq = qpu.db["hardware"]["local_oscillators"]["qubit"][
+                            "frequency"
+                        ]
 
-                    ch_map = OperatorChannelMap(
-                        target=qubit,
-                        operator=map_op,
-                        channels=map_channels,
-                        LO_frequency=map_LO_freq,
-                    )
-                    self.channel_map.append(ch_map)
+                        ch_map = OperatorChannelMap(
+                            target=qubit,
+                            operator=map_op,
+                            channels=map_channels,
+                            LO_frequency=map_LO_freq,
+                        )
+                        self.channel_map.append(ch_map)
 
-                    # Static hamiltonian for each qubit
-                    Q = qpu.db["subsystems"][qubit]["parameters"]
-                    self.static_hamiltonian[qubit] = (
-                        2 * np.pi * Q.frequency * adag * a
-                        + 2 * np.pi * (Q.anharmonicity / 2) * adag * adag * a * a
-                    )
+                        # Static hamiltonian for each qubit
+                        Q = qpu.db["subsystems"][qubit]["parameters"]
+                        self.static_hamiltonian[qubit] = (
+                            2 * np.pi * Q.frequency * adag * a
+                            + 2 * np.pi * (Q.anharmonicity / 2) * adag * adag * a * a
+                        )
 
-                else:
-                    raise ValueError(f"Q component of channel {qubit} missing")
+                    else:
+                        raise ValueError(f"Q component of channel {qubit} missing")
 
-            elif t == "Q" and qubit + "_I" not in channels:
-                raise ValueError(f"I component of channel {qubit} missing")
+                elif t == "Q" and qubit + "_I" not in channels:
+                    raise ValueError(f"I component of channel {qubit} missing")
 
         self.readouts = {}
         for name, sys in qpu.subsystems.items():
@@ -471,6 +477,14 @@ class QutipBackend(QuantumBackend):
             qt_result = H_obj.simulate()
             qt_expect = [r[-1] for r in qt_result.expect]
 
+            # # Debugging Tool
+            # q_expect = []
+            # print(H_obj.targets)
+            # for q in get_multi_qubit_populations(qt_result, H_basis, len(H_obj.targets)):
+            #     q_state = [r[-1] for r in q.values()]
+            #     q_expect.append(q_state)
+            #     print(q_state)
+
             # List of N tuples with length number of targets, states chosen
             # using rng.choice with non-uniform distribution matching last time step
             shots_sample = default_rng().choice(
@@ -482,7 +496,7 @@ class QutipBackend(QuantumBackend):
 
                 for q in range(len(all_targets)):
                     if str(q) in H_targets:
-                        level = state[q]
+                        level = state[H_targets.index(str(q))]
                     else:
                         level = 0  # untargeted qubits are by default at ground state
 
@@ -500,3 +514,16 @@ def gaussian_noise(eta, num_samples):
     return noise_scaling * (
         np.random.normal(size=(num_samples, 2)).view(np.complex128).squeeze()
     )
+
+
+def get_multi_qubit_populations(results, labels, N_sys):
+    labeled = dict(zip(labels, results.expect))
+
+    qdicts = [dict() for _ in range(N_sys)]
+    for q in range(N_sys):
+        for state, populations in labeled.items():
+            if state[q] not in qdicts[q]:
+                qdicts[q][state[q]] = np.array(populations)
+            else:
+                qdicts[q][state[q]] += populations
+    return qdicts

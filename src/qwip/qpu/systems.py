@@ -188,9 +188,9 @@ class ReadoutResonator(QuantumSystem):
         if not alpha_0:
             alpha_0 = np.zeros_like(self.chi).astype(complex)
 
-        if len(alpha_0) != len(self.chi):
+        if len(self.chi) != len(alpha_0):
             raise ValueError(
-                "Number of initial values does not match number of states to be "
+                "Number of initial chi values does not match number of states to be "
                 "simulated."
             )
 

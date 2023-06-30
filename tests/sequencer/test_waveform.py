@@ -3,7 +3,7 @@ from copy import copy, deepcopy
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_almost_equal
 
 import qwip
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
@@ -310,6 +310,15 @@ class TestModulatedWaveform:
         wave = w(ts, t0=40e-9, phase_tracker=phase_tracker)
 
         assert_allclose(wave, expected)
+
+    def test_hardware_modulation(self):
+        env = GaussianWaveform(width=50e-9)
+        mod = CWWaveform(frequency=5e9, amplitude=0.5, hardware_modulation=True)
+
+        wave = ModulatedWaveform(envelope=env, modulation=mod)
+
+        ts = np.arange(400) / 8e9
+        assert_almost_equal(wave(ts, complex_out=True).real, wave.envelope(ts))
 
     @pytest.mark.parametrize(
         "wave,val",

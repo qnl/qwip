@@ -310,7 +310,7 @@ class QPU:
                 exe = self.sequencer.compile(program, readout=ro_se, **compilation)
                 seq = exe.sequence
             case Sequence():
-                exe = self.sequencer.compile(program)
+                exe = self.sequencer.compile(program, **compilation)
             case QuantumExecutable():
                 exe = program
             case None:
@@ -345,7 +345,7 @@ class QPU:
             A mapping from measurement keys to `MeasurementResult` instances.
         """
         if not isinstance(processor, dict):
-            processor = {f"R{r}": processor for r in self.sequencer.readout_qubits}
+            processor = {key: processor for key in raw_data.keys()}
 
         return self.pipeline.process_results(raw_data, processor, **kwargs)
 

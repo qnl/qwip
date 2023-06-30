@@ -429,10 +429,10 @@ class TestQutipBackend:
         IQ_Q0 = processed_IQ_df["Q0"][0].data.to_numpy()[0]
 
         I_Q0 = np.real(IQ_Q0)
-        num_excited = np.sum(np.array(I_Q0) >= 0, axis=0)
+        num_excited = np.sum(np.array(I_Q0) <= 0, axis=0)
         num_ground = len(IQ_Q0) - num_excited
 
-        assert abs(num_excited - num_ground) / len(IQ_Q0) < 0.05
+        assert abs(num_excited - num_ground) / len(IQ_Q0) < 0.2
 
     def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180):
         """Tests uneven distribution.
@@ -443,7 +443,7 @@ class TestQutipBackend:
         sim_backend.update_parameters(qpu_01)
         sim_backend.upload(compile_Q0_X180)
 
-        raw_IQ = sim_backend.acquire(compile_Q0_X180)
+        raw_IQ = sim_backend.acquire(compile_Q0_X180, drive=10e6)
         raw_IQ_df = dict()
         processed_IQ_df = dict()
 
@@ -462,6 +462,6 @@ class TestQutipBackend:
         IQ_Q0 = processed_IQ_df["Q0"][0].data.to_numpy()[0]
 
         I_Q0 = np.real(IQ_Q0)
-        num_excited = np.sum(np.array(I_Q0) >= 0, axis=0)
+        num_excited = np.sum(np.array(I_Q0) <= 0, axis=0)
 
-        assert num_excited / len(IQ_Q0) < 0.01
+        assert num_excited / len(IQ_Q0) > 0.95

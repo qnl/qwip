@@ -920,8 +920,8 @@ class InteractiveSequencePlotter:
 
         fig.update_yaxes(fixedrange=True)
 
-        # config = {'scrollZoom': True}
-        # fig.show(config=config)
+        config = {"scrollZoom": True}
+        fig.show(config=config)
 
         return fig
 
