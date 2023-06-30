@@ -316,7 +316,7 @@ class TestModulatedWaveform:
         mod = CWWaveform(frequency=5e9, amplitude=0.5, hardware_modulation=True)
 
         wave = ModulatedWaveform(envelope=env, modulation=mod)
-        
+
         ts = np.arange(400) / 8e9
         assert_almost_equal(wave(ts, complex_out=True).real, wave.envelope(ts))
 

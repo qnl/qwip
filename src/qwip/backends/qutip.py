@@ -300,16 +300,17 @@ class QutipBackend(QuantumBackend):
         channels = qpu.db["compilation"]["channels"]
 
         for ch in channels.keys():
-
             if len(ch.split("_")) != 2:
                 ...
-            else: 
+            else:
                 qubit, t = ch.split("_")
 
                 if t == "I" and qubit[0] == "Q":
                     if qubit + "_Q" in channels:
                         # Mapping of channels to its parameters
-                        a, adag = qt.destroy(self.num_levels), qt.create(self.num_levels)
+                        a, adag = qt.destroy(self.num_levels), qt.create(
+                            self.num_levels
+                        )
                         map_op = a + adag
 
                         map_channels = (
@@ -513,6 +514,7 @@ def gaussian_noise(eta, num_samples):
     return noise_scaling * (
         np.random.normal(size=(num_samples, 2)).view(np.complex128).squeeze()
     )
+
 
 def get_multi_qubit_populations(results, labels, N_sys):
     labeled = dict(zip(labels, results.expect))

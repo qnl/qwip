@@ -186,7 +186,7 @@ class TestSequenceElement:
         se = SequenceElement().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp", width="t")),
-                ("t", GaussianWaveform(width="t"))
+                ("t", GaussianWaveform(width="t")),
             ]
         )
 
@@ -195,21 +195,20 @@ class TestSequenceElement:
         assert se == SequenceElement().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp", width="tgate")),
-                ("tgate", GaussianWaveform(width="tgate"))
+                ("tgate", GaussianWaveform(width="tgate")),
             ]
         )
 
         se.width = "tgate + tbuffer"
         se.rename_variables(lambda n: n + "1" if n != "tgate" else n)
-        
+
         assert se == SequenceElement().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp1", width="tgate")),
                 ("tgate", GaussianWaveform(width="tgate")),
             ],
-            width="tgate + tbuffer1"
+            width="tgate + tbuffer1",
         )
-
 
     def test_append_sequence(self):
         se1 = SequenceElement.fromtuples([("a", None), ("b", None)])
