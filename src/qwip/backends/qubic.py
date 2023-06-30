@@ -96,7 +96,10 @@ class BarrierInstruction(QubicInstruction):
     """"""
 
     name: str = field(default="barrier", init=False, metadata=dict(serialize=True))
-    qubits: tuple[int, ...]
+    qubits: tuple[int, ...] | None = field(
+        default=None,
+        metadata=dict(unstructure_override=cattrs.override(omit_if_default=True)),
+    )
 
 
 @qfrozen
@@ -211,7 +214,7 @@ class QubicSequencer(WaveformSequencer):
         instructions = []
 
         width = wave.width.resolve(**pulse_kwargs)
-        start, end = loc.offset, loc.offset + width.offset
+        start, end = loc, loc + width
 
         match wave.channels:
             case ():
@@ -231,10 +234,18 @@ class QubicSequencer(WaveformSequencer):
             if ch_info.read:
                 reads[channel] += 1
 
+            logger.debug(
+                f"Start is {start} and channel {channel} is at {channel_times[channel]}"
+            )
             if start > channel_times[channel]:
                 delay = start - channel_times[channel]
+                logger.debug(f"Adding delay {delay}")
                 instructions.append(DelayInstruction(t=delay.offset, qubits=(channel,)))
-                channel_times[channel] = end
+
+                if "rdrv" in channel:
+                    channel_times[channel[:2] + ".rdlo"] = start
+
+            channel_times[channel] = end
 
         match wave:
             case VirtualZWaveform(mod_key=mod_key, phase=phase):
@@ -257,7 +268,9 @@ class QubicSequencer(WaveformSequencer):
                         freqname = None
 
                 instructions.append(
-                    VirtualZInstruction(qubit=qubit, phase=phase, freqname=freqname)
+                    VirtualZInstruction(
+                        qubit=qubit, phase=phase * np.pi / 180, freqname=freqname
+                    )
                 )
 
             case ModulatedWaveform(envelope=env, modulation=mod):
@@ -269,7 +282,12 @@ class QubicSequencer(WaveformSequencer):
 
                     N = np.ceil(width.offset * sample_rate).astype(int)
                     ts_wave = np.arange(N) / sample_rate
-                    w_t = wave(ts_wave, modulations=self.modulations, **pulse_kwargs)
+                    w_t = wave(
+                        ts_wave,
+                        modulations=self.modulations,
+                        complex_out=True,
+                        **pulse_kwargs,
+                    )
 
                     unique_waveforms[env] = w_t
 
@@ -287,7 +305,7 @@ class QubicSequencer(WaveformSequencer):
                     amplitude = 1
 
                 ins = PulseInstruction(
-                    env=w_t.astype(np.float64),
+                    env=w_t,
                     dest=channel,
                     freq=freq,
                     phase=phase,
@@ -345,13 +363,22 @@ class QubicSequencer(WaveformSequencer):
 
         return instructions, reads
 
-    def compile(
+    def construct_circuit(
         self,
         seq: Sequence,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
         **kwargs,
-    ) -> QubicExecutable:
+    ) -> list[dict]:
+        """Constructs a Qubic instruction list from a sequence.
+
+        This method makes a pass through the sequence, compiling each sequence element
+        to a list of qubic instructions. These instruction lists are then concatenated
+        with a specified reset delay in between. The total repetition delay for the
+        circuit and the number of reads per element are also returned.
+
+
+        """
         locations = [
             se.resolve_locations(end_marker=self.end_marker, **location_kwargs)
             for se in seq.flat
@@ -379,17 +406,43 @@ class QubicSequencer(WaveformSequencer):
                 )
 
             reset = DelayInstruction(t=reset_delay)
+            barrier = BarrierInstruction()
 
-            sub_circuit = [reset.todict(), *(ins.todict() for ins in instructions)]
+            sub_circuit = [
+                reset.todict(),
+                barrier.todict(),
+                *(ins.todict() for ins in instructions),
+            ]
             circuit.extend(sub_circuit)
             reads_per_element.append(max(reads_per_channel))
 
+        return circuit, repetition_delay, reads_per_element
+
+    def compile(
+        self,
+        seq: Sequence,
+        location_kwargs: dict = {},
+        pulse_kwargs: dict = {},
+        **kwargs,
+    ) -> QubicExecutable:
+        """Compiles a sequence to a Qubic executable format.
+
+        Args:
+            seq: The sequence to compile.
+            location_kwargs: A mapping of location variables to concrete values. This is
+                passed to `SequenceElement.resolve_locations`.
+
+        """
+        circuit, repetition_delay, reads_per_element = self.construct_circuit(
+            seq, location_kwargs, pulse_kwargs, **kwargs
+        )
         qchip = self.get_qchip()
         channel_config = self.get_channel_config()
 
         prog = tc.run_compile_stage(circuit, self.fpga_config, qchip)
         asm = tc.run_assemble_stage(prog, channel_config)
         return QubicExecutable(
+            sequence=seq,
             program=prog,
             assembly=asm,
             repetition_delay=repetition_delay,

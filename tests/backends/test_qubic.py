@@ -2,7 +2,7 @@ import attrs
 import numpy as np
 import pytest
 from distproc.compiler import CompiledProgram
-from numpy.testing import assert_array_equal
+from numpy.testing import assert_almost_equal, assert_array_equal
 
 import qwip
 from qwip.backends.qubic import (
@@ -11,6 +11,7 @@ from qwip.backends.qubic import (
     PulseInstruction,
     QubicExecutable,
     QubicSequencer,
+    VirtualZInstruction,
 )
 from qwip.sequencer import (
     CWWaveform,
@@ -19,6 +20,8 @@ from qwip.sequencer import (
     ModulationFrequency,
     Sequence,
     SequenceElement,
+    SquareWaveform,
+    VirtualZWaveform,
 )
 from qwip.sequencer.compilation import ChannelGroup, ChannelInfo
 
@@ -111,7 +114,10 @@ class TestQubicSequencer:
     def sequencer(self):
         qubit = [ChannelInfo(f"Q{i}.qdrv", index=i) for i in range(8)]
         readout = [ChannelInfo(f"Q{i}.rdrv", index=i, subchannel=1) for i in range(8)]
-        adc = [ChannelInfo(f"Q{i}.rdlo", index=i, subchannel=2) for i in range(8)]
+        adc = [
+            ChannelInfo(f"Q{i}.rdlo", index=i, subchannel=2, read=True)
+            for i in range(8)
+        ]
 
         qubit = ChannelGroup.from_channels(qubit, sample_rate=8e9, name="qubit")
         readout = ChannelGroup.from_channels(readout, sample_rate=0.5e9, name="readout")
@@ -127,6 +133,54 @@ class TestQubicSequencer:
         return QubicSequencer.from_channel_groups(
             [qubit, readout, adc], modulations=modulations
         )
+
+    @pytest.fixture
+    def gates(self):
+        gates = dict()
+        for q in range(4):
+            X90 = SequenceElement()
+            X90.add_waveform(VirtualZWaveform(mod_key=f"Q{q}.freq_GE"))
+            X90.add_waveform(
+                ModulatedWaveform(
+                    envelope=GaussianWaveform(width=25e-9),
+                    modulation=CWWaveform(
+                        channels=(f"Q{q}.qdrv",),
+                        frequency=f"Q{q}.freq_GE",
+                        hardware_modulation=True,
+                    ),
+                )
+            )
+            X90.add_waveform(VirtualZWaveform(mod_key=f"Q{q}.freq_GE"))
+            X90.width = 25e-9
+
+            ro = SequenceElement()
+            ro.add_waveform(
+                ModulatedWaveform(
+                    envelope=SquareWaveform(width=2e-6),
+                    modulation=CWWaveform(
+                        channels=(f"Q{q}.rdrv",),
+                        frequency=f"Q{q}.readfreq",
+                        hardware_modulation=True,
+                    ),
+                )
+            )
+            ro.add_waveform(
+                ModulatedWaveform(
+                    envelope=SquareWaveform(width=2e-6),
+                    modulation=CWWaveform(
+                        channels=(f"Q{q}.rdlo",),
+                        frequency=f"Q{q}.readfreq",
+                        hardware_modulation=True,
+                    ),
+                ),
+                500e-9,
+            )
+            ro.width = 2.5e-6
+
+            gates[f"Q{q}_X90"] = X90
+            gates[f"Q{q}_RO"] = ro
+
+        return gates
 
     def test_get_qchip(self, sequencer):
         qchip = sequencer.get_qchip()
@@ -162,5 +216,74 @@ class TestQubicSequencer:
     def test_compile_instruction(self):
         ...
 
-    def test_compile_sequence_element(self):
-        ...
+    def test_compile_sequence_element(self, sequencer, gates):
+        se = SequenceElement()
+        se.append(gates["Q0_X90"])
+        se.append(gates["Q0_X90"], gates["Q0_X90"].width)
+        se.append(gates["Q0_RO"], 2 * gates["Q0_X90"].width)
+
+        instructions, reads = sequencer.compile_sequence_element(se.resolve_locations())
+
+        names = [ins.name for ins in instructions]
+        pulses = [
+            (ins.dest, ins.env.shape)
+            for ins in instructions
+            if isinstance(ins, PulseInstruction)
+        ]
+
+        expected = [
+            VirtualZInstruction(qubit=("Q0",), freqname="freq_GE"),
+            PulseInstruction(
+                env=np.zeros(200, dtype=np.complex64),
+                dest="Q0.qdrv",
+                freq="Q0.freq_GE",
+                phase=0,
+                amp=1,
+                twidth=25e-9,
+            ),
+            VirtualZInstruction(qubit=("Q0",), freqname="freq_GE"),
+            VirtualZInstruction(qubit=("Q0",), freqname="freq_GE"),
+            PulseInstruction(
+                env=np.zeros(200, dtype=np.complex64),
+                dest="Q0.qdrv",
+                freq="Q0.freq_GE",
+                phase=0,
+                amp=1,
+                twidth=25e-9,
+            ),
+            VirtualZInstruction(qubit=("Q0",), freqname="freq_GE"),
+            DelayInstruction(qubits=("Q0.rdrv",), t=50e-9),
+            PulseInstruction(
+                env=np.zeros(1000, dtype=np.complex64),
+                dest="Q0.rdrv",
+                freq="Q0.readfreq",
+                phase=0,
+                amp=1,
+                twidth=2e-6,
+            ),
+            DelayInstruction(qubits=("Q0.rdlo",), t=500e-9),
+            PulseInstruction(
+                env=np.zeros(1000, dtype=np.complex64),
+                dest="Q0.rdlo",
+                freq="Q0.readfreq",
+                phase=0,
+                amp=1,
+                twidth=2e-6,
+            ),
+        ]
+
+        assert len(instructions) == len(expected)
+
+        for ins, exp in zip(instructions, expected):
+            match ins:
+                case PulseInstruction(env=env):
+                    assert exp.env.shape == env.shape
+                    assert exp.env.dtype == env.dtype
+                    exp = attrs.evolve(exp, env=ins.env)
+
+                case DelayInstruction(t=t):
+                    # delay times might be slightly off due to floating point error
+                    assert_almost_equal(t, exp.t)
+                    ins = attrs.evolve(ins, t=exp.t)
+
+            assert ins == exp
