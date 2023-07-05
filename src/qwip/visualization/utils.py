@@ -2,7 +2,7 @@
 """
 
 import itertools as it
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Iterable
 from typing import Any
 
 import matplotlib as mpl
@@ -46,10 +46,84 @@ def find_closest_factors(n: int, /):
     return As[-1], Bs[-1]
 
 
-def make_grid(
+def get_grid_size(
     N: int,
     nrows: int | None = None,
     ncols: int | None = None,
+    ratio: float | None = 6.0,
+) -> tuple[int, int]:
+    """Determines a grid size for N subplots.
+
+    Args:
+        N: The number of subplots requested.
+        nrows: If not `None`, specifies the total number of rows.
+        ncols: If not `None`, specifies the total number of columns.
+        ratio: The maximum allowed value for `ncols / nrows` when both are `None`. This
+            is used so that large prime values of `N` still yield reasonable grid
+            configurations.
+
+    Returns:
+        A tuple `(nrows, ncols)`.
+    """
+    if nrows is None and ncols is None:
+        nrows, ncols = find_closest_factors(N)
+        if ratio and ncols / nrows > ratio:
+            ncols = np.ceil(np.sqrt(N)).astype(int)
+            nrows = np.ceil(N / ncols).astype(int)
+    elif nrows is None:
+        nrows = np.ceil(N / ncols).astype(int)
+    elif ncols is None:
+        ncols = np.ceil(N / nrows).astype(int)
+    elif nrows * ncols < N:
+        raise ValueError(
+            f"Not enough axes in the specified grid. nrows * ncols must be greater than"
+            f" N. Got {nrows} * {ncols} = {nrows * ncols} < {N}."
+        )
+
+    return nrows, ncols
+
+
+def make_dict_grid(
+    keys: Collection[str] | dict[str, Any],
+    nrows: int | None = None,
+    ncols: int | None = None,
+    ratio: float | None = 6.0,
+    **kwargs,
+) -> tuple[Figure, dict]:
+    """Makes a figure subplot mosaic with subplots labeled by keys.
+
+    Args:
+        keys: The labels for the figure subplots.
+        nrows: If not `None`, specifies the total number of rows.
+        ncols: If not `None`, specifies the total number of columns.
+        ratio: The maximum allowed value for `ncols / nrows` when both are `None`.
+        **kwargs: Additional keyword arguments are passed to `plt.subplot_mosaic`.
+
+    Returns:
+        The created figure and subplot dictionary.
+    """
+    nrows, ncols = get_grid_size(len(keys), nrows, ncols, ratio)
+
+    grid = []
+    index = it.product(range(nrows), range(ncols))
+
+    for (row, col), key in it.zip_longest(index, keys, fillvalue="."):
+        if col == 0:
+            grid.append([])
+
+        grid[row].append(key)
+
+    fig, axes = plt.subplot_mosaic(grid, **kwargs)
+    fig.tight_layout()
+
+    return fig, axes
+
+
+def make_list_grid(
+    N: int,
+    nrows: int | None = None,
+    ncols: int | None = None,
+    ratio: float | None = 6.0,
     hide_unused: bool = True,
     **kwargs,
 ) -> tuple[Figure, np.ndarray]:
@@ -61,22 +135,12 @@ def make_grid(
         ncols: If not `None`, specifies the total number of columns.
         hide_unsued: If `True`, will hide all extra subplots. The N "active" subplots
             start at the top left corner and go down the grid in row-major order.
-        **kwargs: Additional keyword arguments are passed to `plt.subplots`
+        **kwargs: Additional keyword arguments are passed to `plt.subplots`.
 
     Returns:
         A numpy array of empty Axes objects.
     """
-    if nrows is None and ncols is None:
-        nrows, ncols = find_closest_factors(N)
-    elif nrows is None:
-        nrows = np.ceil(N / ncols).astype(int)
-    elif ncols is None:
-        ncols = np.ceil(N / nrows).astype(int)
-    elif nrows * ncols < N:
-        raise ValueError(
-            f"Not enough axes in the specified grid. nrows * ncols must be greater than"
-            f" N. Got {nrows} * {ncols} = {nrows * ncols} < {N}."
-        )
+    nrows, ncols = get_grid_size(N, nrows, ncols, ratio)
 
     fig, axes = plt.subplots(nrows, ncols, **kwargs)
 
@@ -110,7 +174,7 @@ def grid_plotter(
             can handle the data type.
         axes_plotter: A plotting function that plots the data on a given `Axes`.
         subplot_kwargs: A dictionary of parameters that are passed to `axes_plotter`
-        grid_kwargs: A dictionary of parameters that are passed to `make_grid`.
+        grid_kwargs: A dictionary of parameters that are passed to `make_dict_grid`.
         sort: If `True`, the dataset keys will be sorted first.
 
     Returns:
@@ -121,15 +185,34 @@ def grid_plotter(
     if sort:
         dataset = dict(sorted(dataset.items()))
 
-    fig, axes = make_grid(N, **grid_kwargs)
+    fig, axes = make_dict_grid(dataset.keys(), **grid_kwargs)
 
-    for ax, (key, axdata) in zip(axes.flat, dataset.items()):
-        axes_plotter(axdata, ax=ax, **subplot_kwargs)
+    for key, axdata in dataset.items():
+        axes_plotter(axdata, ax=axes[key], **subplot_kwargs)
 
-        if not ax.title.get_text():
-            ax.set_title(key)
+        if not axes[key].title.get_text():
+            axes[key].set_title(key)
 
     return fig
+
+
+## Watermark
+
+
+def ax_labels(axes: dict, fontsize: int = 30, **kwargs):
+    kwargs = (
+        dict(
+            ha="center",
+            va="center",
+            fontsize=fontsize,
+            color="darkgrey",
+            alpha=0.5,
+        )
+        | kwargs
+    )
+
+    for k, ax in axes.items():
+        ax.text(0.5, 0.5, k, transform=ax.transAxes, **kwargs)
 
 
 ## Legend
