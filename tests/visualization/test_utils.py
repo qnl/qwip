@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 
 from qwip.visualization.utils import (
-    ax_labels,
     find_closest_factors,
     get_grid_size,
     make_dict_grid,
