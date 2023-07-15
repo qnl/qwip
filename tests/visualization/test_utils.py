@@ -48,21 +48,19 @@ def test_grid_size_exception():
 
 @pytest.mark.parametrize("keys", [({f"R{i}": None for i in range(7)}), ({"ax0": None})])
 def test_make_dict_grid(keys):
-    import matplotlib.pyplot as plt
-
     fig, axes = make_dict_grid(keys)
+
     assert axes.keys() == keys.keys()
-    ax_labels(axes)
-    plt.show()
+    assert [ax.get_label() for ax in fig.axes] == list(keys)
 
 
-def test_make_grid_01():
+def test_make_list_grid_01():
     fig, axes = make_list_grid(1)
 
     assert axes.shape == (1,)
 
 
-def test_make_grid_02():
+def test_make_list_grid_02():
     fig, axes = make_list_grid(5, nrows=2)
 
     assert axes.shape == (2, 3)
