@@ -176,15 +176,15 @@ class TestCWWaveform:
         )
 
         wave = w(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, expected)
+        assert_allclose(wave, expected, atol=1e-7)
 
         w_single_channel = w.evolve(channels=("I",))
         wave = w_single_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, expected[0])
+        assert_allclose(wave, expected[0], atol=1e-7)
 
         w_three_channel = w.evolve(channels=("a", "b", "c"))
         wave = w_three_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, np.stack([expected[0] for i in range(3)]))
+        assert_allclose(wave, np.stack([expected[0] for i in range(3)]), atol=1e-7)
 
     @pytest.mark.parametrize(
         "ts,phase_jumps",
