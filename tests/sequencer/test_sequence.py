@@ -149,7 +149,7 @@ class TestSequenceConstruction:
             obj_ids.add(id(se))
 
         # Checks that all sequence elements are unique/separate objects
-        assert len(obj_ids) == np.product(shape)
+        assert len(obj_ids) == np.prod(shape)
 
         if names:
             assert sequence.names == names

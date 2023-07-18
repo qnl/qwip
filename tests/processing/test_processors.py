@@ -165,7 +165,7 @@ class TestGMMClassification:
         ],
     )
     def test_get_real_IQ_from_complex(self, shape, dtype, seed):
-        rng = default_rng(seed + np.product(shape))
+        rng = default_rng(seed + np.prod(shape))
 
         real = rng.random(size=shape, dtype=dtype)
         imag = rng.random(size=shape, dtype=dtype)

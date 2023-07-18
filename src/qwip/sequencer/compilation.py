@@ -621,7 +621,7 @@ class WaveformSequencer:
             num_channels = group.max_channel_index + 1
             num_subchannels = group.max_subchannel_index + 1
 
-            num_elements = np.product(seq.shape) if key == "seq" else 1
+            num_elements = np.prod(seq.shape) if key == "seq" else 1
             num_timepoints = int(max_times[key].offset * sample_rate)
 
             # We put num_subchannels as the first index and then transpose in an
