@@ -1,7 +1,6 @@
 import attrs
 import numpy as np
 import pytest
-from distproc.compiler import CompiledProgram
 from numpy.testing import assert_almost_equal, assert_array_equal
 
 import qwip
@@ -24,6 +23,11 @@ from qwip.sequencer import (
     VirtualZWaveform,
 )
 from qwip.sequencer.compilation import ChannelGroup, ChannelInfo
+
+try:
+    from distproc.compiler import CompiledProgram
+except ImportError:
+    pytest.skip("Qubic dependencies not installed.", allow_module_level=True)
 
 
 class TestQubicInstruction:
