@@ -84,7 +84,6 @@ class TestReadoutResonator:
         alphas = resonator.solve_cavity_field_equation(
             ts=np.linspace(0, 1e-5, 1000), drive_envelope=lambda t: 1e7
         )
-        np.savetxt("solve_cavity_field_equation.txt", alphas, delimiter=",")
 
         assert_allclose(alphas, expected)
 
