@@ -115,7 +115,6 @@ class FrequencyModel(GuessModel):
         Returns:
             An initialized `Parameters` dictionary.
         """
-        import matplotlib.pyplot as plt
 
         A0 = 0.5 * (np.max(data) - np.min(data))
         B0 = np.mean(data) if self.offset else 0
@@ -134,3 +133,75 @@ class FrequencyModel(GuessModel):
             phi0 *= -1
 
         return self.make_params(frequency=f0, A=A0, B=B0, phi=phi0)
+
+
+class TriangularWaveModel(GuessModel):
+    """A model for fitting a triangular wave.
+
+    $$ S(t; A, B, p, o) = \\frac{4A}{p} \\left|(t + op) \\mod p - \\frac{p}{2}\\right| + (B - A)$$
+
+    Attributes:
+        offset: If False, `B` is constrained to be 0 upon initialization.
+    """
+
+    def __init__(
+        self,
+        offset: bool = True,
+        prefix="",
+        nan_policy="raise",
+        name="4 * A / period * abs((t + offset * period) % period - period / 2) + (B - A)",
+        **kwargs,
+    ):
+        self.offset = offset
+        super().__init__(
+            type(self).func,
+            independent_vars=["t"],
+            prefix=prefix,
+            nan_policy=nan_policy,
+            name=name,
+            **kwargs,
+        )
+
+        self.set_param_hint("period", min=0)
+        self.set_param_hint("A", min=0)
+        self.set_param_hint("offset", min=-0.5 - 1e-5, max=0.5 + 1e-5)
+        self.set_param_hint("B", vary=self.offset)
+
+    @classmethod
+    def func(cls, t, A=1, B=0, period=1, offset=0):
+        """Triangular wave function."""
+
+        return (
+            4 * A / period * np.abs((t + offset * period) % period - period / 2) - A + B
+        )
+
+    def guess(self, data, t):
+        """Determines initial fit parameters.
+
+        The frequency is estimated via an fft.
+
+        Returns:
+            An initialized `Parameters` dictionary.
+        """
+
+        A0 = 0.5 * (np.max(data) - np.min(data))
+        B0 = np.mean(data) if self.offset else 0
+
+        ## FFT phase is referenced to cosine
+        fs, yfs = simple_fft(t, data, subtract_mean=True)
+        f0, phi0 = get_frequency_phase(fs, yfs)
+
+        offset0 = phi0 / (2 * np.pi)
+        period0 = 1 / f0
+
+        resid = []
+        for sgn in (1, -1):
+            yguess = type(self).func(
+                t=t, A=A0, B=B0, period=period0, offset=sgn * offset0
+            )
+            resid.append(np.sum((yguess - data) ** 2))
+
+        if np.argmin(resid):
+            offset0 *= -1
+
+        return self.make_params(period=period0, A=A0, B=B0, offset=offset0)
