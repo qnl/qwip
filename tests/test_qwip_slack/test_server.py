@@ -22,10 +22,10 @@ def test_register_success(respx_mock):
     webhook_url = success["incoming_webhook"]["url"]
     channel = success["incoming_webhook"]["channel"]
 
-    oauth = respx_mock.post(settings.SLACK_OAUTH_URL).mock(
+    oauth = respx_mock.post(str(settings.SLACK_OAUTH_URL)).mock(
         return_value=httpx.Response(200, json=success)
     )
-    webhook = respx_mock.post(webhook_url).mock(return_value=httpx.Response(200))
+    webhook = respx_mock.post(str(webhook_url)).mock(return_value=httpx.Response(200))
 
     response = client.get("/register?code=1234", follow_redirects=False)
 
@@ -34,7 +34,7 @@ def test_register_success(respx_mock):
     assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
     assert (
         response.headers["location"]
-        == settings.DOCS_URL
+        == str(settings.DOCS_URL)
         + f"?webhook_url={webhook_url}&channel={channel}#adding-a-webhook"
     )
 
@@ -45,12 +45,12 @@ def test_register_error(respx_mock):
     assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
     assert (
         response.headers["location"]
-        == settings.DOCS_URL + "?error=error#adding-a-webhook"
+        == str(settings.DOCS_URL) + "?error=error#adding-a-webhook"
     )
 
 
 def test_oauth_error(respx_mock):
-    oauth = respx_mock.post(settings.SLACK_OAUTH_URL).mock(
+    oauth = respx_mock.post(str(settings.SLACK_OAUTH_URL)).mock(
         return_value=httpx.Response(200, json=error)
     )
 
@@ -60,5 +60,5 @@ def test_oauth_error(respx_mock):
     assert response.status_code == status.HTTP_307_TEMPORARY_REDIRECT
     assert (
         response.headers["location"]
-        == settings.DOCS_URL + f"?error=invalid_code#adding-a-webhook"
+        == str(settings.DOCS_URL) + f"?error=invalid_code#adding-a-webhook"
     )

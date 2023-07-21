@@ -6,19 +6,19 @@ from fastapi.background import BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, RedirectResponse
 from loguru import logger
-from pydantic import AnyHttpUrl, BaseSettings
+from pydantic import AnyHttpUrl
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env")
+
     SLACK_CLIENT_ID: str = "client_id"
     SLACK_CLIENT_SECRET: str = "secret"
     SLACK_REDIRECT_URI: AnyHttpUrl = "https://localhost:8000/QWiP/app/"
     SLACK_OAUTH_URL: AnyHttpUrl = "https://slack.com/api/oauth.v2.access"
     DOCS_URL: AnyHttpUrl = "http://localhost:8080/QWiP/user-guide/workflow/"
     BASE_PATH: str = "/"
-
-    class Config:
-        env_file = ".env"
 
 
 router = APIRouter()
@@ -34,7 +34,7 @@ async def oauth_token_exchange(
 ) -> httpx.Response:
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            settings.SLACK_OAUTH_URL,
+            str(settings.SLACK_OAUTH_URL),
             data=dict(
                 code=code,
                 client_id=settings.SLACK_CLIENT_ID,
