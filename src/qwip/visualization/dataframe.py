@@ -87,7 +87,7 @@ class DataFramePlotter:
         """
         fig, axes = make_dict_grid(df.columns, sharex=True, sharey=True, **fig_kwargs)
 
-        xs, ys = type(self).get_indices(df)
+        xs, ys = type(self).get_indices(df, labels=labels)
         fulldf = type(self).get_values(xs, ys, df, fill_value=fill_value)
 
         pc_kwargs = pc_kwargs | dict(cmap=cmap)
