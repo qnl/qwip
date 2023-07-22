@@ -1091,6 +1091,14 @@ class DoltDB(Database):
         return Commit.from_orm(result)
 
     @session_context
+    def get_databases(self) -> list[str]:
+        stmt = sa.text("SHOW DATABASES")
+        dbs = self.session.scalars(stmt).all()
+
+        return [name for name in dbs if name not in ("information_schema", "mysql")]
+
+    
+    @session_context
     def reset(self, branch_or_commit: str | None = None, hard: bool = False) -> None:
         dolt_reset(self.session, branch_or_commit, hard)
 

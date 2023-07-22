@@ -78,6 +78,9 @@ class TestDoltDB:
     def test_author(self, database):
         assert database.author == "pytest <pytest@qnl>"
 
+    def test_get_database(self, database):
+        assert database.get_databases() == ["test_db"]
+
 
 @pytest.fixture(scope="function")
 def config(session, models):
