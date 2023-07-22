@@ -1026,6 +1026,14 @@ class DoltDB(Database):
         return Branch.from_orm(result)
 
     @session_context
+    def get_all_branches(self) -> list[Branch]:
+        stmt = sa.select(DoltBranch)
+
+        result = self.session.scalars(stmt).all()
+
+        return [Branch.from_orm(b) for b in result]
+
+    @session_context
     def add(self, tables: list[str] | None = None) -> None:
         dolt_add(self.session, tables=tables)
 
@@ -1097,7 +1105,6 @@ class DoltDB(Database):
 
         return [name for name in dbs if name not in ("information_schema", "mysql")]
 
-    
     @session_context
     def reset(self, branch_or_commit: str | None = None, hard: bool = False) -> None:
         dolt_reset(self.session, branch_or_commit, hard)
