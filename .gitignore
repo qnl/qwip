@@ -24,7 +24,8 @@ share/python-wheels/
 MANIFEST
 
 # Frontend
-.yarn/*
+node_modules
+.yarn
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
@@ -35,6 +36,9 @@ MANIFEST
 # Log files
 yarn-debug.log*
 yarn-error.log*
+
+# Environment Configuration
+*.env
 
 # Unit test / coverage reports
 htmlcov/
