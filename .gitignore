@@ -23,6 +23,13 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Frontend
+node_modules
+
+# Log files
+yarn-debug.log*
+yarn-error.log*
+
 # Unit test / coverage reports
 htmlcov/
 .tox/
