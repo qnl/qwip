@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  frontend:
+    container_name: qwip_frontend
+    build:
+      context: ./deploy/web_app/
+      target: dev
+    image: qnl/qwip-frontend
+    volumes:
+      - ../../frontend/:/frontend
+    networks:
+      - web
+    ports:
+      - 3000:3000
+    tty: true
+
+networks:
+  web:
