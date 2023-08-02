@@ -768,7 +768,7 @@ class ReadoutPipeline:
             result = processor(inputs, **kwargs)
             if isinstance(result, Collection):
                 self.dependency_cache.update(
-                    {(res.k, type(processor)): res for res in result}
+                    {(res.name, type(processor)): res for res in result}
                 )
             else:
                 self.dependency_cache[(key, type(processor))] = result
