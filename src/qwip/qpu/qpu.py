@@ -325,7 +325,7 @@ class QPU:
             self.backend.upload(exe)
         raw_data = self.backend.acquire(exe, repetitions=repetitions, **backend)
 
-        return self.process_results(raw_data, processor, seq=exe.seq)
+        return self.process_results(raw_data, processor, seq=exe.seq if exe else None)
 
     def process_results(
         self,
