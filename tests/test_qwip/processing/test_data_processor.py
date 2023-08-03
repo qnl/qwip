@@ -1,5 +1,6 @@
 import itertools as it
 from collections.abc import Collection
+from time import sleep
 
 import numpy as np
 import pandas as pd
@@ -84,6 +85,16 @@ class TestMeasurementResult:
         res = MeasurementResult(name="name", data=df)
 
         assert getattr(res, attr) == getattr(df, attr)
+
+
+class TestDataProcessor:
+    def test_timestamp(self):
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
+        iqdata = IQResult.from_numpy(arr.reshape(3, 4, 5))
+
+        classified = GMMClassification(means=np.zeros((2, 2)), covariances=np.ones(2))(iqdata)
+
+        assert classified.timestamp == iqdata.timestamp
 
 
 class TestProcessingGraph:
