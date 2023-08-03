@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.random import default_rng
 
-from qwip.backends.backend import FakeBackend, format_legacy_IQ
+from qwip.backends.backend import FakeBackend
 from qwip.processing.processors import GMMClassification, StatePopulations
 from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
 
@@ -98,18 +98,3 @@ class TestQuantumBackend:
 
         assert (np.abs(results["R0"].data["1"] - R0_expect) < 1e-2).all()
         assert (results["R1"].data["1"] < 1e-2).all()
-
-
-class TestFormatLegacyIQ:
-    def test_reorder(self):
-        arr = np.arange(2 * 3 * 4 * 5).astype(float).reshape(2, 3, 4, 5)
-        iqdata = format_legacy_IQ(arr)
-
-        assert iqdata.shape == (4, 5, 3)
-        assert iqdata.dtype == np.complex128
-
-    def test_float32(self):
-        arr = np.arange(2 * 3 * 4 * 5).astype(np.float32).reshape(2, 3, 4, 5)
-        iqdata = format_legacy_IQ(arr)
-
-        assert iqdata.shape == (4, 5, 3)
