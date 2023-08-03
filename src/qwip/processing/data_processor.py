@@ -6,9 +6,11 @@ from typing import Any, GenericAlias, TypeVar, get_args, get_origin
 
 import numpy as np
 import pandas as pd
+import pendulum
 import rustworkx as rx
 from attrs import cmp_using, field
 from loguru import logger
+from pendulum import DateTime
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -36,8 +38,11 @@ class DataProcessor:
             case Collection():
                 for res in result:
                     res.processors = (*res.processors, self)
+                    res.timestamp = meas.timestamp
             case _:
                 result.processors = (*result.processors, self)
+                result.timestamp = meas.timestamp
+
         return result
 
     def run(self, meas: "MeasurementResult", /, **kwargs) -> "MeasurementResult":
@@ -78,6 +83,7 @@ class MeasurementResult:
         repr=_dataframe_repr,
         metadata=dict(serialize=False),
     )
+    timestamp: DateTime = field(factory=pendulum.now, repr=lambda t: t.isoformat())
     processors: tuple[DataProcessor, ...] = field(factory=tuple)
 
     def __get__(self, key: str) -> Any:

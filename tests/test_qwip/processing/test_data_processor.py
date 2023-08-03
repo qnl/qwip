@@ -33,7 +33,7 @@ from qwip.processing.processors import (
 
 
 class TestMeasurementResult:
-    def test_equal(self):
+    def test_equal(self, fixed_time):
         x = pd.DataFrame([1, 2, 3])
         y = pd.DataFrame([1, 2, 3])
 
@@ -53,20 +53,23 @@ class TestMeasurementResult:
             name="NAME", data=y
         )
 
-    def test_repr(self):
+    def test_repr(self, fixed_time):
         res = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3, 4]))
 
         assert (
             repr(res)
             == "MeasurementResult(name='name', data=DataFrame [4 rows x 1 columns], "
-            "processors=())"
+            "timestamp=2006-01-02T15:03:04-08:00, processors=())"
         )
 
-    def test_unstructure(self):
+    def test_unstructure(self, fixed_time):
         res = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3, 4]))
 
         assert qwip.converter.unstructure(res) == dict(
-            name="name", processors=[], __class__="MeasurementResult"
+            name="name",
+            timestamp="2006-01-02T15:03:04-08:00",
+            processors=[],
+            __class__="MeasurementResult",
         )
 
     @pytest.mark.parametrize("attr", ["shape", "ndim", "size"])

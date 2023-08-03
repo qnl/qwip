@@ -112,7 +112,7 @@ class TestHeterodyneDemodulation:
 
 
 class TestIQResult:
-    def test_unstructure(self):
+    def test_unstructure(self, fixed_time):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
         iqdata = IQResult.from_numpy(arr.reshape(3, 4, 5))
 
@@ -122,6 +122,7 @@ class TestIQResult:
 
         assert unstructured == dict(
             name="IQResult",
+            timestamp="2006-01-02T15:03:04-08:00",
             processors=[],
             __class__="IQResult",
         )

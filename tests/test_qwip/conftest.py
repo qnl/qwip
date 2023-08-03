@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pendulum
 import pytest
 from loguru import logger
 from sqlalchemy.engine import make_url
@@ -47,6 +48,13 @@ def db_url(request):
 @pytest.fixture(scope="session")
 def seed(request):
     return int(request.config.getoption("--seed"))
+
+
+@pytest.fixture
+def fixed_time():
+    now = pendulum.datetime(2006, 1, 2, 15, 3, 4, tz="America/Los_Angeles")
+    with pendulum.test(now):
+        yield
 
 
 @pytest.fixture
