@@ -466,6 +466,8 @@ class Averaged(GenericDataProcessor):
         if axis is None:
             axis = self.axis
 
+        result = attrs.evolve(result)
+
         if level:
             result.data = result.data.groupby(level, axis=axis).mean()
         else:
@@ -485,6 +487,7 @@ class Labeled(GenericDataProcessor):
         if seq is None:
             return result
 
+        result = attrs.evolve(result, data=result.data.copy())
         old_idx = result.data.index
 
         new_idx = pd.DataFrame(

@@ -1,3 +1,5 @@
+import itertools as it
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -9,19 +11,15 @@ import qwip
 from qwip.backends.qutip import QutipBackend
 from qwip.processing.data_processor import DataProcessor
 from qwip.processing.processors import (
-    ClassifiedResult,
+    Averaged,
     GMMClassification,
     HeterodyneDemodulation,
-    HistogramResult,
     IQResult,
     IQRotation,
     IQTraceResult,
-    PopulationResult,
-    ReadoutBitstring,
-    ReadoutHistogram,
-    StatePopulations,
+    Labeled,
 )
-from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
+from qwip.sequencer import Sequence
 
 
 class TestIQTraceResult:
@@ -205,3 +203,47 @@ class TestGMMClassification:
         classified = gmm(iq)
 
         assert_array_equal(classified.data.to_numpy(), np.char.mod("%d", expect))
+
+
+class TestAveraged:
+    def test_copy(self):
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
+        iqdata = IQResult.from_numpy(arr.reshape(3, 4, 5))
+
+        avgiq = Averaged()(iqdata)
+
+        assert avgiq is not iqdata
+        assert avgiq.data is not iqdata.data
+
+
+class TestLabeled:
+    def test_copy(self):
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
+        iqdata = IQResult.from_numpy(arr.reshape(4, 3, 5))
+        orig_index = iqdata.index.names
+
+        seq = Sequence.empty(
+            (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
+        )
+        labeled = Labeled()(iqdata, seq=seq)
+
+        assert labeled is not iqdata
+        assert labeled.data is not iqdata.data
+        assert iqdata.index.names == orig_index
+
+    def test_label(self):
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
+        iqdata = IQResult.from_numpy(arr.reshape(4, 3, 5))
+
+        seq = Sequence.empty(
+            (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
+        )
+        labeled = Labeled()(iqdata, seq=seq)
+
+        expected = pd.MultiIndex.from_tuples(
+            it.product(np.arange(2), np.arange(2), np.arange(3)),
+            names=["prep", "measure", "readout"],
+        )
+
+        assert labeled.data.index.equals(expected)
+        assert_array_equal(labeled.data.values, iqdata.data.values)
