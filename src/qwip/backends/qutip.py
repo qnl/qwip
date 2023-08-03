@@ -12,6 +12,7 @@ from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.backends.backend import QuantumBackend, random_data_sampler
+from qwip.processing.processors import IQTraceResult
 from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence
 
@@ -506,7 +507,9 @@ class QutipBackend(QuantumBackend):
                         trajectory = (readout_fields[f"R{q}"][level]) + noise
                         results[f"Q{q}"][i, 0, shot, :] = trajectory
 
-        return results
+        return {
+            k: IQTraceResult.from_numpy(trace, name=k) for k, trace in results.items()
+        }
 
 
 def gaussian_noise(eta, num_samples):

@@ -757,7 +757,8 @@ class ReadoutPipeline:
                     if None in inputs:
                         inputs = None
                 case (pred,):
-                    inputs = self._get_inputs(*pred, processor)
+                    _, prev_processor = pred
+                    inputs = self._get_inputs(key, prev_processor, processor)
 
             if inputs is None:
                 logger.debug(

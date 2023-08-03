@@ -142,7 +142,7 @@ class HeterodyneDemodulation(DataProcessor):
 
         output = list()
         for i, k in enumerate(self.weights):
-            data = pd.DataFrame(integrated[i], index=result.data.index).unstack(-1)
+            data = pd.Series(integrated[i], index=result.data.index).unstack(-1)
 
             output.append(IQResult(name=k, data=data))
 
