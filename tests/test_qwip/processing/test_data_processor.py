@@ -60,7 +60,7 @@ class TestMeasurementResult:
         assert (
             repr(res)
             == "MeasurementResult(name='name', data=DataFrame [4 rows x 1 columns], "
-            "timestamp=2006-01-02T15:03:04-08:00, processors=())"
+            f"timestamp={fixed_time.isoformat()}, processors=())"
         )
 
     def test_unstructure(self, fixed_time):
@@ -68,7 +68,7 @@ class TestMeasurementResult:
 
         assert qwip.converter.unstructure(res) == dict(
             name="name",
-            timestamp="2006-01-02T15:03:04-08:00",
+            timestamp=fixed_time.isoformat(),
             processors=[],
             __class__="MeasurementResult",
         )
@@ -85,6 +85,32 @@ class TestMeasurementResult:
         res = MeasurementResult(name="name", data=df)
 
         assert getattr(res, attr) == getattr(df, attr)
+
+    @pytest.mark.parametrize(
+        "processors,expected",
+        [
+            (tuple(), None),
+            ((Averaged(),), Averaged),
+            ((Averaged(), Labeled()), Labeled[Averaged]),
+            ((Labeled(), Averaged()), Averaged[Labeled]),
+            (
+                (
+                    ReadoutHistogram(),
+                    StatePopulations(),
+                ),
+                StatePopulations,
+            ),
+            (
+                (ReadoutBitstring(), ReadoutHistogram(), StatePopulations(), Labeled()),
+                Labeled[StatePopulations],
+            ),
+        ],
+    )
+    def test_final_processor(self, processors, expected):
+        result = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3]))
+        result.processors = processors
+
+        assert result.final_processor() == expected
 
 
 class TestDataProcessor:

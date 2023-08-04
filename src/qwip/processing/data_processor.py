@@ -105,6 +105,26 @@ class MeasurementResult:
 
         return "\n".join([description, dataframe])
 
+    def final_processor(self) -> type[DataProcessor]:
+        """Returns the final processor that acted on the result."""
+
+        def get_last_processor(
+            processors: tuple[DataProcessor, ...]
+        ) -> type[DataProcessor] | None:
+            """Recursive lookup of last processor, accounting for generics."""
+            try:
+                fp = processors[-1]
+                if isinstance(fp, GenericDataProcessor):
+                    np = get_last_processor(processors[:-1])
+                    return type(fp) if np is None else type(fp)[np]
+                else:
+                    return type(fp)
+
+            except IndexError:
+                return None
+
+        return get_last_processor(self.processors)
+
 
 @qdefine
 class DataProcessorMetadata:
