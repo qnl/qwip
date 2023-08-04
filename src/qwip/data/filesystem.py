@@ -197,7 +197,11 @@ class FileSaver:
         self, result_id: str, result: MeasurementResult | dict[str, MeasurementResult]
     ) -> Path:
         processor = type(self).get_result_processor(result)
-        pname = camel_to_kebab(re.sub(r"[\[\]]", "", generic_to_string(processor)))
+
+        if processor is None:
+            pname = "raw"
+        else:
+            pname = camel_to_kebab(re.sub(r"[\[\]]", "", generic_to_string(processor)))
 
         return Path(add_extension(f"{result_id}_{pname}", self.extension))
 
