@@ -92,7 +92,9 @@ class TestDataProcessor:
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
         iqdata = IQResult.from_numpy(arr.reshape(3, 4, 5))
 
-        classified = GMMClassification(means=np.zeros((2, 2)), covariances=np.ones(2))(iqdata)
+        classified = GMMClassification(means=np.zeros((2, 2)), covariances=np.ones(2))(
+            iqdata
+        )
 
         assert classified.timestamp == iqdata.timestamp
 
