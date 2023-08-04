@@ -63,6 +63,26 @@ def is_ndarray_type(tp):
     return is_generic_type(tp, np.ndarray)
 
 
+def generic_to_string(tp: type) -> str:
+    """Returns a string representation of generic types without the full module path.
+
+    By default, `str(type)` will use the full path of a module when representing user
+    defined types, while `type.__name__` will only return the generic type without any
+    arguments.
+
+    Args:
+        tp: A python class/type.
+
+    Returns:
+        The string representation of the type without full module path qualifiers.
+    """
+    args = get_args(tp)
+    if args:
+        return tp.__name__ + f"[{', '.join(generic_to_string(a) for a in args)}]"
+
+    return tp.__name__
+
+
 def replace_self_type(tp, cls):
     """Replaces instances of Self type with a class ForwardRef
 
