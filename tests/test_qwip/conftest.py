@@ -52,7 +52,7 @@ def seed(request):
 
 @pytest.fixture
 def fixed_time():
-    now = pendulum.datetime(2006, 1, 2, 15, 3, 4, tz="America/Los_Angeles")
+    now = pendulum.datetime(2015, 3, 14, 9, 26, 53, tz="America/Los_Angeles")
     with pendulum.test(now):
         yield
 
