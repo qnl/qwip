@@ -1,15 +1,63 @@
+import json
+import re
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable, ClassVar, Dict
 from uuid import uuid4
 
+import pandas as pd
 import pendulum
+import pyarrow as pa
+import pyarrow.parquet as pq
+from attrs import field
 from loguru import logger
 
+import qwip
+from qwip.attrs import qdefine
 from qwip.defaults import dynamic_default
 from qwip.flatdict import FlatDict
+from qwip.processing.data_processor import DataProcessor, MeasurementResult
+from qwip.typing import generic_to_string
 
 DIRECTORY_RULES: Dict[str, Callable] = FlatDict()
 FILENAME_RULES: Dict[str, Callable] = FlatDict()
+
+camel2kebab_1 = re.compile(r"(.)([A-Z][a-z]+)")
+camel2kebab_2 = re.compile(r"([a-z0-9])([A-Z])")
+
+
+def add_extension(name: str, ext: str) -> str:
+    """Add a file extension to a filename.
+
+    If the filename already ends with the specified extension, no changes are made.
+
+    Args:
+        name: A filename.
+        ext: An extension string. An extension can be specified with or without the '.'.
+            For example, `.csv` or `csv` are both valid and will yield the same result.
+
+    Returns:
+        A modified filename with the specified extension.
+    """
+    ext = ext if ext.startswith(".") else f".{ext}"
+    name = name if name.endswith(ext) else f"{name}{ext}"
+
+    return name
+
+
+def camel_to_kebab(name: str) -> str:
+    """Converts a `CamelCase` string to a `kebab-case` string.
+
+    See [StackOverflow post](https://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case)
+    for reference.
+
+    Args:
+        name: The string to convert.
+
+    Returns:
+        The converted string.
+    """
+    name = camel2kebab_1.sub(r"\1-\2", name)
+    return camel2kebab_2.sub(r"\1-\2", name).lower()
 
 
 @dynamic_default(base="data/base_directory", rule="data/directory_rule")
@@ -34,7 +82,7 @@ def make_data_directory(
     dirname: str = "",
     rule: str = None,
     exist_ok: bool = None,
-    **kwargs
+    **kwargs,
 ):
     directory = get_data_directory(base, dirname, rule, **kwargs)
     directory.mkdir(parents=True, exist_ok=exist_ok)
@@ -66,3 +114,126 @@ def uuid(name_fmt: str = "{uuid}"):
 @directory_rule
 def timestamp(name_fmt: str = "{timestamp}"):
     return name_fmt.format(timestamp=pendulum.now().int_timestamp)
+
+
+@qdefine
+class FileSaver:
+    directory: Path = field()
+
+    @directory.validator
+    def _validate_directory(self, attribute, value):
+        if not value.exists():
+            raise FileNotFoundError(f"Path '{value}' does not exist!")
+
+    @property
+    def extension(self) -> str:
+        raise NotImplementedError
+
+    @classmethod
+    def get_result_processor(
+        cls, result: MeasurementResult | dict[str, MeasurementResult]
+    ) -> type[DataProcessor]:
+        """Get the common final processor from all results in the result dictionary.
+
+        Args:
+            result: A measurement result or dictionary of measurement results.
+
+        Returns:
+            The common final processor for the result(s).
+
+        Raises:
+            ValueError: If the result dictionary contains more than one final processor.
+        """
+        match result:
+            case MeasurementResult():
+                return result.final_processor()
+
+        processors = set(r.final_processor() for r in result.values())
+
+        if len(processors) > 1:
+            assert ValueError(
+                f"Result dictionary must have same final processor. Got {processors}"
+            )
+
+        return processors.pop()
+
+    @classmethod
+    def split_result(
+        cls, result: MeasurementResult | dict[str, MeasurementResult]
+    ) -> tuple[dict, pd.DataFrame]:
+        """Splits the result dictionary into a metadata dictionary and a dataframe.
+
+        The data contained in each result is concatenated into a single dataframe with
+        the outermost columns indexed by measurement key.
+
+        Args:
+            result: A single measurement result or dictionary of measurement results.
+
+        Returns:
+            A tuple `(metadata, dataframe)`.
+        """
+        match result:
+            case MeasurementResult(name=name):
+                result = {name: result}
+
+        metadata = qwip.converter.unstructure(result)
+        data = pd.concat(
+            [r.data for r in result.values()],
+            axis="columns",
+            keys=result.keys(),
+            names=["key"],
+        )
+
+        return metadata, data
+
+    def get_directory(self, result_id: str, **kwargs) -> Path:
+        kwargs = dict(exist_ok=True) | kwargs
+        folder = make_data_directory(self.directory, **kwargs) / result_id
+        folder.mkdir(exist_ok=True)
+        return folder
+
+    def get_filename(
+        self, result_id: str, result: MeasurementResult | dict[str, MeasurementResult]
+    ) -> Path:
+        processor = type(self).get_result_processor(result)
+        pname = camel_to_kebab(re.sub(r"[\[\]]", "", generic_to_string(processor)))
+
+        return Path(add_extension(f"{result_id}_{pname}", self.extension))
+
+
+@qdefine
+class ParquetFileSaver(FileSaver):
+    @property
+    def extension(self) -> str:
+        return ".parquet"
+
+    def save_data(
+        self,
+        result_id: str,
+        result: MeasurementResult | dict[str, MeasurementResult],
+    ) -> Path:
+        folder = self.get_directory(result_id)
+        filename = self.get_filename(result_id, result)
+
+        metadata, data = type(self).split_result(result)
+        metadata = json.dumps(metadata).encode()
+
+        table = pa.Table.from_pandas(data)
+        table = table.replace_schema_metadata(
+            table.schema.metadata | dict(qwip=metadata)
+        )
+
+        pq.write_table(table, folder / filename)
+
+        return (folder / filename).resolve()
+
+    def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
+        table = pq.read_table(filename)
+        metadata = json.loads(table.schema.metadata[b"qwip"])
+
+        data = table.to_pandas()
+
+        for k, df in data.groupby(level="key", axis="columns"):
+            metadata[k]["data"] = df.droplevel("key", axis="columns")
+
+        return qwip.converter.structure(metadata, dict[str, MeasurementResult])

@@ -2,7 +2,39 @@ import pendulum
 import pytest
 
 from qwip import qsettings
-from qwip.data.filesystem import date, make_data_directory, timestamp, uuid
+from qwip.data.filesystem import (
+    add_extension,
+    camel_to_kebab,
+    date,
+    make_data_directory,
+    timestamp,
+    uuid,
+)
+
+
+@pytest.mark.parametrize(
+    "name,ext,expected",
+    [
+        ("file", ".csv", "file.csv"),
+        ("file", "csv", "file.csv"),
+        ("file.csv", "csv", "file.csv"),
+    ],
+)
+def test_add_extension(name, ext, expected):
+    assert add_extension(name, ext) == expected
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        ("CamelCase", "camel-case"),
+        ("PopulationResult", "population-result"),
+        ("StatePopulations", "state-populations"),
+        ("GMMClassification", "gmm-classification"),
+    ],
+)
+def test_camel_to_kebab(name, expected):
+    assert camel_to_kebab(name) == expected
 
 
 def test_date_rule(fixed_time):
