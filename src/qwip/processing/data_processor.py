@@ -34,14 +34,20 @@ class DataProcessor:
 
     def __call__(self, meas: "MeasurementResult", /, **kwargs) -> "MeasurementResult":
         result = self.run(meas, **kwargs)
+        match meas:
+            case MeasurementResult(timestamp=timestamp):
+                ...
+            case Collection():
+                timestamp = min(m.timestamp for m in meas)
+
         match result:
             case Collection():
                 for res in result:
                     res.processors = (*res.processors, self)
-                    res.timestamp = meas.timestamp
+                    res.timestamp = timestamp
             case _:
                 result.processors = (*result.processors, self)
-                result.timestamp = meas.timestamp
+                result.timestamp = timestamp
 
         return result
 

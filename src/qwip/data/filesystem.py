@@ -1,9 +1,10 @@
 import json
 import re
 from pathlib import Path
-from typing import Callable, ClassVar, Dict
+from typing import Callable, Dict
 from uuid import uuid4
 
+import numpy as np
 import pandas as pd
 import pendulum
 import pyarrow as pa
@@ -200,6 +201,45 @@ class FileSaver:
 
         return Path(add_extension(f"{result_id}_{pname}", self.extension))
 
+@qdefine
+class CSVFileSaver(FileSaver):
+    @property
+    def extension(self) -> str:
+        return ".csv"
+
+    def save_data(
+        self,
+        result_id: str,
+        result: MeasurementResult | dict[str, MeasurementResult],
+    ) -> Path:
+        folder = self.get_directory(result_id)
+        filename = self.get_filename(result_id, result)
+        metadata_filename = filename.with_suffix(".json")
+
+        metadata, data = type(self).split_result(result)
+        pandas_metadata = dict(index=data.index.nlevels, header=data.columns.nlevels)
+        with open(folder / metadata_filename, "w") as f:
+            json.dump(dict(qwip=metadata, pandas=pandas_metadata), f)
+
+        outpath = folder / filename
+        data.to_csv(outpath)
+        return outpath.resolve()
+
+    def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
+        metadata_filename = filename.with_suffix(".json")
+        
+        with open(metadata_filename, "r") as f:
+            metadata = json.load(f)
+
+        index = list(range(metadata["pandas"]["index"]))
+        header = list(range(metadata["pandas"]["header"]))
+        data = pd.read_csv(filename, header=header, index_col=index)
+
+        result = metadata["qwip"]
+        for k, df in data.groupby(level="key", axis="columns"):
+            result[k]["data"] = df.droplevel("key", axis="columns")
+
+        return qwip.converter.structure(result, dict[str, MeasurementResult])
 
 @qdefine
 class ParquetFileSaver(FileSaver):
@@ -223,17 +263,18 @@ class ParquetFileSaver(FileSaver):
             table.schema.metadata | dict(qwip=metadata)
         )
 
-        pq.write_table(table, folder / filename)
+        outpath = folder / filename
+        pq.write_table(table, outpath)
 
-        return (folder / filename).resolve()
+        return outpath.resolve()
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
         table = pq.read_table(filename)
-        metadata = json.loads(table.schema.metadata[b"qwip"])
+        result = json.loads(table.schema.metadata[b"qwip"])
 
         data = table.to_pandas()
 
         for k, df in data.groupby(level="key", axis="columns"):
-            metadata[k]["data"] = df.droplevel("key", axis="columns")
+            result[k]["data"] = df.droplevel("key", axis="columns")
 
-        return qwip.converter.structure(metadata, dict[str, MeasurementResult])
+        return qwip.converter.structure(result, dict[str, MeasurementResult])
