@@ -70,19 +70,22 @@ class IQResult(MeasurementResult):
     """Demodulated IQ results.
 
     Attributes:
-        data: Multi indexed data frame with row indices (element, readout) and column
-        indices (shot) mapping to an I+iQ value.
+        data: Multi indexed dataframe indexed by (element, shot, readout).
     """
 
     @classmethod
     def from_numpy(
-        self, arr: np.ndarray, name="IQResult", labels=("element", "readout"), **kwargs
+        cls,
+        arr: np.ndarray,
+        name="IQResult",
+        labels=("element", "shot", "readout"),
+        **kwargs,
     ) -> Self:
         """Reorders the memory layout of the IQ data for each measurement key.
 
         Args:
             arr: A numpy array of complex IQ points. The default shape is assumed to be
-                (element, readout, shot). The last axis must always be shots.
+                (element, shot, readout).
             name: The result name.
             labels: Index labels for the array axes. These should specify labels for all
                 but the last axis.
@@ -91,17 +94,13 @@ class IQResult(MeasurementResult):
             An IQResult. The measurement data frame will have index labels as specified,
             and the columns will be the individual shots.
         """
-
-        num_shots = arr.shape[-1]
-
         index = pd.MultiIndex.from_tuples(
-            it.product(*(range(N) for N in arr.shape[:-1])), names=labels
+            it.product(*(range(N) for N in arr.shape)), names=labels
         )
-        columns = pd.RangeIndex(num_shots, name="shot")
 
-        df = pd.DataFrame(arr.reshape(-1, num_shots), index=index, columns=columns)
+        df = pd.DataFrame(arr.flatten(), index=index, columns=["IQ"])
 
-        return IQResult(name=name, data=df)
+        return cls(name=name, data=df)
 
 
 @DATA_PROCESSORS.register
@@ -184,6 +183,37 @@ class IQRotation(DataProcessor):
 class ClassifiedResult(MeasurementResult):
     num_states: int = 2
     num_qudits: int = 1
+
+    @classmethod
+    def from_numpy(
+        cls,
+        arr: np.ndarray,
+        name="ClassifiedResult",
+        labels=("element", "shot", "readout"),
+        **kwargs,
+    ) -> Self:
+        """Creates a `ClassifiedResult` instance from a numpy array of states.
+
+        Args:
+            arr: A numpy array of complex IQ points. The default shape is assumed to be
+                (element, shot, readout).
+            name: The result name.
+            labels: Index labels for the array axes. These should specify labels for all
+                but the last axis.
+            **kwargs: Remaining keyword arguments are passed to the init method.
+
+        Returns:
+            An ClassifiedResult. The measurement dataframe will have index labels as
+            specified, with a single column with all the states.
+        """
+        index = pd.MultiIndex.from_tuples(
+            it.product(*(range(N) for N in arr.shape)), names=labels
+        )
+
+        arr = np.asarray(arr, dtype=int).flatten()
+        df = pd.DataFrame(arr, index=index, columns=["state"], dtype=str)
+
+        return cls(name=name, data=df, **kwargs)
 
 
 @DATA_PROCESSORS.register
@@ -290,7 +320,7 @@ class GMMClassification(DataProcessor):
 
         classified = model.predict(IQ_data).reshape(shape)
         classified = pd.DataFrame(
-            classified, index=result.data.index, columns=result.data.columns, dtype=str
+            classified, index=result.data.index, columns=["state"], dtype=str
         )
 
         return ClassifiedResult(
@@ -376,20 +406,25 @@ class ReadoutHistogram(DataProcessor):
             fill_missing = result.num_qudits <= 1
 
         # Get information about dataframe shape
+        index_levels = result.data.index.names
         num_ilevels = result.data.index.nlevels
         num_clevels = result.data.columns.nlevels
 
-        index_levels = [i for i in range(num_ilevels)]
-        column_levels = [i for i in range(-num_clevels, 0)]
+        stack_levels = list(range(num_clevels - 1))
+        group_levels = [i for i, n in enumerate(index_levels) if n != "shot"] + [
+            num_ilevels + i for i in stack_levels
+        ]
+        unstack_levels = list(range(-num_clevels, 0))
 
         # Bin by bitstring values
-        counts = result.data.stack().groupby(level=index_levels).value_counts()
-        counts = counts.unstack(level=column_levels)
+        counts = result.data.stack(stack_levels)
+        counts = counts.groupby(level=group_levels).value_counts()
+        counts = counts.unstack(unstack_levels)
 
-        if fill_missing and num_clevels > 1:
-            raise ValueError("Fill missing is unsupported for MultiIndex columns")
+        if fill_missing:
+            if num_clevels > 1:
+                raise ValueError("Fill missing is unsupported for MultiIndex columns")
 
-        elif fill_missing:
             qudit_values = np.arange(result.num_states).astype(str)
             all_bitstrings = [
                 "".join(b) for b in it.product(qudit_values, repeat=result.num_qudits)
@@ -424,9 +459,14 @@ class StatePopulations(DataProcessor):
     """Normalizes bitstring counts to a density."""
 
     def run(self, result: HistogramResult, **kwargs) -> PopulationResult:
-        shots = result.data.sum(axis="columns")
+        if result.data.columns.nlevels > 1:
+            column_levels = result.data.columns.names
+            groupby_levels = [i for i, n in enumerate(column_levels) if n != "state"]
+            shots = result.data.groupby(level=groupby_levels, axis="columns").sum()
+        else:
+            shots = result.data.sum(axis="columns")
 
-        unique_shots = shots.unique()
+        unique_shots = np.unique(shots)
         if len(unique_shots) == 1:
             num_shots = unique_shots[0]
         else:
@@ -453,25 +493,32 @@ class Averaged(GenericDataProcessor):
         axis (int): The axes along which to average.
     """
 
-    axis: int = 1
+    axis: int = 0
+    level: str = "shot"
 
     def run(
         self,
         result: M,
         axis: int | None = None,
-        level: str | None = None,
+        level: str | None | type(...) = None,
         name: str = "averaged",
         **kwargs,
     ) -> M:
         if axis is None:
             axis = self.axis
 
+        if level is None:
+            level = self.level
+
         result = attrs.evolve(result)
 
-        if level:
-            result.data = result.data.groupby(level, axis=axis).mean()
-        else:
+        all_levels = getattr(result.data, "columns" if axis else "index").names
+        if level is ... or level not in all_levels:
             result.data = result.data.mean(axis=axis).to_frame(name=name)
+        else:
+            result.data = result.data.groupby(
+                [n for n in all_levels if n != level], axis=axis
+            ).mean()
 
         return result
 

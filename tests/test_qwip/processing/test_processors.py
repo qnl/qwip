@@ -12,12 +12,16 @@ from qwip.backends.qutip import QutipBackend
 from qwip.processing.data_processor import DataProcessor
 from qwip.processing.processors import (
     Averaged,
+    ClassifiedResult,
     GMMClassification,
     HeterodyneDemodulation,
     IQResult,
     IQRotation,
     IQTraceResult,
     Labeled,
+    ReadoutBitstring,
+    ReadoutHistogram,
+    StatePopulations,
 )
 from qwip.sequencer import Sequence
 
@@ -120,7 +124,7 @@ class TestIQResult:
 
         assert unstructured == dict(
             name="IQResult",
-            timestamp="2006-01-02T15:03:04-08:00",
+            timestamp=fixed_time.isoformat(),
             processors=[],
             __class__="IQResult",
         )
@@ -180,10 +184,10 @@ class TestGMMClassification:
     @pytest.mark.parametrize(
         "means,shape",
         [
-            (np.array([[-1, 0], [1, 0]], dtype=float), (10 * 2, 5)),
-            (np.array([[-1, 0], [1, 0]], dtype=float), (1, 1)),
-            (np.array([[-1, 0], [1, 0], [0, 1]], dtype=float), (20, 1)),
-            (np.array([[-1, 0], [1, 0], [0, 1], [0, -1]], dtype=float), (1, 50)),
+            (np.array([[-1, 0], [1, 0]], dtype=float), (10, 5, 2)),
+            (np.array([[-1, 0], [1, 0]], dtype=float), (1, 1, 1)),
+            (np.array([[-1, 0], [1, 0], [0, 1]], dtype=float), (4, 1, 5)),
+            (np.array([[-1, 0], [1, 0], [0, 1], [0, -1]], dtype=float), (1, 5, 10)),
         ],
     )
     def test_classification_qubit(self, means, shape, seed):
@@ -198,11 +202,159 @@ class TestGMMClassification:
         expect = rng.choice(N, size=shape)
         iqdata = gmm.means[expect].view(np.complex128)[..., 0]
 
-        iq = IQResult(name="R0", data=pd.DataFrame(iqdata))
+        iq = IQResult.from_numpy(name="R0", arr=iqdata)
 
         classified = gmm(iq)
 
-        assert_array_equal(classified.data.to_numpy(), np.char.mod("%d", expect))
+        assert_array_equal(
+            classified.data.to_numpy(), np.char.mod("%d", expect.reshape(-1, 1))
+        )
+
+
+class TestReadoutHistogram:
+    @pytest.fixture
+    def rng(self, seed):
+        return default_rng(seed)
+
+    def test_single_qubit(self, rng):
+        shape = (10, 1024, 2)
+        result = ClassifiedResult.from_numpy(
+            rng.choice(2, size=np.prod(shape)).reshape(shape),
+            name="R0",
+        )
+
+        counts = ReadoutHistogram()(result)
+
+        assert counts.columns.equals(pd.Index(["0", "1"], name="state"))
+        assert counts.shape == (shape[0] * shape[-1], 2)
+        assert counts.index.equals(
+            pd.MultiIndex.from_tuples(
+                it.product(*(range(d) for d in (shape[0], shape[2])))
+            )
+        )
+
+    @pytest.fixture
+    def multi_qubit_result(self, rng):
+        shape = (5, 512, 1)
+        result = ReadoutBitstring()(
+            [
+                ClassifiedResult.from_numpy(
+                    rng.choice(3, size=np.prod(shape)).reshape(shape),
+                    name="R0",
+                    num_states=3,
+                ),
+                ClassifiedResult.from_numpy(
+                    rng.choice(2, size=np.prod(shape)).reshape(shape), name="R1"
+                ),
+            ]
+        )
+
+        return result
+
+    def test_multi_qubit(self, multi_qubit_result):
+        result = multi_qubit_result
+        shape = result.index.levshape
+
+        counts = ReadoutHistogram()(result)
+        assert counts.columns.equals(
+            pd.Index(
+                ["".join(map(str, s)) for s in it.product(range(3), range(2))],
+                name="state",
+            )
+        )
+        assert counts.shape == (shape[0] * shape[-1], 6)
+        assert counts.index.equals(
+            pd.MultiIndex.from_tuples(
+                it.product(*(range(d) for d in (shape[0], shape[2])))
+            )
+        )
+
+    def test_fill_missing(self, multi_qubit_result):
+        result = multi_qubit_result
+        shape = result.index.levshape
+
+        counts = ReadoutHistogram()(result, fill_missing=True)
+        assert counts.columns.equals(
+            pd.Index(
+                ["".join(map(str, s)) for s in it.product(range(3), repeat=2)],
+                name="state",
+            )
+        )
+        assert counts.shape == (shape[0] * shape[-1], 9)
+        assert counts.index.equals(
+            pd.MultiIndex.from_tuples(
+                it.product(*(range(d) for d in (shape[0], shape[2])))
+            )
+        )
+
+    def test_multiindex(self, rng):
+        shape = (10, 1024, 2)
+        result = ClassifiedResult.from_numpy(
+            rng.choice(2, size=np.prod(shape)).reshape(shape),
+            name="readout",
+        )
+
+        result.data = pd.concat(
+            [result.data, result.data],
+            axis="columns",
+            keys=["R0", "R1"],
+            names=["qubit"],
+        )
+
+        counts = ReadoutHistogram(fill_missing=False)(result)
+
+        assert counts.columns.equals(
+            pd.MultiIndex.from_tuples(
+                it.product(["R0", "R1"], ["0", "1"]), names=["qubit", "state"]
+            )
+        )
+        assert counts.shape == (shape[0] * shape[-1], 4)
+        assert counts.index.equals(
+            pd.MultiIndex.from_tuples(
+                it.product(*(range(d) for d in (shape[0], shape[2])))
+            )
+        )
+
+
+class TestStatePopulations:
+    @pytest.fixture
+    def rng(self, seed):
+        return default_rng(seed)
+
+    def test_single_qubit(self, rng):
+        shape = (10, 1024, 2)
+        result = ClassifiedResult.from_numpy(
+            rng.choice(2, size=np.prod(shape)).reshape(shape),
+            name="R0",
+        )
+
+        counts = ReadoutHistogram()(result)
+        populations = StatePopulations()(counts)
+
+        assert populations.data.index.equals(counts.data.index)
+        assert populations.data.columns.equals(counts.data.columns)
+        assert np.all(populations.sum(axis="columns") == 1)
+
+    def test_multi_index(self, rng):
+        shape = (10, 1024, 2)
+        result = ClassifiedResult.from_numpy(
+            rng.choice(2, size=np.prod(shape)).reshape(shape),
+            name="readout",
+        )
+
+        result.data = pd.concat(
+            [result.data, result.data],
+            axis="columns",
+            keys=["R0", "R1"],
+            names=["qubit"],
+        )
+
+        counts = ReadoutHistogram()(result, fill_missing=False)
+        populations = StatePopulations()(counts)
+
+        assert populations.data.index.equals(counts.data.index)
+        assert populations.data.columns.equals(counts.data.columns)
+        assert np.all(populations.groupby(level=[0], axis="columns").sum() == 1)
 
 
 class TestAveraged:
@@ -233,7 +385,7 @@ class TestLabeled:
 
     def test_label(self):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
-        iqdata = IQResult.from_numpy(arr.reshape(4, 3, 5))
+        iqdata = IQResult.from_numpy(arr.reshape(4, 5, 3))
 
         seq = Sequence.empty(
             (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
@@ -241,8 +393,8 @@ class TestLabeled:
         labeled = Labeled()(iqdata, seq=seq)
 
         expected = pd.MultiIndex.from_tuples(
-            it.product(np.arange(2), np.arange(2), np.arange(3)),
-            names=["prep", "measure", "readout"],
+            it.product(np.arange(2), np.arange(2), np.arange(5), np.arange(3)),
+            names=["prep", "measure", "shot", "readout"],
         )
 
         assert labeled.data.index.equals(expected)
