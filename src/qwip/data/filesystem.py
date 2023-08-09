@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import pendulum
 import pyarrow as pa
+import pyarrow.feather as pf
 import pyarrow.parquet as pq
 from attrs import field
 from loguru import logger
@@ -128,7 +129,7 @@ class FileSaver:
 
     @property
     def extension(self) -> str:
-        raise NotImplementedError
+        return ""
 
     @classmethod
     def get_result_processor(
@@ -205,6 +206,7 @@ class FileSaver:
 
         return Path(add_extension(f"{result_id}_{pname}", self.extension))
 
+
 @qdefine
 class CSVFileSaver(FileSaver):
     @property
@@ -231,7 +233,7 @@ class CSVFileSaver(FileSaver):
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
         metadata_filename = filename.with_suffix(".json")
-        
+
         with open(metadata_filename, "r") as f:
             metadata = json.load(f)
 
@@ -244,6 +246,7 @@ class CSVFileSaver(FileSaver):
             result[k]["data"] = df.droplevel("key", axis="columns")
 
         return qwip.converter.structure(result, dict[str, MeasurementResult])
+
 
 @qdefine
 class ParquetFileSaver(FileSaver):
@@ -274,6 +277,45 @@ class ParquetFileSaver(FileSaver):
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
         table = pq.read_table(filename)
+        result = json.loads(table.schema.metadata[b"qwip"])
+
+        data = table.to_pandas()
+
+        for k, df in data.groupby(level="key", axis="columns"):
+            result[k]["data"] = df.droplevel("key", axis="columns")
+
+        return qwip.converter.structure(result, dict[str, MeasurementResult])
+
+
+@qdefine
+class FeatherFileSaver(FileSaver):
+    @property
+    def extension(self) -> str:
+        return ".feather"
+
+    def save_data(
+        self,
+        result_id: str,
+        result: MeasurementResult | dict[str, MeasurementResult],
+    ) -> Path:
+        folder = self.get_directory(result_id)
+        filename = self.get_filename(result_id, result)
+
+        metadata, data = type(self).split_result(result)
+        metadata = json.dumps(metadata).encode()
+
+        table = pa.Table.from_pandas(data)
+        table = table.replace_schema_metadata(
+            table.schema.metadata | dict(qwip=metadata)
+        )
+
+        outpath = folder / filename
+        pf.write_feather(table, outpath)
+
+        return outpath.resolve()
+
+    def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
+        table = pf.read_table(filename)
         result = json.loads(table.schema.metadata[b"qwip"])
 
         data = table.to_pandas()
