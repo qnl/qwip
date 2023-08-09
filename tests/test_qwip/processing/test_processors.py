@@ -22,8 +22,116 @@ from qwip.processing.processors import (
     ReadoutBitstring,
     ReadoutHistogram,
     StatePopulations,
+    array_complex_to_real,
+    dataframe_complex_to_real,
+    dataframe_real_to_complex,
 )
 from qwip.sequencer import Sequence
+
+
+@pytest.mark.parametrize(
+    "shape,dtype,order",
+    [
+        ((2, 3, 4), np.float64, "C"),
+        ((5,), np.float32, "C"),
+        ((5, 1, 3), np.float64, "F"),
+    ],
+)
+def test_array_complex_to_real(shape, dtype, order, seed):
+    rng = default_rng(seed)
+
+    real = rng.random(size=shape, dtype=dtype)
+    imag = rng.random(size=shape, dtype=dtype)
+
+    IQ_data = np.array(real + 1j * imag, order=order)
+
+    result = array_complex_to_real(IQ_data)
+
+    assert result.shape == (*shape, 2)
+    assert_array_equal(result[..., 0], real)
+    assert_array_equal(result[..., 1], imag)
+
+
+def test_dataframe_complex_to_real(seed):
+    shape = (10, 128, 2)
+    rng = default_rng(seed)
+
+    arr = rng.random(size=shape) + 1j * rng.random(size=shape)
+    data = IQResult.from_numpy(arr).data
+
+    real_data = dataframe_complex_to_real(data)
+
+    assert real_data.index.equals(data.index)
+    assert real_data.columns.equals(
+        pd.MultiIndex.from_tuples([("IQ", "real"), ("IQ", "imag")])
+    )
+    assert_array_equal(
+        real_data["IQ", "real"].to_numpy().flatten(), np.real(data).flatten()
+    )
+    assert_array_equal(
+        real_data["IQ", "imag"].to_numpy().flatten(), np.imag(data).flatten()
+    )
+    assert dataframe_real_to_complex(real_data).equals(data)
+
+
+def test_dataframe_complex_to_real_multicolumn(seed):
+    shape = (10, 128, 2)
+    rng = default_rng(seed)
+
+    arr = rng.random(size=shape) + 1j * rng.random(size=shape)
+    data = IQResult.from_numpy(arr).data
+    data["IQ_conj"] = np.conj(data)
+
+    real_data = dataframe_complex_to_real(data, names=("I", "Q"))
+
+    assert real_data.index.equals(data.index)
+    assert real_data.columns.equals(
+        pd.MultiIndex.from_tuples(
+            [("IQ", "I"), ("IQ", "Q"), ("IQ_conj", "I"), ("IQ_conj", "Q")]
+        )
+    )
+
+    for col in data.columns:
+        assert_array_equal(
+            real_data[col, "I"].to_numpy().flatten(), np.real(data[col]).flatten()
+        )
+        assert_array_equal(
+            real_data[col, "Q"].to_numpy().flatten(), np.imag(data[col]).flatten()
+        )
+
+    assert dataframe_real_to_complex(real_data).equals(data)
+
+
+def test_dataframe_complex_to_real_multiindex(seed):
+    shape = (10, 128, 2)
+    rng = default_rng(seed)
+
+    arr = rng.random(size=shape) + 1j * rng.random(size=shape)
+    data = IQResult.from_numpy(arr).data
+    data["IQ_conj"] = np.conj(data)
+    data[["rotated", "rotated_conj"]] = data * np.exp(1j * np.pi / 4)
+    data.columns = pd.MultiIndex.from_tuples(
+        it.product(["orig", "rotated"], ["IQ", "IQ_conj"])
+    )
+
+    real_data = dataframe_complex_to_real(data, names=("I", "Q"))
+
+    assert real_data.index.equals(data.index)
+    assert real_data.columns.equals(
+        pd.MultiIndex.from_tuples(
+            it.product(["orig", "rotated"], ["IQ", "IQ_conj"], ["I", "Q"])
+        )
+    )
+
+    for col in data.columns:
+        assert_array_equal(
+            real_data[(*col, "I")].to_numpy().flatten(), np.real(data[col]).flatten()
+        )
+        assert_array_equal(
+            real_data[(*col, "Q")].to_numpy().flatten(), np.imag(data[col]).flatten()
+        )
+
+    assert dataframe_real_to_complex(real_data).equals(data)
 
 
 class TestIQTraceResult:
@@ -160,27 +268,6 @@ class TestIQRotation:
 
 
 class TestGMMClassification:
-    @pytest.mark.parametrize(
-        "shape,dtype",
-        [
-            ((2, 3, 4), np.float64),
-            ((5,), np.float32),
-        ],
-    )
-    def test_get_real_IQ_from_complex(self, shape, dtype, seed):
-        rng = default_rng(seed + np.prod(shape))
-
-        real = rng.random(size=shape, dtype=dtype)
-        imag = rng.random(size=shape, dtype=dtype)
-
-        IQ_data = real + 1j * imag
-
-        result = GMMClassification._get_real_IQ_from_complex(IQ_data)
-
-        assert result.shape == (*shape, 2)
-        assert_array_equal(result[..., 0], real)
-        assert_array_equal(result[..., 1], imag)
-
     @pytest.mark.parametrize(
         "means,shape",
         [

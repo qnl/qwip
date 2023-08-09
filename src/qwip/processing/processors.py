@@ -22,6 +22,126 @@ from qwip.sequencer import Sequence
 M = TypeVar("M", bound=MeasurementResult)
 
 
+def array_complex_to_real(arr: np.ndarray) -> np.ndarray:
+    """Converts a complex-valued array to a real-valued array.
+
+    The numpy array is view casted to a real array where the last axis contains the
+    real and imaginary components. If the original array is C-contiguous in memory, no
+    copy is performed.
+
+    Args:
+        arr: The array to convert.
+
+    Returns:
+        A real-valued array with the real and imaginary components.
+    """
+    shape = arr.shape
+
+    match arr.dtype:
+        case np.complex128:
+            cast = np.float64
+        case np.complex64:
+            cast = np.float32
+        case dtype:
+            raise TypeError(f"Array should be complex type, got {dtype}.")
+
+    return np.ascontiguousarray(arr).view(cast).reshape(*shape, 2)
+
+
+def array_real_to_complex(arr: np.ndarray) -> np.ndarray:
+    """Converts a real-valued array to a complex-valued array.
+
+    The numpy array is view casted to a complex-valued array. If the original array is
+    C-contiguous in memory, no copy is performed.
+
+    Args:
+        arr: The array to convert.
+
+    Returns:
+        A complex-valued array.
+    """
+    match arr.dtype:
+        case np.float64:
+            cast = np.complex128
+        case np.float32:
+            cast = np.complex64
+        case dtype:
+            raise TypeError(f"Array should be float type, got {dtype}.")
+
+    return np.ascontiguousarray(arr).view(cast)
+
+
+def dataframe_complex_to_real(
+    data: pd.DataFrame, names: tuple[str, str] = ("real", "imag")
+) -> pd.DataFrame:
+    """Splits complex columns into real and imaginary columns.
+
+    The dataframe must consist of only complex columns.
+
+    Args:
+        data: The dataframe to convert.
+        names: The column names for the real and complex components.
+
+    Returns:
+        A new dataframe with complex columns replaced by a real and imaginary column.
+
+    Raises:
+        ValueError: If the dataframe columns are not compatible.
+    """
+
+    dtypes = data.dtypes.unique()
+    if len(dtypes) > 1 or not issubclass(dtypes[0].type, complex):
+        raise ValueError(
+            f"Cannot convert dataframe with non-complex columns. Got {data.dtypes}"
+        )
+
+    columns = []
+    for levels in data.columns:
+        if data.columns.nlevels == 1:
+            levels = (levels,)
+        columns.append((*levels, names[0]))
+        columns.append((*levels, names[1]))
+
+    columns = pd.MultiIndex.from_tuples(columns, name=data.columns.name)
+    return pd.DataFrame(
+        array_complex_to_real(data.values).reshape(data.values.shape[0], -1),
+        index=data.index,
+        columns=columns,
+    )
+
+
+def dataframe_real_to_complex(
+    data: pd.DataFrame,
+) -> pd.DataFrame:
+    """Combines a dataframe with real and imaginary columns into complex columns.
+
+    The dataframe must consist of only float columns.
+
+    Args:
+        data: The dataframe to convert.
+
+    Returns:
+        A new dataframe with real and imaginary columns replaced by a single complex
+        column.
+
+    Raises:
+        ValueError: If the dataframe columns are not compatible.
+    """
+
+    dtypes = data.dtypes.unique()
+    if len(dtypes) > 1 or not issubclass(dtypes[0].type, float):
+        raise ValueError(
+            f"Cannot convert dataframe with non-float columns. Got {data.dtypes}"
+        )
+
+    columns = data.columns.droplevel(-1).unique()
+    return pd.DataFrame(
+        array_real_to_complex(data.values),
+        index=data.index,
+        columns=columns,
+    )
+
+
 @qdefine
 class IQTraceResult(MeasurementResult):
     """Stores raw IQ data vs time step in a multi indexed DataFrame for a single target.
@@ -242,20 +362,6 @@ class GMMClassification(DataProcessor):
     def _default_covariances(self) -> np.ndarray:
         return np.ones(self.num_states)
 
-    @staticmethod
-    def _get_real_IQ_from_complex(IQ_data: np.ndarray) -> np.ndarray:
-        shape = IQ_data.shape
-
-        match IQ_data.dtype:
-            case np.complex128:
-                cast = np.float64
-            case np.complex64:
-                cast = np.float32
-            case dtype:
-                raise TypeError(f"IQ data should be complex type, got {dtype}.")
-
-        return IQ_data.view(cast).reshape(*shape, 2)
-
     def get_model(self, initialize=True) -> GaussianMixture:
         """Returns an initialized `sklearn.mixture.GaussianMixture` instance.
 
@@ -290,9 +396,7 @@ class GMMClassification(DataProcessor):
         Returns:
             A tuple `(means, covariances)` corresponding to the best fit model.
         """
-        IQ = GMMClassification._get_real_IQ_from_complex(
-            result.data.to_numpy().flatten()
-        )
+        IQ = array_complex_to_real(result.data.to_numpy().flatten())
 
         model = self.get_model()
         model.means_init = self.means
@@ -314,9 +418,7 @@ class GMMClassification(DataProcessor):
         model = self.get_model(initialize=True)
 
         shape = result.shape
-        IQ_data = GMMClassification._get_real_IQ_from_complex(
-            result.data.to_numpy().flatten()
-        )
+        IQ_data = array_complex_to_real(result.data.to_numpy().flatten())
 
         classified = model.predict(IQ_data).reshape(shape)
         classified = pd.DataFrame(
