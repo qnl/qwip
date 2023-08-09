@@ -18,6 +18,7 @@ from qwip.attrs import qdefine
 from qwip.defaults import dynamic_default
 from qwip.flatdict import FlatDict
 from qwip.processing.data_processor import DataProcessor, MeasurementResult
+from qwip.processing.processors import dataframe_complex_to_real, dataframe_real_to_complex
 from qwip.typing import generic_to_string
 
 DIRECTORY_RULES: Dict[str, Callable] = FlatDict()
@@ -223,7 +224,11 @@ class CSVFileSaver(FileSaver):
         metadata_filename = filename.with_suffix(".json")
 
         metadata, data = type(self).split_result(result)
-        pandas_metadata = dict(index=data.index.nlevels, header=data.columns.nlevels)
+        pandas_metadata = dict(
+            index=data.index.nlevels,
+            header=data.columns.nlevels,
+            dtypes=dict(data.dtypes),
+        )
         with open(folder / metadata_filename, "w") as f:
             json.dump(dict(qwip=metadata, pandas=pandas_metadata), f)
 
@@ -232,6 +237,9 @@ class CSVFileSaver(FileSaver):
         return outpath.resolve()
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
+        if not isinstance(filename, Path):
+            filename = Path(filename)
+
         metadata_filename = filename.with_suffix(".json")
 
         with open(metadata_filename, "r") as f:
@@ -239,7 +247,16 @@ class CSVFileSaver(FileSaver):
 
         index = list(range(metadata["pandas"]["index"]))
         header = list(range(metadata["pandas"]["header"]))
-        data = pd.read_csv(filename, header=header, index_col=index)
+        dtypes = metadata["pandas"]["dtypes"]
+
+        # Needed for handling complex columns
+        replace = dict()
+        for k in dtypes:
+            if issubclass(dtypes[k].type, complex):
+                replace[k] = dtypes[k]
+                dtypes[k] = str
+
+        data = pd.read_csv(filename, header=header, index_col=index, dtype=dtypes)
 
         result = metadata["qwip"]
         for k, df in data.groupby(level="key", axis="columns"):
@@ -265,6 +282,10 @@ class ParquetFileSaver(FileSaver):
         metadata, data = type(self).split_result(result)
         metadata = json.dumps(metadata).encode()
 
+        has_complex = True
+        if has_complex:
+            data = dataframe_complex_to_real(data)
+
         table = pa.Table.from_pandas(data)
         table = table.replace_schema_metadata(
             table.schema.metadata | dict(qwip=metadata)
@@ -280,6 +301,9 @@ class ParquetFileSaver(FileSaver):
         result = json.loads(table.schema.metadata[b"qwip"])
 
         data = table.to_pandas()
+        has_complex = True
+        if has_complex:
+            data = dataframe_real_to_complex(data)
 
         for k, df in data.groupby(level="key", axis="columns"):
             result[k]["data"] = df.droplevel("key", axis="columns")
