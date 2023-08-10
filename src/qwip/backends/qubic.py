@@ -545,6 +545,7 @@ class QubicBackend(QuantumBackend):
 
             columns = pd.RangeIndex(repetitions, name="shot")
             df = pd.DataFrame(data.T, index=index, columns=columns)
+            df = df.stack().to_frame("IQ").swaplevel("readout", "shot")
 
             name = self.result_map.get(k, k)
             iq_results[name] = IQResult(name=name, data=df)
