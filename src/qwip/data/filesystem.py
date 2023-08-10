@@ -18,7 +18,10 @@ from qwip.attrs import qdefine
 from qwip.defaults import dynamic_default
 from qwip.flatdict import FlatDict
 from qwip.processing.data_processor import DataProcessor, MeasurementResult
-from qwip.processing.processors import dataframe_complex_to_real, dataframe_real_to_complex
+from qwip.processing.processors import (
+    dataframe_complex_to_real,
+    dataframe_real_to_complex,
+)
 from qwip.typing import generic_to_string
 
 DIRECTORY_RULES: Dict[str, Callable] = FlatDict()
