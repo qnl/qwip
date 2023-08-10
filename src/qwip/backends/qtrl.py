@@ -11,7 +11,7 @@ except ImportError:
 
 from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
-from qwip.processing.processors import IQResult
+from qwip.processing.processors import IQResult, array_real_to_complex
 from qwip.qpu.systems import ReadoutResonator
 from qwip.sequencer.compilation import CompiledSequence, QuantumExecutable
 from qwip.sequencer.elements import SequenceElement
@@ -46,18 +46,10 @@ def format_legacy_IQ(arr: np.ndarray) -> np.ndarray:
     This function will reorder the axis so that the IQ data for each shot is
     contiguous. The legacy heterodyne array is a 4-D array where the axes correspond
     to `(IQ, shots, elements, readouts)`. This is reformatted to a complex numpy array
-    where the shape is `(elements, readouts, shots)`.
+    where the shape is `(elements, shots, readouts)`.
     """
-    match arr.dtype:
-        case np.float32:
-            cast = np.complex64
-        case np.float64:
-            cast = np.complex128
-        case _:
-            arr = arr.astype(float)
-            cast = np.complex128
 
-    return np.array(np.transpose(arr, [2, 3, 1, 0]), order="C").view(cast)[..., 0]
+    return array_real_to_complex(np.transpose(arr, [2, 1, 3, 0]))[..., 0]
 
 
 @qdefine
