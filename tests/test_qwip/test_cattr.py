@@ -6,6 +6,7 @@ import pytest
 from attr import attrs, define, field
 from cattr.converters import GenConverter
 from cattr.gen import make_mapping_structure_fn, make_mapping_unstructure_fn
+from numpy import ndarray
 from numpy.random import default_rng
 from numpy.testing import assert_array_equal
 
@@ -32,6 +33,42 @@ class TestBuiltins:
 
         assert unstructured == ignore_order(expected)
         assert qwip.converter.structure(unstructured, tp) == obj
+
+
+class TestClasses:
+    @pytest.mark.parametrize(
+        "tp,expected",
+        [
+            (str, "str"),
+            (list, "list"),
+            (FlatDict, "qwip.flatdict.FlatDict"),
+            (ndarray, "numpy.ndarray"),
+        ],
+    )
+    def test_simple(self, tp, expected):
+        unstructured = qwip.converter.unstructure(tp)
+
+        assert unstructured == expected
+        assert qwip.converter.structure(unstructured, type) == tp
+
+    @pytest.mark.parametrize(
+        "tp,expected",
+        [
+            (list[int], "list[int]"),
+            (tuple[str, bool, int], "tuple[str, bool, int]"),
+            (FlatDict[str, int], "qwip.flatdict.FlatDict[str, int]"),
+            (list[tuple[str, int]], "list[tuple[str, int]]"),
+        ],
+    )
+    def test_generic(self, tp, expected):
+        unstructured = qwip.converter.unstructure(tp)
+
+        assert unstructured == expected
+        assert qwip.converter.structure(unstructured, type) == tp
+
+    def test_exception(self):
+        with pytest.raises(NameError):
+            qwip.converter.structure("IQResult", type)
 
 
 class TestSpecialTyping:
