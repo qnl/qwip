@@ -5,7 +5,7 @@ import pendulum
 import pytest
 import sqlalchemy as sa
 
-from qwip.config.database import ConfigDB, ConfigFolder, ReadOnlyParameter
+from qwip.config.interface import ConfigDB, ConfigFolder, ReadOnlyParameter
 from qwip.config.models import Folder, Parameter
 from qwip.config.schema import ConfigSchema
 from qwip.database.database import Branch, Commit, Status

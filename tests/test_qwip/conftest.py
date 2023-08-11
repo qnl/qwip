@@ -15,7 +15,7 @@ try:
 except ModuleNotFoundError:
     ...
 
-from qwip.config.database import ConfigDB, OfflineConfigDB
+from qwip.config.interface import ConfigDB, OfflineConfigDB
 from qwip.config.schema import ConfigSchema
 from qwip.data.models import *
 from qwip.database.database import Database, DoltDB

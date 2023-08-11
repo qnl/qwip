@@ -13,7 +13,7 @@ from loguru import logger
 import qwip
 from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
-from qwip.config.database import ConfigFolder, OfflineConfigDB, SequenceElementFolder
+from qwip.config.interface import ConfigFolder, OfflineConfigDB, SequenceElementFolder
 from qwip.config.schema import Target
 from qwip.processing.data_processor import (
     DATA_PROCESSORS,

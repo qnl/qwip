@@ -4,7 +4,7 @@ import numpy as np
 from attrs import field
 
 import qwip
-from qwip.config.database import ConfigFolder, ValidatedConfigFolder, configschema
+from qwip.config.interface import ConfigFolder, ValidatedConfigFolder, configschema
 
 Target = TypeVar("Target", bound=str)
 
