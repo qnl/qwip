@@ -29,7 +29,7 @@ from qwip.config.dolt import (
     dolt_commit,
     dolt_reset,
 )
-from qwip.config.metadata import QWIP_DB_METADATA
+from qwip.config.metadata import CONFIGDB_METADATA
 from qwip.config.models import (
     Folder,
     JSONTypes,
@@ -1195,7 +1195,7 @@ class OfflineConfigDB(Database):
 
         reflected_tables = self.tables()
         expected_tables = set(
-            t for t in QWIP_DB_METADATA.tables if not t.startswith("dolt")
+            t for t in CONFIGDB_METADATA.tables if not t.startswith("dolt")
         )
 
         if reflected_tables != expected_tables:

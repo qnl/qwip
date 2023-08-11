@@ -13,7 +13,7 @@ from qwip.config.database import (
     ReadOnlyParameter,
     Status,
 )
-from qwip.config.metadata import QWIP_DB_METADATA
+from qwip.config.metadata import CONFIGDB_METADATA
 from qwip.config.models import Folder, Parameter
 from qwip.config.schema import ConfigSchema
 from qwip.testing import ignore_order

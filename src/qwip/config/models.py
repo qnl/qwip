@@ -13,7 +13,7 @@ from typing_extensions import Self
 import qwip
 from qwip.attrs import qdefine
 from qwip.config.dolt import DoltTable
-from qwip.config.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
+from qwip.config.metadata import CONFIGDB_METADATA, CONFIGDB_REGISTRY
 from qwip.sequencer.waveform import REGISTERED_WAVEFORMS
 
 JSONTypes = dict | list | bool | float | int | str | None
@@ -119,7 +119,7 @@ class Parameter(VersionControlled):
 
 folder_table = DoltTable(
     "folders",
-    QWIP_DB_METADATA,
+    CONFIGDB_METADATA,
     Column("folder_id", sa.Integer, primary_key=True, autoincrement=True),
     Column("name", sa.String(255), nullable=False),
     Column(
@@ -138,7 +138,7 @@ folder_table = DoltTable(
 
 parameter_table = DoltTable(
     "parameters",
-    QWIP_DB_METADATA,
+    CONFIGDB_METADATA,
     Column("parameter_id", sa.Integer, primary_key=True, autoincrement=True),
     Column("name", sa.String(255), nullable=False),
     Column(
@@ -162,7 +162,7 @@ parameter_table = DoltTable(
 )
 
 
-QWIP_DB_REGISTRY.map_imperatively(
+CONFIGDB_REGISTRY.map_imperatively(
     Folder,
     folder_table,
     properties=dict(
@@ -184,7 +184,7 @@ QWIP_DB_REGISTRY.map_imperatively(
     ),
 )
 
-QWIP_DB_REGISTRY.map_imperatively(
+CONFIGDB_REGISTRY.map_imperatively(
     Parameter,
     parameter_table,
     properties=dict(
@@ -200,7 +200,7 @@ QWIP_DB_REGISTRY.map_imperatively(
 
 waveform_table = DoltTable(
     "waveforms",
-    QWIP_DB_METADATA,
+    CONFIGDB_METADATA,
     Column("waveform_id", sa.Integer, primary_key=True, autoincrement=True),
     Column("classname", sa.String(255), nullable=False),
     Column("properties", sa.JSON, nullable=False, default=dict),
@@ -268,7 +268,7 @@ class WaveformModel(VersionControlled):
         return qwip.converter.structure(self.to_unstructured_waveform(), Waveform)
 
 
-QWIP_DB_REGISTRY.map_imperatively(
+CONFIGDB_REGISTRY.map_imperatively(
     WaveformModel,
     waveform_table,
     properties=dict(
@@ -345,7 +345,7 @@ class SequenceElementModel(VersionControlled):
 
 waveform_location_table = DoltTable(
     "waveform_locations",
-    QWIP_DB_METADATA,
+    CONFIGDB_METADATA,
     Column("location", sa.String(255), nullable=False),
     Column(
         "waveform_id",
@@ -373,7 +373,7 @@ waveform_location_table = DoltTable(
 
 constraint_table = DoltTable(
     "constraints",
-    QWIP_DB_METADATA,
+    CONFIGDB_METADATA,
     Column("constraint_id", sa.Integer, primary_key=True, autoincrement=True),
     Column("name", sa.String(255)),
     Column("location", sa.String(255)),
@@ -391,7 +391,7 @@ constraint_table = DoltTable(
 
 sequence_element_table = DoltTable(
     "sequence_elements",
-    QWIP_DB_METADATA,
+    CONFIGDB_METADATA,
     Column("sequence_element_id", sa.Integer, primary_key=True, autoincrement=True),
     Column("name", sa.String(255)),
     Column("width", sa.String(255)),
@@ -399,7 +399,7 @@ sequence_element_table = DoltTable(
 )
 
 
-QWIP_DB_REGISTRY.map_imperatively(
+CONFIGDB_REGISTRY.map_imperatively(
     WaveformLocationModel,
     waveform_location_table,
     properties=dict(
@@ -414,7 +414,7 @@ QWIP_DB_REGISTRY.map_imperatively(
     ),
 )
 
-QWIP_DB_REGISTRY.map_imperatively(
+CONFIGDB_REGISTRY.map_imperatively(
     ConstraintModel,
     constraint_table,
     properties=dict(
@@ -424,7 +424,7 @@ QWIP_DB_REGISTRY.map_imperatively(
     ),
 )
 
-QWIP_DB_REGISTRY.map_imperatively(
+CONFIGDB_REGISTRY.map_imperatively(
     SequenceElementModel,
     sequence_element_table,
     properties=dict(
@@ -442,7 +442,7 @@ QWIP_DB_REGISTRY.map_imperatively(
     ),
 )
 
-user_tables = list(QWIP_DB_METADATA.tables.values())
+user_tables = list(CONFIGDB_METADATA.tables.values())
 
 for table in user_tables:
     if isinstance(table, DoltTable):

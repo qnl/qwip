@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy import Column, Table
 from sqlalchemy.orm import Mapped, mapped_column
 
-from qwip.config.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
+from qwip.config.metadata import CONFIGDB_METADATA, CONFIGDB_REGISTRY
 
 
 def dolt_procedure(
@@ -109,7 +109,7 @@ def dolt_reset(
     return dolt_procedure(connection, "DOLT_RESET", *args)
 
 
-@QWIP_DB_REGISTRY.mapped_as_dataclass
+@CONFIGDB_REGISTRY.mapped_as_dataclass
 class DoltLog:
     __tablename__ = "dolt_log"
     commit_hash: Mapped[str] = mapped_column(sa.Text, primary_key=True, system=True)
@@ -119,7 +119,7 @@ class DoltLog:
     message: Mapped[str] = mapped_column(sa.Text, system=True)
 
 
-@QWIP_DB_REGISTRY.mapped_as_dataclass
+@CONFIGDB_REGISTRY.mapped_as_dataclass
 class DoltCommit:
     __tablename__ = "dolt_commits"
     commit_hash: Mapped[str] = mapped_column(sa.Text, primary_key=True, system=True)
@@ -129,7 +129,7 @@ class DoltCommit:
     message: Mapped[str] = mapped_column(sa.Text, system=True)
 
 
-@QWIP_DB_REGISTRY.mapped_as_dataclass
+@CONFIGDB_REGISTRY.mapped_as_dataclass
 class DoltDiff:
     __tablename__ = "dolt_diff"
     commit_hash: Mapped[str] = mapped_column(sa.Text, primary_key=True, system=True)
@@ -142,7 +142,7 @@ class DoltDiff:
     schema_change: Mapped[bool] = mapped_column(system=True)
 
 
-@QWIP_DB_REGISTRY.mapped_as_dataclass
+@CONFIGDB_REGISTRY.mapped_as_dataclass
 class DoltBranch:
     __tablename__ = "dolt_branches"
     name: Mapped[str] = mapped_column(sa.Text, primary_key=True, system=True)
@@ -155,7 +155,7 @@ class DoltBranch:
     latest_commit_message: Mapped[str] = mapped_column(sa.Text, system=True)
 
 
-@QWIP_DB_REGISTRY.mapped_as_dataclass
+@CONFIGDB_REGISTRY.mapped_as_dataclass
 class DoltStatus:
     __tablename__ = "dolt_status"
     table_name: Mapped[str] = mapped_column(sa.Text, primary_key=True, system=True)
