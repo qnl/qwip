@@ -3,7 +3,7 @@ import sqlalchemy as sa
 from sqlalchemy import Column, Integer, MetaData, String, Table
 
 from qwip.config.database import Branch, Commit
-from qwip.config.dolt import (
+from qwip.database.dolt import (
     DoltBranch,
     DoltCommit,
     DoltDiff,

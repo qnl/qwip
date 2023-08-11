@@ -12,8 +12,8 @@ from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine
-from qwip.config.dolt import DoltTable
-from qwip.config.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
+from qwip.database.dolt import DoltTable
+from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
 from qwip.sequencer.waveform import REGISTERED_WAVEFORMS
 
 JSONTypes = dict | list | bool | float | int | str | None

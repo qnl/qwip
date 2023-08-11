@@ -18,7 +18,7 @@ from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine, qfrozen
-from qwip.config.dolt import (
+from qwip.database.dolt import (
     DoltBranch,
     DoltCommit,
     DoltLog,
@@ -29,7 +29,7 @@ from qwip.config.dolt import (
     dolt_commit,
     dolt_reset,
 )
-from qwip.config.metadata import QWIP_DB_METADATA
+from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.config.models import (
     Folder,
     JSONTypes,

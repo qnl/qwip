@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy import Column, Table
 from sqlalchemy.orm import Mapped, mapped_column
 
-from qwip.config.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
+from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
 
 
 def dolt_procedure(

@@ -7,8 +7,8 @@ from sqlalchemy import Column, types
 from uuid6 import UUID, uuid7
 
 from qwip.attrs import qdefine
-from qwip.config.dolt import DoltTable
-from qwip.config.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
+from qwip.database.dolt import DoltTable
+from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
 from qwip.config.models import VersionControlled
 
 
