@@ -124,13 +124,13 @@ def timestamp(name_fmt: str = "{timestamp}"):
 
 
 @qdefine
-class FileSaver:
+class DataSaver:
     directory: Path = field()
 
     @directory.validator
     def _validate_directory(self, attribute, value):
         if not value.exists():
-            raise FileNotFoundError(f"Path '{value}' does not exist!")
+            raise DataNotFoundError(f"Path '{value}' does not exist!")
 
     @property
     def extension(self) -> str:
@@ -213,7 +213,7 @@ class FileSaver:
 
 
 @qdefine
-class CSVFileSaver(FileSaver):
+class CSVDataSaver(DataSaver):
     @property
     def extension(self) -> str:
         return ".csv"
@@ -277,8 +277,53 @@ class CSVFileSaver(FileSaver):
         return qwip.converter.structure(result, dict[str, MeasurementResult])
 
 
+def to_arrow_table(metadata: dict, data: pd.DataFrame) -> pa.Table:
+    """Converts a metadata dictionary and dataframe to an arrow table.
+
+    Args:
+        metadata: A dictionary containing the result metadata.
+        data: A pandas dataframe containing the combined result data.
+
+    Returns:
+        A pyarrow table with both the data and metadata.
+    """
+    metadata = json.dumps(metadata).encode()
+
+    has_complex = data.dtypes.apply(
+        lambda d: issubclass(d.type, (np.complexfloating, complex))
+    ).any()
+
+    if has_complex:
+        data = dataframe_complex_to_real(data, names=("I", "Q"))
+
+    table = pa.Table.from_pandas(data)
+    table = table.replace_schema_metadata(
+        table.schema.metadata | dict(qwip=metadata, complex=str(has_complex).encode())
+    )
+
+    return table
+
+
+def from_arrow_table(table: pa.Table) -> tuple[dict, pd.DataFrame]:
+    """Converts a arrow table to a QWiP metadata dictionary and pandas dataframe.
+
+    Args:
+        table: The pyarrow table.
+
+    Returns:
+        A tuple `(metadata, data)` from the pyarrow table.
+    """
+    metadata = json.loads(table.schema.metadata[b"qwip"])
+
+    data = table.to_pandas()
+    if table.schema.metadata[b"complex"] == b"True":
+        data = dataframe_real_to_complex(data)
+
+    return metadata, data
+
+
 @qdefine
-class ParquetFileSaver(FileSaver):
+class ParquetDataSaver(DataSaver):
     @property
     def extension(self) -> str:
         return ".parquet"
@@ -292,19 +337,7 @@ class ParquetFileSaver(FileSaver):
         filename = self.get_filename(result_id, result)
 
         metadata, data = type(self).split_result(result)
-        metadata = json.dumps(metadata).encode()
-
-        has_complex = data.dtypes.apply(
-            lambda d: issubclass(d.type, (np.complexfloating, complex))
-        ).any()
-        if has_complex:
-            data = dataframe_complex_to_real(data, names=("I", "Q"))
-
-        table = pa.Table.from_pandas(data)
-        table = table.replace_schema_metadata(
-            table.schema.metadata
-            | dict(qwip=metadata, complex=str(has_complex).encode())
-        )
+        table = to_arrow_table(metadata, data)
 
         outpath = folder / filename
         pq.write_table(table, outpath)
@@ -313,11 +346,7 @@ class ParquetFileSaver(FileSaver):
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
         table = pq.read_table(filename)
-        result = json.loads(table.schema.metadata[b"qwip"])
-
-        data = table.to_pandas()
-        if table.schema.metadata[b"complex"] == b"True":
-            data = dataframe_real_to_complex(data)
+        result, data = from_arrow_table(table)
 
         for k, df in data.groupby(level="key", axis="columns"):
             result[k]["data"] = df.droplevel("key", axis="columns")
@@ -326,7 +355,7 @@ class ParquetFileSaver(FileSaver):
 
 
 @qdefine
-class FeatherFileSaver(FileSaver):
+class FeatherDataSaver(DataSaver):
     @property
     def extension(self) -> str:
         return ".feather"
@@ -340,12 +369,7 @@ class FeatherFileSaver(FileSaver):
         filename = self.get_filename(result_id, result)
 
         metadata, data = type(self).split_result(result)
-        metadata = json.dumps(metadata).encode()
-
-        table = pa.Table.from_pandas(data)
-        table = table.replace_schema_metadata(
-            table.schema.metadata | dict(qwip=metadata)
-        )
+        table = to_arrow_table(metadata, data)
 
         outpath = folder / filename
         pf.write_feather(table, outpath)
@@ -354,9 +378,7 @@ class FeatherFileSaver(FileSaver):
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
         table = pf.read_table(filename)
-        result = json.loads(table.schema.metadata[b"qwip"])
-
-        data = table.to_pandas()
+        result, data = from_arrow_table(table)
 
         for k, df in data.groupby(level="key", axis="columns"):
             result[k]["data"] = df.droplevel("key", axis="columns")
