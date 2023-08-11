@@ -26,7 +26,7 @@ from qwip.qpu.qpu import QPU
 def ignore_config_commit(record: dict) -> bool:
     """Ignores warning messages from database config not matching current commit."""
     should_log = not (
-        record["module"] == "database" and record["function"] == "init_config"
+        record["module"] == "interface" and record["function"] == "init_config"
     )
     return should_log
 
