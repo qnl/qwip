@@ -10,10 +10,10 @@ from rich.console import Text
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from qwip.config.database import DoltDB
-from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.config.models import config_tables
 from qwip.data.models import datastore_tables
+from qwip.database.database import DoltDB
+from qwip.database.metadata import QWIP_DB_METADATA
 
 app = typer.Typer(no_args_is_help=True)
 

@@ -5,17 +5,11 @@ import pendulum
 import pytest
 import sqlalchemy as sa
 
-from qwip.config.database import (
-    Branch,
-    Commit,
-    ConfigDB,
-    ConfigFolder,
-    ReadOnlyParameter,
-    Status,
-)
-from qwip.database.metadata import QWIP_DB_METADATA
+from qwip.config.database import ConfigDB, ConfigFolder, ReadOnlyParameter
 from qwip.config.models import Folder, Parameter
 from qwip.config.schema import ConfigSchema
+from qwip.database.database import Branch, Commit, Status
+from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.testing import ignore_order
 
 

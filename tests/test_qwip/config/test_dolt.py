@@ -2,7 +2,7 @@ import pytest
 import sqlalchemy as sa
 from sqlalchemy import Column, Integer, MetaData, String, Table
 
-from qwip.config.database import Branch, Commit
+from qwip.database.database import Branch, Commit
 from qwip.database.dolt import (
     DoltBranch,
     DoltCommit,

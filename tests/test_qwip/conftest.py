@@ -15,10 +15,11 @@ try:
 except ModuleNotFoundError:
     ...
 
-from qwip.config.database import ConfigDB, Database, DoltDB, OfflineConfigDB
-from qwip.database.metadata import QWIP_DB_METADATA
+from qwip.config.database import ConfigDB, OfflineConfigDB
 from qwip.config.schema import ConfigSchema
 from qwip.data.models import *
+from qwip.database.database import Database, DoltDB
+from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.qpu.qpu import QPU
 
 
