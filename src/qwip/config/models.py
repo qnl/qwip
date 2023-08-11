@@ -442,9 +442,16 @@ QWIP_DB_REGISTRY.map_imperatively(
     ),
 )
 
-user_tables = list(QWIP_DB_METADATA.tables.values())
+config_tables = [
+    folder_table,
+    parameter_table,
+    waveform_table,
+    waveform_location_table,
+    constraint_table,
+    sequence_element_table,
+]
 
-for table in user_tables:
+for table in config_tables:
     if isinstance(table, DoltTable):
         table.create_system_tables()
 

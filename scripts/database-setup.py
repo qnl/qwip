@@ -11,7 +11,7 @@ from rich.table import Table
 
 from qwip.config.database import DoltDB
 from qwip.config.metadata import QWIP_DB_METADATA
-from qwip.config.models import *
+from qwip.config.models import config_tables
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -73,24 +73,21 @@ def create_tables(db: DoltDB, database: str):
     table.add_column("Table")
     table.add_column("Columns")
 
-    user_tables = {
-        k: t for k, t in QWIP_DB_METADATA.tables.items() if not k.startswith("dolt")
-    }
-
-    QWIP_DB_METADATA.create_all(db.engine, tables=user_tables.values())
+    to_add = {t.name: t for t in config_tables}
+    QWIP_DB_METADATA.create_all(db.engine, tables=to_add.values())
 
     with db.session.begin():
         in_db = db.session.scalars(sa.text("SHOW TABLES")).all()
 
-    if missing := set(user_tables) - set(in_db):
+    if missing := set(to_add) - set(in_db):
         for name in missing:
-            table.add_row(name, str(len(user_tables[name].columns)))
+            table.add_row(name, str(len(to_add[name].columns)))
 
         print("ERROR: Missing tables!")
         print(table)
         raise typer.Exit()
 
-    for db_table in user_tables.values():
+    for db_table in to_add.values():
         table.add_row(db_table.name, str(len(db_table.columns)))
 
     print("Successfully created tables!")
