@@ -11,7 +11,7 @@ from qwip.attrs import qdefine
 from qwip.database.database import VersionControlled
 from qwip.database.dolt import DoltTable
 from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
-from qwip.database.utils import JSONTypes, utc_timestamp
+from qwip.database.utils import JSONTypes, PendulumDateTime, utc_timestamp
 from qwip.sequencer.waveform import REGISTERED_WAVEFORMS
 
 
@@ -84,7 +84,7 @@ parameter_table = DoltTable(
     ),
     Column(
         "last_modified",
-        sa.DateTime,
+        PendulumDateTime,
         default=utc_timestamp(),
         onupdate=utc_timestamp(),
     ),

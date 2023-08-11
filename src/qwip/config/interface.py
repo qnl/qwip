@@ -401,15 +401,13 @@ class ConfigFolder(FlatMapping):
         if db_param is None:
             return db_param
 
-        return ReadOnlyParameter.from_orm(model=db_param)
+        return db_param
 
     @session_context
     def get_parameter_history(self, name):
         db_param = self._get_parameter(name)
 
-        history = db_param.history(self.session)
-
-        return [(cmt, ReadOnlyParameter.from_orm(model=p)) for cmt, p in history]
+        return db_param.history(self.session)
 
     @session_context
     def __proxy_delitem__(self, name):
@@ -511,7 +509,7 @@ class ConfigFolder(FlatMapping):
             self.session.scalars(stmt), self.session.scalars(non_nested)
         )
 
-        return [ReadOnlyParameter.from_orm(p) for p in all_parameters]
+        return all_parameters
 
     def create_all(self, **kwargs):
         if not kwargs:

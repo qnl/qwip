@@ -1,7 +1,8 @@
 import pendulum
 import pytest
 
-from qwip.config.interface import ConfigFolder, ReadOnlyParameter
+from qwip.config.interface import ConfigFolder
+from qwip.config.models import Parameter
 from qwip.config.schema import ConfigSchema
 
 
@@ -109,7 +110,7 @@ class TestConfigFolder:
         now = pendulum.now()
 
         param = config.get_parameter("tunable")
-        assert type(param) is ReadOnlyParameter
+        assert type(param) is Parameter
         assert param.name == "tunable"
         assert (now - param.timestamp).seconds < 1
 

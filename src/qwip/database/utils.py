@@ -43,6 +43,7 @@ class GUID(types.TypeDecorator):
 
 class PendulumDateTime(types.TypeDecorator):
     impl = types.DateTime
+    cache_ok = True
 
     def process_result_value(self, value, dialect):
         return pendulum.instance(value).in_tz("local")
@@ -50,6 +51,7 @@ class PendulumDateTime(types.TypeDecorator):
 
 class FilePath(types.TypeDecorator):
     impl = types.String
+    cache_ok = True
 
     def process_result_value(self, value, dialect):
         return Path(value)

@@ -6,6 +6,7 @@ from sqlalchemy import Column, Table
 from sqlalchemy.orm import Mapped, mapped_column
 
 from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
+from qwip.database.utils import PendulumDateTime
 
 
 def dolt_procedure(
@@ -115,7 +116,7 @@ class DoltLog:
     commit_hash: Mapped[str] = mapped_column(sa.Text, primary_key=True, system=True)
     committer: Mapped[str] = mapped_column(sa.Text, system=True)
     email: Mapped[str] = mapped_column(sa.Text, system=True)
-    date: Mapped[pendulum.DateTime] = mapped_column(sa.DateTime, system=True)
+    date: Mapped[pendulum.DateTime] = mapped_column(PendulumDateTime, system=True)
     message: Mapped[str] = mapped_column(sa.Text, system=True)
 
 
@@ -125,7 +126,7 @@ class DoltCommit:
     commit_hash: Mapped[str] = mapped_column(sa.Text, primary_key=True, system=True)
     committer: Mapped[str] = mapped_column(sa.Text, system=True)
     email: Mapped[str] = mapped_column(sa.Text, system=True)
-    date: Mapped[pendulum.DateTime] = mapped_column(sa.DateTime, system=True)
+    date: Mapped[pendulum.DateTime] = mapped_column(PendulumDateTime, system=True)
     message: Mapped[str] = mapped_column(sa.Text, system=True)
 
 
@@ -136,7 +137,7 @@ class DoltDiff:
     table_name: Mapped[str] = mapped_column(sa.Text, primary_key=True, system=True)
     committer: Mapped[str] = mapped_column(sa.Text, system=True)
     email: Mapped[str] = mapped_column(sa.Text, system=True)
-    date: Mapped[pendulum.DateTime] = mapped_column(sa.DateTime, system=True)
+    date: Mapped[pendulum.DateTime] = mapped_column(PendulumDateTime, system=True)
     message: Mapped[str] = mapped_column(sa.Text, system=True)
     data_change: Mapped[bool] = mapped_column(system=True)
     schema_change: Mapped[bool] = mapped_column(system=True)
@@ -150,7 +151,7 @@ class DoltBranch:
     latest_committer: Mapped[str] = mapped_column(sa.Text, system=True)
     latest_committer_email: Mapped[str] = mapped_column(sa.Text, system=True)
     latest_commit_date: Mapped[pendulum.DateTime] = mapped_column(
-        sa.DateTime, system=True
+        PendulumDateTime, system=True
     )
     latest_commit_message: Mapped[str] = mapped_column(sa.Text, system=True)
 
@@ -198,7 +199,9 @@ class DoltTable(Table):
             Column("commit_hash", sa.Text, primary_key=True, system=True)
         )
         history_table.append_column(Column("committer", sa.Text, system=True))
-        history_table.append_column(Column("commit_date", sa.DateTime, system=True))
+        history_table.append_column(
+            Column("commit_date", PendulumDateTime, system=True)
+        )
 
         return history_table
 
@@ -224,9 +227,9 @@ class DoltTable(Table):
             name,
             metadata,
             Column("from_commit", sa.Text, primary_key=True, system=True),
-            Column("from_commit_date", sa.DateTime, system=True),
+            Column("from_commit_date", PendulumDateTime, system=True),
             Column("to_commit", sa.Text, primary_key=True, system=True),
-            Column("to_commit_date", sa.DateTime, system=True),
+            Column("to_commit_date", PendulumDateTime, system=True),
             Column("diff_type", sa.Text, system=True),
             *to_columns,
             *from_columns,
@@ -251,7 +254,7 @@ class DoltTable(Table):
             name,
             metadata,
             Column("commit", sa.Text, primary_key=True, system=True),
-            Column("commit_date", sa.DateTime, system=True),
+            Column("commit_date", PendulumDateTime, system=True),
             Column("committer", sa.Text, system=True),
             Column("email", sa.Text, system=True),
             Column("message", sa.Text, system=True),
