@@ -90,7 +90,7 @@ def dataframe_complex_to_real(
     """
 
     dtypes = data.dtypes.unique()
-    if len(dtypes) > 1 or not issubclass(dtypes[0].type, complex):
+    if len(dtypes) > 1 or not issubclass(dtypes[0].type, (complex, np.complexfloating)):
         raise ValueError(
             f"Cannot convert dataframe with non-complex columns. Got {data.dtypes}"
         )
@@ -102,7 +102,7 @@ def dataframe_complex_to_real(
         columns.append((*levels, names[0]))
         columns.append((*levels, names[1]))
 
-    columns = pd.MultiIndex.from_tuples(columns, name=data.columns.name)
+    columns = pd.MultiIndex.from_tuples(columns, name=[*data.columns.names, "complex"])
     return pd.DataFrame(
         array_complex_to_real(data.values).reshape(data.values.shape[0], -1),
         index=data.index,
@@ -129,7 +129,7 @@ def dataframe_real_to_complex(
     """
 
     dtypes = data.dtypes.unique()
-    if len(dtypes) > 1 or not issubclass(dtypes[0].type, float):
+    if len(dtypes) > 1 or not issubclass(dtypes[0].type, (float, np.floating)):
         raise ValueError(
             f"Cannot convert dataframe with non-float columns. Got {data.dtypes}"
         )

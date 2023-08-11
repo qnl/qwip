@@ -12,6 +12,7 @@ import pyarrow.feather as pf
 import pyarrow.parquet as pq
 from attrs import field
 from loguru import logger
+from numpy.core.numeric import complexfloating
 
 import qwip
 from qwip.attrs import qdefine
@@ -230,7 +231,9 @@ class CSVFileSaver(FileSaver):
         pandas_metadata = dict(
             index=data.index.nlevels,
             header=data.columns.nlevels,
-            dtypes=dict(data.dtypes),
+            dtypes=qwip.converter.unstructure(
+                [(k, dtype.type) for k, dtype in data.dtypes.items()]
+            ),
         )
         with open(folder / metadata_filename, "w") as f:
             json.dump(dict(qwip=metadata, pandas=pandas_metadata), f)
@@ -250,16 +253,22 @@ class CSVFileSaver(FileSaver):
 
         index = list(range(metadata["pandas"]["index"]))
         header = list(range(metadata["pandas"]["header"]))
-        dtypes = metadata["pandas"]["dtypes"]
+        dtypes = dict(
+            qwip.converter.structure(
+                metadata["pandas"]["dtypes"], list[tuple[tuple, type]]
+            )
+        )
 
         # Needed for handling complex columns
         replace = dict()
         for k in dtypes:
-            if issubclass(dtypes[k].type, complex):
+            if issubclass(dtypes[k], (complex, complexfloating)):
                 replace[k] = dtypes[k]
                 dtypes[k] = str
 
-        data = pd.read_csv(filename, header=header, index_col=index, dtype=dtypes)
+        data = pd.read_csv(
+            filename, header=header, index_col=index, dtype=dtypes
+        ).astype(replace)
 
         result = metadata["qwip"]
         for k, df in data.groupby(level="key", axis="columns"):
@@ -285,13 +294,16 @@ class ParquetFileSaver(FileSaver):
         metadata, data = type(self).split_result(result)
         metadata = json.dumps(metadata).encode()
 
-        has_complex = True
+        has_complex = data.dtypes.apply(
+            lambda d: issubclass(d.type, (np.complexfloating, complex))
+        ).any()
         if has_complex:
-            data = dataframe_complex_to_real(data)
+            data = dataframe_complex_to_real(data, names=("I", "Q"))
 
         table = pa.Table.from_pandas(data)
         table = table.replace_schema_metadata(
-            table.schema.metadata | dict(qwip=metadata)
+            table.schema.metadata
+            | dict(qwip=metadata, complex=str(has_complex).encode())
         )
 
         outpath = folder / filename
@@ -304,8 +316,7 @@ class ParquetFileSaver(FileSaver):
         result = json.loads(table.schema.metadata[b"qwip"])
 
         data = table.to_pandas()
-        has_complex = True
-        if has_complex:
+        if table.schema.metadata[b"complex"] == b"True":
             data = dataframe_real_to_complex(data)
 
         for k, df in data.groupby(level="key", axis="columns"):
