@@ -10,7 +10,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from qwip.config.database import DoltDB
-from qwip.config.metadata import CONFIGDB_METADATA
+from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.config.models import *
 
 app = typer.Typer(no_args_is_help=True)
@@ -74,10 +74,10 @@ def create_tables(db: DoltDB, database: str):
     table.add_column("Columns")
 
     user_tables = {
-        k: t for k, t in CONFIGDB_METADATA.tables.items() if not k.startswith("dolt")
+        k: t for k, t in QWIP_DB_METADATA.tables.items() if not k.startswith("dolt")
     }
 
-    CONFIGDB_METADATA.create_all(db.engine, tables=user_tables.values())
+    QWIP_DB_METADATA.create_all(db.engine, tables=user_tables.values())
 
     with db.session.begin():
         in_db = db.session.scalars(sa.text("SHOW TABLES")).all()

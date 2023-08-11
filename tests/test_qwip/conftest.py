@@ -16,7 +16,7 @@ except ModuleNotFoundError:
     ...
 
 from qwip.config.database import ConfigDB, Database, DoltDB, OfflineConfigDB
-from qwip.config.metadata import CONFIGDB_METADATA
+from qwip.config.metadata import QWIP_DB_METADATA
 from qwip.config.schema import ConfigSchema
 from qwip.qpu.qpu import QPU
 
@@ -94,12 +94,12 @@ def database(db_url):
 
 @pytest.fixture(scope="module")
 def models(database):
-    tables = [t for n, t in CONFIGDB_METADATA.tables.items() if not n.startswith("dolt")]
-    CONFIGDB_METADATA.create_all(database.engine, tables=tables)
+    tables = [t for n, t in QWIP_DB_METADATA.tables.items() if not n.startswith("dolt")]
+    QWIP_DB_METADATA.create_all(database.engine, tables=tables)
 
-    yield CONFIGDB_METADATA
+    yield QWIP_DB_METADATA
 
-    CONFIGDB_METADATA.drop_all(database.engine, tables=tables)
+    QWIP_DB_METADATA.drop_all(database.engine, tables=tables)
 
 
 @pytest.fixture(scope="function")
