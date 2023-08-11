@@ -28,6 +28,7 @@ class TestDatabase:
             "waveform_locations",
             "constraints",
             "sequence_elements",
+            "datastore_entries",
         }
 
 
