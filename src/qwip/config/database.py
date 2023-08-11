@@ -16,8 +16,14 @@ from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine, qfrozen
-from qwip.config.models import Folder, JSONTypes, Parameter, SequenceElementModel
-from qwip.database.database import Database, DoltDB, session_context
+from qwip.config.models import (
+    Folder,
+    JSONTypes,
+    Parameter,
+    SequenceElementModel,
+    config_tables,
+)
+from qwip.database.database import SHORT_HASH_LEN, Database, DoltDB, session_context
 from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.flatdict import FlatDict, FlatMapping
 from qwip.sequencer.elements import SequenceElement
@@ -821,9 +827,7 @@ class OfflineConfigDB(Database):
         engine = super().connect(test=test, timeout=timeout)
 
         reflected_tables = self.tables()
-        expected_tables = set(
-            t for t in QWIP_DB_METADATA.tables if not t.startswith("dolt")
-        )
+        expected_tables = set(t.name for t in config_tables)
 
         if reflected_tables != expected_tables:
             version = qwip.qsettings.version

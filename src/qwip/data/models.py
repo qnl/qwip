@@ -3,38 +3,14 @@ from pathlib import Path
 import pendulum
 import sqlalchemy as sa
 from attrs import field
-from sqlalchemy import Column, types
+from sqlalchemy import Column
 from uuid6 import UUID, uuid7
 
 from qwip.attrs import qdefine
-from qwip.config.models import VersionControlled
+from qwip.database.database import VersionControlled
 from qwip.database.dolt import DoltTable
 from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
-
-
-class GUID(types.TypeDecorator):
-    impl = types.BINARY(16)
-    cache_ok = True
-
-    def process_bind_param(self, value, dialect):
-        return value.bytes
-
-    def process_result_value(self, value, dialect):
-        return UUID(bytes=value)
-
-
-class PendulumDateTime(types.TypeDecorator):
-    impl = types.DateTime
-
-    def process_result_value(self, value, dialect):
-        return pendulum.instance(value).in_tz("local")
-
-
-class FilePath(types.TypeDecorator):
-    impl = types.String
-
-    def process_result_value(self, value, dialect):
-        return Path(value)
+from qwip.database.utils import GUID, FilePath, PendulumDateTime
 
 
 @qdefine(slots=False)
