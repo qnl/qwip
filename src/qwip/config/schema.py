@@ -131,6 +131,7 @@ class ConfigSchema(ValidatedConfigFolder):
     version: str = qwip.qsettings["version"]
     qwip_commit: str | None = qwip.qsettings["src/commit"]
     sample_id: str
+    cooldown_id: str
     targets: tuple[Target, ...] = field(factory=tuple)
 
     hardware: HardwareSchema
