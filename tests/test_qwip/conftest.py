@@ -6,6 +6,7 @@ import numpy as np
 import pendulum
 import pytest
 from loguru import logger
+from numpy.random import default_rng
 from sqlalchemy.engine import make_url
 
 try:
@@ -50,6 +51,11 @@ def db_url(request):
 @pytest.fixture(scope="session")
 def seed(request):
     return int(request.config.getoption("--seed"))
+
+
+@pytest.fixture
+def rng(seed):
+    return default_rng(seed)
 
 
 @pytest.fixture
