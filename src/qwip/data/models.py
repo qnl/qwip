@@ -23,7 +23,7 @@ class Dataset(VersionControlled):
         factory=pendulum.now,
     )
     host: str
-    filename: Path
+    filename: Path = field(repr=lambda p: p.as_posix())
     user: str | None = None
     config_db: str | None = None
     commit: str | None = None

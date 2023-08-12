@@ -198,9 +198,10 @@ class DataSaver:
 
         return metadata, data
 
-    def get_directory(self, result_id: str) -> Path:
+    def get_directory(self, result_id: str, mkdir: bool = True) -> Path:
         folder = self.directory / Path(result_id)
-        folder.mkdir(exist_ok=True)
+        if mkdir:
+            folder.mkdir(exist_ok=True)
         return folder
 
     def get_filename(self, processor: type[DataProcessor] | None = None) -> Path:
@@ -229,14 +230,17 @@ class DataSaver:
 
         return outpath.resolve()
 
-    def get_result_types(self, result_id: str) -> set[type[DataProcessor]]:
-        folder = self.get_directory(result_id)
+    def result_types(self, result_id: str) -> set[type[DataProcessor]]:
+        folder = self.get_directory(result_id, mkdir=False)
 
-        return {
-            self._processor_from_filename(f)
-            for f in folder.iterdir()
-            if f.suffix == self.extension
-        }
+        try:
+            return {
+                self._processor_from_filename(f)
+                for f in folder.iterdir()
+                if f.suffix == self.extension
+            }
+        except FileNotFoundError:
+            return set()
 
     @lru_cache(maxsize=32)
     def _processor_from_filename(self, filename: str | Path) -> type[DataProcessor]:

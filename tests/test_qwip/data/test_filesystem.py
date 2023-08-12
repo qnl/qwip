@@ -173,11 +173,12 @@ class TestParquetDataSaver:
             datasaver._processor_from_filename(filename)
             assert datasaver._processor_from_filename.cache_info().hits > cache_hits
 
-    def test_get_result_types(self, datasaver):
+    def test_result_types(self, datasaver):
         processors = {None, GMMClassification, StatePopulations}
 
         folder = datasaver.get_directory("result_id")
         for p in processors:
             (folder / datasaver.get_filename(p)).touch()
 
-        assert datasaver.get_result_types("result_id") == processors
+        assert datasaver.result_types("result_id") == processors
+        assert datasaver.result_types("random") == set()
