@@ -780,7 +780,7 @@ class SequenceElementFolder:
 class OfflineConfigDB(Database):
     """An interface to a local configuration database backend.
 
-    The OfflineConfigDB can be used with a SQLite databse backend, with the caveat that
+    The OfflineConfigDB can be used with a SQLite database backend, with the caveat that
     no database version control features are available. This is primarily used for
     testing and development purposes, but can also be used as a backup in the event
     that the dolt database server is down.
@@ -998,12 +998,7 @@ class OfflineConfigDB(Database):
 
 @qdefine
 class ConfigDB(OfflineConfigDB, DoltDB):
-    """An interface to a configuration database backend.
-
-    The OfflineConfigDB can be used with a SQLite databse backend, with the caveat that
-    no database version control features are available. This is primarily used for
-    testing and development purposes, but can also be used as a backup in the event
-    that the dolt database server is down.
+    """An interface to a configuration database backend using Dolt.
 
     Attributes:
         url: The database connection url.
