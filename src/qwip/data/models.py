@@ -14,7 +14,7 @@ from qwip.database.utils import GUID, FilePath, PendulumDateTime
 
 
 @qdefine(slots=False)
-class DatastoreEntry(VersionControlled):
+class Dataset(VersionControlled):
     id: UUID = field(factory=uuid7, repr=lambda uid: uid.hex)
     timestamp: pendulum.DateTime = field(
         repr=lambda dt: dt.in_tz("local").isoformat()
@@ -35,11 +35,11 @@ class DatastoreEntry(VersionControlled):
     comments: str | None = None
 
 
-datastore_entry_table = DoltTable(
-    "datastore_entries",
+dataset_table = DoltTable(
+    "datasets",
     QWIP_DB_METADATA,
     Column(
-        "entry_id",
+        "dataset_id",
         GUID,
         primary_key=True,
         default=lambda: uuid7().bytes,
@@ -60,16 +60,16 @@ datastore_entry_table = DoltTable(
 )
 
 QWIP_DB_REGISTRY.map_imperatively(
-    DatastoreEntry,
-    datastore_entry_table,
+    Dataset,
+    dataset_table,
     properties=dict(
-        id=datastore_entry_table.c.entry_id,
-        commit=datastore_entry_table.c.config_commit,
-        diff=datastore_entry_table.c.config_diff,
+        id=dataset_table.c.dataset_id,
+        commit=dataset_table.c.config_commit,
+        diff=dataset_table.c.config_diff,
     ),
 )
 
-datastore_tables = [datastore_entry_table]
+datastore_tables = [dataset_table]
 
 for table in datastore_tables:
     if isinstance(table, DoltTable):
