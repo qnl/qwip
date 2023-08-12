@@ -262,7 +262,7 @@ class IQResult(MeasurementResult):
             )
             iqdata[states == s] = array_real_to_complex(iq).flatten()
 
-        return cls.from_numpy(iqdata)
+        return cls.from_numpy(iqdata, **kwargs)
 
 
 @DATA_PROCESSORS.register
