@@ -130,7 +130,7 @@ class DataSaver:
     @directory.validator
     def _validate_directory(self, attribute, value):
         if not value.exists():
-            raise DataNotFoundError(f"Path '{value}' does not exist!")
+            raise FileNotFoundError(f"Path '{value}' does not exist!")
 
     @property
     def extension(self) -> str:
@@ -193,9 +193,8 @@ class DataSaver:
 
         return metadata, data
 
-    def get_directory(self, result_id: str, **kwargs) -> Path:
-        kwargs = dict(exist_ok=True) | kwargs
-        folder = make_data_directory(self.directory, **kwargs) / result_id
+    def get_directory(self, result_id: str) -> Path:
+        folder = self.directory / Path(result_id)
         folder.mkdir(exist_ok=True)
         return folder
 
@@ -211,6 +210,23 @@ class DataSaver:
 
         return Path(add_extension(f"{result_id}_{pname}", self.extension))
 
+    def get_save_path(
+        self,
+        result_id: str,
+        result: MeasurementResult | dict[str, MeasurementResult],
+        overwrite: bool = False,
+    ) -> Path:
+        folder = self.get_directory(result_id)
+        filename = self.get_filename(result_id, result)
+        outpath = folder / filename
+
+        if outpath.exists() and not overwrite:
+            raise FileExistsError(
+                f"File {outpath.resolve()} already exists. Pass `overwrite = True` to overwrite an existing file."
+            )
+
+        return outpath.resolve()
+
 
 @qdefine
 class CSVDataSaver(DataSaver):
@@ -222,10 +238,10 @@ class CSVDataSaver(DataSaver):
         self,
         result_id: str,
         result: MeasurementResult | dict[str, MeasurementResult],
+        overwrite: bool = False,
     ) -> Path:
-        folder = self.get_directory(result_id)
-        filename = self.get_filename(result_id, result)
-        metadata_filename = filename.with_suffix(".json")
+        savepath = self.get_save_path(result_id, result, overwrite=overwrite)
+        metadata_savepath = savepath.with_suffix(".json")
 
         metadata, data = type(self).split_result(result)
         pandas_metadata = dict(
@@ -235,12 +251,11 @@ class CSVDataSaver(DataSaver):
                 [(k, dtype.type) for k, dtype in data.dtypes.items()]
             ),
         )
-        with open(folder / metadata_filename, "w") as f:
+        with open(metadata_savepath, "w") as f:
             json.dump(dict(qwip=metadata, pandas=pandas_metadata), f)
 
-        outpath = folder / filename
-        data.to_csv(outpath)
-        return outpath.resolve()
+        data.to_csv(savepath)
+        return savepath
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
         if not isinstance(filename, Path):
@@ -332,17 +347,16 @@ class ParquetDataSaver(DataSaver):
         self,
         result_id: str,
         result: MeasurementResult | dict[str, MeasurementResult],
+        overwrite: bool = False,
     ) -> Path:
-        folder = self.get_directory(result_id)
-        filename = self.get_filename(result_id, result)
+        savepath = self.get_save_path(result_id, result, overwrite=overwrite)
 
         metadata, data = type(self).split_result(result)
         table = to_arrow_table(metadata, data)
 
-        outpath = folder / filename
-        pq.write_table(table, outpath)
+        pq.write_table(table, savepath)
 
-        return outpath.resolve()
+        return savepath
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
         table = pq.read_table(filename)
@@ -364,17 +378,16 @@ class FeatherDataSaver(DataSaver):
         self,
         result_id: str,
         result: MeasurementResult | dict[str, MeasurementResult],
+        overwrite: bool = False,
     ) -> Path:
-        folder = self.get_directory(result_id)
-        filename = self.get_filename(result_id, result)
+        savepath = self.get_save_path(result_id, result, overwrite=overwrite)
 
         metadata, data = type(self).split_result(result)
         table = to_arrow_table(metadata, data)
 
-        outpath = folder / filename
-        pf.write_feather(table, outpath)
+        pf.write_feather(table, savepath)
 
-        return outpath.resolve()
+        return savepath
 
     def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
         table = pf.read_table(filename)
