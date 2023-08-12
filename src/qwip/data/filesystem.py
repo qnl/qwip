@@ -1,5 +1,6 @@
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Callable, Dict
 from uuid import uuid4
@@ -15,10 +16,14 @@ from loguru import logger
 from numpy.core.numeric import complexfloating
 
 import qwip
-from qwip.attrs import qdefine
+from qwip.attrs import qdefine, qfrozen
 from qwip.defaults import dynamic_default
 from qwip.flatdict import FlatDict
-from qwip.processing.data_processor import DataProcessor, MeasurementResult
+from qwip.processing.data_processor import (
+    DATA_PROCESSORS,
+    DataProcessor,
+    MeasurementResult,
+)
 from qwip.processing.processors import (
     dataframe_complex_to_real,
     dataframe_real_to_complex,
@@ -123,7 +128,7 @@ def timestamp(name_fmt: str = "{timestamp}"):
     return name_fmt.format(timestamp=pendulum.now().int_timestamp)
 
 
-@qdefine
+@qfrozen
 class DataSaver:
     directory: Path = field()
 
@@ -158,7 +163,7 @@ class DataSaver:
         processors = set(r.final_processor() for r in result.values())
 
         if len(processors) > 1:
-            assert ValueError(
+            raise ValueError(
                 f"Result dictionary must have same final processor. Got {processors}"
             )
 
@@ -198,17 +203,13 @@ class DataSaver:
         folder.mkdir(exist_ok=True)
         return folder
 
-    def get_filename(
-        self, result_id: str, result: MeasurementResult | dict[str, MeasurementResult]
-    ) -> Path:
-        processor = type(self).get_result_processor(result)
-
+    def get_filename(self, processor: type[DataProcessor] | None = None) -> Path:
         if processor is None:
             pname = "raw"
         else:
             pname = camel_to_kebab(re.sub(r"[\[\]]", "", generic_to_string(processor)))
 
-        return Path(add_extension(f"{result_id}_{pname}", self.extension))
+        return Path(add_extension(pname, self.extension))
 
     def get_save_path(
         self,
@@ -216,8 +217,9 @@ class DataSaver:
         result: MeasurementResult | dict[str, MeasurementResult],
         overwrite: bool = False,
     ) -> Path:
+        processor = type(self).get_result_processor(result)
         folder = self.get_directory(result_id)
-        filename = self.get_filename(result_id, result)
+        filename = self.get_filename(processor)
         outpath = folder / filename
 
         if outpath.exists() and not overwrite:
@@ -227,8 +229,27 @@ class DataSaver:
 
         return outpath.resolve()
 
+    def get_result_types(self, result_id: str) -> set[type[DataProcessor]]:
+        folder = self.get_directory(result_id)
 
-@qdefine
+        return {
+            self._processor_from_filename(f)
+            for f in folder.iterdir()
+            if f.suffix == self.extension
+        }
+
+    @lru_cache(maxsize=32)
+    def _processor_from_filename(self, filename: str | Path) -> type[DataProcessor]:
+        if isinstance(filename, str):
+            filename = Path(filename)
+
+        for processor in (None, *DATA_PROCESSORS.registered.values()):
+            if self.get_filename(processor).stem == filename.stem:
+                return processor
+
+        raise ValueError(f"{filename} does not correspond to a known processor.")
+
+
 class CSVDataSaver(DataSaver):
     @property
     def extension(self) -> str:
@@ -337,7 +358,6 @@ def from_arrow_table(table: pa.Table) -> tuple[dict, pd.DataFrame]:
     return metadata, data
 
 
-@qdefine
 class ParquetDataSaver(DataSaver):
     @property
     def extension(self) -> str:
@@ -368,7 +388,6 @@ class ParquetDataSaver(DataSaver):
         return qwip.converter.structure(result, dict[str, MeasurementResult])
 
 
-@qdefine
 class FeatherDataSaver(DataSaver):
     @property
     def extension(self) -> str:
