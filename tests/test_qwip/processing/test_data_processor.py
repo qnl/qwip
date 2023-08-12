@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import rustworkx as rx
+from numpy.random import default_rng
 
 import qwip
 from qwip.processing.data_processor import (
@@ -213,12 +214,12 @@ class TestPipeline:
             ),
             GMMClassification(
                 measurement_key="R0",
-                means=np.array([[0, 1], [1, 0]]),
+                means=np.array([[0, 1], [1, 0]], dtype=float),
                 covariances=np.array([0.2, 0.2]),
             ),
             GMMClassification(
                 measurement_key="R1",
-                means=np.array([[1, 0], [-1, 0]]),
+                means=np.array([[1, 0], [-1, 0]], dtype=float),
                 covariances=np.array([0.2, 0.2]),
             ),
             ReadoutHistogram(),
@@ -363,3 +364,20 @@ class TestPipeline:
         inputs = dict(R0=IQResult.from_numpy(np.zeros((4, 2, 10), dtype=np.complex64)))
 
         assert pipeline.process_results(inputs, dict(R0=None)) == inputs
+
+    def test_grouped_data(self, single_qubit, seed):
+        rng = default_rng(seed)
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        shape = (10, 1024, 2)
+        inputs = {k: IQResult.random(shape, rng=rng) for k in ("R0", "R1")}
+
+        pipeline.process_results(inputs, dict(R0=StatePopulations, R1=StatePopulations))
+        grouped = pipeline.grouped_data()
+
+        assert len(grouped) == 5
+        for group in grouped:
+            mtype = set(type(r) for r in group.values())
+            ptype = set(r.final_processor() for r in group.values())
+
+            assert len(mtype) == len(ptype) == 1

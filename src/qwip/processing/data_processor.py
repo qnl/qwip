@@ -1,6 +1,7 @@
 import functools
 import inspect
 import itertools as it
+from collections import defaultdict
 from collections.abc import Collection
 from typing import Any, GenericAlias, TypeVar, get_args, get_origin
 
@@ -843,6 +844,15 @@ class ReadoutPipeline:
         }
 
         return results
+
+    def grouped_data(self) -> list[dict[str, MeasurementResult]]:
+        """Returns a list of all results, grouped by final processor."""
+        results = defaultdict(dict)
+
+        for (key, proc), result in self.dependency_cache.items():
+            results[proc][key] = result
+
+        return list(results.values())
 
 
 # ========== Data Processor converters ========== #

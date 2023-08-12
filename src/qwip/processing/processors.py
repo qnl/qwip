@@ -6,6 +6,7 @@ import attrs
 import numpy as np
 import pandas as pd
 from attrs import cmp_using, field
+from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
 from typing_extensions import Self
@@ -20,6 +21,8 @@ from qwip.processing.data_processor import (
 from qwip.sequencer import Sequence
 
 M = TypeVar("M", bound=MeasurementResult)
+
+RESULT_RNG = default_rng()
 
 
 def array_complex_to_real(arr: np.ndarray) -> np.ndarray:
@@ -157,7 +160,7 @@ class IQTraceResult(MeasurementResult):
         name: str = "IQTraceResult",
         labels=("element", "readout", "shot"),
         **kwargs,
-    ):
+    ) -> Self:
         """Creates data frame from trajectory data obtained from QutipBackend.
 
         Args:
@@ -221,6 +224,45 @@ class IQResult(MeasurementResult):
         df = pd.DataFrame(arr.flatten(), index=index, columns=["IQ"])
 
         return cls(name=name, data=df)
+
+    @classmethod
+    def random(
+        cls,
+        shape: tuple[int, ...],
+        num_states: int = 2,
+        rng: Generator = RESULT_RNG,
+        **kwargs,
+    ) -> Self:
+        """Creates a random dataframe with the given shape.
+
+        Args:
+            shape: The shape of the resulting array. The default axis are
+                `(element, shot, readout)`. If a different number of axes are passed, a
+                set of labels should also be specified.
+            num_states: The number of "blobs" to generate. The means and standard
+                deviations of the Gaussian "blobs" are chosen randomly.
+            rng: The random generator to use.
+
+        Returns:
+            An IQResult populated with random data.
+        """
+        states = rng.choice(num_states, size=np.prod(shape)).reshape(shape)
+        means = rng.normal(scale=10, size=2 * num_states).reshape(num_states, 2)
+        iqdata = np.zeros_like(states, dtype=np.complex64)
+
+        for s in range(num_states):
+            iq = (
+                rng.multivariate_normal(
+                    mean=means[s],
+                    cov=np.identity(2),
+                    size=np.count_nonzero(states == s),
+                )
+                .astype(np.float32)
+                .reshape(-1, 2)
+            )
+            iqdata[states == s] = array_real_to_complex(iq).flatten()
+
+        return cls.from_numpy(iqdata)
 
 
 @DATA_PROCESSORS.register
@@ -455,7 +497,7 @@ class ReadoutBitstring(DataProcessor):
             The multi-qudit `ClassifiedResult`.
         """
         if len(result) == 1:
-            return result[0]
+            return attrs.evolve(result[0])
 
         name = self.delimiter.join(m.name for m in result)
 
