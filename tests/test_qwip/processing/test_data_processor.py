@@ -372,6 +372,8 @@ class TestPipeline:
         shape = (10, 1024, 2)
         inputs = {k: IQResult.random(shape, rng=rng) for k in ("R0", "R1")}
 
+        assert pipeline.grouped_data() == []
+
         pipeline.process_results(inputs, dict(R0=StatePopulations, R1=StatePopulations))
         grouped = pipeline.grouped_data()
 
