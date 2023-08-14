@@ -46,9 +46,9 @@ class OfflineDatastore(Database):
         comments: str | None = None,
     ) -> Dataset:
         """Saves a set of measurement results.
-        
+
         Args:
-            results: A list of result sets. Each result set is a dictionary mapping 
+            results: A list of result sets. Each result set is a dictionary mapping
                 measurement keys to `MeasurementResult`. A single result set or a single
                 `MeasurementResult` can also be saved individually.
             fmt: The data format to use.
@@ -142,7 +142,7 @@ class OfflineDatastore(Database):
     @classmethod
     def _add_equals(cls, stmt: sa.Selectable, **kwargs) -> sa.Selectable:
         """Adds where clauses to a statement.
-        
+
         Args:
             stmt: The statement to add a where clause to.
             **kwargs: Column names and values should to search for should be passed in
@@ -159,7 +159,7 @@ class OfflineDatastore(Database):
     @classmethod
     def _add_substring_search(cls, stmt: sa.Selectable, **kwargs) -> sa.Selectable:
         """Adds LIKE clauses to a statement to do a case-insensitive search.
-        
+
         Args:
             stmt: The statement to add a like clause to.
             **kwargs: Column names and values should to search for should be passed in
@@ -192,7 +192,7 @@ class OfflineDatastore(Database):
         order_desc: bool = True,
     ) -> list[Dataset]:
         """Search the datastore for a list of datasets.
-        
+
         Args:
             start: The start time to filter the datasets by. All returned datasets will
                 have a timestamp greater than or equal to `start`.

@@ -247,6 +247,17 @@ class DataSaver:
         return metadata, data
 
     def get_directory(self, result_id: str, mkdir: bool = True) -> Path:
+        """Returns the directory for a given result id.
+
+        The result directory will be a subdirectory of the datasaver directory.
+
+        Args:
+            result_id: A result identifier string.
+            mkdir: If `True`, creates the directory if it does not exist.
+
+        Returns:
+            The result directory.
+        """
         folder = self.directory / Path(result_id)
         if mkdir:
             folder.mkdir(exist_ok=True)
@@ -257,6 +268,18 @@ class DataSaver:
         processor: type[DataProcessor] | None = None,
         fmt: DataFormat | Literal[".csv", ".parquet", ".feather"] = DataFormat.parquet,
     ) -> Path:
+        """Returns the filename for a given processor type.
+
+        The filename will be a kebab-case variant of the processor class name with
+        the proper file extension.
+
+        Args:
+            processor: A processor class.
+            fmt: An allowed data format.
+
+        Returns:
+            A relative file path for the given processor type and file format.
+        """
         if processor is None:
             pname = "raw"
         else:
@@ -270,6 +293,16 @@ class DataSaver:
         result: MeasurementResult | dict[str, MeasurementResult],
         overwrite: bool = False,
     ) -> Path:
+        """Returns the absolute save path for a given result and result id.
+
+        Args:
+            result id: The result identifier.
+            result: The measurement result that is being saved.
+            overwrite: Whether to raise an error if the save path already exists.
+
+        Returns:
+            An absolute path for a given result id and result.
+        """
         processor = type(self).get_result_processor(result)
         folder = self.get_directory(result_id)
         filename = self.get_filename(processor)
@@ -285,15 +318,26 @@ class DataSaver:
     def result_types(
         self,
         result_id: str,
-        fmt: DataFormat | Literal[".csv", ".parquet", ".feather"] = DataFormat.parquet,
+        fmt: DataFormat
+        | Literal[".csv", ".parquet", ".feather"]
+        | None = DataFormat.parquet,
     ) -> set[type[DataProcessor]]:
+        """Returns the set of saved result types.
+
+        Args:
+            result_id: The result identifier.
+            fmt: The data format to look for.
+
+        Returns:
+            A set containing the result types that were saved.
+        """
         folder = self.get_directory(result_id, mkdir=False)
 
         try:
             return {
                 self._processor_from_filename(f)
                 for f in folder.iterdir()
-                if f.suffix[1:] == fmt
+                if (fmt is None) or (f.suffix[1:] == fmt)
             }
         except FileNotFoundError:
             return set()
@@ -316,13 +360,37 @@ class DataSaver:
         fmt: DataFormat | Literal[".csv", ".parquet", ".feather"] = DataFormat.parquet,
         overwrite: bool = False,
     ) -> Path:
+        """Saves a measurement result.
+
+        Args:
+            result_id: An identifier for the measurement result.
+            result: A dictionary of measurement results or a single measurement result.
+            fmt: The data format used to save the results.
+            overwrite: If `True`, will overwrite any existing data with the same
+                filename.
+
+        Returns:
+            The full path to the data file.
+        """
         if not isinstance(fmt, DataFormat):
             fmt = DataFormat[fmt]
 
         return getattr(self, f"save_{fmt}")(result_id, result, overwrite)
 
     def load(self, filename: Path) -> dict[str, MeasurementResult]:
+        """Loads a measurement result.
+
+        Args:
+            filename: The path to the data file. If a relative path is passed, it is
+                assumed to be referenced to the `directory` attribute of the datasaver.
+
+        Returns:
+            The reloaded measurement result.
+        """
         fmt = DataFormat[filename.suffix[1:]]
+
+        if not filename.is_absolute():
+            filename = self.directory / filename
 
         return getattr(self, f"load_{fmt}")(filename)
 
@@ -332,6 +400,20 @@ class DataSaver:
         result: MeasurementResult | dict[str, MeasurementResult],
         overwrite: bool = False,
     ) -> Path:
+        """Saves a measurement result as a csv.
+
+        Measurement metadata is saved as a json file with the same filename as the
+        result data.
+
+        Args:
+            result_id: An identifier for the measurement result.
+            result: A dictionary of measurement results or a single measurement result.
+            overwrite: If `True`, will overwrite any existing data with the same
+                filename.
+
+        Returns:
+            The full path to the data file.
+        """
         savepath = self.get_save_path(result_id, result, overwrite=overwrite)
         metadata_savepath = savepath.with_suffix(".json")
 
@@ -350,6 +432,18 @@ class DataSaver:
         return savepath
 
     def load_csv(self, filename: Path) -> dict[str, MeasurementResult]:
+        """Loads a measurement result from a csv.
+
+        The json metadata for the measurement result must also be present in the same
+        directory with the same filename but suffix  replaced by `.json`.
+
+        Args:
+            filename: The path to the data file. If a relative path is passed, it is
+                assumed to be referenced to the `directory` attribute of the datasaver.
+
+        Returns:
+            The reloaded measurement result.
+        """
         if not isinstance(filename, Path):
             filename = Path(filename)
 
@@ -389,6 +483,20 @@ class DataSaver:
         result: MeasurementResult | dict[str, MeasurementResult],
         overwrite: bool = False,
     ) -> Path:
+        """Saves a measurement result as a parquet file.
+
+        Complex results are converted to two real columns prior to saving because Arrow
+        has no built in support for complex data types.
+
+        Args:
+            result_id: An identifier for the measurement result.
+            result: A dictionary of measurement results or a single measurement result.
+            overwrite: If `True`, will overwrite any existing data with the same
+                filename.
+
+        Returns:
+            The full path to the data file.
+        """
         savepath = self.get_save_path(result_id, result, overwrite=overwrite)
 
         metadata, data = type(self).split_result(result)
@@ -399,6 +507,18 @@ class DataSaver:
         return savepath
 
     def load_parquet(self, filename: Path) -> dict[str, MeasurementResult]:
+        """Loads a measurement result from a parquet file.
+
+        Any complex data columns that were expanded to two real columns for saving will
+        be converted back to a complex data column.
+
+        Args:
+            filename: The path to the data file. If a relative path is passed, it is
+                assumed to be referenced to the `directory` attribute of the datasaver.
+
+        Returns:
+            The reloaded measurement result.
+        """
         table = pq.read_table(filename)
         result, data = from_arrow_table(table)
 
@@ -413,6 +533,20 @@ class DataSaver:
         result: MeasurementResult | dict[str, MeasurementResult],
         overwrite: bool = False,
     ) -> Path:
+        """Saves a measurement result as a feather file.
+
+        Complex results are converted to two real columns prior to saving because Arrow
+        has no built in support for complex data types.
+
+        Args:
+            result_id: An identifier for the measurement result.
+            result: A dictionary of measurement results or a single measurement result.
+            overwrite: If `True`, will overwrite any existing data with the same
+                filename.
+
+        Returns:
+            The full path to the data file.
+        """
         savepath = self.get_save_path(result_id, result, overwrite=overwrite)
 
         metadata, data = type(self).split_result(result)
@@ -423,6 +557,18 @@ class DataSaver:
         return savepath
 
     def load_feather(self, filename: Path) -> dict[str, MeasurementResult]:
+        """Loads a measurement result from a feather file.
+
+        Any complex data columns that were expanded to two real columns for saving will
+        be converted back to a complex data column.
+
+        Args:
+            filename: The path to the data file. If a relative path is passed, it is
+                assumed to be referenced to the `directory` attribute of the datasaver.
+
+        Returns:
+            The reloaded measurement result.
+        """
         table = pf.read_table(filename)
         result, data = from_arrow_table(table)
 
