@@ -1,8 +1,9 @@
 import json
 import re
+from enum import Enum
 from functools import lru_cache
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable, Literal
 from uuid import uuid4
 
 import numpy as np
@@ -30,11 +31,17 @@ from qwip.processing.processors import (
 )
 from qwip.typing import generic_to_string
 
-DIRECTORY_RULES: Dict[str, Callable] = FlatDict()
-FILENAME_RULES: Dict[str, Callable] = FlatDict()
+DIRECTORY_RULES: dict[str, Callable] = FlatDict()
+FILENAME_RULES: dict[str, Callable] = FlatDict()
 
 camel2kebab_1 = re.compile(r"(.)([A-Z][a-z]+)")
 camel2kebab_2 = re.compile(r"([a-z0-9])([A-Z])")
+
+
+class DataFormat(str, Enum):
+    csv = "csv"
+    parquet = "parquet"
+    feather = "feather"
 
 
 def add_extension(name: str, ext: str) -> str:
@@ -128,6 +135,51 @@ def timestamp(name_fmt: str = "{timestamp}"):
     return name_fmt.format(timestamp=pendulum.now().int_timestamp)
 
 
+def to_arrow_table(metadata: dict, data: pd.DataFrame) -> pa.Table:
+    """Converts a metadata dictionary and dataframe to an arrow table.
+
+    Args:
+        metadata: A dictionary containing the result metadata.
+        data: A pandas dataframe containing the combined result data.
+
+    Returns:
+        A pyarrow table with both the data and metadata.
+    """
+    metadata = json.dumps(metadata).encode()
+
+    has_complex = data.dtypes.apply(
+        lambda d: issubclass(d.type, (np.complexfloating, complex))
+    ).any()
+
+    if has_complex:
+        data = dataframe_complex_to_real(data, names=("I", "Q"))
+
+    table = pa.Table.from_pandas(data)
+    table = table.replace_schema_metadata(
+        table.schema.metadata | dict(qwip=metadata, complex=str(has_complex).encode())
+    )
+
+    return table
+
+
+def from_arrow_table(table: pa.Table) -> tuple[dict, pd.DataFrame]:
+    """Converts a arrow table to a QWiP metadata dictionary and pandas dataframe.
+
+    Args:
+        table: The pyarrow table.
+
+    Returns:
+        A tuple `(metadata, data)` from the pyarrow table.
+    """
+    metadata = json.loads(table.schema.metadata[b"qwip"])
+
+    data = table.to_pandas()
+    if table.schema.metadata[b"complex"] == b"True":
+        data = dataframe_real_to_complex(data)
+
+    return metadata, data
+
+
 @qfrozen
 class DataSaver:
     directory: Path = field()
@@ -136,10 +188,6 @@ class DataSaver:
     def _validate_directory(self, attribute, value):
         if not value.exists():
             raise FileNotFoundError(f"Path '{value}' does not exist!")
-
-    @property
-    def extension(self) -> str:
-        return ""
 
     @classmethod
     def get_result_processor(
@@ -204,13 +252,17 @@ class DataSaver:
             folder.mkdir(exist_ok=True)
         return folder
 
-    def get_filename(self, processor: type[DataProcessor] | None = None) -> Path:
+    def get_filename(
+        self,
+        processor: type[DataProcessor] | None = None,
+        fmt: DataFormat | Literal[".csv", ".parquet", ".feather"] = DataFormat.parquet,
+    ) -> Path:
         if processor is None:
             pname = "raw"
         else:
             pname = camel_to_kebab(re.sub(r"[\[\]]", "", generic_to_string(processor)))
 
-        return Path(add_extension(pname, self.extension))
+        return Path(add_extension(pname, fmt))
 
     def get_save_path(
         self,
@@ -230,14 +282,18 @@ class DataSaver:
 
         return outpath.resolve()
 
-    def result_types(self, result_id: str) -> set[type[DataProcessor]]:
+    def result_types(
+        self,
+        result_id: str,
+        fmt: DataFormat | Literal[".csv", ".parquet", ".feather"] = DataFormat.parquet,
+    ) -> set[type[DataProcessor]]:
         folder = self.get_directory(result_id, mkdir=False)
 
         try:
             return {
                 self._processor_from_filename(f)
                 for f in folder.iterdir()
-                if f.suffix == self.extension
+                if f.suffix[1:] == fmt
             }
         except FileNotFoundError:
             return set()
@@ -253,13 +309,24 @@ class DataSaver:
 
         raise ValueError(f"{filename} does not correspond to a known processor.")
 
+    def save(
+        self,
+        result_id: str,
+        result: MeasurementResult | dict[str, MeasurementResult],
+        fmt: DataFormat | Literal[".csv", ".parquet", ".feather"] = DataFormat.parquet,
+        overwrite: bool = False,
+    ) -> Path:
+        if not isinstance(fmt, DataFormat):
+            fmt = DataFormat[fmt]
 
-class CSVDataSaver(DataSaver):
-    @property
-    def extension(self) -> str:
-        return ".csv"
+        return getattr(self, f"save_{fmt}")(result_id, result, overwrite)
 
-    def save_data(
+    def load(self, filename: Path) -> dict[str, MeasurementResult]:
+        fmt = DataFormat[filename.suffix[1:]]
+
+        return getattr(self, f"load_{fmt}")(filename)
+
+    def save_csv(
         self,
         result_id: str,
         result: MeasurementResult | dict[str, MeasurementResult],
@@ -282,7 +349,7 @@ class CSVDataSaver(DataSaver):
         data.to_csv(savepath)
         return savepath
 
-    def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
+    def load_csv(self, filename: Path) -> dict[str, MeasurementResult]:
         if not isinstance(filename, Path):
             filename = Path(filename)
 
@@ -316,58 +383,7 @@ class CSVDataSaver(DataSaver):
 
         return qwip.converter.structure(result, dict[str, MeasurementResult])
 
-
-def to_arrow_table(metadata: dict, data: pd.DataFrame) -> pa.Table:
-    """Converts a metadata dictionary and dataframe to an arrow table.
-
-    Args:
-        metadata: A dictionary containing the result metadata.
-        data: A pandas dataframe containing the combined result data.
-
-    Returns:
-        A pyarrow table with both the data and metadata.
-    """
-    metadata = json.dumps(metadata).encode()
-
-    has_complex = data.dtypes.apply(
-        lambda d: issubclass(d.type, (np.complexfloating, complex))
-    ).any()
-
-    if has_complex:
-        data = dataframe_complex_to_real(data, names=("I", "Q"))
-
-    table = pa.Table.from_pandas(data)
-    table = table.replace_schema_metadata(
-        table.schema.metadata | dict(qwip=metadata, complex=str(has_complex).encode())
-    )
-
-    return table
-
-
-def from_arrow_table(table: pa.Table) -> tuple[dict, pd.DataFrame]:
-    """Converts a arrow table to a QWiP metadata dictionary and pandas dataframe.
-
-    Args:
-        table: The pyarrow table.
-
-    Returns:
-        A tuple `(metadata, data)` from the pyarrow table.
-    """
-    metadata = json.loads(table.schema.metadata[b"qwip"])
-
-    data = table.to_pandas()
-    if table.schema.metadata[b"complex"] == b"True":
-        data = dataframe_real_to_complex(data)
-
-    return metadata, data
-
-
-class ParquetDataSaver(DataSaver):
-    @property
-    def extension(self) -> str:
-        return ".parquet"
-
-    def save_data(
+    def save_parquet(
         self,
         result_id: str,
         result: MeasurementResult | dict[str, MeasurementResult],
@@ -382,7 +398,7 @@ class ParquetDataSaver(DataSaver):
 
         return savepath
 
-    def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
+    def load_parquet(self, filename: Path) -> dict[str, MeasurementResult]:
         table = pq.read_table(filename)
         result, data = from_arrow_table(table)
 
@@ -391,13 +407,7 @@ class ParquetDataSaver(DataSaver):
 
         return qwip.converter.structure(result, dict[str, MeasurementResult])
 
-
-class FeatherDataSaver(DataSaver):
-    @property
-    def extension(self) -> str:
-        return ".feather"
-
-    def save_data(
+    def save_feather(
         self,
         result_id: str,
         result: MeasurementResult | dict[str, MeasurementResult],
@@ -412,7 +422,7 @@ class FeatherDataSaver(DataSaver):
 
         return savepath
 
-    def load_data(self, filename: Path) -> dict[str, MeasurementResult]:
+    def load_feather(self, filename: Path) -> dict[str, MeasurementResult]:
         table = pf.read_table(filename)
         result, data = from_arrow_table(table)
 

@@ -23,7 +23,8 @@ class Dataset(VersionControlled):
         factory=pendulum.now,
     )
     host: str
-    filename: Path = field(repr=lambda p: p.as_posix())
+    filename: Path | None = field(repr=lambda p: p.as_posix(), default=None)
+    fmt: str | None = None
     user: str | None = None
     config_db: str | None = None
     commit: str | None = None
@@ -48,6 +49,7 @@ dataset_table = DoltTable(
     Column("timestamp", PendulumDateTime),
     Column("host", sa.String(255)),
     Column("filename", FilePath(255)),
+    Column("fmt", sa.String(32)),
     Column("user", sa.String(255)),
     Column("config_db", sa.String(255)),
     Column("config_commit", sa.String(32)),

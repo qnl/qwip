@@ -1,3 +1,4 @@
+import itertools as it
 from pathlib import Path
 
 import pandas as pd
@@ -6,8 +7,8 @@ import pytest
 
 from qwip import qsettings
 from qwip.data.filesystem import (
+    DataFormat,
     DataSaver,
-    ParquetDataSaver,
     add_extension,
     camel_to_kebab,
     date,
@@ -73,6 +74,10 @@ def test_make_data_directory(tmp_path, fixed_time):
 
 
 class TestDataSaver:
+    @pytest.fixture
+    def datasaver(self, tmp_path):
+        return DataSaver(directory=tmp_path)
+
     @pytest.mark.parametrize(
         "processors",
         [
@@ -130,12 +135,6 @@ class TestDataSaver:
             pd.MultiIndex.from_tuples(((k, "IQ") for k in result), names=["key", None])
         )
 
-
-class TestParquetDataSaver:
-    @pytest.fixture
-    def datasaver(self, tmp_path):
-        return ParquetDataSaver(directory=tmp_path)
-
     def test_get_directory(self, datasaver, tmp_path):
         result_id = "result_id"
 
@@ -144,14 +143,19 @@ class TestParquetDataSaver:
 
     @pytest.mark.parametrize(
         "processor,filename",
-        [
-            (GMMClassification, "gmm-classification.parquet"),
-            (None, "raw.parquet"),
-            (StatePopulations, "state-populations.parquet"),
-        ],
+        it.chain.from_iterable(
+            (
+                [
+                    (GMMClassification, "gmm-classification", fmt),
+                    (None, "raw", fmt),
+                    (StatePopulations, "state-populations", fmt),
+                ]
+            )
+            for fmt in DataFormat
+        ),
     )
-    def get_filename(self, processor, filename, datasaver):
-        assert datasaver.get_filename(processor) == Path(filename)
+    def get_filename(self, processor, filename, fmt, datasaver):
+        assert datasaver.get_filename(processor, fmt) == Path(filename).with_suffix(fmt)
 
     @pytest.mark.parametrize(
         "filename,processor",
