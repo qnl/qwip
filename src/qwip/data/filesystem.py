@@ -310,7 +310,8 @@ class DataSaver:
 
         if outpath.exists() and not overwrite:
             raise FileExistsError(
-                f"File {outpath.resolve()} already exists. Pass `overwrite = True` to overwrite an existing file."
+                f"File {outpath.resolve()} already exists. Pass `overwrite = True` to "
+                f"overwrite an existing file."
             )
 
         return outpath.resolve()
