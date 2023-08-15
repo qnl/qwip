@@ -6,6 +6,8 @@ from loguru import logger
 from numpy.typing import NDArray
 from typing_extensions import Self
 
+import qwip
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.elements import SequenceElement
 
@@ -676,6 +678,46 @@ def sum(seq: Sequence, axis: tuple[int, ...] | int | None = None, **kwargs):
         The resulting sequence.
     """
     return seq.sum(axis, **kwargs)
+
+
+def make_sequence_structure_fn(cls):
+    def structure_fn(val, cls):
+        if isinstance(val, cls):
+            return val
+
+        shape = val["shape"]
+
+        tp = SequenceElement
+        for _ in shape:
+            tp = list[tp]
+
+        data = qwip.converter.structure(val["data"], tp)
+
+        return Sequence(data, names=val["names"], **val["labels"])
+
+    return structure_fn
+
+
+def make_sequence_unstructure_fn(cls):
+    unstructure_attrs = make_attrs_unstructure_fn(cls)
+
+    def unstructure_fn(obj):
+        return {
+            **unstructure_attrs(obj),
+            "shape": obj.shape,
+            "data": qwip.converter.unstructure(obj.tolist()),
+        }
+
+    return unstructure_fn
+
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: issubclass(cls, Sequence), make_sequence_structure_fn
+)
+
+qwip.converter.register_unstructure_hook_factory(
+    lambda cls: issubclass(cls, Sequence), make_sequence_unstructure_fn
+)
 
 
 __all__ = [
