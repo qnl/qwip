@@ -11,6 +11,76 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/defaults/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/flatdict/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/settings/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/testing/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/typing/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/utils/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/analysis/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/analysis/fitting/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/analysis/frequency/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/attrs/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/attrs/schema/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/attrs/serialization/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/attrs/validation/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/</loc>
          <lastmod>2023-08-15</lastmod>
          <changefreq>daily</changefreq>
@@ -36,12 +106,57 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/calibration/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/calibration/calibration/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/calibration/readout/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/interface/</loc>
          <lastmod>2023-08-15</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/models/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/schema/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/static/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/datastore/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/filesystem/</loc>
          <lastmod>2023-08-15</lastmod>
          <changefreq>daily</changefreq>
     </url>
@@ -76,6 +191,31 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/instruments/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/instruments/instrument_server/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/processing/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/processing/data_processor/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/processing/processors/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/protocols/</loc>
          <lastmod>2023-08-15</lastmod>
          <changefreq>daily</changefreq>
@@ -86,7 +226,72 @@
          <changefreq>daily</changefreq>
     </url>
     <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/qpu/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/qpu/qpu/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/qpu/systems/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/compilation/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/elements/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/phase_tracker/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/sequence/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/utils/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/waveform/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/visualization/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/visualization/dataframe/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/visualization/readout/</loc>
+         <lastmod>2023-08-15</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/visualization/utils/</loc>
          <lastmod>2023-08-15</lastmod>
          <changefreq>daily</changefreq>
     </url>
