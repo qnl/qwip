@@ -251,10 +251,13 @@ class OfflineDatastore(Database):
 
         return datasets
 
-    def tail(self, limit: int, **kwargs):
+    def tail(self, limit: int, **kwargs) -> list[Dataset]:
         kwargs |= dict(limit=limit)
 
         return self.search(**kwargs)
+
+    def last(self, **kwargs) -> Dataset:
+        return self.tail(1, **kwargs)[-1]
 
 
 @qdefine

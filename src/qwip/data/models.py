@@ -13,6 +13,14 @@ from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
 from qwip.database.utils import GUID, FilePath, PendulumDateTime
 
 
+def _sequence_repr(seq: dict) -> str:
+    def fmt_dim(name: str | None, dim: int):
+        return f"{dim}" + f"({name})" if name else ""
+
+    shape = " x ".join(fmt_dim(n, s) for s, n in zip(seq["shape"], seq["names"]))
+    return f"Sequence [{shape}]"
+
+
 @qdefine(slots=False)
 class Dataset(VersionControlled):
     id: UUID = field(factory=uuid7, repr=lambda uid: uid.hex)
@@ -32,7 +40,10 @@ class Dataset(VersionControlled):
     sample_id: str | None = None
     cooldown_id: str | None = None
     protocol: str | None = None
-    sequence: dict = field(factory=dict)
+    sequence: dict = field(
+        factory=dict,
+        repr=lambda seq: f"Sequence(shape={seq['shape']}, names=({seq['names']})",
+    )
     comments: str | None = None
 
 
