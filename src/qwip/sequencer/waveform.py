@@ -2,7 +2,7 @@ import itertools as it
 from collections import defaultdict
 from functools import lru_cache
 from numbers import Number
-from typing import get_args
+from typing import Any, get_args
 
 import attrs
 import numpy as np
@@ -14,7 +14,7 @@ from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
-from qwip.attrs import qdefine, qfrozen
+from qwip.attrs import qfrozen
 from qwip.attrs.serialization import _TypeConverter
 from qwip.defaults import dynamic_default
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
@@ -342,7 +342,7 @@ class CWWaveform(InfiniteWaveform):
         phase_unit: str = None,
         complex_out: bool = False,
         **kwargs,
-    ):
+    ) -> np.ndarray:
         """Single frequency waveform.
 
         A CW waveform creates a single frequency valued waveform with infinite
@@ -593,12 +593,13 @@ class DRAG(Waveform):
     def amplitude(self) -> float | str:
         self.envelope.amplitude
 
-    def evaluate_timepoints(self, ts, lmbda, **kwargs) -> np.ndarray:
+    def evaluate_timepoints(
+        self, ts: np.ndarray, lmbda: float, **kwargs: Any
+    ) -> np.ndarray:
         """Numerical DRAG pulse.
 
         Args:
             ts: Time values at which to evaluate the pulse.
-            envelope: The envelope to apply the DRAG correction to.
             lmbda: The DRAG parameter used to control the amplitude of the
                 quadrature correction.
             **kwargs: All keyword arguments are passed to the envelope function.

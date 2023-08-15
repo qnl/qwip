@@ -1,6 +1,6 @@
 import itertools as it
 from collections.abc import Collection
-from typing import Generic, TypeVar
+from typing import Any, TypeVar
 
 import attrs
 import numpy as np
@@ -158,8 +158,8 @@ class IQTraceResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "IQTraceResult",
-        labels=("element", "readout", "shot"),
-        **kwargs,
+        labels: tuple[str, ...] = ("element", "readout", "shot"),
+        **kwargs: Any,
     ) -> Self:
         """Creates data frame from trajectory data obtained from QutipBackend.
 
@@ -200,9 +200,9 @@ class IQResult(MeasurementResult):
     def from_numpy(
         cls,
         arr: np.ndarray,
-        name="IQResult",
-        labels=("element", "shot", "readout"),
-        **kwargs,
+        name: str = "IQResult",
+        labels: tuple[str, ...] = ("element", "shot", "readout"),
+        **kwargs: Any,
     ) -> Self:
         """Reorders the memory layout of the IQ data for each measurement key.
 
@@ -223,7 +223,7 @@ class IQResult(MeasurementResult):
 
         df = pd.DataFrame(arr.flatten(), index=index, columns=["IQ"])
 
-        return cls(name=name, data=df)
+        return cls(name=name, data=df, **kwargs)
 
     @classmethod
     def random(
@@ -350,9 +350,9 @@ class ClassifiedResult(MeasurementResult):
     def from_numpy(
         cls,
         arr: np.ndarray,
-        name="ClassifiedResult",
-        labels=("element", "shot", "readout"),
-        **kwargs,
+        name: str = "ClassifiedResult",
+        labels: tuple[str, ...] = ("element", "shot", "readout"),
+        **kwargs: int,
     ) -> Self:
         """Creates a `ClassifiedResult` instance from a numpy array of states.
 
@@ -404,7 +404,7 @@ class GMMClassification(DataProcessor):
     def _default_covariances(self) -> np.ndarray:
         return np.ones(self.num_states)
 
-    def get_model(self, initialize=True) -> GaussianMixture:
+    def get_model(self, initialize: bool = True) -> GaussianMixture:
         """Returns an initialized `sklearn.mixture.GaussianMixture` instance.
 
         This model can be used for classifying IQ points based on the model parameters

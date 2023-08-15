@@ -58,7 +58,7 @@ class SequenceElement:
         already contain a 'start' location.
 
         Args:
-            locations: A list of (location, pulse) pairs to add to the sequence
+            pulse_locations: A list of (location, pulse) pairs to add to the sequence
             **constraints: remaining keyword arguments will be added to the mapping
                 of constraints.
 
@@ -140,7 +140,7 @@ class SequenceElement:
 
         return self
 
-    def add_constraints(self, *, overwrite: bool = True, **kwargs) -> None:
+    def add_constraints(self, *, overwrite: bool = True, **kwargs: Location) -> None:
         """Adds constraints to the set of existing constraints.
 
         All constraints are of the form `'variable_name' = Location(...)`.
@@ -364,7 +364,7 @@ class SequenceElement:
 
         return result
 
-    def resolve_waveforms(self, **pulse_vars) -> dict[Waveform, Waveform]:
+    def resolve_waveforms(self, **pulse_vars: float | int) -> dict[Waveform, Waveform]:
         """Resolves all waveform variables into concrete values.
 
         Args:
@@ -398,7 +398,7 @@ class SequenceElement:
         sort: bool = True,
         reset_zero: str | None = "neg",
         end_marker: str | None = "end",
-        **kwargs,
+        **kwargs: Location,
     ) -> dict[Location, list[Waveform]]:
         """Resolves all locations into concrete times.
 

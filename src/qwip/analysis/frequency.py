@@ -22,9 +22,9 @@ def simple_fft(
         subtract_mean: If true, the mean of ys will be subtracted before computing
             the fft.
 
-        Returns:
-            A tuple with the sampled frequency array and the frequency domain
-            data.
+    Returns:
+        A tuple with the sampled frequency array and the frequency domain
+        data.
     """
     ys = np.asarray(ys)
     if subtract_mean:
@@ -36,7 +36,9 @@ def simple_fft(
     return fftshift(fs), fftshift(yfs, axes=axis)
 
 
-def get_frequency_phase(fs: np.ndarray, yfs: np.ndarray, sgn: int | None = 1):
+def get_frequency_phase(
+    fs: np.ndarray, yfs: np.ndarray, sgn: int | None = 1
+) -> tuple[np.ndarray, np.ndarray]:
     """Determines the largest frequency component.
 
     Args:

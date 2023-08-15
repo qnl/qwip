@@ -3,6 +3,7 @@
 All models should have guess functions implemented.
 """
 from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 from lmfit import Model, Parameters
@@ -29,7 +30,7 @@ class GuessModel(Model):
             **kwargs,
         )
 
-    def fit(self, data: np.ndarray, params: Parameters = None, **kwargs):
+    def fit(self, data: np.ndarray, params: Parameters = None, **kwargs: Any):
         """Calls `Model.fit` with initialized parameters from the guess function.
 
         Guess parameters can be overriden by explicitly specifying an initial
@@ -107,7 +108,7 @@ class FrequencyModel(GuessModel):
 
         return A * np.cos(2 * np.pi * frequency * t + phi) + B
 
-    def guess(self, data, t):
+    def guess(self, data: np.ndarray, t: np.ndarray) -> Parameters:
         """Determines initial fit parameters.
 
         The frequency is estimated via an fft.
@@ -175,7 +176,7 @@ class TriangularWaveModel(GuessModel):
             4 * A / period * np.abs((t + offset * period) % period - period / 2) - A + B
         )
 
-    def guess(self, data, t):
+    def guess(self, data: np.ndarray, t: np.ndarray) -> Parameters:
         """Determines initial fit parameters.
 
         The frequency is estimated via an fft.

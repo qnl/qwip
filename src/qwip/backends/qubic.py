@@ -1,7 +1,6 @@
 from collections import Counter, defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import attrs
 import cattrs
 import numpy as np
 import pandas as pd
@@ -492,7 +491,7 @@ class QubicBackend(QuantumBackend):
     uploaded: QubicExecutable | None = None
     result_map: dict = field(factory=dict)
 
-    def upload(self, exe: QubicExecutable, **kwargs) -> None:
+    def upload(self, exe: QubicExecutable, **kwargs: Any) -> None:
         """Loads a circuit onto the qubic board.
 
         Args:

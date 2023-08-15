@@ -25,7 +25,7 @@ def upconvert(
     pulse: np.ndarray,
     f_LO: float,
     interpolation_factor: int = 100,
-):
+) -> np.ndarray:
     """Upconverts a pulse at a given sampling rate.
 
     Since pulses are typically sampled at a much lower frequency than the final target
@@ -60,7 +60,7 @@ def upconvert(
     return drive, ts
 
 
-def get_active_channels(waveform_data: np.ndarray):
+def get_active_channels(waveform_data: np.ndarray) -> list[int]:
     """Return indices of active channels for a single sequence element.
 
     This function assumes that channels are indexed along the first dimension of the
@@ -201,13 +201,13 @@ class TimeDependentHamiltonian:
         return result
 
     @classmethod
-    def tensor(cls, H1: Self, H2: Self):
+    def tensor(cls, H1: Self, H2: Self) -> Self:
         """Return new instance of TimeDependentHamiltonian with all input hamiltonians
         expanded into the full multi-qubit Hilbert space.
 
         The resulting Hamiltonian will look like
 
-        $$H_\mathrm{joint} = \sum_n H_n \otimes I_M + \sum_m I_N \otimes H_m$$
+        $$H_\\mathrm{joint} = \\sum_n H_n \\otimes I_M + \\sum_m I_N \\otimes H_m$$
 
         where $N$ and $M$ are the dimensions of $H_1$ and $H_2$.
 
@@ -349,7 +349,7 @@ class QutipBackend(QuantumBackend):
                 case ReadoutResonator():
                     self.readouts[name] = sys
 
-    def upload(self, exe: CompiledSequence, **kwargs) -> None:
+    def upload(self, exe: CompiledSequence, **kwargs: Any) -> None:
         """Constructs the drive hamiltonians for elements of active channels
         to later be simulated.
 
@@ -360,7 +360,7 @@ class QutipBackend(QuantumBackend):
         are properly adjusted by tensor producting with the identity.
 
         Args:
-            cseq: Compiled sequence
+            exe: A compiled sequence
         """
         self.H = []  # Clear list of hamiltonians to simulate
         self.uploaded = exe

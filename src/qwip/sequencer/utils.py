@@ -4,16 +4,15 @@ import operator
 import re
 from functools import lru_cache
 from numbers import Real
-from typing import Any, ForwardRef, TypeVar, Union
+from typing import Any
 
 import attrs
-from attrs import field, resolve_types
+from attrs import field
 from typing_extensions import Self
 
 import qwip
-from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
+from qwip._cattr import make_attrs_structure_fn
 from qwip.attrs import qfrozen
-from qwip.flatdict import FlatDict
 
 
 def _type_error_text(op1, op2, operand: str) -> str:
@@ -153,7 +152,7 @@ class LinearExpression:
         return set().union(*subsets)
 
     @classmethod
-    def from_string(cls, s: str, /):
+    def from_string(cls, s: str, /) -> Self:
         """Class constructor for a string expression.
 
         This constructor takes a string and converts it to a LinearExpression

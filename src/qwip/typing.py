@@ -83,7 +83,7 @@ def generic_to_string(tp: type) -> str:
     return tp.__name__
 
 
-def replace_self_type(tp, cls):
+def replace_self_type(tp: type[Self], cls: type) -> type:
     """Replaces instances of Self type with a class ForwardRef
 
     This function recursively iterations through any arguments of the given
