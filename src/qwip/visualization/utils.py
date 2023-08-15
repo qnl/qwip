@@ -24,7 +24,7 @@ TColor = str | tuple[float, float, float] | tuple[float, float, float, float]
 ## Grid
 
 
-def find_closest_factors(n: int, /):
+def find_closest_factors(n: int, /) -> tuple[int, int]:
     """Given an integer n, finds the factors of n that are closest to sqrt(n)
 
     Args:
@@ -88,7 +88,7 @@ def make_dict_grid(
     nrows: int | None = None,
     ncols: int | None = None,
     ratio: float | None = 6.0,
-    **kwargs,
+    **kwargs: Any,
 ) -> tuple[Figure, dict]:
     """Makes a figure subplot mosaic with subplots labeled by keys.
 
@@ -125,7 +125,7 @@ def make_list_grid(
     ncols: int | None = None,
     ratio: float | None = 6.0,
     hide_unused: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> tuple[Figure, np.ndarray]:
     """Makes a figure subplot grid with at least N subplots.
 
@@ -133,7 +133,7 @@ def make_list_grid(
         N: The number of subplots requested.
         nrows: If not `None`, specifies the total number of rows.
         ncols: If not `None`, specifies the total number of columns.
-        hide_unsued: If `True`, will hide all extra subplots. The N "active" subplots
+        hide_unused: If `True`, will hide all extra subplots. The N "active" subplots
             start at the top left corner and go down the grid in row-major order.
         **kwargs: Additional keyword arguments are passed to `plt.subplots`.
 

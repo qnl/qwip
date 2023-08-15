@@ -860,7 +860,7 @@ class OfflineConfigDB(Database):
         pulse_key: str = None,
         se: SequenceElement | None = None,
         include_var: Callable[[str], bool] = lambda v: True,
-    ):
+    ) -> ConfigFolder:
         """Adds a pulse to the config database.
 
         A pulse is stored as a sequence element along with some metadata in the

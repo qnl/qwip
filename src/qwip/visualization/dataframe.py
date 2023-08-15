@@ -21,7 +21,7 @@ class DataFramePlotter:
         """Gets indices along each axis of a multiindex with two levels.
 
         Args:
-            df: A dataframe, with unique index values.
+            index: An index, Series or DataFrame, with unique index values.
             labels: A tuple of string labels specifying which index levels to plot along
                 the x and y axes. If `None`, defaults to the first two levels of the
                 multiindex.

@@ -3,14 +3,14 @@ import html
 from collections.abc import ItemsView, KeysView, Mapping, MutableMapping, ValuesView
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Generic, TypeVar, Union, get_args, get_origin
+from typing import Any, Generic, TypeVar, get_args, get_origin
 
 import attr
-import numpy as np
-from cattr.gen import make_mapping_structure_fn, make_mapping_unstructure_fn
+from cattr.gen import make_mapping_structure_fn
+from typing_extensions import Self
 
 import qwip
-from qwip.typing import is_annotated_type, is_generic_type, is_optional_type, issubtype
+from qwip.typing import is_annotated_type, is_generic_type, is_optional_type
 
 KT = TypeVar("KT", bound=str)
 VT = TypeVar("VT")
@@ -263,7 +263,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
     def __repr__(self):
         return "{" + ", ".join([f"{repr(k)}: {repr(v)}" for k, v in self.items()]) + "}"
 
-    def flatkeys(self, levels=None):
+    def flatkeys(self, levels=None) -> FlatKeysView:
         """Returns a `View` of flattened keys.
 
         Nested `FlatMappings` are flattened and keys joined with a `'.'`.
@@ -274,7 +274,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         """
         return FlatKeysView(self, levels=levels)
 
-    def flatvalues(self, levels=None):
+    def flatvalues(self, levels=None) -> FlatValuesView:
         """Returns a `View` of flattened values.
 
         All `FlatMapping` objects contained within this object are iterated over
@@ -285,7 +285,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         """
         return FlatValuesView(self, levels=levels)
 
-    def flatitems(self, levels=None):
+    def flatitems(self, levels=None) -> FlatItemsView:
         """Returns a `View` of flattened items.
 
         Nested `FlatMappings` are flattened and keys joined with a `'.'`.
@@ -296,7 +296,7 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
         """
         return FlatItemsView(self, levels=levels)
 
-    def copy(self):
+    def copy(self) -> Self:
         """Returns a deep copy of the `FlatMapping` object
 
         Returns:
@@ -330,10 +330,10 @@ class FlatMapping(MutableMapping, Generic[KT, VT]):
 
         return subset
 
-    def strip(self, key):
+    def strip(self, key) -> str:
         return key.strip(self._delim)
 
-    def split(self, key):
+    def split(self, key) -> str:
         return key.split(self._delim)
 
     def rsplit(self, key, maxsplit=-1):

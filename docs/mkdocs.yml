@@ -117,21 +117,33 @@ nav:
           - qwip.attrs.schema: api/qwip/attrs/schema.md
           - qwip.attrs.serialization: api/qwip/attrs/serialization.md
           - qwip.attrs.validation: api/qwip/attrs/validation.md
+      - qwip.backends:
+          - qwip.backends: api/qwip/backends/index.md
+          - qwip.backends.backend: api/qwip/backends/backend.md
+          - qwip.backends.qtrl: api/qwip/backends/qtrl.md
+          - qwip.backends.qubic: api/qwip/backends/qubic.md
+          - qwip.backends.qutip: api/qwip/backends/qutip.md
       - qwip.calibration:
           - qwip.calibration: api/qwip/calibration/index.md
           - qwip.calibration.calibration: api/qwip/calibration/calibration.md
           - qwip.calibration.readout: api/qwip/calibration/readout.md
       - qwip.config:
           - qwip.config: api/qwip/config/index.md
-          - qwip.config.database: api/qwip/config/database.md
-          - qwip.config.dolt: api/qwip/config/dolt.md
-          - qwip.config.metadata: api/qwip/config/metadata.md
+          - qwip.config.interface: api/qwip/config/interface.md
           - qwip.config.models: api/qwip/config/models.md
           - qwip.config.schema: api/qwip/config/schema.md
           - qwip.config.static: api/qwip/config/static.md
       - qwip.data:
           - qwip.data: api/qwip/data/index.md
+          - qwip.data.datastore: api/qwip/data/datastore.md
           - qwip.data.filesystem: api/qwip/data/filesystem.md
+          - qwip.data.models: api/qwip/data/models.md
+      - qwip.database:
+          - qwip.database: api/qwip/database/index.md
+          - qwip.database.database: api/qwip/database/database.md
+          - qwip.database.dolt: api/qwip/database/dolt.md
+          - qwip.database.metadata: api/qwip/database/metadata.md
+          - qwip.database.utils: api/qwip/database/utils.md
       - qwip.instruments:
           - qwip.instruments: api/qwip/instruments/index.md
           - qwip.instruments.instrument_server: api/qwip/instruments/instrument_server.md
@@ -139,9 +151,11 @@ nav:
           - qwip.processing: api/qwip/processing/index.md
           - qwip.processing.data_processor: api/qwip/processing/data_processor.md
           - qwip.processing.processors: api/qwip/processing/processors.md
+      - qwip.protocols:
+          - qwip.protocols: api/qwip/protocols/index.md
+          - qwip.protocols.protocol: api/qwip/protocols/protocol.md
       - qwip.qpu:
           - qwip.qpu: api/qwip/qpu/index.md
-          - qwip.qpu.backend: api/qwip/qpu/backend.md
           - qwip.qpu.qpu: api/qwip/qpu/qpu.md
           - qwip.qpu.systems: api/qwip/qpu/systems.md
       - qwip.sequencer:
@@ -154,6 +168,7 @@ nav:
           - qwip.sequencer.waveform: api/qwip/sequencer/waveform.md
       - qwip.visualization:
           - qwip.visualization: api/qwip/visualization/index.md
+          - qwip.visualization.dataframe: api/qwip/visualization/dataframe.md
           - qwip.visualization.readout: api/qwip/visualization/readout.md
           - qwip.visualization.utils: api/qwip/visualization/utils.md
   - Changelog: CHANGELOG.md
