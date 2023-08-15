@@ -41,7 +41,7 @@ def build_api_pages(src_dir: Path, docs_dir: Path) -> dict:
 
         directory[package][module] = str(("api" / doc_path).as_posix())
 
-    nav = list()
+    nav = ["api/qwip/index.md"]
 
     for package, modules in directory.items():
         nav.append({package: [{name: file} for name, file in modules.items()]})

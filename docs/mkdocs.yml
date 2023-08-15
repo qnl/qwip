@@ -100,6 +100,7 @@ nav:
           - developer-guide/guidelines/documentation.md
       - developer-guide/attrs.md
   - API Reference:
+      - api/qwip/index.md
       - qwip:
           - qwip: api/qwip/index.md
           - qwip.defaults: api/qwip/defaults.md
