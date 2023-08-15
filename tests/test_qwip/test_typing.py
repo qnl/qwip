@@ -6,7 +6,10 @@ import pytest
 from numpy.typing import NDArray
 from typing_extensions import Self
 
+from qwip import FlatDict
+from qwip.processing.processors import Labeled, StatePopulations
 from qwip.typing import (
+    generic_to_string,
     is_annotated_type,
     is_callable_type,
     is_generic_type,
@@ -285,6 +288,20 @@ def test_ndarray(tp, expect):
 )
 def test_callable(tp, expect):
     assert is_callable_type(tp) == expect
+
+
+@pytest.mark.parametrize(
+    "tp,expected",
+    [
+        (str, "str"),
+        (list[str], "list[str]"),
+        (tuple[bool, int, str], "tuple[bool, int, str]"),
+        (FlatDict[str, int], "FlatDict[str, int]"),
+        (Labeled[StatePopulations], "Labeled[StatePopulations]"),
+    ],
+)
+def test_generic_to_string(tp, expected):
+    assert generic_to_string(tp) == expected
 
 
 TypeA = ForwardRef("A", module=__name__, is_class=True)

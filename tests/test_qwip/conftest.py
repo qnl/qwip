@@ -3,8 +3,10 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pendulum
 import pytest
 from loguru import logger
+from numpy.random import default_rng
 from sqlalchemy.engine import make_url
 
 try:
@@ -14,16 +16,18 @@ try:
 except ModuleNotFoundError:
     ...
 
-from qwip.config.database import ConfigDB, Database, DoltDB, OfflineConfigDB
-from qwip.config.metadata import QWIP_DB_METADATA
+from qwip.config.interface import ConfigDB, OfflineConfigDB
 from qwip.config.schema import ConfigSchema
+from qwip.data.models import *
+from qwip.database.database import Database, DoltDB
+from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.qpu.qpu import QPU
 
 
 def ignore_config_commit(record: dict) -> bool:
     """Ignores warning messages from database config not matching current commit."""
     should_log = not (
-        record["module"] == "database" and record["function"] == "init_config"
+        record["module"] == "interface" and record["function"] == "init_config"
     )
     return should_log
 
@@ -47,6 +51,18 @@ def db_url(request):
 @pytest.fixture(scope="session")
 def seed(request):
     return int(request.config.getoption("--seed"))
+
+
+@pytest.fixture
+def rng(seed):
+    return default_rng(seed)
+
+
+@pytest.fixture
+def fixed_time():
+    now = pendulum.datetime(2015, 3, 14, 9, 26, 53, tz="America/Los_Angeles")
+    with pendulum.test(now):
+        yield now
 
 
 @pytest.fixture

@@ -1,87 +1,18 @@
-import attrs
 import pendulum
 import sqlalchemy as sa
 from attrs import field
-from sqlalchemy import Column, ForeignKey, Table, UniqueConstraint, func
-from sqlalchemy.ext.compiler import compiles
+from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from sqlalchemy.sql.expression import FunctionElement
-from sqlalchemy.types import DateTime
 from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine
-from qwip.config.dolt import DoltTable
-from qwip.config.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
+from qwip.database.database import VersionControlled
+from qwip.database.dolt import DoltTable
+from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
+from qwip.database.utils import JSONTypes, PendulumDateTime, utc_timestamp
 from qwip.sequencer.waveform import REGISTERED_WAVEFORMS
-
-JSONTypes = dict | list | bool | float | int | str | None
-
-
-class utc_timestamp(FunctionElement):
-    """Gets the current timestamp in UTC.
-
-    Based on SQLAlchemy documentation [example](https://docs.sqlalchemy.org/en/20/core/compiler.html#utc-timestamp-function).
-    """
-
-    type = DateTime()
-    inherit_cache = True
-
-
-@compiles(utc_timestamp, "mysql")
-def mysql_utc_timestamp(element, compiler, **kwargs):
-    return "UTC_TIMESTAMP()"
-
-
-@compiles(utc_timestamp, "sqlite")
-def sqlite_utc_timestamp(element, compiler, **kwargs):
-    return "DATETIME('now')"
-
-
-@qdefine(slots=False)
-class VersionControlled:
-    @property
-    def table(self) -> Table:
-        return self.__table__
-
-    def history(self, connection) -> list[str, Self]:
-        table = self.table
-        history_cols = table._dolt_history.columns
-
-        cond = sa.and_(
-            *(
-                getattr(history_cols, col.name) == getattr(self, col.name)
-                for col in table.primary_key.columns
-            )
-        )
-
-        mapper = self.__mapper__
-
-        aliases = dict()
-        for f in attrs.fields(type(self)):
-            columns = getattr(mapper.get_property(f.name), "columns", None)
-            if columns and f.init:
-                aliases[f.name] = columns[0].name
-
-        # Everything before here can maybe be cached in the future.
-
-        stmt = sa.select(table._dolt_history).where(cond)
-        results = connection.execute(stmt)
-
-        obj_results = []
-        for row in results:
-            obj = type(self)(
-                **{
-                    attribute: row._mapping.get(column)
-                    for attribute, column in aliases.items()
-                }
-            )
-            commit_hash = row._mapping.get("commit_hash")
-
-            obj_results.append((commit_hash, obj))
-
-        return obj_results
 
 
 @qdefine(slots=False)
@@ -153,7 +84,7 @@ parameter_table = DoltTable(
     ),
     Column(
         "last_modified",
-        sa.DateTime,
+        PendulumDateTime,
         default=utc_timestamp(),
         onupdate=utc_timestamp(),
     ),
@@ -442,9 +373,16 @@ QWIP_DB_REGISTRY.map_imperatively(
     ),
 )
 
-user_tables = list(QWIP_DB_METADATA.tables.values())
+config_tables = [
+    folder_table,
+    parameter_table,
+    waveform_table,
+    waveform_location_table,
+    constraint_table,
+    sequence_element_table,
+]
 
-for table in user_tables:
+for table in config_tables:
     if isinstance(table, DoltTable):
         table.create_system_tables()
 

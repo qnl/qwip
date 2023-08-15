@@ -1,7 +1,9 @@
 import datetime as dt
+import re
 from collections.abc import Mapping
 from numbers import Number
 from pathlib import Path
+from pydoc import locate
 from typing import Any, ForwardRef, TypeVar, get_args, get_origin
 
 import attrs
@@ -30,6 +32,51 @@ converter.register_structure_hook(
 converter.register_structure_hook(
     str, lambda v, cls: str(v) if isinstance(v, (int, float, bool)) else v
 )
+
+# ========== classes ========== #
+
+CLS_REGEX = re.compile(r"(?P<cls>[^\[]*)(\[(?P<args>.*)\])")
+ARGS_REGEX = re.compile(r",\s*(?![^\[\]]*\])")
+
+
+def cls_to_string(cls):
+    """Returns the fully qualified name for a class."""
+    if get_args(cls):
+        return str(cls)
+
+    match cls.__module__:
+        case "builtins":
+            return cls.__name__
+        case None:
+            return cls.__name__
+        case module:
+            return ".".join((module, cls.__name__))
+
+
+def locate_cls(cls_name):
+    """Locates the class given a fully qualified name."""
+    match = CLS_REGEX.match(cls_name)
+
+    if match:
+        cls_name, arg_names = match["cls"], match["args"]
+    else:
+        arg_names = None
+
+    cls = locate(cls_name)
+    if cls is None:
+        raise NameError(f"name '{cls_name}' is not defined.")
+
+    if arg_names is None:
+        return cls
+
+    args = converter.structure(ARGS_REGEX.split(arg_names), tuple[type, ...])
+
+    return cls[args]
+
+
+converter.register_unstructure_hook(type, lambda v: cls_to_string(v))
+
+converter.register_structure_hook(type, lambda v, cls: locate_cls(v))
 
 # ========== ForwardRef ========== #
 
