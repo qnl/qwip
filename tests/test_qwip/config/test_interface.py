@@ -165,5 +165,6 @@ class TestConfigSchema:
             "version",
             "qwip_commit",
             "sample_id",
+            "cooldown_id",
             "targets",
         ]
