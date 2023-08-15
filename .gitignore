@@ -46,6 +46,7 @@ cover/
 
 # mkdocs documentation
 docs/site
+docs/pages/api/
 
 # VSCode
 .vscode
