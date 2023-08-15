@@ -1,7 +1,7 @@
 import itertools as it
 from collections.abc import Callable
 from functools import reduce
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import qutip as qt

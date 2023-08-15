@@ -3,10 +3,11 @@ import html
 from collections.abc import ItemsView, KeysView, Mapping, MutableMapping, ValuesView
 from contextlib import contextmanager
 from copy import deepcopy
-from typing import Any, Generic, Self, TypeVar, get_args, get_origin
+from typing import Any, Generic, TypeVar, get_args, get_origin
 
 import attr
 from cattr.gen import make_mapping_structure_fn
+from typing_extensions import Self
 
 import qwip
 from qwip.typing import is_annotated_type, is_generic_type, is_optional_type
