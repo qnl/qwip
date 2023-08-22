@@ -14,11 +14,10 @@ from qwip.database.utils import GUID, FilePath, PendulumDateTime
 
 
 def _sequence_repr(seq: dict) -> str:
-    def fmt_dim(name: str | None, dim: int):
-        return f"{dim}" + f"({name})" if name else ""
-
-    shape = " x ".join(fmt_dim(n, s) for s, n in zip(seq["shape"], seq["names"]))
-    return f"Sequence [{shape}]"
+    try:
+        return f"Sequence(shape={seq['shape']}, names=({seq['names']})"
+    except KeyError:
+        return repr(seq)
 
 
 @qdefine(slots=False)
@@ -42,7 +41,7 @@ class Dataset(VersionControlled):
     protocol: str | None = None
     sequence: dict = field(
         factory=dict,
-        repr=lambda seq: f"Sequence(shape={seq['shape']}, names=({seq['names']})",
+        repr=_sequence_repr,
     )
     comments: str | None = None
 
