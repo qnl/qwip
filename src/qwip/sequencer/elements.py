@@ -398,6 +398,7 @@ class SequenceElement:
         sort: bool = True,
         reset_zero: str | None = "neg",
         end_marker: str | None = "end",
+        markers: dict | None = None,
         **kwargs: Location,
     ) -> dict[Location, list[Waveform]]:
         """Resolves all locations into concrete times.
@@ -440,6 +441,9 @@ class SequenceElement:
             locations[t_max] = locations.get(t_max, [])
             locations[t_max] += [Marker(name=end_marker)]
 
+            if markers is not None:
+                markers[end_marker] = t_max
+
         if sort:
             locations = dict(sorted(locations.items(), key=lambda l: l[0]))
 
@@ -450,7 +454,11 @@ class SequenceElement:
             or (reset_zero == "both")
         )
         if should_reset:
-            locations = {l - t0: w for l, w in locations.items()}
+            locations = {loc - t0: w for loc, w in locations.items()}
+
+            if markers is not None:
+                for k in markers:
+                    markers[k] = markers[k] - t0
 
         return locations
 

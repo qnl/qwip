@@ -161,7 +161,7 @@ class TestSequenceElement:
             assert all(np.allclose(result[k], expect[k]) for k in result.keys())
 
     def test_resolve_locations_negative(self):
-        se = SequenceElement().fromtuples(
+        se = SequenceElement.fromtuples(
             [(-20e-9, SquareWaveform(width=30e-9)), (0, GaussianWaveform(width=20e-9))]
         )
 
@@ -170,7 +170,7 @@ class TestSequenceElement:
         assert list(locations.keys()) == [Location(0), Location(20e-9), Location(40e-9)]
 
     def test_resolve_locations_infinite(self):
-        se = SequenceElement().fromtuples(
+        se = SequenceElement.fromtuples(
             [
                 (-10e-9, DCWaveform()),
                 (0, GaussianWaveform(width=20e-9)),
@@ -181,6 +181,21 @@ class TestSequenceElement:
         locations = se.resolve_locations()
 
         assert list(locations.keys()) == [Location(t) for t in (0, 10e-9, 20e-9, 50e-9)]
+
+    @pytest.mark.parametrize(
+        "locs,end",
+        [
+            ([(10e-9, GaussianWaveform(width=20e-9))], Location(30e-9)),
+            ([(-10e-9, GaussianWaveform(width=20e-9))], Location(20e-9))
+        ]
+    )
+    def test_resolve_locations_marker(self, locs, end):
+        se = SequenceElement.fromtuples(locs)
+
+        markers = {}
+        se.resolve_locations(markers=markers)
+
+        assert markers["end"].almost_equal(end)
 
     def test_rename_variables(self):
         se = SequenceElement().fromtuples(
