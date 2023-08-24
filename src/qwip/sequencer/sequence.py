@@ -1,11 +1,14 @@
 import itertools as it
 from collections.abc import Sequence as TSequence
+from typing import Any
 
 import numpy as np
 from loguru import logger
 from numpy.typing import NDArray
 from typing_extensions import Self
 
+import qwip
+from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.elements import SequenceElement
 
@@ -234,7 +237,7 @@ class Sequence(np.ndarray):
         return SEQUENCE_FUNCTIONS[func](*args, **kwargs)
 
     @property
-    def T(self):
+    def T(self) -> Self:
         """Returns the transpose of a sequence.
 
         This is necessary to ensure that seq.T.names has the correct
@@ -245,7 +248,7 @@ class Sequence(np.ndarray):
         """
         return self.transpose()
 
-    def transpose(self, *axes):
+    def transpose(self, *axes: int) -> Self:
         """Reverses or permutes axis of the sequence.
 
         Args:
@@ -509,7 +512,9 @@ def array2string(a, **kwargs):
 
 
 @sequence_implements(np.concatenate)
-def concatenate(sequences: TSequence[Sequence], axis=0, **kwargs):
+def concatenate(
+    sequences: TSequence[Sequence], axis: int = 0, **kwargs: Any
+) -> Sequence:
     """Concatenates sequences along the specified axis.
 
     Args:
@@ -571,15 +576,15 @@ def concatenate(sequences: TSequence[Sequence], axis=0, **kwargs):
 @sequence_implements(np.stack)
 def stack(
     seqs: Sequence,
-    axis=0,
+    axis: int = 0,
     name: str | None = None,
     label: np.ndarray | None = None,
     **kwargs,
-):
+) -> Sequence:
     """Joins sequences along a new axis.
 
     Args:
-        sequences: An iterable of sequences to concatenate.
+        seqs: An iterable of sequences to concatenate.
         axis: Specifies the new axis in the stacked sequences.
         name: A name for the new axis.
         label: Labels for the new axis. Must match the number of sequences.
@@ -602,7 +607,7 @@ def stack(
 
     if label is not None:
         if name is None:
-            raise ValueError(f"Cannot add a label for an axis with no name.")
+            raise ValueError("Cannot add a label for an axis with no name.")
 
         if label.shape[0] != seq.shape[axis]:
             raise ValueError(
@@ -622,7 +627,7 @@ def stack(
 
 
 @sequence_implements(np.reshape)
-def reshape(seq: Sequence, shape, **kwargs):
+def reshape(seq: Sequence, shape: tuple[int, ...], **kwargs: Any) -> Self:
     """Reshapes the sequence.
 
     Reshaping a sequence creates a view of the sequence but does not
@@ -643,8 +648,8 @@ def reshape(seq: Sequence, shape, **kwargs):
 @sequence_implements(np.transpose)
 def transpose(
     seq: Sequence,
-    axes=None,
-):
+    axes: tuple[int, ...] | None = None,
+) -> Sequence:
     """Reverses or permutes axis of a sequence.
 
     Args:
@@ -664,7 +669,7 @@ def add(seq1: Sequence, seq2: Sequence, /, **kwargs):
 
 
 @sequence_implements(np.sum)
-def sum(seq: Sequence, axis: tuple[int, ...] | int | None = None, **kwargs):
+def sum(seq: Sequence, axis: tuple[int, ...] | int | None = None, **kwargs) -> Sequence:
     """Sum of sequence elements over a specified axis.
 
     Args:
@@ -676,6 +681,46 @@ def sum(seq: Sequence, axis: tuple[int, ...] | int | None = None, **kwargs):
         The resulting sequence.
     """
     return seq.sum(axis, **kwargs)
+
+
+def make_sequence_structure_fn(cls):
+    def structure_fn(val, cls):
+        if isinstance(val, cls):
+            return val
+
+        shape = val["shape"]
+
+        tp = SequenceElement
+        for _ in shape:
+            tp = list[tp]
+
+        data = qwip.converter.structure(val["data"], tp)
+
+        return Sequence(data, names=val["names"], **val["labels"])
+
+    return structure_fn
+
+
+def make_sequence_unstructure_fn(cls):
+    unstructure_attrs = make_attrs_unstructure_fn(cls)
+
+    def unstructure_fn(obj):
+        return {
+            **unstructure_attrs(obj),
+            "shape": obj.shape,
+            "data": qwip.converter.unstructure(obj.tolist()),
+        }
+
+    return unstructure_fn
+
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: issubclass(cls, Sequence), make_sequence_structure_fn
+)
+
+qwip.converter.register_unstructure_hook_factory(
+    lambda cls: issubclass(cls, Sequence), make_sequence_unstructure_fn
+)
 
 
 __all__ = [

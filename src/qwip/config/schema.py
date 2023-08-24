@@ -4,7 +4,7 @@ import numpy as np
 from attrs import field
 
 import qwip
-from qwip.config.database import ConfigFolder, ValidatedConfigFolder, configschema
+from qwip.config.interface import ConfigFolder, ValidatedConfigFolder, configschema
 
 Target = TypeVar("Target", bound=str)
 
@@ -131,6 +131,7 @@ class ConfigSchema(ValidatedConfigFolder):
     version: str = qwip.qsettings["version"]
     qwip_commit: str | None = qwip.qsettings["src/commit"]
     sample_id: str
+    cooldown_id: str
     targets: tuple[Target, ...] = field(factory=tuple)
 
     hardware: HardwareSchema

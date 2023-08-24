@@ -1,7 +1,6 @@
 from collections import Counter, defaultdict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import attrs
 import cattrs
 import numpy as np
 import pandas as pd
@@ -492,7 +491,7 @@ class QubicBackend(QuantumBackend):
     uploaded: QubicExecutable | None = None
     result_map: dict = field(factory=dict)
 
-    def upload(self, exe: QubicExecutable, **kwargs) -> None:
+    def upload(self, exe: QubicExecutable, **kwargs: Any) -> None:
         """Loads a circuit onto the qubic board.
 
         Args:
@@ -545,6 +544,7 @@ class QubicBackend(QuantumBackend):
 
             columns = pd.RangeIndex(repetitions, name="shot")
             df = pd.DataFrame(data.T, index=index, columns=columns)
+            df = df.stack().to_frame("IQ").swaplevel("readout", "shot")
 
             name = self.result_map.get(k, k)
             iq_results[name] = IQResult(name=name, data=df)

@@ -1,6 +1,7 @@
 import functools
 import re
 import time
+from enum import Enum
 
 import sqlalchemy as sa
 import typer
@@ -9,11 +10,17 @@ from rich.console import Text
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
-from qwip.config.database import DoltDB
-from qwip.config.metadata import QWIP_DB_METADATA
-from qwip.config.models import *
+from qwip.config.models import config_tables
+from qwip.data.models import datastore_tables
+from qwip.database.database import DoltDB
+from qwip.database.metadata import QWIP_DB_METADATA
 
 app = typer.Typer(no_args_is_help=True)
+
+
+class DBType(str, Enum):
+    config = "config"
+    datastore = "datastore"
 
 
 def add_progress(
@@ -68,29 +75,32 @@ def create_database(db: DoltDB, name: str):
 
 
 @add_progress(description="Adding tables to database...", sleep=1)
-def create_tables(db: DoltDB, database: str):
+def create_tables(db: DoltDB, database: str, db_type: DBType):
     table = Table(title=database)
     table.add_column("Table")
     table.add_column("Columns")
 
-    user_tables = {
-        k: t for k, t in QWIP_DB_METADATA.tables.items() if not k.startswith("dolt")
-    }
+    match db_type:
+        case DBType.config:
+            tables = config_tables
+        case DBType.datastore:
+            tables = datastore_tables
 
-    QWIP_DB_METADATA.create_all(db.engine, tables=user_tables.values())
+    to_add = {t.name: t for t in tables}
+    QWIP_DB_METADATA.create_all(db.engine, tables=to_add.values())
 
     with db.session.begin():
         in_db = db.session.scalars(sa.text("SHOW TABLES")).all()
 
-    if missing := set(user_tables) - set(in_db):
+    if missing := set(to_add) - set(in_db):
         for name in missing:
-            table.add_row(name, str(len(user_tables[name].columns)))
+            table.add_row(name, str(len(to_add[name].columns)))
 
         print("ERROR: Missing tables!")
         print(table)
         raise typer.Exit()
 
-    for db_table in user_tables.values():
+    for db_table in to_add.values():
         table.add_row(db_table.name, str(len(db_table.columns)))
 
     print("Successfully created tables!")
@@ -127,6 +137,7 @@ def get_databases(db: DoltDB):
 @app.command()
 def create(
     ctx: typer.Context,
+    db_type: DBType = DBType.config,
     hostname: str = typer.Option(..., prompt=True),
     username: str = typer.Option(..., prompt=True),
     password: str = typer.Option(..., prompt=True, hide_input=True),
@@ -157,7 +168,7 @@ def create(
     )
     db.connect()
 
-    create_tables(db, database)
+    create_tables(db, database, db_type)
 
 
 @app.command()

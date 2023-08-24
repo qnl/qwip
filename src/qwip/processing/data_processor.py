@@ -1,14 +1,17 @@
 import functools
 import inspect
 import itertools as it
+from collections import defaultdict
 from collections.abc import Collection
 from typing import Any, GenericAlias, TypeVar, get_args, get_origin
 
 import numpy as np
 import pandas as pd
+import pendulum
 import rustworkx as rx
 from attrs import cmp_using, field
 from loguru import logger
+from pendulum import DateTime
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -32,12 +35,21 @@ class DataProcessor:
 
     def __call__(self, meas: "MeasurementResult", /, **kwargs) -> "MeasurementResult":
         result = self.run(meas, **kwargs)
+        match meas:
+            case MeasurementResult(timestamp=timestamp):
+                ...
+            case Collection():
+                timestamp = min(m.timestamp for m in meas)
+
         match result:
             case Collection():
                 for res in result:
                     res.processors = (*res.processors, self)
+                    res.timestamp = timestamp
             case _:
                 result.processors = (*result.processors, self)
+                result.timestamp = timestamp
+
         return result
 
     def run(self, meas: "MeasurementResult", /, **kwargs) -> "MeasurementResult":
@@ -78,6 +90,7 @@ class MeasurementResult:
         repr=_dataframe_repr,
         metadata=dict(serialize=False),
     )
+    timestamp: DateTime = field(factory=pendulum.now, repr=lambda t: t.isoformat())
     processors: tuple[DataProcessor, ...] = field(factory=tuple)
 
     def __get__(self, key: str) -> Any:
@@ -98,6 +111,26 @@ class MeasurementResult:
         dataframe = pd.DataFrame(self.data)._repr_html_()
 
         return "\n".join([description, dataframe])
+
+    def final_processor(self) -> type[DataProcessor]:
+        """Returns the final processor that acted on the result."""
+
+        def get_last_processor(
+            processors: tuple[DataProcessor, ...]
+        ) -> type[DataProcessor] | None:
+            """Recursive lookup of last processor, accounting for generics."""
+            try:
+                fp = processors[-1]
+                if isinstance(fp, GenericDataProcessor):
+                    np = get_last_processor(processors[:-1])
+                    return type(fp) if np is None else type(fp)[np]
+                else:
+                    return type(fp)
+
+            except IndexError:
+                return None
+
+        return get_last_processor(self.processors)
 
 
 @qdefine
@@ -811,6 +844,15 @@ class ReadoutPipeline:
         }
 
         return results
+
+    def grouped_data(self) -> list[dict[str, MeasurementResult]]:
+        """Returns a list of all results, grouped by final processor."""
+        results = defaultdict(dict)
+
+        for (key, proc), result in self.dependency_cache.items():
+            results[proc][key] = result
+
+        return list(results.values())
 
 
 # ========== Data Processor converters ========== #

@@ -13,8 +13,9 @@ from loguru import logger
 import qwip
 from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
-from qwip.config.database import ConfigFolder, OfflineConfigDB, SequenceElementFolder
+from qwip.config.interface import ConfigFolder, OfflineConfigDB, SequenceElementFolder
 from qwip.config.schema import Target
+from qwip.data.datastore import OfflineDatastore
 from qwip.processing.data_processor import (
     DATA_PROCESSORS,
     DataProcessor,
@@ -68,6 +69,9 @@ class QPU:
     sequencer: WaveformSequencer
     pipeline: ReadoutPipeline
     backend: QuantumBackend | None = None
+    datastore: OfflineDatastore | None = field(
+        repr=lambda db: db.database, default=None
+    )
 
     @property
     def config(self) -> ConfigFolder:
@@ -278,6 +282,7 @@ class QPU:
         readout: dict | SequenceElement = {},
         compilation: dict = {},
         backend: dict = {},
+        data: dict = {},
     ) -> dict[str, MeasurementResult]:
         """Uploads a sequence and acquires data from a backend.
 
@@ -323,9 +328,20 @@ class QPU:
 
         if exe:
             self.backend.upload(exe)
-        raw_data = self.backend.acquire(exe, repetitions=repetitions, **backend)
 
+        seq = exe.seq if exe else None
+        raw_data = self.backend.acquire(exe, repetitions=repetitions, **backend)
+        processed = self.process_results(raw_data, processor, seq=seq)
+
+        if self.datastore:
+            data = dict(config_db=self.db, seq=seq) | data
+            self.datastore.save(self.pipeline.grouped_data(), **data)
+
+<<<<<<< HEAD
         return self.process_results(raw_data, processor, seq=exe.seq if exe else None)
+=======
+        return processed
+>>>>>>> main
 
     def process_results(
         self,

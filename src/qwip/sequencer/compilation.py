@@ -1,8 +1,6 @@
 from abc import ABCMeta
-from collections import defaultdict
 from collections.abc import Collection, Iterable
-from collections.abc import Sequence as TSequence
-from typing import Protocol, runtime_checkable
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,7 +14,6 @@ from scipy.fft import fft, fftfreq, fftshift
 from typing_extensions import Self
 
 from qwip.attrs import qdefine, qfrozen
-from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
@@ -438,7 +435,7 @@ class WaveformSequencer:
 
     @classmethod
     def from_channel_groups(
-        cls, channel_groups: Iterable[ChannelGroup], **kwargs
+        cls, channel_groups: Iterable[ChannelGroup], **kwargs: Any
     ) -> Self:
         """Contruct the waveform sequencer from a list of `ChannelGroup`.
 

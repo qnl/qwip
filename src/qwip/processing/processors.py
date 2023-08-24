@@ -1,11 +1,12 @@
 import itertools as it
 from collections.abc import Collection
-from typing import Generic, TypeVar
+from typing import Any, TypeVar
 
 import attrs
 import numpy as np
 import pandas as pd
 from attrs import cmp_using, field
+from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
 from typing_extensions import Self
@@ -21,6 +22,128 @@ from qwip.sequencer import Sequence
 
 M = TypeVar("M", bound=MeasurementResult)
 
+RESULT_RNG = default_rng()
+
+
+def array_complex_to_real(arr: np.ndarray) -> np.ndarray:
+    """Converts a complex-valued array to a real-valued array.
+
+    The numpy array is view casted to a real array where the last axis contains the
+    real and imaginary components. If the original array is C-contiguous in memory, no
+    copy is performed.
+
+    Args:
+        arr: The array to convert.
+
+    Returns:
+        A real-valued array with the real and imaginary components.
+    """
+    shape = arr.shape
+
+    match arr.dtype:
+        case np.complex128:
+            cast = np.float64
+        case np.complex64:
+            cast = np.float32
+        case dtype:
+            raise TypeError(f"Array should be complex type, got {dtype}.")
+
+    return np.ascontiguousarray(arr).view(cast).reshape(*shape, 2)
+
+
+def array_real_to_complex(arr: np.ndarray) -> np.ndarray:
+    """Converts a real-valued array to a complex-valued array.
+
+    The numpy array is view casted to a complex-valued array. If the original array is
+    C-contiguous in memory, no copy is performed.
+
+    Args:
+        arr: The array to convert.
+
+    Returns:
+        A complex-valued array.
+    """
+    match arr.dtype:
+        case np.float64:
+            cast = np.complex128
+        case np.float32:
+            cast = np.complex64
+        case dtype:
+            raise TypeError(f"Array should be float type, got {dtype}.")
+
+    return np.ascontiguousarray(arr).view(cast)
+
+
+def dataframe_complex_to_real(
+    data: pd.DataFrame, names: tuple[str, str] = ("real", "imag")
+) -> pd.DataFrame:
+    """Splits complex columns into real and imaginary columns.
+
+    The dataframe must consist of only complex columns.
+
+    Args:
+        data: The dataframe to convert.
+        names: The column names for the real and complex components.
+
+    Returns:
+        A new dataframe with complex columns replaced by a real and imaginary column.
+
+    Raises:
+        ValueError: If the dataframe columns are not compatible.
+    """
+
+    dtypes = data.dtypes.unique()
+    if len(dtypes) > 1 or not issubclass(dtypes[0].type, (complex, np.complexfloating)):
+        raise ValueError(
+            f"Cannot convert dataframe with non-complex columns. Got {data.dtypes}"
+        )
+
+    columns = []
+    for levels in data.columns:
+        if data.columns.nlevels == 1:
+            levels = (levels,)
+        columns.append((*levels, names[0]))
+        columns.append((*levels, names[1]))
+
+    columns = pd.MultiIndex.from_tuples(columns, name=[*data.columns.names, "complex"])
+    return pd.DataFrame(
+        array_complex_to_real(data.values).reshape(data.values.shape[0], -1),
+        index=data.index,
+        columns=columns,
+    )
+
+
+def dataframe_real_to_complex(
+    data: pd.DataFrame,
+) -> pd.DataFrame:
+    """Combines a dataframe with real and imaginary columns into complex columns.
+
+    The dataframe must consist of only float columns.
+
+    Args:
+        data: The dataframe to convert.
+
+    Returns:
+        A new dataframe with real and imaginary columns replaced by a single complex
+        column.
+
+    Raises:
+        ValueError: If the dataframe columns are not compatible.
+    """
+
+    dtypes = data.dtypes.unique()
+    if len(dtypes) > 1 or not issubclass(dtypes[0].type, (float, np.floating)):
+        raise ValueError(
+            f"Cannot convert dataframe with non-float columns. Got {data.dtypes}"
+        )
+
+    columns = data.columns.droplevel(-1).unique()
+    return pd.DataFrame(
+        array_real_to_complex(data.values),
+        index=data.index,
+        columns=columns,
+    )
+
 
 @qdefine
 class IQTraceResult(MeasurementResult):
@@ -35,9 +158,9 @@ class IQTraceResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "IQTraceResult",
-        labels=("element", "readout", "shot"),
-        **kwargs,
-    ):
+        labels: tuple[str, ...] = ("element", "readout", "shot"),
+        **kwargs: Any,
+    ) -> Self:
         """Creates data frame from trajectory data obtained from QutipBackend.
 
         Args:
@@ -70,19 +193,22 @@ class IQResult(MeasurementResult):
     """Demodulated IQ results.
 
     Attributes:
-        data: Multi indexed data frame with row indices (element, readout) and column
-        indices (shot) mapping to an I+iQ value.
+        data: Multi indexed dataframe indexed by (element, shot, readout).
     """
 
     @classmethod
     def from_numpy(
-        self, arr: np.ndarray, name="IQResult", labels=("element", "readout"), **kwargs
+        cls,
+        arr: np.ndarray,
+        name: str = "IQResult",
+        labels: tuple[str, ...] = ("element", "shot", "readout"),
+        **kwargs: Any,
     ) -> Self:
         """Reorders the memory layout of the IQ data for each measurement key.
 
         Args:
             arr: A numpy array of complex IQ points. The default shape is assumed to be
-                (element, readout, shot). The last axis must always be shots.
+                (element, shot, readout).
             name: The result name.
             labels: Index labels for the array axes. These should specify labels for all
                 but the last axis.
@@ -91,17 +217,52 @@ class IQResult(MeasurementResult):
             An IQResult. The measurement data frame will have index labels as specified,
             and the columns will be the individual shots.
         """
-
-        num_shots = arr.shape[-1]
-
         index = pd.MultiIndex.from_tuples(
-            it.product(*(range(N) for N in arr.shape[:-1])), names=labels
+            it.product(*(range(N) for N in arr.shape)), names=labels
         )
-        columns = pd.RangeIndex(num_shots, name="shot")
 
-        df = pd.DataFrame(arr.reshape(-1, num_shots), index=index, columns=columns)
+        df = pd.DataFrame(arr.flatten(), index=index, columns=["IQ"])
 
-        return IQResult(name=name, data=df)
+        return cls(name=name, data=df, **kwargs)
+
+    @classmethod
+    def random(
+        cls,
+        shape: tuple[int, ...],
+        num_states: int = 2,
+        rng: Generator = RESULT_RNG,
+        **kwargs,
+    ) -> Self:
+        """Creates a random dataframe with the given shape.
+
+        Args:
+            shape: The shape of the resulting array. The default axis are
+                `(element, shot, readout)`. If a different number of axes are passed, a
+                set of labels should also be specified.
+            num_states: The number of "blobs" to generate. The means and standard
+                deviations of the Gaussian "blobs" are chosen randomly.
+            rng: The random generator to use.
+
+        Returns:
+            An IQResult populated with random data.
+        """
+        states = rng.choice(num_states, size=np.prod(shape)).reshape(shape)
+        means = rng.normal(scale=10, size=2 * num_states).reshape(num_states, 2)
+        iqdata = np.zeros_like(states, dtype=np.complex64)
+
+        for s in range(num_states):
+            iq = (
+                rng.multivariate_normal(
+                    mean=means[s],
+                    cov=np.identity(2),
+                    size=np.count_nonzero(states == s),
+                )
+                .astype(np.float32)
+                .reshape(-1, 2)
+            )
+            iqdata[states == s] = array_real_to_complex(iq).flatten()
+
+        return cls.from_numpy(iqdata, **kwargs)
 
 
 @DATA_PROCESSORS.register
@@ -185,6 +346,37 @@ class ClassifiedResult(MeasurementResult):
     num_states: int = 2
     num_qudits: int = 1
 
+    @classmethod
+    def from_numpy(
+        cls,
+        arr: np.ndarray,
+        name: str = "ClassifiedResult",
+        labels: tuple[str, ...] = ("element", "shot", "readout"),
+        **kwargs: int,
+    ) -> Self:
+        """Creates a `ClassifiedResult` instance from a numpy array of states.
+
+        Args:
+            arr: A numpy array of complex IQ points. The default shape is assumed to be
+                (element, shot, readout).
+            name: The result name.
+            labels: Index labels for the array axes. These should specify labels for all
+                but the last axis.
+            **kwargs: Remaining keyword arguments are passed to the init method.
+
+        Returns:
+            An ClassifiedResult. The measurement dataframe will have index labels as
+            specified, with a single column with all the states.
+        """
+        index = pd.MultiIndex.from_tuples(
+            it.product(*(range(N) for N in arr.shape)), names=labels
+        )
+
+        arr = np.asarray(arr, dtype=int).flatten()
+        df = pd.DataFrame(arr, index=index, columns=["state"], dtype=str)
+
+        return cls(name=name, data=df, **kwargs)
+
 
 @DATA_PROCESSORS.register
 @qdefine
@@ -212,21 +404,7 @@ class GMMClassification(DataProcessor):
     def _default_covariances(self) -> np.ndarray:
         return np.ones(self.num_states)
 
-    @staticmethod
-    def _get_real_IQ_from_complex(IQ_data: np.ndarray) -> np.ndarray:
-        shape = IQ_data.shape
-
-        match IQ_data.dtype:
-            case np.complex128:
-                cast = np.float64
-            case np.complex64:
-                cast = np.float32
-            case dtype:
-                raise TypeError(f"IQ data should be complex type, got {dtype}.")
-
-        return IQ_data.view(cast).reshape(*shape, 2)
-
-    def get_model(self, initialize=True) -> GaussianMixture:
+    def get_model(self, initialize: bool = True) -> GaussianMixture:
         """Returns an initialized `sklearn.mixture.GaussianMixture` instance.
 
         This model can be used for classifying IQ points based on the model parameters
@@ -260,9 +438,7 @@ class GMMClassification(DataProcessor):
         Returns:
             A tuple `(means, covariances)` corresponding to the best fit model.
         """
-        IQ = GMMClassification._get_real_IQ_from_complex(
-            result.data.to_numpy().flatten()
-        )
+        IQ = array_complex_to_real(result.data.to_numpy().flatten())
 
         model = self.get_model()
         model.means_init = self.means
@@ -284,13 +460,11 @@ class GMMClassification(DataProcessor):
         model = self.get_model(initialize=True)
 
         shape = result.shape
-        IQ_data = GMMClassification._get_real_IQ_from_complex(
-            result.data.to_numpy().flatten()
-        )
+        IQ_data = array_complex_to_real(result.data.to_numpy().flatten())
 
         classified = model.predict(IQ_data).reshape(shape)
         classified = pd.DataFrame(
-            classified, index=result.data.index, columns=result.data.columns, dtype=str
+            classified, index=result.data.index, columns=["state"], dtype=str
         )
 
         return ClassifiedResult(
@@ -323,7 +497,7 @@ class ReadoutBitstring(DataProcessor):
             The multi-qudit `ClassifiedResult`.
         """
         if len(result) == 1:
-            return result[0]
+            return attrs.evolve(result[0])
 
         name = self.delimiter.join(m.name for m in result)
 
@@ -376,20 +550,25 @@ class ReadoutHistogram(DataProcessor):
             fill_missing = result.num_qudits <= 1
 
         # Get information about dataframe shape
+        index_levels = result.data.index.names
         num_ilevels = result.data.index.nlevels
         num_clevels = result.data.columns.nlevels
 
-        index_levels = [i for i in range(num_ilevels)]
-        column_levels = [i for i in range(-num_clevels, 0)]
+        stack_levels = list(range(num_clevels - 1))
+        group_levels = [i for i, n in enumerate(index_levels) if n != "shot"] + [
+            num_ilevels + i for i in stack_levels
+        ]
+        unstack_levels = list(range(-num_clevels, 0))
 
         # Bin by bitstring values
-        counts = result.data.stack().groupby(level=index_levels).value_counts()
-        counts = counts.unstack(level=column_levels)
+        counts = result.data.stack(stack_levels)
+        counts = counts.groupby(level=group_levels).value_counts()
+        counts = counts.unstack(unstack_levels)
 
-        if fill_missing and num_clevels > 1:
-            raise ValueError("Fill missing is unsupported for MultiIndex columns")
+        if fill_missing:
+            if num_clevels > 1:
+                raise ValueError("Fill missing is unsupported for MultiIndex columns")
 
-        elif fill_missing:
             qudit_values = np.arange(result.num_states).astype(str)
             all_bitstrings = [
                 "".join(b) for b in it.product(qudit_values, repeat=result.num_qudits)
@@ -424,9 +603,14 @@ class StatePopulations(DataProcessor):
     """Normalizes bitstring counts to a density."""
 
     def run(self, result: HistogramResult, **kwargs) -> PopulationResult:
-        shots = result.data.sum(axis="columns")
+        if result.data.columns.nlevels > 1:
+            column_levels = result.data.columns.names
+            groupby_levels = [i for i, n in enumerate(column_levels) if n != "state"]
+            shots = result.data.groupby(level=groupby_levels, axis="columns").sum()
+        else:
+            shots = result.data.sum(axis="columns")
 
-        unique_shots = shots.unique()
+        unique_shots = np.unique(shots)
         if len(unique_shots) == 1:
             num_shots = unique_shots[0]
         else:
@@ -453,23 +637,32 @@ class Averaged(GenericDataProcessor):
         axis (int): The axes along which to average.
     """
 
-    axis: int = 1
+    axis: int = 0
+    level: str = "shot"
 
     def run(
         self,
         result: M,
         axis: int | None = None,
-        level: str | None = None,
+        level: str | None | type(...) = None,
         name: str = "averaged",
         **kwargs,
     ) -> M:
         if axis is None:
             axis = self.axis
 
-        if level:
-            result.data = result.data.groupby(level, axis=axis).mean()
-        else:
+        if level is None:
+            level = self.level
+
+        result = attrs.evolve(result)
+
+        all_levels = getattr(result.data, "columns" if axis else "index").names
+        if level is ... or level not in all_levels:
             result.data = result.data.mean(axis=axis).to_frame(name=name)
+        else:
+            result.data = result.data.groupby(
+                [n for n in all_levels if n != level], axis=axis
+            ).mean()
 
         return result
 
@@ -485,6 +678,7 @@ class Labeled(GenericDataProcessor):
         if seq is None:
             return result
 
+        result = attrs.evolve(result, data=result.data.copy())
         old_idx = result.data.index
 
         new_idx = pd.DataFrame(

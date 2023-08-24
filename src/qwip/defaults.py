@@ -2,9 +2,8 @@
 
 import functools
 import inspect
-from typing import Callable, Dict
+from typing import Any, Callable
 
-from attr import field
 from loguru import logger
 
 from qwip import qsettings
@@ -41,7 +40,7 @@ class dynamic_default:
         TODO
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         self.__settings__ = kwargs.pop("__settings__", qsettings)
         self.dynamic_kwargs = kwargs
 
