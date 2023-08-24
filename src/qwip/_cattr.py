@@ -146,7 +146,7 @@ def make_ndarray_structure_fn(cls):
 
     def ndarray_structure_fn(obj, cls):
         if isinstance(obj, np.ndarray):
-            if obj.dtype == dtype:
+            if dtype is None or obj.dtype == dtype:
                 return obj
             else:
                 try:
