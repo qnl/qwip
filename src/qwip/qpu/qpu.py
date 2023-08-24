@@ -337,11 +337,7 @@ class QPU:
             data = dict(config_db=self.db, seq=seq) | data
             self.datastore.save(self.pipeline.grouped_data(), **data)
 
-<<<<<<< HEAD
-        return self.process_results(raw_data, processor, seq=exe.seq if exe else None)
-=======
         return processed
->>>>>>> main
 
     def process_results(
         self,

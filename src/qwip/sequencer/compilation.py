@@ -371,6 +371,14 @@ class CompiledSequence(QuantumExecutable):
     def shape(self) -> tuple[int, ...]:
         return self.waveforms["seq"].shape
 
+    @property
+    def n_elements(self) -> int:
+        return self.waveforms["seq"].n_elements
+
+    @property
+    def x_axis(self) -> np.ndarray:
+        return np.arange(self.array.shape[1])
+
     def get_readout_locations(self) -> dict[int, int]:
         return self.waveforms["seq"].get_readout_locations()
 

@@ -8,19 +8,11 @@ class TestFormatLegacyIQ:
         arr = np.arange(2 * 3 * 4 * 5).astype(float).reshape(2, 3, 4, 5)
         iqdata = format_legacy_IQ(arr)
 
-<<<<<<< HEAD
-        assert iqdata.shape == (4, 5, 3)
-=======
         assert iqdata.shape == (4, 3, 5)
->>>>>>> main
         assert iqdata.dtype == np.complex128
 
     def test_float32(self):
         arr = np.arange(2 * 3 * 4 * 5).astype(np.float32).reshape(2, 3, 4, 5)
         iqdata = format_legacy_IQ(arr)
 
-<<<<<<< HEAD
-        assert iqdata.shape == (4, 5, 3)
-=======
         assert iqdata.shape == (4, 3, 5)
->>>>>>> main
