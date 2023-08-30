@@ -1,11 +1,13 @@
 from copy import copy, deepcopy
 
+import attrs
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose, assert_almost_equal
 
 import qwip
+from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
@@ -15,6 +17,7 @@ from qwip.sequencer.waveform import (
     GaussianWaveform,
     ModulatedWaveform,
     SquareWaveform,
+    TriggeredWaveform,
     VirtualZWaveform,
     Waveform,
     update_fields,
@@ -408,3 +411,15 @@ class TestVirtualZWaveform:
             z.update_phase_tracker(t, phase_tracker)
 
         assert phase_tracker.compressed(mod_key) == phase_jumps
+
+
+class TestTriggeredWaveform:
+    def test_equality_by_id(self):
+        assert TriggeredWaveform(target=SequenceElement()) != TriggeredWaveform(
+            target=SequenceElement()
+        )
+
+        w1 = TriggeredWaveform(target=SequenceElement())
+        w2 = attrs.evolve(w1)
+
+        assert w1 == w2

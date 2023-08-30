@@ -2,7 +2,7 @@ import itertools as it
 from collections import defaultdict
 from functools import lru_cache
 from numbers import Number
-from typing import Any, get_args
+from typing import TYPE_CHECKING, Any, get_args
 
 import attrs
 import numpy as np
@@ -20,6 +20,9 @@ from qwip.defaults import dynamic_default
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import LinearExpression, Location
 from qwip.typing import is_union_type
+
+if TYPE_CHECKING:
+    from qwip.sequencer.elements import SequenceElement
 
 REGISTERED_WAVEFORMS: dict[str, "Waveform"] = dict()
 
@@ -300,8 +303,16 @@ class Marker(Waveform):
 
 @register_waveform
 @qfrozen
-class TriggerMarker(Marker):
-    ...
+class TriggeredWaveform(BasicWaveform):
+    target: "SequenceElement | None" = field(default=None, eq=id)
+
+    def evaluate_timepoints(
+        self, ts: np.ndarray, width: float, amplitude: float, t0: float, **kwargs
+    ) -> np.ndarray:
+        ts = ts - t0
+        wave = ((ts > 0) & (ts < width)).astype(np.int8)
+
+        return wave
 
 
 @register_waveform
@@ -686,7 +697,7 @@ __all__ = [
     "BasicWaveform",
     "InfiniteWaveform",
     "Marker",
-    "TriggerMarker",
+    "TriggeredWaveform",
     "ReadoutMarker",
     "DCWaveform",
     "CWWaveform",
