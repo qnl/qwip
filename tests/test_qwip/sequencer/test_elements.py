@@ -186,8 +186,8 @@ class TestSequenceElement:
         "locs,end",
         [
             ([(10e-9, GaussianWaveform(width=20e-9))], Location(30e-9)),
-            ([(-10e-9, GaussianWaveform(width=20e-9))], Location(20e-9))
-        ]
+            ([(-10e-9, GaussianWaveform(width=20e-9))], Location(20e-9)),
+        ],
     )
     def test_resolve_locations_marker(self, locs, end):
         se = SequenceElement.fromtuples(locs)
