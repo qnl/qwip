@@ -12,7 +12,7 @@ from qwip.database.database import VersionControlled
 from qwip.database.dolt import DoltTable
 from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
 from qwip.database.utils import JSONTypes, PendulumDateTime, utc_timestamp
-from qwip.sequencer.waveform import REGISTERED_WAVEFORMS
+from qwip.sequencer.waveform import Waveform
 
 
 @qdefine(slots=False)
@@ -194,8 +194,6 @@ class WaveformModel(VersionControlled):
         return unstructured
 
     def to_waveform(self):
-        from qwip.sequencer.waveform import Waveform
-
         return qwip.converter.structure(self.to_unstructured_waveform(), Waveform)
 
 

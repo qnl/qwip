@@ -304,7 +304,9 @@ class Marker(Waveform):
 @register_waveform
 @qfrozen
 class TriggeredWaveform(BasicWaveform):
-    target: "SequenceElement | None" = field(default=None, eq=id)
+    target: "SequenceElement | None" = field(
+        default=None, eq=id, metadata=dict(allow_override=False)
+    )
 
     def evaluate_timepoints(
         self, ts: np.ndarray, width: float, amplitude: float, t0: float, **kwargs
