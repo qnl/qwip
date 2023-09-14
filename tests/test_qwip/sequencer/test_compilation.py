@@ -296,6 +296,7 @@ class TestQWiPSequencer:
         exe.plot(1)
         plt.show()
 
+
 class TestWaveformSequencer:
     @pytest.fixture
     def sequencer(self):

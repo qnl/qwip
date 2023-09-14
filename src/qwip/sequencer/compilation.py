@@ -259,6 +259,13 @@ class ChannelInfo:
 
 
 @qfrozen
+class TriggerInfo:
+    device: str
+    index: int
+    subchannel: int = 0
+
+
+@qfrozen
 class ChannelGroup:
     """Holds information about a group of logical channels.
 
@@ -276,7 +283,7 @@ class ChannelGroup:
         repr=lambda channels: repr(tuple(ch.name for ch in channels))
     )
     sample_rate: float
-    triggered: bool = False
+    trigger: TriggerInfo | None = None
 
     @property
     def num_channels(self) -> int:
@@ -340,7 +347,9 @@ class ChannelGroup:
 
         channels = tuple(ch if ch.group else evolve(ch, group=group) for ch in channels)
 
-        return ChannelGroup(name=group, channels=channels, sample_rate=sample_rate, **kwargs)
+        return ChannelGroup(
+            name=group, channels=channels, sample_rate=sample_rate, **kwargs
+        )
 
     def __iter__(self):
         yield from self.channels.__iter__()
@@ -461,7 +470,7 @@ class QWiPExecutable(QuantumExecutable):
                 continue
             if wblk.triggered:
                 continue
-            
+
             ts = np.arange(wblk.samples) / wblk.sample_rate
 
             for (ch, sch), wave in wblk.waveforms.items():
@@ -470,6 +479,7 @@ class QWiPExecutable(QuantumExecutable):
         ax.legend()
 
         return fig
+
 
 @qdefine
 class QWiPSequencer:
@@ -766,7 +776,7 @@ class QWiPSequencer:
 
         for name, ch_group in self.channels.items():
             exe.devices[name] = []
-            
+
             if ch_group.triggered:
                 exe.triggers[name] = []
 

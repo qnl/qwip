@@ -272,15 +272,31 @@ def _channels_converter(value):
 
 @register_waveform
 @qfrozen
-class BasicWaveform(Waveform):
+class TimedWaveform(Waveform):
     channels: tuple[str, ...] = field(
         factory=tuple,
         metadata=dict(allow_override=False),
         converter=_channels_converter,
     )
     width: Location = Location()
-    amplitude: float | str = 1
     t0: float | str = 0
+
+    def evaluate_timepoints(
+        self, ts: np.ndarray, width: float, t0: float, **kwargs
+    ) -> np.ndarray:
+        return np.zeros((len(self.channels), len(ts)))
+
+
+@register_waveform
+@qfrozen
+class Delay(TimedWaveform):
+    hardware: bool = False
+
+
+@register_waveform
+@qfrozen
+class BasicWaveform(TimedWaveform):
+    amplitude: float | str = 1
 
 
 @register_waveform
