@@ -1,14 +1,11 @@
 import json
-from collections.abc import Mapping
 from contextlib import contextmanager
-from typing import Optional
+from typing import Literal
 
 import attr
 import cattr
-from attrs import define, frozen
+import tomli as tomllib
 
-import qwip
-from qwip import yaml
 from qwip.attrs import qdefine
 from qwip.flatdict import FlatDict, FlatMapping
 
@@ -56,7 +53,7 @@ class Settings(FlatMapping):
         attr.validate(self)
 
     @contextmanager
-    def context(self, settings: Optional[dict] = None, validate: bool = True):
+    def context(self, settings: dict | None = None, validate: bool = True):
         """Context manager for temporarily changing parameters.
 
         Args:
@@ -95,17 +92,22 @@ class Settings(FlatMapping):
         return schema(cls)
 
     @classmethod
-    def load(cls, file: str, file_fmt: str = "yaml"):
-        """Creates a `Settings` object from either a JSON or YAML file.
+    def load(cls, file: str, file_fmt: Literal["json", "toml"] = "toml"):
+        """Creates a `Settings` object from either a JSON or TOML file.
 
-        file:
+        Args:
+            file: A path to the settings file.
+            file_fmt: A string specifying the file format of the settings file.
         """
-        if file_fmt == "yaml":
-            with open(file, "r") as f:
-                s = cls(**yaml.load(f))
-        elif file_fmt == "json":
-            with open(file, "r") as f:
-                s = cls(**json.load(f))
+        match file_fmt:
+            case "toml":
+                with open(file, "rb") as f:
+                    s = cls(**tomllib.load(f))
+            case "json":
+                with open(file, "r") as f:
+                    s = cls(**json.load(f))
+            case _:
+                raise ValueError(f"Invalid file format: {file_fmt}.")
 
         return s
 

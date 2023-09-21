@@ -5,10 +5,11 @@ from pathlib import Path
 from typing import Optional
 
 import attr
+import tomli as tomllib
 from attr import field
 from loguru import logger
 
-from qwip import __file__, __version__, yaml
+from qwip import __file__, __version__
 from qwip._repodata import get_repodata
 from qwip.attrs import qdefine
 from qwip.flatdict import FlatDict
@@ -108,7 +109,7 @@ class QWiPSettings(DefaultSettings):
 
     version: str = __version__
     src: SourceInfo = field(factory=SourceInfo)
-    file_format: str = "yaml"
+    file_format: str = "toml"
     logging: LogSettings = field(factory=LogSettings)
     slack: SlackSettings = field(factory=SlackSettings)
     units: UnitSettings = field(factory=UnitSettings)
@@ -121,7 +122,11 @@ def process_qsettings_file():
     for folder in paths:
         path = Path(folder).expanduser().resolve() / "settings.qwip"
 
-        if path.exists() and (p := yaml.load(path)):
+        if not path.exists():
+            continue
+
+        with open(path, "rb") as f:
+            p = tomllib.load(f)
             return FlatDict(p)  # .toflatdict()
 
     return {}
