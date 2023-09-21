@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -12,6 +12,20 @@ from qwip.sequencer.compilation import CompiledSequence, QuantumExecutable
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
+
+
+class DACBackend(metaclass=ABCMeta):
+    @abstractproperty
+    def sample_rate(self) -> float:
+        ...
+
+    @abstractmethod
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
+        ...
+
+    @abstractmethod
+    def start(self, **kwargs) -> None:
+        ...
 
 
 class QuantumBackend(metaclass=ABCMeta):

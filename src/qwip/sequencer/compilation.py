@@ -308,6 +308,9 @@ class ChannelGroup:
     def channel_names(self) -> set[str]:
         return {ch.name for ch in self.channels}
 
+    def channel_indices(self) -> set[int]:
+        return {ch.index for ch in self.channels}
+
     @classmethod
     def from_channels(
         self,
