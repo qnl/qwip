@@ -7,6 +7,7 @@ import pendulum
 import pytest
 from loguru import logger
 from numpy.random import default_rng
+from qcodes.tests.instrument_mocks import DummyInstrument
 from sqlalchemy.engine import make_url
 
 try:
@@ -21,6 +22,7 @@ from qwip.config.schema import ConfigSchema
 from qwip.data.models import *
 from qwip.database.database import Database, DoltDB
 from qwip.database.metadata import QWIP_DB_METADATA
+from qwip.instruments.instrument_server import InstrumentServer
 from qwip.qpu.qpu import QPU
 
 
@@ -41,6 +43,12 @@ def pytest_addoption(parser):
         "--db_url", action="store", default="sqlite://", help="The database url."
     )
     parser.addoption("--seed", action="store", default=0, help="Seed used for all rng.")
+    parser.addoption(
+        "--instruments",
+        action="store",
+        default=None,
+        help="An instrument configuration file.",
+    )
 
 
 @pytest.fixture(scope="session")
@@ -51,6 +59,37 @@ def db_url(request):
 @pytest.fixture(scope="session")
 def seed(request):
     return int(request.config.getoption("--seed"))
+
+
+@pytest.fixture(scope="session")
+def instrument_config(request):
+    return request.config.getoption("--instruments")
+
+
+@pytest.fixture(scope="session")
+def load_instruments(instrument_config):
+    if instrument_config:
+        server = InstrumentServer.load(instrument_config)
+    else:
+        server = InstrumentServer()
+
+    ins = DummyInstrument("dummy", gates=["ch0", "ch1", "ch2", "ch3"])
+    server.instruments["dummy"] = ins
+
+    yield server
+
+    server.close()
+
+
+@pytest.fixture
+def instrument_server(load_instruments, request):
+    for marker in request.node.iter_markers():
+        if marker.name != "skip_instrument":
+            continue
+        if marker.args[0] not in load_instruments:
+            pytest.skip(f"Device '{marker.args[0]}' is not available.")
+
+    yield load_instruments
 
 
 @pytest.fixture

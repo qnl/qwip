@@ -1,52 +1,98 @@
 import importlib
+from collections.abc import Mapping
+from pathlib import Path
 
+import tomli as tomllib
+from attrs import field
 from loguru import logger
-from ruamel import yaml
 
-from qwip import qsettings
-from qwip.flatdict import FlatDict
+from qwip.attrs import qdefine
 
 
-class InstrumentServer:
-    """ """
+def load_driver(driver: str):
+    module, cls = driver.rsplit(".", 1)
+    module = importlib.import_module(module)
+    cls = module.__getattribute__(cls)
 
-    def __init__(self, config_file: str = None, init: bool = False):
-        self.instruments = {}
+    return cls
 
-        if config_file:
-            self.config = self.load(config_file, init)
 
-    def load(self, config_file: str, init: bool = False):
-        with open(config_file, "r") as f:
-            config = FlatDict(yaml.load(f, Loader=yaml.CSafeLoader))
+@qdefine
+class InstrumentServer(Mapping):
+    """A central location for managing a collection of instruments."""
 
-        for name, params in config["instruments"].items():
-            cls = self.load_driver(params.pop("driver"))
-            ins_params = params.pop("parameters", FlatDict())
-            self.instruments[name] = cls(name=name, **params)
+    instruments: dict = field(factory=dict)
+    config: dict = field(factory=dict, repr=False)
+
+    @classmethod
+    def load(cls, config_file: str | Path, init: bool = False):
+        """Loads an instrument server from a config file.
+
+        The instrument configuration file should be a toml file with top level keys
+        referring to each instrument to be loaded.
+
+        Args:
+            config_file: A path to a configuration file.
+            init: Whether to initialize the instrument with the given parameters.
+        """
+        instruments = {}
+        with open(config_file, "rb") as f:
+            config = tomllib.load(f)
+
+        to_update = {}
+
+        for name, params in config.items():
+            ins_cls = load_driver(params["driver"])
+            ins_params = params.get("parameters", {})
+            init_params = {
+                k: v for k, v in params.items() if k not in ("driver", "parameters")
+            }
+            instruments[name] = ins_cls(name=name, **init_params)
 
             if init:
-                self.init_instrument(name, ins_params)
+                to_update[name] = ins_params
 
-        return config
+        server = cls(instruments=instruments, config=config)
 
-    def init_instrument(self, name: str, parameters: FlatDict):
+        for ins, params in to_update.items():
+            server.update(ins, params)
+
+        return server
+
+    def update(self, name: str, parameters: dict):
+        """Updates an instrument's settings from a parameter dictionary.
+
+        Args:
+            name: The instrument to update.
+            parameters: A dictionary of parameters.
+        """
         ins = self.instruments[name]
 
-        for k, v in parameters.flatitems():
-            set_obj = ins
+        def _set_parameter(obj, key, value):
+            match value:
+                case dict():
+                    for subkey, subvalue in value.items():
+                        _set_parameter(getattr(obj, key), subkey, subvalue)
+                case _:
+                    logger.debug(f"Setting parameter {key} to: {value}")
+                    getattr(obj, key)(value)
 
-            logger.debug(f"Setting parameter {k} to value: {v}")
-            for attribute in parameters.split(k)[:-1]:
-                set_obj = getattr(set_obj, attribute)
+        for key, value in parameters.items():
+            _set_parameter(ins, key, value)
 
-            attribute = parameters.rsplit(k, maxsplit=1)[-1]
-            getattr(set_obj, attribute)(v)
+    def __getitem__(self, key: str):
+        return self.instruments[key]
 
-    @staticmethod
-    def load_driver(driver: str):
-        module, cls = driver.rsplit(".", 1)
-        module = importlib.import_module(module)
-        cls = module.__getattribute__(cls)
+    def __iter__(self):
+        return self.instruments.__iter__()
 
-        return cls
+    def __len__(self):
+        return self.instruments.__len__()
+
+    def close(self):
+        """Calls close on all instruments."""
+        for ins in self.instruments.values():
+            try:
+                ins.close()
+            except Exception:
+                ...
