@@ -12,10 +12,6 @@ try:
 except PackageNotFoundError:
     __version__ = ""
 
-from ruamel.yaml import YAML
-
-yaml = YAML(typ="safe")
-
 import sys
 
 from loguru import logger

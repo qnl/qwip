@@ -1,7 +1,7 @@
 import pytest
 from IPython.testing.globalipapp import get_ipython
 
-from qwip import qsettings
+from qwip.utils import deprecated
 
 
 @pytest.fixture(scope="session")
@@ -23,3 +23,31 @@ def ipython(ipython_session):
 
 class TestSlackMagic:
     ...
+
+
+@deprecated(version="23.2.0", removed="23.3.0")
+def import_qtrl():
+    ...
+
+
+@deprecated(version="23.2.0", removed="23.3.0")
+class ImportQTRL:
+    ...
+
+
+class TestDeprecated:
+    @deprecated(version="23.2.0", removed="23.3.0")
+    def import_qtrl(self):
+        ...
+
+    def test_deprecated_function(self):
+        with pytest.deprecated_call():
+            import_qtrl()
+
+    def test_deprecated_class(self):
+        with pytest.deprecated_call():
+            ImportQTRL()
+
+    def test_deprecated_method(self):
+        with pytest.deprecated_call():
+            self.import_qtrl()

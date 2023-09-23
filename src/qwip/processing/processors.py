@@ -264,6 +264,31 @@ class IQResult(MeasurementResult):
 
         return cls.from_numpy(iqdata, **kwargs)
 
+    def amplitude(self, log: bool = False) -> pd.DataFrame:
+        """Computes the amplitude of the IQ data.
+
+        Args:
+            log: If true, computes the amplitude in units of dB (Power)
+
+        Returns:
+            A dataframe with the amplitude of the IQ data.
+        """
+        amp = self.data.abs()
+
+        if len(amp.columns) == 1:
+            amp.columns = ["amplitude"]
+
+        return 20 * np.log10(amp) if log else amp
+
+    def phase(self) -> pd.DataFrame:
+        """Computes the phase of the IQ data.
+
+        Returns:
+            A dataframe with the phase of the IQ data.
+        """
+        cols = ["phase"] if len(self.data.columns) == 1 else self.data.columns
+        return pd.DataFrame(np.angle(self.data), columns=cols, index=self.data.index)
+
 
 @DATA_PROCESSORS.register
 @qdefine

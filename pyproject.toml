@@ -9,6 +9,14 @@ build-backend="setuptools.build_meta"
 log_cli = true
 log_cli_level = "DEBUG"
 
+[tool.pytest.ini_options]
+markers = [
+    "skip_instrument: Skip instrument tests if they are not available."
+]
+filterwarnings = [
+    "ignore:.*pkg_resources.*:DeprecationWarning"
+]
+
 [tool.isort]
 profile = "black"
 skip_gitignore = true

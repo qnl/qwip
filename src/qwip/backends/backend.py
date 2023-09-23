@@ -47,7 +47,7 @@ class QuantumBackend(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def acquire(self, exe: QuantumExecutable, **kwargs) -> dict:
+    def acquire(self, exe: QuantumExecutable | None = None, **kwargs) -> dict:
         ...
 
     @abstractmethod
@@ -151,10 +151,10 @@ class FakeBackend(QuantumBackend):
 
         data = dict()
         for key in readout_keys:
-            states = np.zeros((num_elements, num_readouts, repetitions))
+            states = np.zeros((num_elements, repetitions, num_readouts))
             for el in range(num_elements):
                 for ro in range(num_readouts):
-                    states[el, ro, :] = self.data_func(key, el, ro, repetitions)
+                    states[el, :, ro] = self.data_func(key, el, ro, repetitions)
 
             gmm = self.gmms[key]
             arr = np.zeros(states.shape, dtype=np.complex64)

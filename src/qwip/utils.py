@@ -1,6 +1,8 @@
+import inspect
 import traceback
+import warnings
 from contextlib import contextmanager
-from functools import partial
+from functools import partial, wraps
 
 from IPython.core.getipython import get_ipython
 from IPython.core.magic import Magics, cell_magic, magics_class, register_cell_magic
@@ -8,6 +10,43 @@ from IPython.core.magic_arguments import argument, magic_arguments, parse_argstr
 from notifiers import get_notifier
 
 from qwip import qsettings
+
+
+def deprecated(*, version: str, removed: str, message: str = ""):
+    """Decorator for deprecated functions, methods, and classes.
+
+    This ensures that a DeprecationWarning is thrown when the specified target is called
+    by a user.
+
+    Args:
+        version: The version where the target was first deprecated.
+        removed: The version where the target will be removed.
+        message: A message for the user regarding the reason for the deprecation or an
+            alternative to use instead.
+
+    Returns:
+        The wrapped function, method, or class.
+    """
+
+    def decorator(target):
+        @wraps(target)
+        def wrapper(*args, **kwargs):
+            name = f"{target.__module__}.{target.__qualname__}"
+
+            warnings.warn(
+                (
+                    f"`{name}` is deprecated since {version} and will be removed in "
+                    f"{removed}.\n{message}"
+                ),
+                stacklevel=2,
+                category=DeprecationWarning,
+            )
+
+            return target(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def format_exception(exc: Exception) -> str:
