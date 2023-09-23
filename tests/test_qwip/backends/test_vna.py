@@ -37,15 +37,6 @@ class TestVNABackend:
         )
 
     def test_upload_explicit(self, backend):
-        # backend.vna.start(6e9)
-        # backend.vna.stop(7e9)
-        # backend.vna.points(1001)
-        # backend.vna.power(-70)
-        # backend.vna.averages(1)
-        # backend.vna.electrical_delay(0)
-        # backend.vna.if_bandwidth(1000)
-        # backend.vna.trace("S21")
-
         exe = VNAExecutable(
             start=5e9,
             stop=6e9,
