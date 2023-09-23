@@ -1,5 +1,5 @@
-import pytest
 import numpy as np
+import pytest
 from qcodes.instrument_drivers.tektronix.AWG5014 import Tektronix_AWG5014
 
 from qwip.backends.tektronix import (
@@ -21,12 +21,14 @@ from qwip.sequencer.waveform import (
     VirtualZWaveform,
 )
 
+
 @pytest.fixture(scope="module")
 def backend():
     backend = TektronixBackend.connect(ip="192.168.1.77")
     yield backend
 
     backend.awg.close()
+
 
 # class TestTetronixExecutable:
 #     @pytest.mark.parametrize("channels", [(0, 1), (0, 1, 2, 3)])
@@ -78,7 +80,7 @@ class TestTektronixCompiler:
             ),
             sample_rate=1.0e9,
             name="tektronix",
-        ) 
+        )
 
         adc = ChannelGroup.from_channels(
             channels=(ChannelInfo("RO", 0, read=True),),
@@ -176,7 +178,7 @@ class TestTektronixCompiler:
 
         se.add_waveform(readout, 2 * pulses["Q0_X90"].width + "delay")
 
-        seq = Sequence.sweep(se, delay=np.linspace(0, 100, 11)*1e-6)
+        seq = Sequence.sweep(se, delay=np.linspace(0, 100, 11) * 1e-6)
 
         exe = compiler.compile(seq)
 
