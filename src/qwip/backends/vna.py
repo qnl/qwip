@@ -41,7 +41,7 @@ class VNABackend(QuantumBackend):
         timestamp = pendulum.now()
 
         frequencies = np.linspace(self.vna.start(), self.vna.stop(), self.vna.points())
-        IQ = self.vna.get_complex_data()
+        IQ = self.vna.get_complex_data(**kwargs)
         df = pd.DataFrame(IQ, index=pd.Index(frequencies, name="frequency"))
 
         result = IQResult(name=self.vna.trace(), data=df, timestamp=timestamp)
