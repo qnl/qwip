@@ -13,6 +13,21 @@ from qwip import qsettings
 
 
 def deprecated(*, version: str, removed: str, message: str = ""):
+    """Decorator for deprecated functions, methods, and classes.
+
+    This ensures that a DeprecationWarning is thrown when the specified target is called
+    by a user.
+
+    Args:
+        version: The version where the target was first deprecated.
+        removed: The version where the target will be removed.
+        message: A message for the user regarding the reason for the deprecation or an
+            alternative to use instead.
+
+    Returns:
+        The wrapped function, method, or class.
+    """
+
     def decorator(target):
         @wraps(target)
         def wrapper(*args, **kwargs):
