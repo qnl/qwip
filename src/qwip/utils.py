@@ -1,6 +1,8 @@
+import inspect
 import traceback
+import warnings
 from contextlib import contextmanager
-from functools import partial
+from functools import partial, wraps
 
 from IPython.core.getipython import get_ipython
 from IPython.core.magic import Magics, cell_magic, magics_class, register_cell_magic
@@ -8,6 +10,28 @@ from IPython.core.magic_arguments import argument, magic_arguments, parse_argstr
 from notifiers import get_notifier
 
 from qwip import qsettings
+
+
+def deprecated(*, version: str, removed: str, message: str = ""):
+    def decorator(target):
+        @wraps(target)
+        def wrapper(*args, **kwargs):
+            name = f"{target.__module__}.{target.__qualname__}"
+
+            warnings.warn(
+                (
+                    f"`{name}` is deprecated since {version} and will be removed in "
+                    f"{removed}.\n{message}"
+                ),
+                stacklevel=2,
+                category=DeprecationWarning,
+            )
+
+            return target(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def format_exception(exc: Exception) -> str:
