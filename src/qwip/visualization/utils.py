@@ -1,4 +1,6 @@
-"""Useful utility functions for working visualizing data with matplotlib.
+"""Visualization utilities.
+
+Useful helper functions for working with matplotlib.
 """
 
 import itertools as it

@@ -124,6 +124,7 @@ nav:
           - qwip.backends.qtrl: api/qwip/backends/qtrl.md
           - qwip.backends.qubic: api/qwip/backends/qubic.md
           - qwip.backends.qutip: api/qwip/backends/qutip.md
+          - qwip.backends.vna: api/qwip/backends/vna.md
       - qwip.calibration:
           - qwip.calibration: api/qwip/calibration/index.md
           - qwip.calibration.calibration: api/qwip/calibration/calibration.md

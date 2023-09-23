@@ -238,6 +238,26 @@ class TestIQResult:
         )
         assert structured == iqdata
 
+    def test_amplitude(self, seed):
+        rng = default_rng(seed=seed)
+        result = IQResult.random(shape=(100, 200, 2), num_states=1, rng=rng)
+
+        mag = result.amplitude()
+        log_mag = result.amplitude(log=True)
+
+        assert_array_almost_equal(mag, np.sqrt(10 ** (log_mag / 10)))
+        assert np.all(mag.index == result.data.index)
+        assert list(mag.columns) == ["amplitude"]
+
+    def test_phase(self, seed):
+        rng = default_rng(seed=seed)
+        result = IQResult.random(shape=(100, 200, 2), num_states=1, rng=rng)
+
+        phase = result.phase()
+
+        assert_array_almost_equal(phase, np.angle(result.data))
+        assert list(phase.columns) == ["phase"]
+
 
 class TestIQRotation:
     def test_rotate(self):
