@@ -59,7 +59,7 @@ def plot_IQ(
         axes["phase"].plot(combined["phase"])
         axes["IQ"].plot(np.real(combined["IQ"]), np.imag(combined["IQ"]))
 
-    axes["amplitude"].set_ylabel("Amplitude")
+    axes["amplitude"].set_ylabel("Amplitude" + " (dB)" if log_mag else "")
     axes["phase"].set_ylabel("Phase")
     axes["IQ"].set_title("IQ")
     axes["IQ"].set_xlabel("I")
