@@ -13,6 +13,9 @@ log_cli_level = "DEBUG"
 markers = [
     "skip_instrument: Skip instrument tests if they are not available."
 ]
+filterwarnings = [
+    "ignore:.*pkg_resources.*:DeprecationWarning"
+]
 
 [tool.isort]
 profile = "black"
