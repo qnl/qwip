@@ -28,6 +28,19 @@ class DACBackend(metaclass=ABCMeta):
         ...
 
 
+class ADCBackend(metaclass=ABCMeta):
+    @abstractproperty
+    def sample_rate(self) -> float:
+        ...
+
+    @abstractmethod
+    def start(self, **kwargs) -> None:
+        ...
+
+    def acquire(self, **kwargs) -> np.ndarray:
+        ...
+
+
 class QuantumBackend(metaclass=ABCMeta):
     @abstractmethod
     def upload(self, exe: QuantumExecutable, **kwargs) -> None:
