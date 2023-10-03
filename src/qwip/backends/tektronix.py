@@ -11,6 +11,8 @@ from qwip.backends.backend import DACBackend, QuantumBackend
 from qwip.sequencer.compilation import QuantumExecutable, register_sequencer
 from qwip.sequencer.instructions import (
     DelayInstruction,
+    HardwareCompiler,
+    IntermediateProgram,
     PlayInstruction,
     Program,
     QWiPCompiler,
@@ -44,14 +46,13 @@ class TektronixProgram(Program):
 
 # @register_sequencer
 @qdefine
-class TektronixCompiler(QWiPCompiler):
+class TektronixCompiler(HardwareCompiler):
     def compile(
         self,
-        seq: Sequence,
-        location_kwargs: dict = {},
-        pulse_kwargs: dict = {},
+        program: IntermediateProgram,
+        channel_group,
         device: str = "tektronix",
-    ) -> QWiPExecutable:
+    ) -> TektronixProgram:
         """Compiles a sequence.
 
         This function takes an abstract sequence and compiles it into a concrete
@@ -66,19 +67,15 @@ class TektronixCompiler(QWiPCompiler):
         Returns:
             A `TektronixExecutable` instance.
         """
-        exe = super().compile(seq, location_kwargs, pulse_kwargs)
-        int_program = exe.programs[device]
 
-        indices = sorted(self.channels[device].channel_indices())
-        tek_program = exe.programs[device] = TektronixProgram(
-            device=device, channels=indices
-        )
+        indices = sorted(channel_group.channel_indices())
+        tek_program = TektronixProgram(device=device, channels=indices)
 
         waves = tuple([] for _ in tek_program.channels)
         m1s = tuple([] for _ in tek_program.channels)
         m2s = tuple([] for _ in tek_program.channels)
 
-        for wmem in int_program.waveforms:
+        for wmem in program.waveforms:
             for ch in range(len(tek_program.channels)):
                 default = np.zeros(wmem.samples)
                 wave = wmem.data.get((ch, 0), default)
@@ -90,7 +87,7 @@ class TektronixCompiler(QWiPCompiler):
                 m2s[ch].append(m2)
 
         element_index = 0
-        for ins in int_program.instructions:
+        for ins in program.instructions:
             match ins:
                 case WaitTriggerInstruction():
                     wait = True
@@ -109,7 +106,7 @@ class TektronixCompiler(QWiPCompiler):
 
         tek_program.go_tos[:] = np.roll(np.arange(len(tek_program.waits)) + 1, -1)
 
-        return exe
+        return tek_program
 
 
 @qdefine
@@ -165,43 +162,50 @@ class TektronixChannel:
 class TektronixBackend(DACBackend):
     """A hardware backend for interfacing with the Tektronix AWGs."""
 
-    awg: Tektronix_AWG5014
-    sample_rate: float = 1e9
+    device: Tektronix_AWG5014
     channels: tuple[TektronixChannel, ...] = field()
     reset_delay: float = 100e-6
 
     @channels.default
     def _default_channels(self) -> tuple[TektronixChannel, ...]:
         return tuple(
-            TektronixChannel.from_awg(self.awg, index=i)
-            for i in range(self.awg.num_channels)
+            TektronixChannel.from_awg(self.device, index=i)
+            for i in range(self.device.num_channels)
         )
 
     @property
     def num_channels(self) -> int:
-        return self.awg.num_channels
+        return self.device.num_channels
+
+    @property
+    def sample_rate(self) -> float:
+        self.device.clock_freq()
 
     @classmethod
     def connect(cls, ip: str, name: str = "tektronix", **kwargs) -> Self:
         address = f"TCPIP0::{ip}::inst0::INSTR"
 
-        awg = Tektronix_AWG5014(name=name, address=address)
-        awg.run_mode("SEQ")
-        awg.trigger_source("INT")
-        print(awg.run_mode())
-        backend = cls(awg=awg, **kwargs)
+        dev = Tektronix_AWG5014(name=name, address=address)
+        dev.run_mode("SEQ")
+        dev.trigger_source("INT")
+        backend = cls(device=dev, **kwargs)
 
         return backend
 
     def start(self):
-        ...
+        self.device.stop()
+        self.device.all_channels_on()
+        self.device.start()
+
+    def stop(self):
+        self.device.stop()
 
     def update_parameters(self, qpu, **kwargs):
         ...
 
     def upload(self, exe: QWiPExecutable):
-        program = exe.programs[self.awg.name]
-        self.awg.make_send_and_load_awg_file(
+        program = exe.programs[self.device.name]
+        self.device.make_send_and_load_awg_file(
             waveforms=list(program.waveforms),
             m1s=list(program.marker1s),
             m2s=list(program.marker2s),
@@ -211,3 +215,6 @@ class TektronixBackend(DACBackend):
             jump_tos=program.jump_tos,
             channels=[ch + 1 for ch in program.channels],
         )
+
+        # Expects times in nanoseconds
+        self.device.trigger_seq_timer(exe.reset_delay * 1e9)

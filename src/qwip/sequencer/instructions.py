@@ -114,6 +114,11 @@ class QWiPExecutable(QuantumExecutable):
 
 
 @qdefine
+class HardwareCompiler:
+    ...
+
+
+@qdefine
 class QWiPCompiler:
     """
     Attributes:
@@ -127,6 +132,7 @@ class QWiPCompiler:
 
     channels: dict[str, ChannelGroup] = field(factory=dict)
     modulations: dict[str, ModulationFrequency] = field(factory=dict)
+    subcompilers: dict[str, HardwareCompiler] = field(factory=dict)
 
     @classmethod
     def from_channel_groups(
@@ -195,13 +201,14 @@ class QWiPCompiler:
     def compile_waveform(
         self,
         exe: QWiPExecutable,
+        instructions: list[Instruction],
         start: int,
         end: int,
         wave: Waveform,
         channel_group: ChannelGroup,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
-        waveform_cache: dict[int, WaveformMemory] = {},
+        instruction_cache: dict[tuple[int, str], list[Instruction]] = {},
     ) -> None:
         program = exe.programs[channel_group.name]
 
@@ -213,14 +220,13 @@ class QWiPCompiler:
         read = np.any([ch.read for ch in channels])
 
         if read:
-            program.instructions.append(
+            instructions.append(
                 ReadInstruction(
                     samples=end - start,
                     sample_rate=channel_group.sample_rate,
                     channel=sorted(ch.index for ch in channels),
                 )
             )
-            exe.num_reads[-1] += 1
 
         match wave:
             case TriggeredWaveform():
@@ -229,56 +235,13 @@ class QWiPCompiler:
                     wave.target,
                     location_kwargs,
                     pulse_kwargs,
-                    waveform_cache,
+                    instruction_cache,
                 )
 
                 for ch in channels:
                     markers = program.markers.get((ch.index, ch.subchannel), [])
                     markers.append(start)
                     program.markers[(ch.index, ch.subchannel)] = markers
-
-    # def compile_trigger(
-    #     self,
-    #     waveform: TriggeredWaveform,
-    #     waveform_block: WaveformBlock,
-    #     marker_time: int,
-    #     marker_device: str,
-    #     exe: QWiPExecutable,
-    #     location_kwargs: dict = {},
-    #     pulse_kwargs: dict = {},
-    #     waveform_cache: dict[int, tuple[str, int]] = {},
-    # ) -> None:
-    #     marker_idx = len(waveform_block.markers)
-    #     waveform_block.markers.append(marker_time)
-
-    #     if id(waveform.target) in waveform_cache:
-    #         trg_group, trg_idx = waveform_cache[id(waveform.target)]
-    #     else:
-    #         outputs = self.compile_sequence_element(
-    #             waveform.target, exe, location_kwargs, pulse_kwargs, waveform_cache
-    #         )
-
-    #         outputs = {d: wblk for d, wblk in outputs.items() if wblk.waveforms}
-
-    #         if len(outputs) > 1:
-    #             raise ValueError(
-    #                 "Triggered sequence elements should only have single channel group."
-    #             )
-
-    #         trg_group = list(outputs)[0]
-    #         trg_idx = len(exe.devices[trg_group])
-    #         outputs[trg_group].triggered = True
-    #         exe.devices[trg_group].append(outputs[trg_group])
-    #         waveform_cache[id(waveform.target)] = (trg_group, trg_idx)
-
-    #     trg_block = TriggerBlock(
-    #         marker_device=marker_device,
-    #         marker_block=len(exe.devices[marker_device]),
-    #         marker_index=marker_idx,
-    #         trigger_block=trg_idx,
-    #     )
-
-    #     exe.triggers[trg_group].append(trg_block)
 
     def compile_single_timeline(
         self,
@@ -289,12 +252,19 @@ class QWiPCompiler:
         phase_tracker: PhaseTracker,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
-        waveform_cache: dict[int, WaveformMemory] = {},
-    ) -> None:
+        instruction_cache: dict[tuple[int, str], list[Instruction]] = {},
+    ) -> list[Instruction]:
         sample_rate = wmem.sample_rate
         samples = wmem.samples
+        program = exe.programs[channel_group.name]
 
         ts = np.arange(samples) / sample_rate
+
+        instructions = []
+
+        if channel_group.has_output():
+            wf_index = program.add_waveform(wmem)
+            instructions.append(PlayInstruction(waveform_index=wf_index))
 
         for loc, waves in locations.items():
             for w in waves:
@@ -331,14 +301,17 @@ class QWiPCompiler:
 
                 self.compile_waveform(
                     exe,
+                    instructions,
                     s_idx,
                     e_idx,
                     w,
                     channel_group,
                     location_kwargs,
                     pulse_kwargs,
-                    waveform_cache,
+                    instruction_cache,
                 )
+
+        return instructions
 
     def compile_sequence_element(
         self,
@@ -346,7 +319,7 @@ class QWiPCompiler:
         se: SequenceElement,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
-        waveform_cache: dict[int, WaveformMemory] = {},
+        instruction_cache: dict[tuple[int, str], list[Instruction]] = {},
     ) -> None:
         """Compiles a single sequence elements.
 
@@ -396,13 +369,13 @@ class QWiPCompiler:
 
             channels = (ch for ch in channel_group.channels if ch.name in se.channels)
 
-            if id(se) in waveform_cache:
-                wf_index = waveform_cache[id(se)]
+            if id(se) in instruction_cache:
+                instructions = instruction_cache[id(se), channel_group.name]
             else:
                 wmem = WaveformMemory.from_channels(
                     num_timepoints, sample_rate, channels
                 )
-                self.compile_single_timeline(
+                instructions = self.compile_single_timeline(
                     exe,
                     locations,
                     wmem,
@@ -410,12 +383,14 @@ class QWiPCompiler:
                     phase_tracker,
                     location_kwargs,
                     pulse_kwargs,
-                    waveform_cache,
+                    instruction_cache,
                 )
-                wf_index = program.add_waveform(wmem)
-                waveform_cache[id(se)] = wf_index
+                instruction_cache[id(se), channel_group.name] = instructions
 
-            program.instructions.append(PlayInstruction(waveform_index=wf_index))
+            program.instructions.extend(instructions)
+            exe.num_reads[-1] += sum(
+                [isinstance(ins, ReadInstruction) for ins in instructions]
+            )
 
     def compile(
         self,
@@ -441,12 +416,18 @@ class QWiPCompiler:
             sequence=seq, channel_groups=self.channels.values()
         )
 
-        waveform_cache = dict()
+        instruction_cache = dict()
 
         for se in seq.flat:
             exe.num_reads.append(0)
             self.compile_sequence_element(
-                exe, se, location_kwargs, pulse_kwargs, waveform_cache
+                exe, se, location_kwargs, pulse_kwargs, instruction_cache
             )
+
+        for dev, program in exe.programs.items():
+            if dev in self.subcompilers:
+                exe.programs[dev] = self.subcompilers[dev].compile(
+                    program, channel_group=self.channels[dev], device=dev
+                )
 
         return exe

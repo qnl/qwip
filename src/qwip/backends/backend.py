@@ -27,6 +27,10 @@ class DACBackend(metaclass=ABCMeta):
     def start(self, **kwargs) -> None:
         ...
 
+    @abstractmethod
+    def stop(self, **kwargs) -> None:
+        ...
+
 
 class ADCBackend(metaclass=ABCMeta):
     @abstractproperty
@@ -34,7 +38,15 @@ class ADCBackend(metaclass=ABCMeta):
         ...
 
     @abstractmethod
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
+        ...
+
+    @abstractmethod
     def start(self, **kwargs) -> None:
+        ...
+
+    @abstractmethod
+    def stop(self, **kwargs) -> None:
         ...
 
     def acquire(self, **kwargs) -> np.ndarray:
@@ -57,6 +69,36 @@ class QuantumBackend(metaclass=ABCMeta):
     @property
     def exe_formats(self) -> set[type[QuantumExecutable]]:
         return set()
+
+
+@qdefine
+class QWiPBackend(QuantumBackend):
+    """A backend for a heterogeneous hardware setup.
+
+    This backend is a general backend for working with heterogeneous measurement setups
+    where the different components (DAC/ADC) come from different vendors.
+    """
+
+    dac: DACBackend
+    adc: ADCBackend
+
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
+        self.dac.upload(exe, **kwargs)
+        self.adc.upload(exe, **kwargs)
+
+    def acquire(self, repetitions: int | None = None, **kwargs) -> dict:
+        self.adc.start(repetitions=repetitions, **kwargs)
+        self.dac.start(**kwargs)
+
+        results = self.adc.acquire(**kwargs)
+        self.dac.stop()
+        self.adc.stop()
+
+        return results
+
+    def update_parameters(self, qpu: "QPU", **kwargs):
+        self.dac.update_parameters(qpu, **kwargs)
+        self.adc.update_parameters(qpu, **kwargs)
 
 
 def random_data_sampler(

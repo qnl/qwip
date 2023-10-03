@@ -158,14 +158,14 @@ class IQTraceResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "IQTraceResult",
-        labels: tuple[str, ...] = ("element", "readout", "shot"),
+        labels: tuple[str, ...] = ("shot", "element", "readout"),
         **kwargs: Any,
     ) -> Self:
         """Creates data frame from trajectory data obtained from QutipBackend.
 
         Args:
             arr: Complex field amplitudes from a single ADC channel. The default
-                indexing is assumed to be (elements, readouts, shots, timepoints), but
+                indexing is assumed to be (shots, elements, readouts, timepoints), but
                 this can be specified by passing in a tuple of labels. The last index
                 must always be timepoints.
             name: The result name.
