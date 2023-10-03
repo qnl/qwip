@@ -136,17 +136,17 @@ def test_dataframe_complex_to_real_multiindex(seed):
 
 class TestIQTraceResult:
     def test_from_numpy(self):
-        IQ_data = np.ones((10, 2, 512, 1000))
+        IQ_data = np.ones((512, 10, 2, 1000))
         IQ_default = IQTraceResult.from_numpy(IQ_data, name="Q0")
         assert IQ_default.data.to_numpy().shape == (10 * 2 * 512, 1000)
-        assert IQ_default.data.index.names == ["element", "readout", "shot"]
+        assert IQ_default.data.index.names == ["shot", "element", "readout"]
 
-        IQ_data_no_readout = np.ones((10, 512, 1000))
+        IQ_data_no_readout = np.ones((512, 10, 1000))
         IQ_no_readout = IQTraceResult.from_numpy(
-            IQ_data_no_readout, name="Q1", labels=["element", "shot"]
+            IQ_data_no_readout, name="Q1", labels=["shot", "element"]
         )
-        assert IQ_no_readout.data.to_numpy().shape == (10 * 512, 1000)
-        assert IQ_no_readout.data.index.names == ["element", "shot"]
+        assert IQ_no_readout.data.to_numpy().shape == (512 * 10, 1000)
+        assert IQ_no_readout.data.index.names == ["shot", "element"]
 
 
 class TestHeterodyneDemodulation:
@@ -493,7 +493,6 @@ class TestLabeled:
     def test_label(self):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
         iqdata = IQResult.from_numpy(arr.reshape(5, 4, 3))
-        print(iqdata.data)
 
         seq = Sequence.empty(
             (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)

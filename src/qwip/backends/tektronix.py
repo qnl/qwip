@@ -8,7 +8,7 @@ from typing_extensions import Self
 import qwip
 from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import DACBackend, QuantumBackend
-from qwip.sequencer.compilation import QuantumExecutable, register_sequencer
+from qwip.sequencer.compilation import DeviceInfo, QuantumExecutable, register_sequencer
 from qwip.sequencer.instructions import (
     DelayInstruction,
     HardwareCompiler,
@@ -44,14 +44,12 @@ class TektronixProgram(Program):
         return tuple([] for _ in self.channels)
 
 
-# @register_sequencer
 @qdefine
 class TektronixCompiler(HardwareCompiler):
     def compile(
         self,
         program: IntermediateProgram,
-        channel_group,
-        device: str = "tektronix",
+        device: DeviceInfo,
     ) -> TektronixProgram:
         """Compiles a sequence.
 
@@ -68,8 +66,8 @@ class TektronixCompiler(HardwareCompiler):
             A `TektronixExecutable` instance.
         """
 
-        indices = sorted(channel_group.channel_indices())
-        tek_program = TektronixProgram(device=device, channels=indices)
+        indices = sorted(device.channel_indices())
+        tek_program = TektronixProgram(device=device.name, channels=indices)
 
         waves = tuple([] for _ in tek_program.channels)
         m1s = tuple([] for _ in tek_program.channels)

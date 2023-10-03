@@ -244,7 +244,7 @@ class ChannelInfo:
     Attributes:
         name: The logical channel name.
         index: The physical channel index (0-indexed) corresponding to the hardware channel.
-        group: The name of the channel group this channel belongs to.
+        device: The name of the device this channel belongs to.
         subchannel: The subchannel (used for markers) that this channel name refers to.
         read: True if the channel is an ADC channel.
         delay: A channel delay in ns to add to all waves on this channel.
@@ -252,7 +252,7 @@ class ChannelInfo:
 
     name: str
     index: int
-    group: str | None = None
+    device: str | None = None
     subchannel: int = 0  # Use nonzero for markers
     read: bool = False
     delay: float = 0
@@ -266,16 +266,16 @@ class TriggerInfo:
 
 
 @qfrozen
-class ChannelGroup:
-    """Holds information about a group of logical channels.
+class DeviceInfo:
+    """Holds information about a device, which contains a group of logical channels.
 
-    A channel group typically corresponds to a single hardware box or set of boxes that are
-    addressed together. They should all share the same sample rate.
+    A device typically corresponds to a single hardware instrument or set of instruments
+    that are addressed together. They should all share the same sample rate.
 
     Attributes:
-        name: The name of the channel group.
-        channels: A tuple of all channels that belong to this group.
-        sample_rate: The sampling rate of the channel group in samples/second.
+        name: The name of the device.
+        channels: A tuple of all channels that belong to this device.
+        sample_rate: The sampling rate of the device in samples/second.
     """
 
     name: str
@@ -302,7 +302,7 @@ class ChannelGroup:
         return max(ch.subchannel for ch in self)
 
     def get_max_channel_delay(self) -> int:
-        """Returns the largest channel delay specified within the channel group."""
+        """Returns the largest channel delay specified within the device."""
         return max(ch.delay for ch in self)
 
     def channel_names(self) -> set[str]:
@@ -325,39 +325,41 @@ class ChannelGroup:
         name: str | None = None,
         **kwargs,
     ) -> Self:
-        """Constructs a channel group from a list of channels.
+        """Constructs a device from a list of channels.
 
         Args:
-            channels: The channels that belong to the group. They must all have unique names,
-                and should not have conflicting groups. If the group attribute for all the
+            channels: The channels that belong to the device. They must all have unique names,
+                and should not have conflicting devices. If the device attribute for all the
                 channels is None, then name must be provided.
-            sample_rate: The sampling rate for the channel group.
-            name: The name of the channel group. This can be inferred from the channels if
-                they specify a group. Otherwise, name must be provided.
+            sample_rate: The sampling rate for the device.
+            name: The name of the device. This can be inferred from the channels if
+                they specify a device. Otherwise, name must be provided.
 
         Returns:
-            The channel group.
+            The device.
         """
-        group = name
+        device = name
         names = set()
 
         for ch in channels:
-            if group and ch.group and ch.group != group:
+            if device and ch.device and ch.device != device:
                 raise ValueError(
-                    "Cannot create channel group from channels with different group names."
+                    "Cannot create device from channels with different device names."
                 )
 
-            group = group or ch.group
+            device = device or ch.device
 
             if ch.name in names:
                 raise ValueError("Channels must all have unique names!")
 
             names.add(ch.name)
 
-        channels = tuple(ch if ch.group else evolve(ch, group=group) for ch in channels)
+        channels = tuple(
+            ch if ch.device else evolve(ch, device=device) for ch in channels
+        )
 
-        return ChannelGroup(
-            name=group, channels=channels, sample_rate=sample_rate, **kwargs
+        return DeviceInfo(
+            name=device, channels=channels, sample_rate=sample_rate, **kwargs
         )
 
     def __iter__(self):
@@ -417,7 +419,7 @@ class CompiledSequence(QuantumExecutable):
         """Computes the fourier transform of the CompiledSequence
 
         Returns:
-            A dictionary mapping sequence groups to their frequency domain
+            A dictionary mapping sequence devices to their frequency domain
             representation.
         """
         fftdict = {
@@ -450,7 +452,7 @@ class WaveformSequencer:
     that can then be uploaded to the measurement hardware (DAC/ADC).
 
     Attributes:
-        channels: A mapping from channel group names to `ChannelGroup` instances that
+        channels: A mapping from device names to `DeviceInfo` instances that
             contain information about the channels.
         modulations: A mapping from modulation keys for phase tracking to concrete
             modulation frequencies.
@@ -461,19 +463,17 @@ class WaveformSequencer:
             end of a sequence element.
     """
 
-    channels: dict[str, ChannelGroup] = field(factory=dict)
+    channels: dict[str, DeviceInfo] = field(factory=dict)
     modulations: dict[str, ModulationFrequency] = field(factory=dict)
     readout_qubits: list[int] = field(factory=list)
     end_marker: str = "end"
 
     @classmethod
-    def from_channel_groups(
-        cls, channel_groups: Iterable[ChannelGroup], **kwargs: Any
-    ) -> Self:
-        """Contruct the waveform sequencer from a list of `ChannelGroup`.
+    def from_devices(cls, devices: Iterable[DeviceInfo], **kwargs: Any) -> Self:
+        """Contruct the waveform sequencer from a list of `DeviceInfo`.
 
         Args:
-            channel_groups: A list of `ChannelGroup` instances representing the
+            devices: A list of `DeviceInfo` instances representing the
                 measurement hardware.
             **kwargs: Remaining keyworad arguments are passed to the `__init__`
                 function.
@@ -481,14 +481,14 @@ class WaveformSequencer:
         Returns:
             A new WaveformSequencer instance.
         """
-        channels = {ch_group.name: ch_group for ch_group in channel_groups}
+        channels = {device.name: device for device in devices}
 
         return cls(channels=channels, **kwargs)
 
     def get_channel_info(self, name: str) -> ChannelInfo | None:
         """Returns the `ChannelInfo` with the given name.
 
-        It is assumed that there are no repeated channel names between channel groups,
+        It is assumed that there are no repeated channel names between devices,
         so this method will short circuit on the first channel that matches the name.
 
         Args:
@@ -497,9 +497,9 @@ class WaveformSequencer:
         Returns:
             A `ChannelInfo` or `None`, if no channel matching the name exists.
         """
-        for group in self.channels.values():
+        for device in self.channels.values():
             try:
-                return group[name]
+                return device[name]
             except KeyError:
                 continue
 
@@ -534,7 +534,7 @@ class WaveformSequencer:
         self,
         locations: dict[Location, list[Waveform]],
         waveform_array: NDArray[np.float32],
-        channel_group: ChannelGroup,
+        device: DeviceInfo,
         phase_tracker: PhaseTracker,
         pulse_kwargs: dict = {},
     ) -> None:
@@ -548,14 +548,14 @@ class WaveformSequencer:
                 should be time ordered.
             waveform_array: A numpy array with shape `(channels, timepoints, subchannels)`
                 that will hold the compiled timepoints
-            channel_group: The channel group that corresponds to this location
+            device: The device that corresponds to this location
                 map.
             phase_tracker: A phase tracker instance that holds all phase jumps for
                 this timeline of pulses.
             pulse_kwargs: A mapping of variable names to resolved values to pass to
                 all pulses.
         """
-        sample_rate = channel_group.sample_rate
+        sample_rate = device.sample_rate
         num_timepoints = waveform_array.shape[1]
 
         ts = np.arange(num_timepoints) / sample_rate
@@ -585,8 +585,8 @@ class WaveformSequencer:
                     w_t = w_t[np.newaxis, :]
 
                 for i, c in enumerate(w.channels):
-                    ch_idx = (channel_group[c].index,)
-                    subchannel = channel_group[c].subchannel
+                    ch_idx = (device[c].index,)
+                    subchannel = device[c].subchannel
                     waveform_array[ch_idx, s_idx:e_idx, subchannel] += w_t[i]
 
         return waveform_array
@@ -595,7 +595,7 @@ class WaveformSequencer:
         self,
         locations: dict[Location, list[Waveform]],
         waveform_array: np.ndarray,
-        channel_group: ChannelGroup,
+        device: DeviceInfo,
         pulse_kwargs: dict = {},
     ):
         """Compiles a single sequence elements.
@@ -609,8 +609,7 @@ class WaveformSequencer:
                 should be time ordered.
             waveform_array: A numpy array with shape `(channels, timepoints, subchannels)`
                 that will hold the compiled timepoints
-            channel_group: The channel group that corresponds to this location
-                map.
+            device: The device that corresponds to this location map.
             pulse_kwargs: A mapping of variable names to resolved values to pass to
                 all pulses.
 
@@ -621,7 +620,7 @@ class WaveformSequencer:
         return self.compile_timepoints(
             locations=locations,
             waveform_array=waveform_array,
-            channel_group=channel_group,
+            device=device,
             phase_tracker=phase_tracker,
             pulse_kwargs=pulse_kwargs,
         )
@@ -636,7 +635,7 @@ class WaveformSequencer:
 
         Args:
             seq: The sequence to be compiled.
-            max_times: A dictionary mapping channel group keys to the latest timepoint
+            max_times: A dictionary mapping device keys to the latest timepoint
                 played on any channel accross all sequence elements. Times are specified
                 in seconds.
 
@@ -646,10 +645,10 @@ class WaveformSequencer:
         """
 
         waveform_arrs = dict()
-        for key, group in self.channels.items():
-            sample_rate = group.sample_rate
-            num_channels = group.max_channel_index + 1
-            num_subchannels = group.max_subchannel_index + 1
+        for key, dev in self.channels.items():
+            sample_rate = dev.sample_rate
+            num_channels = dev.max_channel_index + 1
+            num_subchannels = dev.max_subchannel_index + 1
 
             num_elements = np.prod(seq.shape) if key == "seq" else 1
             num_timepoints = int(max_times[key].offset * sample_rate)
@@ -657,7 +656,7 @@ class WaveformSequencer:
             # We put num_subchannels as the first index and then transpose in an
             # attempt to make memory layout more sensible.
             arr_shape = (num_subchannels, num_channels, num_elements, num_timepoints)
-            logger.debug(f"Channel group {key} shape: {arr_shape}.")
+            logger.debug(f"Device {key} shape: {arr_shape}.")
 
             waveform_arrs[key] = WaveformData(
                 sample_rate=sample_rate,
@@ -823,10 +822,10 @@ class CompiledSequencePlotter:
             if isinstance(axes, Axes):
                 axes = np.array([axes])
 
-        for ax_id, ch_group in enumerate(channels):
+        for ax_id, dev in enumerate(channels):
             ax = axes[ax_id]
 
-            for ch in ch_group:
+            for ch in dev:
                 for marker in range(mainseq.array.shape[3]):
                     pts = mainseq.array[ch, element, :, marker]
                     if not pts.any():
@@ -958,7 +957,7 @@ class InteractiveSequencePlotter:
 
 __all__ = [
     "ChannelInfo",
-    "ChannelGroup",
+    "DeviceInfo",
     "CompiledSequence",
     "CompiledSequencePlotter",
     "InteractiveSequencePlotter",

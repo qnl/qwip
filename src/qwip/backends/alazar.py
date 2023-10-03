@@ -6,6 +6,7 @@ from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import ADCBackend
 from qwip.instruments.alazar.alazar import Alazar
 from qwip.processing.processors import IQTraceResult
+from qwip.sequencer.compilation import DeviceInfo
 from qwip.sequencer.instructions import (
     HardwareCompiler,
     IntermediateProgram,
@@ -35,9 +36,11 @@ class AlazarProgram(Program):
 @qdefine
 class AlazarCompiler(HardwareCompiler):
     def compile(
-        self, program: IntermediateProgram, channel_group, device: str = "alazar"
+        self,
+        program: IntermediateProgram,
+        device: DeviceInfo,
     ) -> AlazarProgram:
-        alazar_program = AlazarProgram(device=device)
+        alazar_program = AlazarProgram(device=device.name)
         for ins in program.instructions:
             match ins:
                 case ReadInstruction(samples=samples):

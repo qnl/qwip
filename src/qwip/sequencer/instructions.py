@@ -7,7 +7,7 @@ from attrs import field
 from typing_extensions import Self
 
 from qwip.attrs import qdefine, qfrozen
-from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, QuantumExecutable
+from qwip.sequencer.compilation import ChannelInfo, DeviceInfo, QuantumExecutable
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
@@ -103,12 +103,8 @@ class QWiPExecutable(QuantumExecutable):
     reset_delay: float = 500e-6
 
     @classmethod
-    def from_channel_groups(
-        cls, channel_groups: Iterable[ChannelGroup], **kwargs
-    ) -> Self:
-        programs = {
-            cg.name: IntermediateProgram(device=cg.name) for cg in channel_groups
-        }
+    def from_devices(cls, devices: Iterable[DeviceInfo], **kwargs) -> Self:
+        programs = {cg.name: IntermediateProgram(device=cg.name) for cg in devices}
 
         return cls(programs=programs, **kwargs)
 
@@ -122,7 +118,7 @@ class HardwareCompiler:
 class QWiPCompiler:
     """
     Attributes:
-        channels: A mapping from channel group names to `ChannelGroup` instances that
+        channels: A mapping from device names to `DeviceInfo` instances that
             contain information about the channels.
         modulations: A mapping from modulation keys for phase tracking to concrete
             modulation frequencies.
@@ -130,18 +126,16 @@ class QWiPCompiler:
             end of a sequence element.
     """
 
-    channels: dict[str, ChannelGroup] = field(factory=dict)
+    channels: dict[str, DeviceInfo] = field(factory=dict)
     modulations: dict[str, ModulationFrequency] = field(factory=dict)
     subcompilers: dict[str, HardwareCompiler] = field(factory=dict)
 
     @classmethod
-    def from_channel_groups(
-        cls, channel_groups: Iterable[ChannelGroup], **kwargs: Any
-    ) -> Self:
-        """Contruct the waveform sequencer from a list of `ChannelGroup`.
+    def from_devices(cls, devices: Iterable[DeviceInfo], **kwargs: Any) -> Self:
+        """Contruct the waveform sequencer from a list of `DeviceInfo`.
 
         Args:
-            channel_groups: A list of `ChannelGroup` instances representing the
+            devices: A list of `DeviceInfo` instances representing the
                 measurement hardware.
             **kwargs: Remaining keyworad arguments are passed to the `__init__`
                 function.
@@ -149,7 +143,7 @@ class QWiPCompiler:
         Returns:
             A new WaveformSequencer instance.
         """
-        channels = {ch_group.name: ch_group for ch_group in channel_groups}
+        channels = {dev.name: dev for dev in devices}
 
         return cls(channels=channels, **kwargs)
 
@@ -165,9 +159,9 @@ class QWiPCompiler:
         Returns:
             A `ChannelInfo` or `None`, if no channel matching the name exists.
         """
-        for group in self.channels.values():
+        for device in self.channels.values():
             try:
-                return group[name]
+                return device[name]
             except KeyError:
                 continue
 
@@ -205,25 +199,21 @@ class QWiPCompiler:
         start: int,
         end: int,
         wave: Waveform,
-        channel_group: ChannelGroup,
+        device: DeviceInfo,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
         instruction_cache: dict[tuple[int, str], list[Instruction]] = {},
     ) -> None:
-        program = exe.programs[channel_group.name]
+        program = exe.programs[device.name]
 
-        channels = [
-            channel_group[c]
-            for c in wave.channels
-            if c in channel_group.channel_names()
-        ]
+        channels = [device[c] for c in wave.channels if c in device.channel_names()]
         read = np.any([ch.read for ch in channels])
 
         if read:
             instructions.append(
                 ReadInstruction(
                     samples=end - start,
-                    sample_rate=channel_group.sample_rate,
+                    sample_rate=device.sample_rate,
                     channel=sorted(ch.index for ch in channels),
                 )
             )
@@ -248,7 +238,7 @@ class QWiPCompiler:
         exe: QWiPExecutable,
         locations: dict[Location, list[Waveform]],
         wmem: WaveformMemory,
-        channel_group: ChannelGroup,
+        device: DeviceInfo,
         phase_tracker: PhaseTracker,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
@@ -256,19 +246,19 @@ class QWiPCompiler:
     ) -> list[Instruction]:
         sample_rate = wmem.sample_rate
         samples = wmem.samples
-        program = exe.programs[channel_group.name]
+        program = exe.programs[device.name]
 
         ts = np.arange(samples) / sample_rate
 
         instructions = []
 
-        if channel_group.has_output():
+        if device.has_output():
             wf_index = program.add_waveform(wmem)
             instructions.append(PlayInstruction(waveform_index=wf_index))
 
         for loc, waves in locations.items():
             for w in waves:
-                if not (set(w.channels) & channel_group.channel_names()):
+                if not (set(w.channels) & device.channel_names()):
                     continue
 
                 width = w.width.resolve(**pulse_kwargs)
@@ -295,7 +285,7 @@ class QWiPCompiler:
 
                 for i, c in enumerate(w.channels):
                     try:
-                        wmem[channel_group[c]][s_idx:e_idx] += w_t[i]
+                        wmem[device[c]][s_idx:e_idx] += w_t[i]
                     except KeyError:
                         pass
 
@@ -305,7 +295,7 @@ class QWiPCompiler:
                     s_idx,
                     e_idx,
                     w,
-                    channel_group,
+                    device,
                     location_kwargs,
                     pulse_kwargs,
                     instruction_cache,
@@ -332,7 +322,7 @@ class QWiPCompiler:
                 should be time ordered.
             waveform_array: A numpy array with shape `(channels, timepoints, subchannels)`
                 that will hold the compiled timepoints
-            channel_group: The channel group that corresponds to this location
+            device: The device that corresponds to this location
                 map.
             pulse_kwargs: A mapping of variable names to resolved values to pass to
                 all pulses.
@@ -347,30 +337,30 @@ class QWiPCompiler:
         phase_tracker = self.compile_phases(locations)
         t_end = markers["end"].offset
 
-        for name, channel_group in self.channels.items():
+        for name, device in self.channels.items():
             program = exe.programs[name]
-            sample_rate = channel_group.sample_rate
+            sample_rate = device.sample_rate
             num_timepoints = int(t_end * sample_rate)
 
-            # Skip compilation for channel group if no waveforms on channel
-            if not (se.channels & channel_group.channel_names()):
+            # Skip compilation for device if no waveforms on channel
+            if not (se.channels & device.channel_names()):
                 continue
 
-            if channel_group.trigger:
+            if device.trigger:
                 start = WaitTriggerInstruction(
-                    device=channel_group.trigger.device,
-                    index=channel_group.trigger.index,
-                    subchannel=channel_group.trigger.subchannel,
+                    device=device.trigger.device,
+                    index=device.trigger.index,
+                    subchannel=device.trigger.subchannel,
                 )
             else:
                 start = WaitTriggerInstruction()
 
             program.instructions.append(start)
 
-            channels = (ch for ch in channel_group.channels if ch.name in se.channels)
+            channels = (ch for ch in device.channels if ch.name in se.channels)
 
             if id(se) in instruction_cache:
-                instructions = instruction_cache[id(se), channel_group.name]
+                instructions = instruction_cache[id(se), device.name]
             else:
                 wmem = WaveformMemory.from_channels(
                     num_timepoints, sample_rate, channels
@@ -379,13 +369,13 @@ class QWiPCompiler:
                     exe,
                     locations,
                     wmem,
-                    channel_group,
+                    device,
                     phase_tracker,
                     location_kwargs,
                     pulse_kwargs,
                     instruction_cache,
                 )
-                instruction_cache[id(se), channel_group.name] = instructions
+                instruction_cache[id(se), device.name] = instructions
 
             program.instructions.extend(instructions)
             exe.num_reads[-1] += sum(
@@ -412,9 +402,7 @@ class QWiPCompiler:
         Returns:
             A `QWiPExecutable` instance.
         """
-        exe = QWiPExecutable.from_channel_groups(
-            sequence=seq, channel_groups=self.channels.values()
-        )
+        exe = QWiPExecutable.from_devices(sequence=seq, devices=self.channels.values())
 
         instruction_cache = dict()
 
@@ -427,7 +415,7 @@ class QWiPCompiler:
         for dev, program in exe.programs.items():
             if dev in self.subcompilers:
                 exe.programs[dev] = self.subcompilers[dev].compile(
-                    program, channel_group=self.channels[dev], device=dev
+                    program, device=self.channels[dev]
                 )
 
         return exe

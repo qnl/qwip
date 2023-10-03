@@ -15,7 +15,7 @@ from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
 from qwip.processing.processors import IQResult, array_real_to_complex
 from qwip.qpu.systems import ReadoutResonator
-from qwip.sequencer.compilation import QuantumExecutable, QWiPExecutable, QWiPSequencer
+from qwip.sequencer.compilation import QuantumExecutable
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import Sequence
 
@@ -279,16 +279,16 @@ def format_legacy_IQ(arr: np.ndarray) -> np.ndarray:
     return array_real_to_complex(np.transpose(arr, [2, 1, 3, 0]))[..., 0]
 
 
-@qdefine
-class QTRLSequencer(QWiPSequencer):
-    def compile(
-        self, seq: Sequence, location_kwargs: dict = {}, pulse_kwargs: dict = {}
-    ) -> QTRLExecutable:
-        qwip_exe = super().compile(seq, location_kwargs, pulse_kwargs)
+# @qdefine
+# class QTRLSequencer(QWiPSequencer):
+#     def compile(
+#         self, seq: Sequence, location_kwargs: dict = {}, pulse_kwargs: dict = {}
+#     ) -> QTRLExecutable:
+#         qwip_exe = super().compile(seq, location_kwargs, pulse_kwargs)
 
-        sequence_arrays = dict()
-        for name, asm_list in qwip_exe.devices.items():
-            qwip_exe.devices["seq"]
+#         sequence_arrays = dict()
+#         for name, asm_list in qwip_exe.devices.items():
+#             qwip_exe.devices["seq"]
 
 
 @qdefine

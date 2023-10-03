@@ -1,0 +1,20 @@
+# [vna]
+# driver = "qcodes.instrument_drivers.Keysight.Keysight_N5241B.N5241B"
+# address = "TCPIP::192.168.1.23"
+
+# [vna.parameters]
+# power_on = false
+# start = 6.4e9
+# end = 7.1e9
+# format = "PHAS"
+# electrical_delay = 9.87349721787e-08
+
+# [vna.parameters.port1]
+# source_power = -50
+
+[alazar]
+driver = "qwip.instruments.alazar.alazar.Alazar"
+
+[tektronix]
+driver = "qcodes.instrument_drivers.tektronix.AWG5014.Tektronix_AWG5014"
+address = "TCPIP::192.168.1.77"

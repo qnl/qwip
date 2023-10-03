@@ -193,10 +193,10 @@ class FakeBackend(QuantumBackend):
 
         data = dict()
         for key in readout_keys:
-            states = np.zeros((num_elements, repetitions, num_readouts))
+            states = np.zeros((repetitions, num_elements, num_readouts))
             for el in range(num_elements):
                 for ro in range(num_readouts):
-                    states[el, :, ro] = self.data_func(key, el, ro, repetitions)
+                    states[:, el, ro] = self.data_func(key, el, ro, repetitions)
 
             gmm = self.gmms[key]
             arr = np.zeros(states.shape, dtype=np.complex64)

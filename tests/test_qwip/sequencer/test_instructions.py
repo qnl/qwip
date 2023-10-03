@@ -3,8 +3,8 @@ import pytest
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from qwip.sequencer.compilation import (
-    ChannelGroup,
     ChannelInfo,
+    DeviceInfo,
     QuantumExecutable,
     TriggerInfo,
 )
@@ -27,7 +27,7 @@ from qwip.sequencer.waveform import (
 class TestQWiPSequencer:
     @pytest.fixture
     def sequencer(self):
-        dac = ChannelGroup.from_channels(
+        dac = DeviceInfo.from_channels(
             channels=(
                 ChannelInfo("Q0_I", 0),
                 ChannelInfo("Q0_Q", 1),
@@ -41,14 +41,14 @@ class TestQWiPSequencer:
             name="tektronix",
         )
 
-        adc = ChannelGroup.from_channels(
+        adc = DeviceInfo.from_channels(
             channels=(ChannelInfo("RO", 0, read=True),),
             sample_rate=1.0e9,
             trigger=TriggerInfo(device="tektronix", index=3, subchannel=0),
             name="adc",
         )
 
-        demod = ChannelGroup.from_channels(
+        demod = DeviceInfo.from_channels(
             channels=(
                 ChannelInfo("R0", 0),
                 ChannelInfo("R1", 1),
@@ -65,9 +65,7 @@ class TestQWiPSequencer:
             mod_R1=ModulationFrequency(-400e6),
         )
 
-        return QWiPCompiler.from_channel_groups(
-            [dac, adc, demod], modulations=modulations
-        )
+        return QWiPCompiler.from_devices([dac, adc, demod], modulations=modulations)
 
     @pytest.fixture
     def pulses(self):
@@ -137,13 +135,13 @@ class TestQWiPSequencer:
 
         se.add_waveform(readout, 2 * pulses["Q0_X90"].width + 100e-9)
 
-        exe = QWiPExecutable.from_channel_groups(
-            sequence=None, channel_groups=sequencer.channels.values()
+        exe = QWiPExecutable.from_devices(
+            sequence=None, devices=sequencer.channels.values()
         )
         exe.num_reads.append(0)
 
-        waveform_cache = dict()
-        sequencer.compile_sequence_element(exe, se, waveform_cache=waveform_cache)
+        instruction_cache = dict()
+        sequencer.compile_sequence_element(exe, se, instruction_cache=instruction_cache)
 
         for prog in exe.programs.values():
             print(prog)

@@ -87,14 +87,14 @@ class NativeGateSchema(ValidatedConfigFolder):
 class ChannelInfoSchema(ValidatedConfigFolder):
     name: str
     index: int
-    group: str
+    device: str
     subchannel: int = 0
     read: bool = False
     delay: float = 0
 
 
 @configschema
-class ChannelGroupSchema(ValidatedConfigFolder):
+class DeviceSchema(ValidatedConfigFolder):
     name: str
     channels: list[str]
     sample_rate: float
@@ -103,7 +103,7 @@ class ChannelGroupSchema(ValidatedConfigFolder):
 @configschema
 class CompilationSchema(ValidatedConfigFolder):
     channels: ConfigFolder[str, ChannelInfoSchema]
-    channel_groups: ConfigFolder[str, ChannelGroupSchema]
+    devices: ConfigFolder[str, DeviceSchema]
     sequencer_class: str = "WaveformSequencer"
     X90: ConfigFolder[Target, NativeGateSchema]
     EF_X90: ConfigFolder[Target, NativeGateSchema]

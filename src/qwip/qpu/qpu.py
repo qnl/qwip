@@ -27,8 +27,8 @@ from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonato
 from qwip.sequencer import Sequence, SequenceElement
 from qwip.sequencer.compilation import (
     REGISTERED_SEQUENCERS,
-    ChannelGroup,
     ChannelInfo,
+    DeviceInfo,
     QuantumExecutable,
     WaveformSequencer,
 )
@@ -116,19 +116,19 @@ class QPU:
         cls, config: ConfigFolder, modulations: dict[str, ModulationFrequency] = {}
     ) -> WaveformSequencer:
         compilation = config["compilation"]
-        channel_groups = []
+        devices = []
 
-        for key, ch_group_config in compilation["channel_groups"].items():
+        for key, dev_config in compilation["devices"].items():
             channels = tuple(
                 ChannelInfo(**compilation["channels"][ch_name])
-                for ch_name in ch_group_config["channels"]
+                for ch_name in dev_config["channels"]
             )
 
-            channel_groups.append(
-                ChannelGroup(
+            devices.append(
+                DeviceInfo(
                     name=key,
                     channels=channels,
-                    sample_rate=ch_group_config["sample_rate"],
+                    sample_rate=dev_config["sample_rate"],
                 )
             )
 
@@ -141,34 +141,30 @@ class QPU:
         except KeyError:
             raise KeyError(f"'{sequencer_cls}' is not a registered Sequencer.")
 
-        sequencer = sequencer_cls.from_channel_groups(
-            channel_groups, modulations=modulations
-        )
+        sequencer = sequencer_cls.from_devices(devices, modulations=modulations)
 
         return sequencer
 
     def save_sequencer(self):
         with self.db.session.begin():
-            for group in self.sequencer.channels.values():
-                self.config["compilation/channel_groups"][group.name].update(
-                    name=group.name, sample_rate=group.sample_rate
+            for device in self.sequencer.channels.values():
+                self.config["compilation/devices"][device.name].update(
+                    name=device.name, sample_rate=device.sample_rate
                 )
 
                 ch_names = []
-                for ch in group.channels:
+                for ch in device.channels:
                     ch_names.append(ch.name)
 
                     self.config["compilation/channels"][ch.name].update(
                         name=ch.name,
                         index=ch.index,
-                        group=ch.group,
+                        device=ch.device,
                         subchannel=ch.subchannel,
                         delay=ch.delay,
                     )
 
-                self.config["compilation/channel_groups"][group.name][
-                    "channels"
-                ] = ch_names
+                self.config["compilation/devices"][device.name]["channels"] = ch_names
 
     def update_modulations(self):
         modulation_keys = {}

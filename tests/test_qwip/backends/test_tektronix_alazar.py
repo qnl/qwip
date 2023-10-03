@@ -10,7 +10,7 @@ from qwip.backends.tektronix import (
     TektronixProgram,
 )
 from qwip.processing.processors import IQTraceResult
-from qwip.sequencer.compilation import ChannelGroup, ChannelInfo, TriggerInfo
+from qwip.sequencer.compilation import ChannelInfo, DeviceInfo, TriggerInfo
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.instructions import QWiPCompiler
 from qwip.sequencer.phase_tracker import ModulationFrequency
@@ -42,7 +42,7 @@ def backend(awg, adc):
 
 @pytest.fixture
 def compiler():
-    dac = ChannelGroup.from_channels(
+    dac = DeviceInfo.from_channels(
         channels=(
             ChannelInfo("Q0_I", 0),
             ChannelInfo("Q0_Q", 1),
@@ -56,14 +56,14 @@ def compiler():
         name="tektronix",
     )
 
-    adc = ChannelGroup.from_channels(
+    adc = DeviceInfo.from_channels(
         channels=(ChannelInfo("RO", 0, read=True),),
         sample_rate=1.0e9,
         trigger=TriggerInfo(device="tektronix", index=3, subchannel=0),
         name="alazar",
     )
 
-    demod = ChannelGroup.from_channels(
+    demod = DeviceInfo.from_channels(
         channels=(
             ChannelInfo("R0", 0),
             ChannelInfo("R1", 1),
@@ -80,7 +80,7 @@ def compiler():
         mod_R1=ModulationFrequency(-400e6),
     )
 
-    return QWiPCompiler.from_channel_groups(
+    return QWiPCompiler.from_devices(
         [dac, adc, demod],
         modulations=modulations,
         subcompilers=dict(tektronix=TektronixCompiler(), alazar=AlazarCompiler()),

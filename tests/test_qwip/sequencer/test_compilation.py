@@ -3,8 +3,8 @@ import pytest
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from qwip.sequencer.compilation import (
-    ChannelGroup,
     ChannelInfo,
+    DeviceInfo,
     QuantumExecutable,
     WaveformSequencer,
 )
@@ -34,9 +34,9 @@ class TestQuantumExecutable:
         assert QuantumExecutable(sequence=None) == QuantumExecutable(sequence=None)
 
 
-class TestChannelGroup:
+class TestDeviceInfo:
     def test_num_channels(self):
-        dac = ChannelGroup.from_channels(
+        dac = DeviceInfo.from_channels(
             channels=(ChannelInfo("Q0_I", 0), ChannelInfo("Q0_Q", 1)),
             sample_rate=2.4e9,
             name="dac",
@@ -46,7 +46,7 @@ class TestChannelGroup:
         assert dac.num_channels == 2
 
     def test_channel_lookup(self):
-        dac = ChannelGroup.from_channels(
+        dac = DeviceInfo.from_channels(
             channels=(ChannelInfo("Q0_I", 0), ChannelInfo("Q0_Q", 1)),
             sample_rate=2.4e9,
             name="dac",
@@ -59,7 +59,7 @@ class TestChannelGroup:
             dac["Q1_I"]
 
     def test_properties(self):
-        dac = ChannelGroup.from_channels(
+        dac = DeviceInfo.from_channels(
             channels=(ChannelInfo("Q0_I", 0), ChannelInfo("Q0_Q", 1, subchannel=2)),
             sample_rate=2.4e9,
             name="dac",
@@ -74,7 +74,7 @@ class TestChannelGroup:
 class TestWaveformSequencer:
     @pytest.fixture
     def sequencer(self):
-        dac = ChannelGroup.from_channels(
+        dac = DeviceInfo.from_channels(
             channels=(
                 ChannelInfo("Q0_I", 0),
                 ChannelInfo("Q0_Q", 1),
@@ -85,7 +85,7 @@ class TestWaveformSequencer:
             name="seq",
         )
 
-        adc = ChannelGroup.from_channels(
+        adc = DeviceInfo.from_channels(
             channels=(ChannelInfo("RO_I", 0), ChannelInfo("RO_Q", 1)),
             sample_rate=1.8e9,
             name="readout",
@@ -98,9 +98,7 @@ class TestWaveformSequencer:
             mod_R1=ModulationFrequency(-400e6),
         )
 
-        return WaveformSequencer.from_channel_groups(
-            [dac, adc], modulations=modulations
-        )
+        return WaveformSequencer.from_devices([dac, adc], modulations=modulations)
 
     @pytest.fixture
     def pulses(self):
@@ -138,8 +136,8 @@ class TestWaveformSequencer:
     @pytest.mark.parametrize(
         "name,expect",
         [
-            ("Q0_I", ChannelInfo(name="Q0_I", index=0, group="seq")),
-            ("RO_Q", ChannelInfo(name="RO_Q", index=1, group="readout")),
+            ("Q0_I", ChannelInfo(name="Q0_I", index=0, device="seq")),
+            ("RO_Q", ChannelInfo(name="RO_Q", index=1, device="readout")),
             ("random", None),
         ],
     )

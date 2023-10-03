@@ -140,7 +140,7 @@ class QubicChannelConfig:
     """A Qubic channel config object.
 
     Attributes:
-        group: The channel group that the channel belongs to. Should be one of
+        device: The device that the channel belongs to. Should be one of
             `[qdrv, rdrv, rdlo]`.
         core_ind: The core index for the channel.
         elem_ind: The element index for the channel.
@@ -150,7 +150,7 @@ class QubicChannelConfig:
         acc_mem_name: The name of the acc buffer for the channel.
     """
 
-    group: str
+    device: str
     core_ind: int
     elem_ind: int = 0
     elem_params: dict[str, int] = dict(samples_per_clk=16, interp_ratio=1)
@@ -160,11 +160,11 @@ class QubicChannelConfig:
 
     @env_mem_name.default
     def _default_env_mem_name(self) -> str:
-        return f"{self.group}env{self.core_ind}"
+        return f"{self.device}env{self.core_ind}"
 
     @freq_mem_name.default
     def _default_freq_mem_name(self) -> str:
-        return f"{self.group}freq{self.core_ind}"
+        return f"{self.device}freq{self.core_ind}"
 
     @acc_mem_name.default
     def _default_acc_mem_name(self) -> str:
@@ -277,7 +277,7 @@ class QubicSequencer(WaveformSequencer):
                 if env in unique_waveforms:
                     w_t = unique_waveforms[env]
                 else:
-                    sample_rate = self.channels[ch_info.group].sample_rate
+                    sample_rate = self.channels[ch_info.device].sample_rate
 
                     N = np.ceil(width.offset * sample_rate).astype(int)
                     ts_wave = np.arange(N) / sample_rate
@@ -321,7 +321,7 @@ class QubicSequencer(WaveformSequencer):
                     w_t = unique_waveforms[env]
                 else:
                     ch_info = self.get_channel_info(channel)
-                    sample_rate = ch_info.group.sample_rate
+                    sample_rate = ch_info.device.sample_rate
 
                     N = np.ceil(width * sample_rate).astype(int)
                     ts_wave = np.arange(N) / sample_rate
@@ -460,18 +460,18 @@ class QubicSequencer(WaveformSequencer):
         """"""
         channel_config = dict(fpga_clk_freq=self.fpga_config.fpga_clk_freq)
 
-        for ch_group in self.channels.values():
-            sample_rate = ch_group.sample_rate
+        for dev in self.channels.values():
+            sample_rate = dev.sample_rate
 
-            for ch in ch_group.channels:
-                _, group = ch.name.split(".")
-                samples_per_clk = 4 if group.lower() == "rdlo" else 16
+            for ch in dev.channels:
+                _, device = ch.name.split(".")
+                samples_per_clk = 4 if device.lower() == "rdlo" else 16
                 interp_ratio = round(
                     samples_per_clk / (sample_rate * self.fpga_config.fpga_clk_period)
                 )
 
                 channel_config[ch.name] = QubicChannelConfig(
-                    group=group,
+                    device=device,
                     core_ind=ch.index,
                     elem_ind=ch.subchannel,
                     elem_params=dict(
@@ -557,8 +557,8 @@ class QubicBackend(QuantumBackend):
         This method updates the mapping from readout indices to readout channels.
         """
 
-        for groups in qpu.sequencer.channels.values():
-            for ch_info in groups.channels:
+        for devices in qpu.sequencer.channels.values():
+            for ch_info in devices.channels:
                 if not ch_info.read:
                     continue
 
