@@ -1,9 +1,7 @@
 import pytest
 
-from qwip.backends.tektronix import (
-    TektronixBackend,
-    TektronixChannel,
-)
+from qwip.backends.tektronix import TektronixBackend, TektronixChannel
+
 
 @pytest.fixture
 def awg(instrument_server):
@@ -39,4 +37,3 @@ class TestTektronixChannel:
 class TestTektronixBackend:
     def test_connect(self, backend):
         assert backend.device.IDN()["vendor"] == "TEKTRONIX"
-
