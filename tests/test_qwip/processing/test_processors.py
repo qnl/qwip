@@ -324,7 +324,7 @@ class TestReadoutHistogram:
         return default_rng(seed)
 
     def test_single_qubit(self, rng):
-        shape = (10, 1024, 2)
+        shape = (1024, 10, 2)
         result = ClassifiedResult.from_numpy(
             rng.choice(2, size=np.prod(shape)).reshape(shape),
             name="R0",
@@ -333,16 +333,16 @@ class TestReadoutHistogram:
         counts = ReadoutHistogram()(result)
 
         assert counts.columns.equals(pd.Index(["0", "1"], name="state"))
-        assert counts.shape == (shape[0] * shape[-1], 2)
+        assert counts.shape == (shape[1] * shape[2], 2)
         assert counts.index.equals(
             pd.MultiIndex.from_tuples(
-                it.product(*(range(d) for d in (shape[0], shape[2])))
+                it.product(*(range(d) for d in (shape[1], shape[2])))
             )
         )
 
     @pytest.fixture
     def multi_qubit_result(self, rng):
-        shape = (5, 512, 1)
+        shape = (512, 5, 1)
         result = ReadoutBitstring()(
             [
                 ClassifiedResult.from_numpy(
@@ -369,10 +369,10 @@ class TestReadoutHistogram:
                 name="state",
             )
         )
-        assert counts.shape == (shape[0] * shape[-1], 6)
+        assert counts.shape == (shape[1] * shape[2], 6)
         assert counts.index.equals(
             pd.MultiIndex.from_tuples(
-                it.product(*(range(d) for d in (shape[0], shape[2])))
+                it.product(*(range(d) for d in (shape[1], shape[2])))
             )
         )
 
@@ -387,15 +387,15 @@ class TestReadoutHistogram:
                 name="state",
             )
         )
-        assert counts.shape == (shape[0] * shape[-1], 9)
+        assert counts.shape == (shape[1] * shape[2], 9)
         assert counts.index.equals(
             pd.MultiIndex.from_tuples(
-                it.product(*(range(d) for d in (shape[0], shape[2])))
+                it.product(*(range(d) for d in (shape[1], shape[2])))
             )
         )
 
     def test_multiindex(self, rng):
-        shape = (10, 1024, 2)
+        shape = (1024, 10, 2)
         result = ClassifiedResult.from_numpy(
             rng.choice(2, size=np.prod(shape)).reshape(shape),
             name="readout",
@@ -415,10 +415,10 @@ class TestReadoutHistogram:
                 it.product(["R0", "R1"], ["0", "1"]), names=["qubit", "state"]
             )
         )
-        assert counts.shape == (shape[0] * shape[-1], 4)
+        assert counts.shape == (shape[1] * shape[2], 4)
         assert counts.index.equals(
             pd.MultiIndex.from_tuples(
-                it.product(*(range(d) for d in (shape[0], shape[2])))
+                it.product(*(range(d) for d in (shape[1], shape[2])))
             )
         )
 
@@ -492,7 +492,8 @@ class TestLabeled:
 
     def test_label(self):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
-        iqdata = IQResult.from_numpy(arr.reshape(4, 5, 3))
+        iqdata = IQResult.from_numpy(arr.reshape(5, 4, 3))
+        print(iqdata.data)
 
         seq = Sequence.empty(
             (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
@@ -500,8 +501,8 @@ class TestLabeled:
         labeled = Labeled()(iqdata, seq=seq)
 
         expected = pd.MultiIndex.from_tuples(
-            it.product(np.arange(2), np.arange(2), np.arange(5), np.arange(3)),
-            names=["prep", "measure", "shot", "readout"],
+            it.product(np.arange(5), np.arange(2), np.arange(2), np.arange(3)),
+            names=["shot", "prep", "measure", "readout"],
         )
 
         assert labeled.data.index.equals(expected)

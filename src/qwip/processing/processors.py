@@ -201,14 +201,14 @@ class IQResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "IQResult",
-        labels: tuple[str, ...] = ("element", "shot", "readout"),
+        labels: tuple[str, ...] = ("shot", "element", "readout"),
         **kwargs: Any,
     ) -> Self:
         """Reorders the memory layout of the IQ data for each measurement key.
 
         Args:
             arr: A numpy array of complex IQ points. The default shape is assumed to be
-                (element, shot, readout).
+                (shot, element, readout).
             name: The result name.
             labels: Index labels for the array axes. These should specify labels for all
                 but the last axis.
@@ -237,7 +237,7 @@ class IQResult(MeasurementResult):
 
         Args:
             shape: The shape of the resulting array. The default axis are
-                `(element, shot, readout)`. If a different number of axes are passed, a
+                `(shot, element, readout)`. If a different number of axes are passed, a
                 set of labels should also be specified.
             num_states: The number of "blobs" to generate. The means and standard
                 deviations of the Gaussian "blobs" are chosen randomly.
@@ -376,7 +376,7 @@ class ClassifiedResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "ClassifiedResult",
-        labels: tuple[str, ...] = ("element", "shot", "readout"),
+        labels: tuple[str, ...] = ("shot", "element", "readout"),
         **kwargs: int,
     ) -> Self:
         """Creates a `ClassifiedResult` instance from a numpy array of states.
@@ -716,10 +716,18 @@ class Labeled(GenericDataProcessor):
             columns=[name or f"{self.level}{i}" for i, name in enumerate(seq.names)],
         ).loc[result.data.index.get_level_values(self.level)]
 
-        for index_level in old_idx.names:
-            if index_level != self.level:
-                new_idx[index_level] = old_idx.get_level_values(index_level)
+        idx_vals = []
+        idx_names = []
+        for name in old_idx.names:
+            if name == self.level:
+                for c in new_idx.columns:
+                    idx_vals.append(new_idx[c].values)
+                    idx_names.append(c)
+            else:
+                level = old_idx.get_level_values(name)
+                idx_vals.append(level.values)
+                idx_names.append(level.name)
 
-        result.data.index = pd.MultiIndex.from_frame(new_idx)
+        result.data.index = pd.MultiIndex.from_arrays(idx_vals, names=idx_names)
 
         return result
