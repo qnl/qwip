@@ -138,15 +138,15 @@ class TestIQTraceResult:
     def test_from_numpy(self):
         IQ_data = np.ones((512, 10, 2, 1000))
         IQ_default = IQTraceResult.from_numpy(IQ_data, name="Q0")
-        assert IQ_default.data.to_numpy().shape == (10 * 2 * 512, 1000)
-        assert IQ_default.data.index.names == ["shot", "element", "readout"]
+        assert IQ_default.data.to_numpy().shape == (10 * 2 * 512 * 1000, 1)
+        assert IQ_default.data.index.names == ["shot", "element", "readout", "time"]
 
         IQ_data_no_readout = np.ones((512, 10, 1000))
         IQ_no_readout = IQTraceResult.from_numpy(
-            IQ_data_no_readout, name="Q1", labels=["shot", "element"]
+            IQ_data_no_readout, name="Q1", labels=["shot", "element", "time"]
         )
-        assert IQ_no_readout.data.to_numpy().shape == (512 * 10, 1000)
-        assert IQ_no_readout.data.index.names == ["shot", "element"]
+        assert IQ_no_readout.data.to_numpy().shape == (512 * 10 * 1000, 1)
+        assert IQ_no_readout.data.index.names == ["shot", "element", "time"]
 
 
 class TestHeterodyneDemodulation:
