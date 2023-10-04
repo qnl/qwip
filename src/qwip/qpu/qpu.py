@@ -139,7 +139,9 @@ class QPU:
         if not modulations:
             modulations = dict()
 
-        compiler_cls = compilation.get("compiler_class", "QWiPCompiler")
+        compiler_cls = compilation.get("compiler", dict(__class__="QWiPCompiler")).get(
+            "__class__", "QWiPCompiler"
+        )
         try:
             compiler_cls = REGISTERED_COMPILERS[compiler_cls]
         except KeyError:
