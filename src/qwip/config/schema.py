@@ -90,6 +90,7 @@ class ChannelInfoSchema(ValidatedConfigFolder):
     device: str
     subchannel: int = 0
     read: bool = False
+    output: bool = True
     delay: float = 0
 
 
