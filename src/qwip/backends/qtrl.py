@@ -392,19 +392,6 @@ class QTRLBackend(QuantumBackend):
 
                     self.meta.variables[f"Q{m[1]}/res_freq"] = f
 
-        # match readout:
-        #     case dict():
-        #         ro_se = self.get_readout_sequence(qpu, **readout)
-        #     case SequenceElement():
-        #         ro_se = readout
-        #     case _:
-        #         raise ValueError(
-        #             f"Readout must be a sequence element or a dictionary of parameters. "
-        #             f"Got {readout}"
-        #         )
-
-        # self.ro_se = ro_se
-
     def get_readout_sequence(
         self,
         qpu: "QPU",
