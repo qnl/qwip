@@ -102,14 +102,6 @@ class QPU:
         )
         qpu.update_modulations()
 
-        # ro_qubits = []
-        # for sys in qpu.subsystems.values():
-        #     match sys:
-        #         case ReadoutResonator(name=n):
-        #             r = int(re.match(r"R(\d+)", n)[1])
-        #             ro_qubits.append(r)
-        # qpu.compiler.readout_qubits = ro_qubits
-
         return qpu
 
     @classmethod
