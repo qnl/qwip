@@ -24,9 +24,9 @@ from qwip.flatdict import FlatDict
 from qwip.processing.processors import IQResult
 from qwip.sequencer.compilation import (
     QuantumExecutable,
-    WaveformSequencer,
+    QWiPCompiler,
     find_end_marker,
-    register_sequencer,
+    register_compiler,
 )
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
@@ -191,9 +191,9 @@ class QubicExecutable(QuantumExecutable):
         return len(self.reads_per_element)
 
 
-@register_sequencer
+@register_compiler
 @qdefine
-class QubicSequencer(WaveformSequencer):
+class QubicCompiler(QWiPCompiler):
     """Qubic-specific compiler"""
 
     fpga_config: QubicFPGAConfig = field(factory=QubicFPGAConfig)
@@ -488,7 +488,6 @@ class QubicBackend(QuantumBackend):
 
     runner: CircuitRunnerClient
     delay_buffer: float = 50e-6
-    uploaded: QubicExecutable | None = None
     result_map: dict = field(factory=dict)
 
     def upload(self, exe: QubicExecutable, **kwargs: Any) -> None:
@@ -501,24 +500,17 @@ class QubicBackend(QuantumBackend):
         self.runner.load_circuit(exe.assembly, **kwargs)
         self.uploaded = exe
 
-    def acquire(
-        self, exe: QubicExecutable | None = None, repetitions: int = 512, **kwargs
-    ) -> dict[str, IQResult]:
+    def acquire(self, repetitions: int = 512, **kwargs) -> dict[str, IQResult]:
         """Acquires data from the qubic board.
 
         Args:
-            exe: A `QubicExecutable` to run. If `None`, the last uploaded program is run.
             repetitions: The number of shots to acquire for the given circuit.
         """
-        if exe is None and self.uploaded is None:
+        if self.uploaded is None:
             raise ValueError(
                 "No asm to execute! Call upload to load an executable or pass an "
                 "executable to acquire."
             )
-
-        if exe != self.uploaded:
-            self.runner.load_circuit(exe.assembly)
-            self.uploaded = exe
 
         exe = self.uploaded
 

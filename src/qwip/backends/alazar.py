@@ -6,8 +6,8 @@ from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import ADCBackend
 from qwip.instruments.alazar.alazar import Alazar
 from qwip.processing.processors import IQTraceResult
-from qwip.sequencer.compilation import DeviceInfo
-from qwip.sequencer.instructions import (
+from qwip.sequencer.compilation import (
+    DeviceInfo,
     HardwareCompiler,
     IntermediateProgram,
     Program,

@@ -15,7 +15,15 @@ from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
 from qwip.processing.processors import IQResult, array_real_to_complex
 from qwip.qpu.systems import ReadoutResonator
-from qwip.sequencer.compilation import QuantumExecutable
+from qwip.sequencer.compilation import (
+    DeviceInfo,
+    IntermediateProgram,
+    PlayInstruction,
+    QuantumExecutable,
+    QWiPCompiler,
+    WaitTriggerInstruction,
+    register_compiler,
+)
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import Sequence
 
@@ -29,7 +37,7 @@ class _ReadoutInfo:
     Attributes:
         sequence: A WaveformData object to mirror a QTRL sequence.
         qubits: A list of qubit indices corresponding to which qubits a read out.
-        n_readouts: The total number of readouts accross all sequence elements.
+        n_readouts: The total number of readouts across all sequence elements.
     """
 
     sequence: "SequenceArray"
@@ -187,6 +195,7 @@ class SequenceArray:
         return ys
 
 
+@qdefine
 class QTRLExecutable(QuantumExecutable):
     """Compiled sequence.
 
@@ -279,16 +288,61 @@ def format_legacy_IQ(arr: np.ndarray) -> np.ndarray:
     return array_real_to_complex(np.transpose(arr, [2, 1, 3, 0]))[..., 0]
 
 
-# @qdefine
-# class QTRLSequencer(QWiPSequencer):
-#     def compile(
-#         self, seq: Sequence, location_kwargs: dict = {}, pulse_kwargs: dict = {}
-#     ) -> QTRLExecutable:
-#         qwip_exe = super().compile(seq, location_kwargs, pulse_kwargs)
+@register_compiler
+@qdefine
+class QTRLCompiler(QWiPCompiler):
+    def compile(
+        self, seq: Sequence, location_kwargs: dict = {}, pulse_kwargs: dict = {}
+    ) -> QTRLExecutable:
+        qwip_exe = super().compile(seq, location_kwargs, pulse_kwargs)
 
-#         sequence_arrays = dict()
-#         for name, asm_list in qwip_exe.devices.items():
-#             qwip_exe.devices["seq"]
+        readout_qubits = set()
+
+        waveforms = {}
+        for dev_name, program in qwip_exe.programs.items():
+            readout_qubits.update(program.read_registers)
+            if program.waveforms:
+                waveforms[dev_name] = self.compile_sequence_array(program)
+
+        trigger = self.channels["readout"].trigger
+        marker = (trigger.index, trigger.subchannel)
+        waveforms["seq"].readout_locations = {
+            el: sample
+            for el, sample in enumerate(qwip_exe.programs["seq"].markers[marker])
+        }
+
+        try:
+            waveforms["readout"]._readout = _ReadoutInfo(
+                sequence=waveforms["readout"],
+                qubits=list(readout_qubits),
+                n_readouts=sum(qwip_exe.num_reads),
+            )
+        except KeyError:
+            pass
+
+        return QTRLExecutable(sequence=seq, waveforms=waveforms)
+
+    def compile_sequence_array(self, program: IntermediateProgram) -> SequenceArray:
+        device = self.channels[program.device]
+        n_channels = device.max_channel_index + 1
+        n_elements = len(program.waveforms)
+        n_samples = max(wmem.samples for wmem in program.waveforms)
+        n_subchannels = device.max_subchannel_index + 1
+
+        seq_arr = SequenceArray(
+            sample_rate=device.sample_rate,
+            n_elements=n_elements,
+            num_channels=n_channels,
+            array=np.zeros(
+                (n_channels, n_elements, n_samples, n_subchannels), dtype=np.float32
+            ),
+        )
+
+        for el, wmem in enumerate(program.waveforms):
+            for (ch, subch), wavedata in wmem.data.items():
+                seq_arr.array[ch, el, : len(wavedata), subch] = wavedata
+
+        return seq_arr
 
 
 @qdefine
@@ -296,10 +350,10 @@ class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
 
     meta: "MetaManager"
-    ro_se: SequenceElement = field(factory=SequenceElement)
 
     def upload(self, exe: QTRLExecutable, **kwargs) -> None:
         populate_unpaired(exe)
+        self.uploaded = exe
         self.meta.write_sequence(exe)
 
     def acquire(self, exe: QTRLExecutable, repetitions: int = 512, **kwargs) -> dict:
@@ -338,18 +392,18 @@ class QTRLBackend(QuantumBackend):
 
                     self.meta.variables[f"Q{m[1]}/res_freq"] = f
 
-        match readout:
-            case dict():
-                ro_se = self.get_readout_sequence(qpu, **readout)
-            case SequenceElement():
-                ro_se = readout
-            case _:
-                raise ValueError(
-                    f"Readout must be a sequence element or a dictionary of parameters. "
-                    f"Got {readout}"
-                )
+        # match readout:
+        #     case dict():
+        #         ro_se = self.get_readout_sequence(qpu, **readout)
+        #     case SequenceElement():
+        #         ro_se = readout
+        #     case _:
+        #         raise ValueError(
+        #             f"Readout must be a sequence element or a dictionary of parameters. "
+        #             f"Got {readout}"
+        #         )
 
-        self.ro_se = ro_se
+        # self.ro_se = ro_se
 
     def get_readout_sequence(
         self,
@@ -374,7 +428,7 @@ class QTRLBackend(QuantumBackend):
         ro_se = SequenceElement()
         length = length or readout_config.length
 
-        for r in qpu.sequencer.readout_qubits:
+        for r in qpu.compiler.readout_qubits:
             pulse_name = readout_config.drives[f"R{r}"]
 
             ro_se += qpu.db.load_pulse(pulse_name, {length_variable: length})

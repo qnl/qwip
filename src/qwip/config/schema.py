@@ -94,17 +94,25 @@ class ChannelInfoSchema(ValidatedConfigFolder):
 
 
 @configschema
+class TriggerInfoSchema(ValidatedConfigFolder):
+    device: str | None = None
+    index: int = 0
+    subchannel: int = 0
+
+
+@configschema
 class DeviceSchema(ValidatedConfigFolder):
     name: str
     channels: list[str]
     sample_rate: float
+    trigger: TriggerInfoSchema
 
 
 @configschema
 class CompilationSchema(ValidatedConfigFolder):
     channels: ConfigFolder[str, ChannelInfoSchema]
     devices: ConfigFolder[str, DeviceSchema]
-    sequencer_class: str = "WaveformSequencer"
+    compiler: dict = field(factory=lambda: dict(__class__="QWiPCompiler"))
     X90: ConfigFolder[Target, NativeGateSchema]
     EF_X90: ConfigFolder[Target, NativeGateSchema]
     Z: ConfigFolder[Target, NativeGateSchema]

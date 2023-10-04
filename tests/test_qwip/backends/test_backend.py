@@ -5,6 +5,7 @@ from numpy.random import default_rng
 from qwip.backends.backend import FakeBackend
 from qwip.processing.processors import GMMClassification, StatePopulations
 from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
+from qwip.sequencer.compilation import IntermediateProgram, QWiPExecutable
 
 
 class TestQuantumBackend:
@@ -16,29 +17,28 @@ class TestQuantumBackend:
         return backend
 
     @pytest.fixture
-    def sequencer(self, qpu_01):
-        return qpu_01.sequencer
+    def exe(self):
+        def make_exe(shape):
+            exe = QWiPExecutable(
+                programs=dict(
+                    dac=IntermediateProgram(device="dac", read_registers={0, 1, 2}),
+                ),
+                num_reads=[1] * shape,
+            )
 
-    @pytest.fixture
-    def compiled(self, sequencer):
-        def generate_cseq(shape):
-            ro = SequenceElement()
-            seq = Sequence.empty(shape)
-            seq = seq + SequenceElement().add_waveform(ReadoutMarker(), 10e-9)
+            return exe
 
-            return sequencer.compile(seq, readout=ro)
+        return make_exe
 
-        return generate_cseq
-
-    def test_upload(self, backend, compiled):
-        cseq = compiled(15)
+    def test_upload(self, backend, exe):
+        exe = exe(15)
 
         def zeros(readout_key, element_index, readout_index, repetitions):
             return np.zeros(repetitions)
 
-        backend.upload(cseq, data_func=zeros)
+        backend.upload(exe, data_func=zeros)
 
-        assert backend.uploaded is cseq
+        assert backend.uploaded is exe
         assert backend.data_func is zeros
 
     def test_update_parameters(self, qpu_01, backend):
@@ -54,15 +54,15 @@ class TestQuantumBackend:
         backend.update_parameters(qpu)
         assert backend.gmms["R0"] is gmm0
 
-    def test_acquire_zeros(self, qpu_01, backend, compiled):
+    def test_acquire_zeros(self, qpu_01, backend, exe):
         qpu = qpu_01
 
         def data_func(key, element, readout, repetitions):
             return np.zeros(repetitions)
 
-        cseq = compiled(15)
-        backend.upload(cseq, data_func)
-        data = backend.acquire(cseq)
+        exe = exe(15)
+        backend.upload(exe, data_func)
+        data = backend.acquire()
 
         results = qpu.pipeline.process_results(
             data, dict(R0=StatePopulations, R1=StatePopulations)
@@ -71,7 +71,7 @@ class TestQuantumBackend:
         assert (results["R0"].data["0"] > 0.99).all()
         assert (results["R1"].data["0"] > 0.99).all()
 
-    def test_acquire_sin(self, qpu_01, backend, compiled):
+    def test_acquire_sin(self, qpu_01, backend, exe):
         qpu = qpu_01
 
         def data_func(key, element, readout, repetitions):
@@ -86,9 +86,9 @@ class TestQuantumBackend:
             else:
                 return np.zeros(repetitions)
 
-        cseq = compiled(20)
-        backend.upload(cseq, data_func)
-        data = backend.acquire(cseq)
+        exe = exe(20)
+        backend.upload(exe, data_func)
+        data = backend.acquire()
 
         results = qpu.pipeline.process_results(
             data, dict(R0=StatePopulations, R1=StatePopulations)

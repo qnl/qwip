@@ -158,7 +158,7 @@ class IQTraceResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "IQTraceResult",
-        labels: tuple[str, ...] = ("shot", "element", "readout"),
+        labels: tuple[str, ...] = ("shot", "element", "readout", "time"),
         **kwargs: Any,
     ) -> Self:
         """Creates data frame from trajectory data obtained from QutipBackend.
@@ -177,11 +177,11 @@ class IQTraceResult(MeasurementResult):
         """
 
         index = pd.MultiIndex.from_tuples(
-            it.product(*(range(N) for N in arr.shape[:-1])), names=labels
+            it.product(*(range(N) for N in arr.shape)), names=labels
         )
 
         data = pd.DataFrame(
-            arr.reshape(-1, arr.shape[-1]),
+            arr.flatten(),
             index=index,
         )
 
@@ -323,12 +323,19 @@ class HeterodyneDemodulation(DataProcessor):
         """
 
         weight_arr = np.stack(list(self.weights.values()))
-
-        integrated = np.dot(weight_arr, result.data.values.T) / weight_arr.shape[-1]
+        tsize = result.data.index.levshape[-1]
+        integrated = (
+            np.dot(weight_arr, result.data.values.reshape(-1, tsize).T)
+            / weight_arr.shape[-1]
+        )
 
         output = list()
         for i, k in enumerate(self.weights):
-            data = pd.Series(integrated[i], index=result.data.index).unstack(-1)
+            data = pd.DataFrame(
+                integrated[i],
+                index=result.data.index[::tsize].droplevel("time"),
+                columns=["IQ"],
+            )
 
             output.append(IQResult(name=k, data=data))
 

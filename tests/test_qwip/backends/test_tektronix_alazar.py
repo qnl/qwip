@@ -10,9 +10,13 @@ from qwip.backends.tektronix import (
     TektronixProgram,
 )
 from qwip.processing.processors import IQTraceResult
-from qwip.sequencer.compilation import ChannelInfo, DeviceInfo, TriggerInfo
+from qwip.sequencer.compilation import (
+    ChannelInfo,
+    DeviceInfo,
+    QWiPCompiler,
+    TriggerInfo,
+)
 from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.instructions import QWiPCompiler
 from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (
@@ -57,7 +61,7 @@ def compiler():
     )
 
     adc = DeviceInfo.from_channels(
-        channels=(ChannelInfo("RO", 0, read=True),),
+        channels=(ChannelInfo("RO", 0, read=True, output=False),),
         sample_rate=1.0e9,
         trigger=TriggerInfo(device="tektronix", index=3, subchannel=0),
         name="alazar",
@@ -204,6 +208,9 @@ class TestCompilation:
             == len(exe.programs["tektronix"].marker1s)
             == len(exe.programs["tektronix"].marker2s)
         )
+
+        assert exe.programs["alazar"].samples == [1001] * len(seq.flat)
+        assert exe.num_reads == [1] * len(seq.flat)
 
     @pytest.mark.parametrize("seq", ["freq_sweep", "t1_sweep"])
     def test_upload(self, compiler, seq, request, backend):

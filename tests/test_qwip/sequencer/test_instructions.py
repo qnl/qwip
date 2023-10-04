@@ -6,10 +6,11 @@ from qwip.sequencer.compilation import (
     ChannelInfo,
     DeviceInfo,
     QuantumExecutable,
+    QWiPCompiler,
+    QWiPExecutable,
     TriggerInfo,
 )
 from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.instructions import QWiPCompiler, QWiPExecutable
 from qwip.sequencer.phase_tracker import ModulationFrequency
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (

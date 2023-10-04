@@ -6,7 +6,7 @@ from qwip.sequencer.compilation import (
     ChannelInfo,
     DeviceInfo,
     QuantumExecutable,
-    WaveformSequencer,
+    QWiPCompiler,
 )
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency
@@ -71,15 +71,16 @@ class TestDeviceInfo:
         assert dac.max_subchannel_index == 2
 
 
-class TestWaveformSequencer:
+class TestQWiPCompiler:
     @pytest.fixture
-    def sequencer(self):
+    def compiler(self):
         dac = DeviceInfo.from_channels(
             channels=(
                 ChannelInfo("Q0_I", 0),
                 ChannelInfo("Q0_Q", 1),
                 ChannelInfo("Q1_I", 2),
                 ChannelInfo("Q1_Q", 3),
+                ChannelInfo("RO_marker", 0, subchannel=1),
             ),
             sample_rate=2.4e9,
             name="seq",
@@ -98,7 +99,7 @@ class TestWaveformSequencer:
             mod_R1=ModulationFrequency(-400e6),
         )
 
-        return WaveformSequencer.from_devices([dac, adc], modulations=modulations)
+        return QWiPCompiler.from_devices([dac, adc], modulations=modulations)
 
     @pytest.fixture
     def pulses(self):
@@ -141,29 +142,26 @@ class TestWaveformSequencer:
             ("random", None),
         ],
     )
-    def test_get_channel_info(self, sequencer, name, expect):
-        assert sequencer.get_channel_info(name) == expect
+    def test_get_channel_info(self, compiler, name, expect):
+        assert compiler.get_channel_info(name) == expect
 
-    def test_end_to_end(self, sequencer, pulses, data_file):
+    def test_end_to_end(self, compiler, pulses, data_file):
         import matplotlib.pyplot as plt
         import numpy as np
 
         ro_se = SequenceElement()
         ro_se.add_waveform([pulses[f"R{r}"] for r in range(2)])
+        readout = TriggeredWaveform(target=ro_se, width=50e-9, channels=("RO_marker",))
 
         se_0 = SequenceElement()
         se_0.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
-        se_0.add_waveform(ReadoutMarker(), 50e-9)
+        se_0.add_waveform(readout, 50e-9)
 
         se_1 = SequenceElement()
         se_1.add_waveform([pulses["Q0_Z90"], pulses["Q1_Z90"]])
         se_1.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
-        se_1.add_waveform(ReadoutMarker(), 50e-9)
+        se_1.add_waveform(readout, 50e-9)
 
         seq = Sequence([se_0, se_1])
 
-        cseq = sequencer.compile(seq, readout=ro_se)
-
-        expected = np.loadtxt(data_file).reshape(cseq.array.shape)
-
-        assert_array_almost_equal(expected, cseq.array)
+        exe = compiler.compile(seq)

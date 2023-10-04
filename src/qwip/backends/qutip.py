@@ -12,9 +12,9 @@ from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.backends.backend import QuantumBackend, random_data_sampler
+from qwip.backends.qtrl import QTRLExecutable
 from qwip.processing.processors import IQTraceResult
 from qwip.qpu.systems import ReadoutResonator
-from qwip.sequencer.compilation import CompiledSequence
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
@@ -282,7 +282,7 @@ class QutipBackend(QuantumBackend):
             object which stores its parameters and can solve for its field equation.
     """
 
-    uploaded: CompiledSequence | None = None
+    uploaded: QTRLExecutable | None = None
     num_levels: int = 4
     static_hamiltonian: dict[str, Qobj] = field(factory=dict)
     channel_map: list[OperatorChannelMap] = field(factory=list)
@@ -349,7 +349,7 @@ class QutipBackend(QuantumBackend):
                 case ReadoutResonator():
                     self.readouts[name] = sys
 
-    def upload(self, exe: CompiledSequence, **kwargs: Any) -> None:
+    def upload(self, exe: QTRLExecutable, **kwargs: Any) -> None:
         """Constructs the drive hamiltonians for elements of active channels
         to later be simulated.
 
@@ -430,7 +430,7 @@ class QutipBackend(QuantumBackend):
 
     def acquire(
         self,
-        exe: CompiledSequence,
+        exe: QTRLExecutable,
         repetitions: int = 512,
         elements: list[int] = [-1],
         drive: float = 1e6,
@@ -462,7 +462,7 @@ class QutipBackend(QuantumBackend):
         # Dictionary mapping from qubit to results, cavity fields
         all_targets = list(self.static_hamiltonian.keys())
         results = {
-            target: np.zeros((len(elements), 1, repetitions, len(ts))).astype(complex)
+            target: np.zeros((repetitions, len(elements), 1, len(ts)), dtype=complex)
             for target in all_targets
         }
         readout_fields = {
@@ -477,14 +477,6 @@ class QutipBackend(QuantumBackend):
             # Expectation values for all possible states at last time step
             qt_result = H_obj.simulate()
             qt_expect = [r[-1] for r in qt_result.expect]
-
-            # # Debugging Tool
-            # q_expect = []
-            # print(H_obj.targets)
-            # for q in get_multi_qubit_populations(qt_result, H_basis, len(H_obj.targets)):
-            #     q_state = [r[-1] for r in q.values()]
-            #     q_expect.append(q_state)
-            #     print(q_state)
 
             # List of N tuples with length number of targets, states chosen
             # using rng.choice with non-uniform distribution matching last time step
@@ -505,7 +497,7 @@ class QutipBackend(QuantumBackend):
                     if level < len(readout_fields[f"R{q}"]):
                         noise = gaussian_noise(self.readouts[f"R{q}"].eta, len(ts))
                         trajectory = (readout_fields[f"R{q}"][level]) + noise
-                        results[f"Q{q}"][i, 0, shot, :] = trajectory
+                        results[f"Q{q}"][shot, i, 0, :] = trajectory
 
         return {
             k: IQTraceResult.from_numpy(trace, name=k) for k, trace in results.items()
