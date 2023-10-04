@@ -186,9 +186,15 @@ class WaveformMemory:
 
     @classmethod
     def from_channels(
-        cls, samples: int, sample_rate: float, channels: Iterable["ChannelInfo"]
+        cls,
+        samples: int,
+        sample_rate: float,
+        channels: Iterable["ChannelInfo"],
+        dtype=np.float32,
     ) -> Self:
-        data = {(ch.index, ch.subchannel): np.zeros(samples) for ch in channels}
+        data = {
+            (ch.index, ch.subchannel): np.zeros(samples, dtype=dtype) for ch in channels
+        }
         return cls(samples=samples, sample_rate=sample_rate, data=data)
 
     def __getitem__(self, key) -> np.ndarray:
@@ -466,7 +472,7 @@ class QWiPCompiler:
                 )
 
                 if len(w_t.shape) == 1:
-                    w_t = w_t[np.newaxis, :]
+                    w_t = np.repeat(w_t[np.newaxis, :], len(w.channels), axis=0)
 
                 for i, c in enumerate(w.channels):
                     try:

@@ -83,10 +83,6 @@ class Waveform:
 
         try:
             wave = self.evaluate_timepoints(ts.astype(np.float32), **kwargs)
-
-            if len(self.channels) > 1 and len(wave.shape) == 1:
-                wave = np.ones(len(self.channels))[:, np.newaxis] * wave
-
             return wave
         except TypeError as e:
             variables = set()
