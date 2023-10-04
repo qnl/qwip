@@ -295,11 +295,6 @@ class QPU:
         self.backend.update_parameters(self)
 
         match program:
-            # TODO: Fix this ugliness by implementing more flexible readout for ZI
-            # case Sequence() if type(self.backend).__name__ == "QTRLBackend":
-            #     ro_se = self.backend.ro_se
-            #     exe = self.compiler.compile(program, readout=ro_se, **compilation)
-            #     seq = exe.sequence
             case Sequence():
                 exe = self.compiler.compile(program, **compilation)
             case QuantumExecutable():
