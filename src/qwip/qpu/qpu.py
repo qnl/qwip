@@ -154,23 +154,20 @@ class QPU:
     def save_compiler(self):
         with self.db.session.begin():
             for device in self.compiler.channels.values():
-                self.config["compilation/devices"][device.name].update(
-                    name=device.name, sample_rate=device.sample_rate
-                )
+                self.config["compilation/devices"].create_all(**{device.name: {}})
 
-                ch_names = []
                 for ch in device.channels:
-                    ch_names.append(ch.name)
+                    self.config["compilation/channels"].create_all(**{ch.name: {}})
 
+                dev_info = qwip.converter.unstructure(device)
+                dev_info["channels"] = [ch["name"] for ch in dev_info["channels"]]
+
+                self.config["compilation/devices"][device.name].update(**dev_info)
+
+                for ch in device.channels:
                     self.config["compilation/channels"][ch.name].update(
-                        name=ch.name,
-                        index=ch.index,
-                        device=ch.device,
-                        subchannel=ch.subchannel,
-                        delay=ch.delay,
+                        **qwip.converter.unstructure(ch)
                     )
-
-                self.config["compilation/devices"][device.name]["channels"] = ch_names
 
     def update_modulations(self):
         modulation_keys = {}
