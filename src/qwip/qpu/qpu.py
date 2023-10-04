@@ -145,7 +145,6 @@ class QPU:
 
     def save_compiler(self):
         with self.db.session.begin():
-            self.config.subsystems.create_all(**{k: {} for k in self.subsystems})
             for device in self.compiler.channels.values():
                 self.config["compilation/devices"].create_all(**{device.name: {}})
 
@@ -247,6 +246,7 @@ class QPU:
         ## Starting a session here ensures that either all the models get saved or
         ## none do.
         with self.db.session.begin():
+            self.config.subsystems.create_all(**{k: {} for k in self.subsystems})
             for system in self.subsystems.values():
                 system_data = qwip.converter.unstructure(system)
 
