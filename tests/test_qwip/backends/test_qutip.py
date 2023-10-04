@@ -12,7 +12,7 @@ from qwip.backends.qutip import (
     get_active_channels,
 )
 from qwip.processing.processors import HeterodyneDemodulation, IQTraceResult
-from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
+from qwip.sequencer import Sequence, SequenceElement, TriggeredWaveform
 
 
 def check_fft(ts, drive):
@@ -198,19 +198,19 @@ class TestTimeDependentHamiltonian:
 
 class TestQutipBackend:
     @pytest.fixture
-    def sequencer(self, qpu_01):
-        return qpu_01.sequencer
+    def compiler(self, qpu_01):
+        return qpu_01.compiler
 
     @pytest.fixture
-    def compiled(self, sequencer):
-        def generate_cseq(shape):
-            ro = SequenceElement()
+    def exe(self, compiler):
+        def make_exe(shape):
             seq = Sequence.empty(shape)
-            seq = seq + SequenceElement().add_waveform(ReadoutMarker(), 10e-9)
+            readout = TriggeredWaveform(
+                target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+            )
+            return compiler.compile(seq + SequenceElement().add_waveform(readout))
 
-            return sequencer.compile(seq, readout=ro)
-
-        return generate_cseq
+        return make_exe
 
     @pytest.fixture
     def sim_backend(self):
@@ -236,77 +236,85 @@ class TestQutipBackend:
 
     # One Channel
     @pytest.fixture
-    def compile_Q0X90(self, qpu_01):
+    def exe_Q0X90(self, qpu_01):
         db = qpu_01.db
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
 
+        readout = TriggeredWaveform(
+            target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+        )
         rabi_se = SequenceElement()
         rabi_se.append(Q0_X)
-        rabi_se.add_waveform(ReadoutMarker(), location=Q0_X.width)
-        ro_se = SequenceElement()
+        rabi_se.add_waveform(readout, location=Q0_X.width)
 
         ts = np.linspace(0, 34.8e-9, 21)
         seq = Sequence.sweep(rabi_se, rabi_width=ts)
-        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
+        exe = qpu_01.compiler.compile(seq)
 
-        return cseq
+        return exe
 
     @pytest.fixture
-    def compile_Q0_X180(self, qpu_01):
+    def exe_Q0_X180(self, qpu_01):
         db = qpu_01.db
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
 
+        readout = TriggeredWaveform(
+            target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+        )
         rabi_se = SequenceElement()
         rabi_se.append(Q0_X)
         rabi_se.append(Q0_X, self_loc=Q0_X.width)
-        rabi_se.add_waveform(ReadoutMarker(), location=2 * Q0_X.width)
-        ro_se = SequenceElement()
+        rabi_se.add_waveform(readout, location=2 * Q0_X.width)
 
         ts = np.linspace(0, 34.8e-9, 21)
         seq = Sequence.sweep(rabi_se, rabi_width=ts)
-        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
+        exe = qpu_01.compiler.compile(seq)
 
-        return cseq
+        return exe
 
     # Two channels
     @pytest.fixture
-    def compile_Q0X90_Q1X90(self, qpu_01):
+    def exe_Q0X90_Q1X90(self, qpu_01):
         db = qpu_01.db
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
         Q1_X = db.load_pulse("Q1_X90", variables=dict(width="rabi_width"))
 
+        readout = TriggeredWaveform(
+            target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+        )
         rabi_se = SequenceElement()
         rabi_se.append(Q0_X)
         rabi_se.append(Q1_X)
-        rabi_se.add_waveform(ReadoutMarker(), location=Q0_X.width)
-        ro_se = SequenceElement()
+        rabi_se.add_waveform(readout, location=Q0_X.width)
 
         ts = np.linspace(0, 34.8e-9, 21)
         seq = Sequence.sweep(rabi_se, rabi_width=ts)
-        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
+        exe = qpu_01.compiler.compile(seq)
 
-        return cseq
+        return exe
 
     # Three channels
     @pytest.fixture
-    def compile_Q0X90_Q1X90_Q2X90(self, qpu_01):
+    def exe_Q0X90_Q1X90_Q2X90(self, qpu_01):
         db = qpu_01.db
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
         Q1_X = db.load_pulse("Q1_X90", variables=dict(width="rabi_width"))
         Q2_X = db.load_pulse("Q2_X90", variables=dict(width="rabi_width"))
 
+        readout = TriggeredWaveform(
+            target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+        )
         rabi_se = SequenceElement()
         rabi_se.append(Q0_X)
         rabi_se.append(Q1_X)
         rabi_se.append(Q2_X)
-        rabi_se.add_waveform(ReadoutMarker(), location=Q0_X.width)
-        ro_se = SequenceElement()
+        rabi_se.add_waveform(readout, location=Q0_X.width)
 
         ts = np.linspace(0, 34.8e-9, 21)
         seq = Sequence.sweep(rabi_se, rabi_width=ts)
-        cseq = qpu_01.sequencer.compile(seq, readout=ro_se)
+        exe = qpu_01.compiler.compile(seq)
 
-        return cseq
+        return exe
 
     ## Tests
 
@@ -339,47 +347,47 @@ class TestQutipBackend:
         self,
         data,
         expect,
-        compile_Q0X90,
-        compile_Q0X90_Q1X90,
-        compile_Q0X90_Q1X90_Q2X90,
+        exe_Q0X90,
+        exe_Q0X90_Q1X90,
+        exe_Q0X90_Q1X90_Q2X90,
     ):
         assert_array_equal(get_active_channels(data), expect)
-        assert_array_equal(get_active_channels(compile_Q0X90.array[:, 1, ...]), [0, 1])
+        assert_array_equal(get_active_channels(exe_Q0X90.array[:, 1, ...]), [0, 1])
         assert_array_equal(
-            get_active_channels(compile_Q0X90_Q1X90.array[:, 1, ...]), [0, 1, 2, 3]
+            get_active_channels(exe_Q0X90_Q1X90.array[:, 1, ...]), [0, 1, 2, 3]
         )
         assert_array_equal(
-            get_active_channels(compile_Q0X90_Q1X90_Q2X90.array[:, 1, ...]),
+            get_active_channels(exe_Q0X90_Q1X90_Q2X90.array[:, 1, ...]),
             [0, 1, 2, 3, 4, 5],
         )
 
-    def test_upload_empty_seq(self, compiled, qpu_01, sim_backend):
-        cseq = compiled(20)
+    def test_upload_empty_seq(self, exe, qpu_01, sim_backend):
+        exe = exe(20)
         sim_backend.update_parameters(qpu_01)
 
         with pytest.raises(ValueError):
-            sim_backend.upload(cseq)
+            sim_backend.upload(exe)
 
     def test_upload(
         self,
         qpu_01,
         sim_backend,
-        compile_Q0X90,
-        compile_Q0X90_Q1X90,
-        compile_Q0X90_Q1X90_Q2X90,
+        exe_Q0X90,
+        exe_Q0X90_Q1X90,
+        exe_Q0X90_Q1X90_Q2X90,
     ):
         sim_backend.update_parameters(qpu_01)
 
-        sim_backend.upload(compile_Q0X90)
+        sim_backend.upload(exe_Q0X90)
         assert len(sim_backend.H) == 21
         assert len(sim_backend.H[1].H) == 2
         assert sim_backend.H[1].targets == ("Q0",)
 
-        sim_backend.upload(compile_Q0X90_Q1X90)
+        sim_backend.upload(exe_Q0X90_Q1X90)
         assert len(sim_backend.H[1].H) == 4
         assert sim_backend.H[1].targets == ("Q0", "Q1")
 
-        sim_backend.upload(compile_Q0X90_Q1X90_Q2X90)
+        sim_backend.upload(exe_Q0X90_Q1X90_Q2X90)
         assert len(sim_backend.H[1].H) == 6
         assert sim_backend.H[1].targets == ("Q0", "Q1", "Q2")
 
@@ -389,29 +397,28 @@ class TestQutipBackend:
         assert len(sim_backend.readouts) == 8
         assert sim_backend.readouts["R0"].chi == (-1e6, 1e6)
 
-    def test_acquire_Q0X90_seq(self, qpu_01, sim_backend, compile_Q0X90):
+    def test_acquire_Q0X90_seq(self, qpu_01, sim_backend, exe_Q0X90):
         sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(compile_Q0X90)
+        sim_backend.upload(exe_Q0X90)
 
-        results1 = sim_backend.acquire(compile_Q0X90)
+        results1 = sim_backend.acquire(exe_Q0X90)
         assert list(results1.keys()) == [f"Q{i}" for i in range(8)]
         for fields in results1.values():
-            assert fields.shape == (1, 1, 512, 1000)
+            assert fields.index.levshape == (512, 1, 1, 1000)
 
-        results2 = sim_backend.acquire(compile_Q0X90, elements=[-2, -1])
+        results2 = sim_backend.acquire(exe_Q0X90, elements=[-2, -1])
         for fields in results2.values():
-            assert fields.shape == (2, 1, 512, 1000)
+            assert fields.index.levshape == (512, 2, 1, 1000)
 
-        results_3 = sim_backend.acquire(compile_Q0X90, elements=[5, -2, -1])
+        results_3 = sim_backend.acquire(exe_Q0X90, elements=[5, -2, -1])
         for fields in results_3.values():
-            assert fields.shape == (3, 1, 512, 1000)
+            assert fields.index.levshape == (512, 3, 1, 1000)
 
-    def test_acquire_Q0X90_blobs(self, qpu_01, sim_backend, compile_Q0X90):
+    def test_acquire_Q0X90_blobs(self, qpu_01, sim_backend, exe_Q0X90):
         sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(compile_Q0X90)
+        sim_backend.upload(exe_Q0X90)
 
-        raw_IQ = sim_backend.acquire(compile_Q0X90)
-        raw_IQ_df = dict()
+        raw_IQ = sim_backend.acquire(exe_Q0X90)
         processed_IQ_df = dict()
 
         freqs = np.array([0])
@@ -423,8 +430,7 @@ class TestQutipBackend:
         processor = HeterodyneDemodulation(weights=weights)
 
         for ch, data in raw_IQ.items():
-            raw_IQ_df[ch] = IQTraceResult.from_numpy(data, name=ch)
-            processed_IQ_df[ch] = processor.run(raw_IQ_df[ch])
+            processed_IQ_df[ch] = processor.run(data)
 
         IQ_Q0 = processed_IQ_df["Q0"][0].data.to_numpy()[0]
 
@@ -434,17 +440,16 @@ class TestQutipBackend:
 
         assert abs(num_excited - num_ground) / len(IQ_Q0) < 0.2
 
-    def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, compile_Q0_X180):
+    def test_acquire_Q0X180_seq(self, qpu_01, sim_backend, exe_Q0_X180):
         """Tests uneven distribution.
 
         Plots field amplitudes with strong drive to observe "Q0" bias towards excited
         state blob on the left
         """
         sim_backend.update_parameters(qpu_01)
-        sim_backend.upload(compile_Q0_X180)
+        sim_backend.upload(exe_Q0_X180)
 
-        raw_IQ = sim_backend.acquire(compile_Q0_X180, drive=10e6)
-        raw_IQ_df = dict()
+        raw_IQ = sim_backend.acquire(exe_Q0_X180, drive=10e6)
         processed_IQ_df = dict()
 
         freqs = np.array([0])
@@ -456,8 +461,7 @@ class TestQutipBackend:
         processor = HeterodyneDemodulation(weights=weights)
 
         for ch, data in raw_IQ.items():
-            raw_IQ_df[ch] = IQTraceResult.from_numpy(data, name=ch)
-            processed_IQ_df[ch] = processor.run(raw_IQ_df[ch])
+            processed_IQ_df[ch] = processor.run(data)
 
         IQ_Q0 = processed_IQ_df["Q0"][0].data.to_numpy()[0]
 

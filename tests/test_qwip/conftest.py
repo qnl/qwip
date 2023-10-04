@@ -171,17 +171,13 @@ def session_with_models(session, models):
 
 @pytest.fixture
 def configdb_01():
-    db_file = Path(__file__).parent / r"sample_configs/config_03.sqlite"
+    db_file = Path(__file__).parent / "sample_configs/config_01.sqlite"
     db = OfflineConfigDB(url=f"sqlite:///{db_file}", schema=ConfigSchema)
     db.connect()
 
     with db.session.begin_nested():
         yield db
         db.session.rollback()
-
-
-# config_02: missing many readout parameters
-# config_03: added chi, kappa, eta to readouts
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta, abstractmethod, abstractproperty
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -8,13 +8,54 @@ from numpy.random import Generator, default_rng
 
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.processors import GMMClassification, IQResult
-from qwip.sequencer.compilation import CompiledSequence, QuantumExecutable
+from qwip.sequencer.compilation import QuantumExecutable, QWiPExecutable
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
 
 
+class DACBackend(metaclass=ABCMeta):
+    @abstractproperty
+    def sample_rate(self) -> float:
+        ...
+
+    @abstractmethod
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
+        ...
+
+    @abstractmethod
+    def start(self, **kwargs) -> None:
+        ...
+
+    @abstractmethod
+    def stop(self, **kwargs) -> None:
+        ...
+
+
+class ADCBackend(metaclass=ABCMeta):
+    @abstractproperty
+    def sample_rate(self) -> float:
+        ...
+
+    @abstractmethod
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
+        ...
+
+    @abstractmethod
+    def start(self, **kwargs) -> None:
+        ...
+
+    @abstractmethod
+    def stop(self, **kwargs) -> None:
+        ...
+
+    def acquire(self, **kwargs) -> np.ndarray:
+        ...
+
+
 class QuantumBackend(metaclass=ABCMeta):
+    uploaded: QuantumExecutable | None = None
+
     @abstractmethod
     def upload(self, exe: QuantumExecutable, **kwargs) -> None:
         ...
@@ -30,6 +71,36 @@ class QuantumBackend(metaclass=ABCMeta):
     @property
     def exe_formats(self) -> set[type[QuantumExecutable]]:
         return set()
+
+
+@qdefine
+class QWiPBackend(QuantumBackend):
+    """A backend for a heterogeneous hardware setup.
+
+    This backend is a general backend for working with heterogeneous measurement setups
+    where the different components (DAC/ADC) come from different vendors.
+    """
+
+    dac: DACBackend
+    adc: ADCBackend
+
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
+        self.dac.upload(exe, **kwargs)
+        self.adc.upload(exe, **kwargs)
+
+    def acquire(self, repetitions: int | None = None, **kwargs) -> dict:
+        self.adc.start(repetitions=repetitions, **kwargs)
+        self.dac.start(**kwargs)
+
+        results = self.adc.acquire(**kwargs)
+        self.dac.stop()
+        self.adc.stop()
+
+        return results
+
+    def update_parameters(self, qpu: "QPU", **kwargs):
+        self.dac.update_parameters(qpu, **kwargs)
+        self.adc.update_parameters(qpu, **kwargs)
 
 
 def random_data_sampler(
@@ -67,11 +138,11 @@ def population_data_sampler(
 class FakeBackend(QuantumBackend):
     """A test backend used for testing upstream code.
 
-    This backend is meant to act like a real backend, by accepting sequences for upload
-    and returning pre-configured data to be processed.
+    This backend is meant to act like a real backend, by accepting an executable for
+    upload and returning pre-configured data to be processed.
 
     Attributes:
-        uploaded: Stores the last uploaded compiled sequence, which is referenced when
+        uploaded: Stores the last uploaded executable, which is referenced when
             generating data.
         data_func: Used to generate simulated data when calling acquire. Takes in the
             readout key, element index, readout index, repetitions and returns an
@@ -82,29 +153,27 @@ class FakeBackend(QuantumBackend):
             distributions.
     """
 
-    uploaded: CompiledSequence | None = None
     data_func: Callable[..., np.ndarray] = field(factory=random_data_sampler)
     gmms: dict[str, GMMClassification] = field(factory=dict)
     rng: Generator = field(factory=default_rng)
 
     def upload(
         self,
-        cseq: CompiledSequence,
+        exe: QWiPExecutable,
         data_func: Callable[..., np.ndarray] | None = None,
         **kwargs,
     ) -> None:
         """Simulates a sequence upload.
 
         Args:
-            cseq: The sequence to "upload".
+            exe: The executable to "upload".
             data_func: Updates function used to generate the fake data.
         """
-        self.uploaded = cseq
+        self.uploaded = exe
         self.data_func = data_func or self.data_func
 
     def acquire(
         self,
-        cseq: CompiledSequence,
         repetitions: int = 512,
         num_readouts: int = 1,
         **kwargs,
@@ -119,15 +188,15 @@ class FakeBackend(QuantumBackend):
         Returns:
             A mapping of measurement keys to `IQResult`.
         """
-        readout_keys = [f"R{r}" for r in cseq._readout._readout.qubits]
-        num_elements = cseq.shape[1]
+        readout_keys = [f"R{r}" for r in sorted(self.uploaded.read_registers)]
+        num_elements = len(self.uploaded.num_reads)
 
         data = dict()
         for key in readout_keys:
-            states = np.zeros((num_elements, repetitions, num_readouts))
+            states = np.zeros((repetitions, num_elements, num_readouts))
             for el in range(num_elements):
                 for ro in range(num_readouts):
-                    states[el, :, ro] = self.data_func(key, el, ro, repetitions)
+                    states[:, el, ro] = self.data_func(key, el, ro, repetitions)
 
             gmm = self.gmms[key]
             arr = np.zeros(states.shape, dtype=np.complex64)

@@ -151,6 +151,17 @@ class LinearExpression:
         )
         return set().union(*subsets)
 
+    def almost_equal(self, other: Self, tolerance: float = 1e-9) -> bool:
+        """Returns true if the other expression is equal to within tolerance."""
+
+        if self.references:
+            raise NotImplementedError()
+
+        if isinstance(self.offset, str) or isinstance(other.offset, str):
+            return self.offset == other.offset
+
+        return abs(self.offset - other.offset) < tolerance
+
     @classmethod
     def from_string(cls, s: str, /) -> Self:
         """Class constructor for a string expression.

@@ -26,11 +26,12 @@ from qwip.processing.processors import GMMClassification, IQRotation
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
 from qwip.sequencer import Sequence, SequenceElement
 from qwip.sequencer.compilation import (
-    REGISTERED_SEQUENCERS,
-    ChannelGroup,
+    REGISTERED_COMPILERS,
     ChannelInfo,
+    DeviceInfo,
     QuantumExecutable,
-    WaveformSequencer,
+    QWiPCompiler,
+    TriggerInfo,
 )
 from qwip.sequencer.phase_tracker import ModulationFrequency
 
@@ -56,8 +57,8 @@ class QPU:
             representing a quantum device are stored and referenced.
         subsystems: A mapping of targets to QuantumSystems, which together form a
             model of the quantum device.
-        sequencer: A sequencer instance that controls the compilation from Sequences
-            to waveform data and programs that are uploaded to hardware.
+        compiler: A compiler instance that controls the compilation from Sequences
+            to executable formats that can be uploaded to hardware.
         pipeline: A data processing pipeline.
 
     """
@@ -66,7 +67,7 @@ class QPU:
     subsystems: dict[Target, QuantumSystem] = field(
         repr=lambda sys: repr([s for s in sys])
     )
-    sequencer: WaveformSequencer
+    compiler: QWiPCompiler
     pipeline: ReadoutPipeline
     backend: QuantumBackend | None = None
     datastore: OfflineDatastore | None = field(
@@ -90,85 +91,75 @@ class QPU:
             db.connect()
 
         subsystems = cls.load_subsystems(db.config)
-        sequencer = cls.load_sequencer(db.config)
+        compiler = cls.load_compiler(db.config)
         pipeline = cls.load_pipeline(db.config, readout_config=readout_config)
 
         qpu = cls(
             db=db,
-            sequencer=sequencer,
+            compiler=compiler,
             pipeline=pipeline,
             subsystems=subsystems,
         )
         qpu.update_modulations()
 
-        ro_qubits = []
-        for sys in qpu.subsystems.values():
-            match sys:
-                case ReadoutResonator(name=n):
-                    r = int(re.match(r"R(\d+)", n)[1])
-                    ro_qubits.append(r)
-        qpu.sequencer.readout_qubits = ro_qubits
-
         return qpu
 
     @classmethod
-    def load_sequencer(
+    def load_compiler(
         cls, config: ConfigFolder, modulations: dict[str, ModulationFrequency] = {}
-    ) -> WaveformSequencer:
+    ) -> QWiPCompiler:
         compilation = config["compilation"]
-        channel_groups = []
+        devices = []
 
-        for key, ch_group_config in compilation["channel_groups"].items():
+        for key, dev_config in compilation["devices"].items():
             channels = tuple(
                 ChannelInfo(**compilation["channels"][ch_name])
-                for ch_name in ch_group_config["channels"]
+                for ch_name in dev_config["channels"]
             )
 
-            channel_groups.append(
-                ChannelGroup(
+            devices.append(
+                DeviceInfo(
                     name=key,
                     channels=channels,
-                    sample_rate=ch_group_config["sample_rate"],
+                    sample_rate=dev_config["sample_rate"],
+                    trigger=None
+                    if dev_config["trigger"]["device"] is None
+                    else TriggerInfo(**dev_config["trigger"]),
                 )
             )
 
         if not modulations:
             modulations = dict()
 
-        sequencer_cls = compilation.get("sequencer_class", "WaveformSequencer")
-        try:
-            sequencer_cls = REGISTERED_SEQUENCERS[sequencer_cls]
-        except KeyError:
-            raise KeyError(f"'{sequencer_cls}' is not a registered Sequencer.")
-
-        sequencer = sequencer_cls.from_channel_groups(
-            channel_groups, modulations=modulations
+        compiler_cls = compilation.get("compiler", dict(__class__="QWiPCompiler")).get(
+            "__class__", "QWiPCompiler"
         )
+        try:
+            compiler_cls = REGISTERED_COMPILERS[compiler_cls]
+        except KeyError:
+            raise KeyError(f"'{compiler_cls}' is not a registered compiler.")
 
-        return sequencer
+        compiler = compiler_cls.from_devices(devices, modulations=modulations)
 
-    def save_sequencer(self):
+        return compiler
+
+    def save_compiler(self):
         with self.db.session.begin():
-            for group in self.sequencer.channels.values():
-                self.config["compilation/channel_groups"][group.name].update(
-                    name=group.name, sample_rate=group.sample_rate
-                )
+            for device in self.compiler.channels.values():
+                self.config["compilation/devices"].create_all(**{device.name: {}})
 
-                ch_names = []
-                for ch in group.channels:
-                    ch_names.append(ch.name)
+                for ch in device.channels:
+                    self.config["compilation/channels"].create_all(**{ch.name: {}})
 
+                dev_info = qwip.converter.unstructure(device)
+                dev_info["channels"] = [ch["name"] for ch in dev_info["channels"]]
+
+                self.config["compilation/devices"][device.name].update(**dev_info)
+
+                for ch in device.channels:
                     self.config["compilation/channels"][ch.name].update(
-                        name=ch.name,
-                        index=ch.index,
-                        group=ch.group,
-                        subchannel=ch.subchannel,
-                        delay=ch.delay,
+                        **qwip.converter.unstructure(ch)
                     )
-
-                self.config["compilation/channel_groups"][group.name][
-                    "channels"
-                ] = ch_names
 
     def update_modulations(self):
         modulation_keys = {}
@@ -190,7 +181,7 @@ class QPU:
                     )
                     continue
 
-        self.sequencer.modulations.update(**modulation_keys)
+        self.compiler.modulations.update(**modulation_keys)
         return modulation_keys
 
     @classmethod
@@ -279,7 +270,6 @@ class QPU:
         program: Sequence | QuantumExecutable | None,
         processor: type[DataProcessor] | dict[str, type[DataProcessor]] | None = None,
         repetitions: int = 512,
-        readout: dict | SequenceElement = {},
         compilation: dict = {},
         backend: dict = {},
         data: dict = {},
@@ -293,12 +283,8 @@ class QPU:
                 the previously uploaded sequence is run.
             processor: The data processor to use. See `qpu.process_results`.
             repetitions: The number of shots to take for each sequence element.
-            readout: Can be either a `SequenceElement` or a dictionary of keyword
-                arguments, which are passed to `qpu.get_readout_sequence`. If a
-                `SequenceElement` is given, it will be used with no modifications. This
-                is ignored if the program is already compiled.
             compilation: The compilation arguments, which are passed to
-                `WaveformSequencer.compile`.
+                `self.compiler.compile`.
 
         Returns:
             A dictionary mapping measurement keys to the acquired and processed data.
@@ -306,27 +292,22 @@ class QPU:
 
         ## Update all frequencies before compilation
         self.update_modulations()
-        self.backend.update_parameters(self, readout=readout)
+        self.backend.update_parameters(self)
 
         match program:
-            # TODO: Fix this ugliness by implementing more flexible readout for ZI
-            case Sequence() if type(self.backend).__name__ == "QTRLBackend":
-                ro_se = self.backend.ro_se
-                exe = self.sequencer.compile(program, readout=ro_se, **compilation)
-                seq = exe.sequence
             case Sequence():
-                exe = self.sequencer.compile(program, **compilation)
+                exe = self.compiler.compile(program, **compilation)
             case QuantumExecutable():
                 exe = program
             case None:
-                exe = None
+                exe = self.backend.uploaded
             case _:
                 raise NotImplementedError(
                     f"Only 'Sequence' and 'CompiledSequence' programs are currently "
                     f"supported. Got {program}"
                 )
 
-        if exe:
+        if program is not None:
             self.backend.upload(exe)
 
         seq = exe.seq if exe else None

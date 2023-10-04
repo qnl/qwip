@@ -110,8 +110,8 @@ class TestGetFieldSchema:
 
         s = schema(A)
 
-        print()
-        print(json.dumps(s, indent=4))
+        # print()
+        # print(json.dumps(s, indent=4))
 
 
 # def test_properties():

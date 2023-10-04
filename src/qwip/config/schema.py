@@ -87,24 +87,33 @@ class NativeGateSchema(ValidatedConfigFolder):
 class ChannelInfoSchema(ValidatedConfigFolder):
     name: str
     index: int
-    group: str
+    device: str
     subchannel: int = 0
     read: bool = False
+    output: bool = True
     delay: float = 0
 
 
 @configschema
-class ChannelGroupSchema(ValidatedConfigFolder):
+class TriggerInfoSchema(ValidatedConfigFolder):
+    device: str | None = None
+    index: int = 0
+    subchannel: int = 0
+
+
+@configschema
+class DeviceSchema(ValidatedConfigFolder):
     name: str
-    channels: list[str]
+    channels: list[str] = field(factory=list)
     sample_rate: float
+    trigger: TriggerInfoSchema
 
 
 @configschema
 class CompilationSchema(ValidatedConfigFolder):
     channels: ConfigFolder[str, ChannelInfoSchema]
-    channel_groups: ConfigFolder[str, ChannelGroupSchema]
-    sequencer_class: str = "WaveformSequencer"
+    devices: ConfigFolder[str, DeviceSchema]
+    compiler: dict = field(factory=lambda: dict(__class__="QWiPCompiler"))
     X90: ConfigFolder[Target, NativeGateSchema]
     EF_X90: ConfigFolder[Target, NativeGateSchema]
     Z: ConfigFolder[Target, NativeGateSchema]

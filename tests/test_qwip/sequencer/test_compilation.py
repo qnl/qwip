@@ -1,11 +1,12 @@
+import numpy as np
 import pytest
-from numpy.testing import assert_array_almost_equal
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from qwip.sequencer.compilation import (
-    ChannelGroup,
     ChannelInfo,
+    DeviceInfo,
     QuantumExecutable,
-    WaveformSequencer,
+    QWiPCompiler,
 )
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency
@@ -13,9 +14,11 @@ from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
     CWWaveform,
+    GaussianWaveform,
     ModulatedWaveform,
     ReadoutMarker,
     SquareWaveform,
+    TriggeredWaveform,
     VirtualZWaveform,
 )
 
@@ -31,9 +34,9 @@ class TestQuantumExecutable:
         assert QuantumExecutable(sequence=None) == QuantumExecutable(sequence=None)
 
 
-class TestChannelGroup:
+class TestDeviceInfo:
     def test_num_channels(self):
-        dac = ChannelGroup.from_channels(
+        dac = DeviceInfo.from_channels(
             channels=(ChannelInfo("Q0_I", 0), ChannelInfo("Q0_Q", 1)),
             sample_rate=2.4e9,
             name="dac",
@@ -43,7 +46,7 @@ class TestChannelGroup:
         assert dac.num_channels == 2
 
     def test_channel_lookup(self):
-        dac = ChannelGroup.from_channels(
+        dac = DeviceInfo.from_channels(
             channels=(ChannelInfo("Q0_I", 0), ChannelInfo("Q0_Q", 1)),
             sample_rate=2.4e9,
             name="dac",
@@ -56,7 +59,7 @@ class TestChannelGroup:
             dac["Q1_I"]
 
     def test_properties(self):
-        dac = ChannelGroup.from_channels(
+        dac = DeviceInfo.from_channels(
             channels=(ChannelInfo("Q0_I", 0), ChannelInfo("Q0_Q", 1, subchannel=2)),
             sample_rate=2.4e9,
             name="dac",
@@ -68,21 +71,22 @@ class TestChannelGroup:
         assert dac.max_subchannel_index == 2
 
 
-class TestWaveformSequencer:
+class TestQWiPCompiler:
     @pytest.fixture
-    def sequencer(self):
-        dac = ChannelGroup.from_channels(
+    def compiler(self):
+        dac = DeviceInfo.from_channels(
             channels=(
                 ChannelInfo("Q0_I", 0),
                 ChannelInfo("Q0_Q", 1),
                 ChannelInfo("Q1_I", 2),
                 ChannelInfo("Q1_Q", 3),
+                ChannelInfo("RO_marker", 0, subchannel=1),
             ),
             sample_rate=2.4e9,
             name="seq",
         )
 
-        adc = ChannelGroup.from_channels(
+        adc = DeviceInfo.from_channels(
             channels=(ChannelInfo("RO_I", 0), ChannelInfo("RO_Q", 1)),
             sample_rate=1.8e9,
             name="readout",
@@ -95,9 +99,7 @@ class TestWaveformSequencer:
             mod_R1=ModulationFrequency(-400e6),
         )
 
-        return WaveformSequencer.from_channel_groups(
-            [dac, adc], modulations=modulations
-        )
+        return QWiPCompiler.from_devices([dac, adc], modulations=modulations)
 
     @pytest.fixture
     def pulses(self):
@@ -135,34 +137,31 @@ class TestWaveformSequencer:
     @pytest.mark.parametrize(
         "name,expect",
         [
-            ("Q0_I", ChannelInfo(name="Q0_I", index=0, group="seq")),
-            ("RO_Q", ChannelInfo(name="RO_Q", index=1, group="readout")),
+            ("Q0_I", ChannelInfo(name="Q0_I", index=0, device="seq")),
+            ("RO_Q", ChannelInfo(name="RO_Q", index=1, device="readout")),
             ("random", None),
         ],
     )
-    def test_get_channel_info(self, sequencer, name, expect):
-        assert sequencer.get_channel_info(name) == expect
+    def test_get_channel_info(self, compiler, name, expect):
+        assert compiler.get_channel_info(name) == expect
 
-    def test_end_to_end(self, sequencer, pulses, data_file):
+    def test_end_to_end(self, compiler, pulses, data_file):
         import matplotlib.pyplot as plt
         import numpy as np
 
         ro_se = SequenceElement()
         ro_se.add_waveform([pulses[f"R{r}"] for r in range(2)])
+        readout = TriggeredWaveform(target=ro_se, width=50e-9, channels=("RO_marker",))
 
         se_0 = SequenceElement()
         se_0.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
-        se_0.add_waveform(ReadoutMarker(), 50e-9)
+        se_0.add_waveform(readout, 50e-9)
 
         se_1 = SequenceElement()
         se_1.add_waveform([pulses["Q0_Z90"], pulses["Q1_Z90"]])
         se_1.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
-        se_1.add_waveform(ReadoutMarker(), 50e-9)
+        se_1.add_waveform(readout, 50e-9)
 
         seq = Sequence([se_0, se_1])
 
-        cseq = sequencer.compile(seq, readout=ro_se)
-
-        expected = np.loadtxt(data_file).reshape(cseq.array.shape)
-
-        assert_array_almost_equal(expected, cseq.array)
+        exe = compiler.compile(seq)

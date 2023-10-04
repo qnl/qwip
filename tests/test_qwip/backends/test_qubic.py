@@ -27,7 +27,7 @@ from qwip.sequencer import (
     SquareWaveform,
     VirtualZWaveform,
 )
-from qwip.sequencer.compilation import ChannelGroup, ChannelInfo
+from qwip.sequencer.compilation import ChannelInfo, DeviceInfo
 
 
 class TestQubicInstruction:
@@ -123,9 +123,9 @@ class TestQubicSequencer:
             for i in range(8)
         ]
 
-        qubit = ChannelGroup.from_channels(qubit, sample_rate=8e9, name="qubit")
-        readout = ChannelGroup.from_channels(readout, sample_rate=0.5e9, name="readout")
-        adc = ChannelGroup.from_channels(adc, sample_rate=0.5e9, name="adc")
+        qubit = DeviceInfo.from_channels(qubit, sample_rate=8e9, name="qubit")
+        readout = DeviceInfo.from_channels(readout, sample_rate=0.5e9, name="readout")
+        adc = DeviceInfo.from_channels(adc, sample_rate=0.5e9, name="adc")
 
         modulations = {
             f"Q{i}.freq_GE": ModulationFrequency((5 + 0.1 * i) * 1e9) for i in range(8)
@@ -134,7 +134,7 @@ class TestQubicSequencer:
             for i in range(8)
         }
 
-        return QubicSequencer.from_channel_groups(
+        return QubicSequencer.from_devices(
             [qubit, readout, adc], modulations=modulations
         )
 
@@ -211,10 +211,10 @@ class TestQubicSequencer:
 
         for k, ch_config in channel_config.items():
             ch_id = ch_config.core_ind
-            assert ch_config.group == k[3:]
-            assert ch_config.elem_params == expected_elem_params[ch_config.group]
-            assert ch_config.env_mem_name == f"{ch_config.group}env{ch_id}"
-            assert ch_config.freq_mem_name == f"{ch_config.group}freq{ch_id}"
+            assert ch_config.device == k[3:]
+            assert ch_config.elem_params == expected_elem_params[ch_config.device]
+            assert ch_config.env_mem_name == f"{ch_config.device}env{ch_id}"
+            assert ch_config.freq_mem_name == f"{ch_config.device}freq{ch_id}"
             assert ch_config.acc_mem_name == f"accbuf{ch_id}"
 
     def test_compile_instruction(self):
