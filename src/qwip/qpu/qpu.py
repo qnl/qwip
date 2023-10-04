@@ -145,6 +145,7 @@ class QPU:
 
     def save_compiler(self):
         with self.db.session.begin():
+            self.config.subsystems.create_all(**{k: {} for k in qpu.subsystems})
             for device in self.compiler.channels.values():
                 self.config["compilation/devices"].create_all(**{device.name: {}})
 
