@@ -282,10 +282,10 @@ def format_legacy_IQ(arr: np.ndarray) -> np.ndarray:
     This function will reorder the axis so that the IQ data for each shot is
     contiguous. The legacy heterodyne array is a 4-D array where the axes correspond
     to `(IQ, shots, elements, readouts)`. This is reformatted to a complex numpy array
-    where the shape is `(elements, shots, readouts)`.
+    where the shape is `(shots, elements, readouts)`.
     """
 
-    return array_real_to_complex(np.transpose(arr, [2, 1, 3, 0]))[..., 0]
+    return array_real_to_complex(np.transpose(arr, [1, 2, 3, 0]))[..., 0]
 
 
 @register_compiler

@@ -104,7 +104,7 @@ class TriggerInfoSchema(ValidatedConfigFolder):
 @configschema
 class DeviceSchema(ValidatedConfigFolder):
     name: str
-    channels: list[str]
+    channels: list[str] = field(factory=list)
     sample_rate: float
     trigger: TriggerInfoSchema
 
