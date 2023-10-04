@@ -320,6 +320,9 @@ class QTRLCompiler(QWiPCompiler):
         except KeyError:
             pass
 
+        # Need to test marker based readout on ZI's. Ignoring markers for now.
+        waveforms["seq"].array = waveforms["seq"].array[..., :1]
+
         return QTRLExecutable(sequence=seq, waveforms=waveforms)
 
     def compile_sequence_array(self, program: IntermediateProgram) -> SequenceArray:
