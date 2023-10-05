@@ -910,7 +910,7 @@ class OfflineConfigDB(Database):
         variables: dict[str, str | float | int] = {},
         rename_func: Callable[
             [str, "PulsesSchema"], str
-        ] = lambda v, pm: f"{pm.folder_name()}_{v}",
+        ] = lambda v, pm: f"{pm.folder_name()}.{v}",
     ) -> SequenceElement:
         """Loads a SequenceElement from the database.
 

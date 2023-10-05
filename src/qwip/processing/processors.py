@@ -473,7 +473,7 @@ class GMMClassification(DataProcessor):
         IQ = array_complex_to_real(result.data.to_numpy().flatten())
 
         model = self.get_model()
-        model.means_init = self.means
+        model.means_init = kwargs.get("init_means", self.means)
         model.fit(IQ.reshape(-1, 2))
 
         return model.means_, model.covariances_

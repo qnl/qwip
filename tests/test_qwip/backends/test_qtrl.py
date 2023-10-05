@@ -169,3 +169,4 @@ class TestQTRLCompiler:
         assert list(exe.waveforms.keys()) == ["seq", "readout"]
         assert len(exe.get_readout_locations()) == exe.n_elements
         assert exe._readout._readout.n_readouts == len(seq)
+        assert exe._readout.shape[1] == 1

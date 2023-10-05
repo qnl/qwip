@@ -550,7 +550,7 @@ class QWiPCompiler:
 
             channels = (ch for ch in device.channels if ch.name in se.channels)
 
-            if id(se) in instruction_cache:
+            if (id(se), device.name) in instruction_cache:
                 instructions = instruction_cache[id(se), device.name]
             else:
                 wmem = WaveformMemory.from_channels(
