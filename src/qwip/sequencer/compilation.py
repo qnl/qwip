@@ -1,5 +1,6 @@
 import itertools as it
 from abc import ABCMeta
+from collections import Counter, defaultdict, deque
 from collections.abc import Callable, Collection, Iterable
 from typing import Any
 
@@ -14,6 +15,7 @@ from numpy.typing import NDArray
 from scipy.fft import fft, fftfreq, fftshift
 from typing_extensions import Self
 
+import qwip
 from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
@@ -267,8 +269,9 @@ class QuantumExecutable(metaclass=ABCMeta):
 @qdefine
 class IntermediateProgram(Program):
     instructions: list[Instruction] = field(factory=list)
-    markers: dict[tuple[int, int], list] = field(factory=dict)
     waveforms: list[WaveformMemory | None] = field(factory=dict)
+    markers: list[list[tuple[tuple[int, int], float]]] = field(factory=list)
+    trigger: TriggerInfo | None = None
     read_registers: set[int] = field(factory=set)
 
     def add_waveform(self, waveform: WaveformMemory) -> int:
@@ -285,7 +288,10 @@ class QWiPExecutable(QuantumExecutable):
 
     @classmethod
     def from_devices(cls, devices: Iterable[DeviceInfo], **kwargs) -> Self:
-        programs = {cg.name: IntermediateProgram(device=cg.name) for cg in devices}
+        programs = {
+            dev.name: IntermediateProgram(device=dev.name, trigger=dev.trigger)
+            for dev in devices
+        }
 
         return cls(programs=programs, **kwargs)
 
@@ -420,9 +426,9 @@ class QWiPCompiler:
                 )
 
                 for ch in channels:
-                    markers = program.markers.get((ch.index, ch.subchannel), [])
-                    markers.append(start)
-                    program.markers[(ch.index, ch.subchannel)] = markers
+                    markers = program.markers[-1].append(
+                        ((ch.index, ch.subchannel), start / device.sample_rate)
+                    )
 
     def compile_single_timeline(
         self,
@@ -547,6 +553,7 @@ class QWiPCompiler:
                 start = WaitTriggerInstruction()
 
             program.instructions.append(start)
+            program.markers.append([])
 
             channels = (ch for ch in device.channels if ch.name in se.channels)
 
@@ -612,520 +619,193 @@ class QWiPCompiler:
         return exe
 
 
-# @qdefine
-# class WaveformSequencer:
-#     """A waveform sequencer.
-
-#     The waveform sequencer is responsible for compiling sequences into concrete timepoints
-#     that can then be uploaded to the measurement hardware (DAC/ADC).
-
-#     Attributes:
-#         channels: A mapping from device names to `DeviceInfo` instances that
-#             contain information about the channels.
-#         modulations: A mapping from modulation keys for phase tracking to concrete
-#             modulation frequencies.
-#         readout_qubits: The list of qubits that should be included in the hardware
-#             demodulation weights that are uploaded to the ADC. This is a legacy
-#             parameter necessary for the ZI UHFQA's.
-#         end_marker: A string specifying the marker name that is used to specify the
-#             end of a sequence element.
-#     """
-
-#     channels: dict[str, DeviceInfo] = field(factory=dict)
-#     modulations: dict[str, ModulationFrequency] = field(factory=dict)
-#     readout_qubits: list[int] = field(factory=list)
-#     end_marker: str = "end"
-
-#     @classmethod
-#     def from_devices(cls, devices: Iterable[DeviceInfo], **kwargs: Any) -> Self:
-#         """Contruct the waveform sequencer from a list of `DeviceInfo`.
-
-#         Args:
-#             devices: A list of `DeviceInfo` instances representing the
-#                 measurement hardware.
-#             **kwargs: Remaining keyworad arguments are passed to the `__init__`
-#                 function.
-
-#         Returns:
-#             A new WaveformSequencer instance.
-#         """
-#         channels = {device.name: device for device in devices}
-
-#         return cls(channels=channels, **kwargs)
-
-#     def get_channel_info(self, name: str) -> ChannelInfo | None:
-#         """Returns the `ChannelInfo` with the given name.
-
-#         It is assumed that there are no repeated channel names between devices,
-#         so this method will short circuit on the first channel that matches the name.
-
-#         Args:
-#             name: The name of the channel to get.
-
-#         Returns:
-#             A `ChannelInfo` or `None`, if no channel matching the name exists.
-#         """
-#         for device in self.channels.values():
-#             try:
-#                 return device[name]
-#             except KeyError:
-#                 continue
-
-#         return None
-
-#     def compile_phases(self, locations: dict[Location, list[Waveform]]) -> PhaseTracker:
-#         """Returns a new phase tracker instance with all virtual phase updates.
-
-#         Every waveform that has an `update_phase_tracker` method will be called
-#         on the `PhaseTracker`.
-
-#         Args:
-#             locations: A dictionary mapping locations to waveforms.
-
-#         Returns:
-#             An updated phase tracker.
-#         """
-#         phase_tracker = PhaseTracker.from_modulations(self.modulations)
-
-#         for loc, waves in locations.items():
-#             loc = loc.offset
-
-#             for w in waves:
-#                 if not isinstance(w, PhaseUpdater):
-#                     continue
-
-#                 w.update_phase_tracker(loc, phase_tracker)
-
-#         return phase_tracker
-
-#     def compile_timepoints(
-#         self,
-#         locations: dict[Location, list[Waveform]],
-#         waveform_array: NDArray[np.float32],
-#         device: DeviceInfo,
-#         phase_tracker: PhaseTracker,
-#         pulse_kwargs: dict = {},
-#     ) -> None:
-#         """Compiles a single timeline of pulses into concrete timepoints.
-
-#         Each element represents a DAC amplitude (normalized between -1 and 1)
-#         on a specific channel/subchannel for a given sample timestep.
-
-#         Args:
-#             locations: A dictionary mapping locations to waveforms. The locations
-#                 should be time ordered.
-#             waveform_array: A numpy array with shape `(channels, timepoints, subchannels)`
-#                 that will hold the compiled timepoints
-#             device: The device that corresponds to this location
-#                 map.
-#             phase_tracker: A phase tracker instance that holds all phase jumps for
-#                 this timeline of pulses.
-#             pulse_kwargs: A mapping of variable names to resolved values to pass to
-#                 all pulses.
-#         """
-#         sample_rate = device.sample_rate
-#         num_timepoints = waveform_array.shape[1]
-
-#         ts = np.arange(num_timepoints) / sample_rate
-#         logger.debug(f"Time array shape: {ts.shape}.")
-
-#         for loc, waves in locations.items():
-#             for w in waves:
-#                 width = w.width.resolve(**pulse_kwargs)
-#                 start, end = loc.offset, loc.offset + width.offset
-
-#                 s_idx = int(start * sample_rate)
-#                 e_idx = num_timepoints if np.isinf(end) else int(end * sample_rate) + 1
-#                 if s_idx == e_idx - 1:
-#                     continue
-
-#                 ts_wave = ts[s_idx:e_idx]
-
-#                 w_t = w(
-#                     ts_wave,
-#                     t0=start + w.t0,
-#                     phase_tracker=phase_tracker,
-#                     modulations=self.modulations,
-#                     **pulse_kwargs,
-#                 )
-
-#                 if len(w_t.shape) == 1:
-#                     w_t = w_t[np.newaxis, :]
-
-#                 for i, c in enumerate(w.channels):
-#                     ch_idx = (device[c].index,)
-#                     subchannel = device[c].subchannel
-#                     waveform_array[ch_idx, s_idx:e_idx, subchannel] += w_t[i]
-
-#         return waveform_array
-
-#     def compile_sequence_element(
-#         self,
-#         locations: dict[Location, list[Waveform]],
-#         waveform_array: np.ndarray,
-#         device: DeviceInfo,
-#         pulse_kwargs: dict = {},
-#     ):
-#         """Compiles a single sequence elements.
-
-#         This method makes two passes through location waveform mapping. The
-#         first pass compiles all phase jumps and the second pass evaluates the
-#         pulse timepoints.
-
-#         Args:
-#             locations: A dictionary mapping locations to waveforms. The locations
-#                 should be time ordered.
-#             waveform_array: A numpy array with shape `(channels, timepoints, subchannels)`
-#                 that will hold the compiled timepoints
-#             device: The device that corresponds to this location map.
-#             pulse_kwargs: A mapping of variable names to resolved values to pass to
-#                 all pulses.
-
-#         """
-#         # Compile phases
-#         phase_tracker = self.compile_phases(locations)
-
-#         return self.compile_timepoints(
-#             locations=locations,
-#             waveform_array=waveform_array,
-#             device=device,
-#             phase_tracker=phase_tracker,
-#             pulse_kwargs=pulse_kwargs,
-#         )
-
-#     def initialize_compiled_sequence(self, seq: Sequence, max_times: dict[str, float]):
-#         """Creates a new `CompiledSequence` instance.
-
-#         This function allocates the waveform arrays that will hold all the waveform
-#         data for the given sequence.
-
-#         Args:
-#             seq: The sequence to be compiled.
-#             max_times: A dictionary mapping device keys to the latest timepoint
-#                 played on any channel accross all sequence elements. Times are specified
-#                 in seconds.
-
-#         Returns:
-#             A new `CompiledSequence` instance with the waveform data arrays initialized
-#             to all zeros.
-#         """
-
-#         waveform_arrs = dict()
-#         for key, dev in self.channels.items():
-#             sample_rate = dev.sample_rate
-#             num_channels = dev.max_channel_index + 1
-#             num_subchannels = dev.max_subchannel_index + 1
-
-#             num_elements = np.prod(seq.shape) if key == "seq" else 1
-#             num_timepoints = int(max_times[key].offset * sample_rate)
-
-#             # We put num_subchannels as the first index and then transpose in an
-#             # attempt to make memory layout more sensible.
-#             arr_shape = (num_subchannels, num_channels, num_elements, num_timepoints)
-#             logger.debug(f"Device {key} shape: {arr_shape}.")
-
-#             waveform_arrs[key] = WaveformData(
-#                 sample_rate=sample_rate,
-#                 n_elements=num_elements,
-#                 num_channels=num_channels,
-#                 # This should return a view of the array
-#                 array=np.zeros(arr_shape, dtype=np.float32).transpose(1, 2, 3, 0),
-#             )
-#             logger.debug(f"dtype: {waveform_arrs[key].array.dtype}")
-
-#         return CompiledSequence(waveforms=waveform_arrs, sequence=seq)
-
-#     def compile(
-#         self,
-#         seq: Sequence,
-#         location_kwargs: dict = {},
-#         pulse_kwargs: dict = {},
-#         **triggered_elements,
-#     ):
-#         """Compiles a sequence.
-
-#         This function takes an abstract sequence and compiles it into a concrete
-#         set of timepoints.
-
-#         Args:
-#             seq: The sequence to compile.
-#             location_kwargs: Any location constraints to add to the sequence
-#                 before compilation.
-#             pulse_kwargs: A mapping of variables names to resolved pulse parameters.
-
-#         Returns:
-#             A `CompiledSequence` instance.
-#         """
-#         # First resolve all locations in the main sequence
-#         locations = [
-#             se.resolve_locations(end_marker=self.end_marker, **location_kwargs)
-#             for se in seq.flat
-#         ]
-
-#         # Then for any triggered sequence elements (most commonly readout)
-#         triggered_locations = {
-#             k: se.resolve_locations(end_marker=self.end_marker, **location_kwargs)
-#             for k, se in triggered_elements.items()
-#         }
-
-#         # The above step was necessary to determine the number of timepoints
-#         # in the waveform array
-#         max_times = dict(seq=0) | {
-#             k: find_end_marker(se_locs, self.end_marker)
-#             for k, se_locs in triggered_locations.items()
-#         }
-
-#         max_times["seq"] = max(
-#             find_end_marker(se_locs, self.end_marker) for se_locs in locations
-#         )
-#         logger.debug(max_times)
-
-#         # Then use the collected information to initialize an empty CompiledSequence
-#         # with the correct sizes for all waveform data arrays
-#         cseq = self.initialize_compiled_sequence(seq, max_times)
-
-#         # Now we move on to actually compiling timepoints and writing them to the
-#         # waveform data arrays
-#         for i, (se_locs, se) in enumerate(zip(locations, seq.flat)):
-#             logger.debug(cseq.waveforms["seq"].sample_rate)
-#             logger.debug(se.constraints | pulse_kwargs)
-#             self.compile_sequence_element(
-#                 se_locs,
-#                 # (channel_idx, element_idx, timepoints, num_outports)
-#                 cseq.waveforms["seq"].array[:, i, :],
-#                 self.channels["seq"],
-#                 se.constraints | pulse_kwargs,
-#             )
-
-#         # Then do the same for triggered sequence_elements
-#         for trigger, se_locs in triggered_locations.items():
-#             se = triggered_elements[trigger]
-#             self.compile_sequence_element(
-#                 se_locs,
-#                 # (channel_idx, element_idx, timepoints, num_outports)
-#                 cseq.waveforms[trigger].array[:, 0, :],
-#                 self.channels[trigger],
-#                 se.constraints | pulse_kwargs,
-#             )
-
-#         # Finally we pull out all the readout locations in the sequence
-#         for i, se_locs in enumerate(locations):
-#             sample_rate = cseq.waveforms["seq"].sample_rate
-#             rloc = int(find_readout_marker(se_locs).offset * sample_rate)
-#             cseq.get_readout_locations()[i] = rloc
-
-#         # This is needed for backwards compatibility.
-#         rinfo = _ReadoutInfo(
-#             cseq._readout, self.readout_qubits, len(cseq.get_readout_locations())
-#         )
-#         cseq._readout._readout = rinfo
-
-#         return cseq
-
-
 register_compiler(QWiPCompiler)
 
 
 @qdefine
-class CompiledSequencePlotter:
-    axsize: tuple[float, float] = (8, 1)
+class QWiPExePlotter:
+    def program_order(self, exe: QWiPExecutable) -> list[IntermediateProgram]:
+        """Orders the programs based on their trigger dependencies."""
+        programs = deque(exe.programs.values())
 
-    def make_axes(
+        ordered = []
+        visited = set()
+
+        while programs:
+            prog = programs.popleft()
+
+            if prog.device in visited:
+                raise ValueError("Trigger cycle detected!")
+            elif prog.trigger is None or prog.trigger.device in ordered:
+                ordered.append(prog.device)
+                visited = set()
+            else:
+                visited.add(prog.device)
+                programs.append(prog)
+
+        return ordered
+
+    def marker_timestamps(self, exe: QWiPExecutable) -> dict[TriggerInfo, list[float]]:
+        timestamps = defaultdict(list)
+        ordered = self.program_order(exe)
+
+        for device in ordered:
+            program = exe.programs[device]
+            for trig_id, markers in enumerate(program.markers):
+                if program.trigger:
+                    t0 = timestamps[program.trigger][trig_id]
+                else:
+                    t0 = exe.reset_delay * trig_id
+
+                for (ch, subch), t in markers:
+                    timestamps[
+                        TriggerInfo(device=program.device, index=ch, subchannel=subch)
+                    ].append(t + t0)
+
+        return timestamps
+
+    def plot_trigger(
         self,
-        n: int,
-        axsize: tuple[float, float] | None = None,
-        sharex: bool = True,
-        sharey: bool = True,
-        **props,
-    ) -> Figure:
-        """Creates a matplotlib figure and axes.
+        fig,
+        exe: QWiPExecutable,
+        ins: Instruction,
+        time: float,
+        trigger_counter: Counter,
+        marker_timestamps: dict[TriggerInfo, list[float]],
+        **kwargs,
+    ) -> float:
+        if ins.device is None:
+            t0 = exe.reset_delay * trigger_counter[None]
+            trigger_counter[None] += 1
 
-        Args:
-            n: Number of axes.
-            axsize: The size (width, height) in inc
-        """
-        if "figsize" not in props:
-            axsize = axsize or self.axsize
-            width, height = axsize
+            fig.add_vline(x=t0)
+        else:
+            tinfo = TriggerInfo(
+                device=ins.device, index=ins.index, subchannel=ins.subchannel
+            )
+            t0 = marker_timestamps[tinfo][trigger_counter[tinfo]]
+            trigger_counter[tinfo] += 1
 
-            if width == height == ...:
-                width, height = (8, 1)
-            elif width is ...:
-                width = 8 / height
-            elif height is ...:
-                height = 1 / 8 * width
+        return t0
 
-            props["figsize"] = (width, n * height)
-
-        fig, _ = plt.subplots(n, 1, sharex=sharex, sharey=sharey, **props)
-
-        return fig
-
-    def plot(
+    def plot_play(
         self,
-        cseq,
-        element: int,
-        title: str,
-        channels: list[tuple[int, ...]] | None = None,
-        axes: Collection[Axes] | None = None,
-        fig_props: dict = {},
-    ) -> Figure:
-        tdict = {
-            name: np.arange(waveformdata.array.shape[2]) / waveformdata.sample_rate
-            for name, waveformdata in cseq.waveforms.items()
-        }
+        fig,
+        exe: QWiPExecutable,
+        ins: Instruction,
+        time: float,
+        device: str,
+        colors: dict[str, int],
+        elements: list[int] | None = None,
+        **kwargs,
+    ) -> float:
+        wmem = exe.programs[device].waveforms[ins.waveform_index]
+        ts = np.arange(wmem.samples) / wmem.sample_rate + time
 
-        mainseq = cseq.waveforms["seq"]
-        ts = tdict["seq"]
+        el = int(time // exe.reset_delay)
+        if elements is None or el in elements:
+            for (ch, subch), arr in wmem.data.items():
+                label = f"{device} - CH{ch}" + (f"- {subch}" if subch else "")
+                showlegend = label not in colors
+                colors[label] = colors.get(label, len(colors))
 
-        if channels is None:
-            channels = [tuple(ch for ch in range(mainseq.array.shape[0]))]
-
-        if axes is None:
-            fig = self.make_axes(len(channels) + 1, **fig_props)
-            axes = fig.axes
-
-            if isinstance(axes, Axes):
-                axes = np.array([axes])
-
-        for ax_id, dev in enumerate(channels):
-            ax = axes[ax_id]
-
-            for ch in dev:
-                for marker in range(mainseq.array.shape[3]):
-                    pts = mainseq.array[ch, element, :, marker]
-                    if not pts.any():
-                        continue
-
-                    ax.plot(ts, pts, label=f"CH{ch}", color=f"C{ch}")
-
-        readoutseq = cseq.waveforms["readout"]
-
-        treadout = mainseq.get_readout_locations()[element] / mainseq.sample_rate
-        for ch in range(readoutseq.array.shape[0]):
-            pts = readoutseq.array[ch, 0, :, 0]
-            props = dict(color=f"C{ch + mainseq.shape[0]}", label=f"Readout CH{ch}")
-            axes[-1].plot(tdict["readout"] + treadout, pts, **props)
-
-        figwidth, _ = fig.get_size_inches()
-
-        h, l = all_legend_handles_labels(axes)
-        axes[0].legend(
-            h,
-            l,
-            mode="expand",
-            bbox_to_anchor=(0, 1.05, 1, 0.05),
-            loc="lower left",
-            ncols=min(figwidth // 2, len(l)),
-            borderaxespad=0,
-        )
-        axes[0].set_ylim(-1, 1)
-
-        axes[-1].set_xlabel("Time (s)")
-        return fig
-
-
-@qdefine
-class InteractiveSequencePlotter:
-    def plot(
-        self,
-        cseq,
-        title: str = "Pulse Sequence Simulation",
-        channels: list[tuple[int, ...]] | None = None,
-        axes: Collection[Axes] | None = None,
-        fig_props: dict = {},
-    ) -> Figure:
-        fig = go.Figure()
-
-        ts_pulse = (
-            np.arange(cseq.waveforms["seq"].array.shape[2])
-            / cseq.waveforms["seq"].sample_rate
-        )
-        N_channels, N_elements, N_steps, N_subchannels = cseq.waveforms[
-            "seq"
-        ].array.shape
-
-        active_elements = dict()
-        num_traces = 0
-
-        for i in range(N_elements):
-            active_channels = np.where(
-                np.any(
-                    cseq.waveforms["seq"].array[:, i, :, 0].reshape(N_channels, -1),
-                    axis=1,
-                )
-            )[0]
-
-            if len(active_channels) != 0:
-                active_elements[i] = active_channels
-
-            for ch in active_channels:
+                template_colors = fig.layout.template.layout.colorway
+                c = template_colors[colors[label] % len(template_colors)]
                 fig.add_trace(
                     go.Scatter(
-                        x=ts_pulse,
-                        y=cseq.waveforms["seq"].array[ch, i, :, 0],
-                        visible=False,
-                        name=f"CH {ch}",
+                        x=ts,
+                        y=arr,
+                        name=label,
+                        showlegend=showlegend,
+                        legendgroup=label,
+                        mode="lines",
+                        marker_color=c,
                     )
                 )
-                num_traces += 1
 
-        # Slider to filter Sequence Element
-        steps_seq, start = [], 0
-        last_element = 0
+        return time + wmem.samples / wmem.sample_rate
 
-        for index, (element, targets) in enumerate(active_elements.items()):
-            visible_seq = [False] * num_traces
-            end = start + len(targets)
-
-            visible_seq[start:end] = [True] * (end - start)
-            steps_seq.append(
-                dict(
-                    label=f"{element}", method="update", args=[{"visible": visible_seq}]
-                )
-            )
-            if index == len(active_elements.items()) - 1:
-                for i in range(start, end):
-                    fig.data[i].visible = True
-                last_element = index
-
-            start = end
-
-        sliders = [
+    def make_dropdown(
+        self,
+        fig,
+        exe: QWiPExecutable,
+        element_end_times,
+        elements: list[int] | None = None,
+    ):
+        elements = elements or range(len(exe.num_reads))
+        buttons = [
             dict(
-                active=last_element,
-                currentvalue={"prefix": "Sequence Element: "},
-                pad={"t": 50, "b": 50},
-                steps=steps_seq,
-                borderwidth=2,
+                args=["xaxis", dict(range=[None, None])],
+                label="Show all",
+                method="relayout",
             )
+        ] + [
+            dict(
+                args=[
+                    "xaxis",
+                    dict(range=[el * exe.reset_delay, element_end_times[el]]),
+                ],
+                label=f"Element {el}",
+                method="relayout",
+            )
+            for el in elements
         ]
 
         fig.update_layout(
-            sliders=sliders,
-            dragmode="pan",
-            title={"text": title, "x": 0.5, "xanchor": "center"},
-            yaxis_title="Amplitude",
-            xaxis_title="Time",
-            width=1000,
-            height=600,
-            autosize=False,
-            margin=dict(t=50, b=0, l=0, r=0),
+            updatemenus=[
+                dict(
+                    buttons=buttons,
+                    direction="down",
+                    x=0,
+                    xanchor="left",
+                    y=1.02,
+                    yanchor="bottom",
+                )
+            ],
+            margin=dict(t=0, b=0, l=0, r=0),
         )
 
+    def plot(self, exe: QWiPExecutable, elements: list[int] | None = None):
+        fig = go.Figure()
         fig.update_yaxes(fixedrange=True)
 
-        config = {"scrollZoom": True}
-        fig.show(config=config)
+        colors = {}
+        marker_timestamps = self.marker_timestamps(exe)
+        element_end_times = []
 
+        for dev, prog in exe.programs.items():
+            trigger_counter = Counter()
+            time = 0
+            for ins in prog.instructions:
+                match ins:
+                    case WaitTriggerInstruction():
+                        time = self.plot_trigger(
+                            fig, exe, ins, time, trigger_counter, marker_timestamps
+                        )
+                    case PlayInstruction():
+                        time = self.plot_play(
+                            fig, exe, ins, time, dev, colors, elements
+                        )
+
+                el = int(time // exe.reset_delay)
+                try:
+                    element_end_times[el] = max(time, element_end_times[el])
+                except IndexError:
+                    element_end_times.append(time)
+
+        self.make_dropdown(fig, exe, element_end_times, elements)
+        fig.update_layout(
+            yaxis_title="Amplitude",
+            xaxis_title="Time (s)",
+        )
+
+        fig.show(config=dict(scrollZoom=True))
         return fig
 
 
 __all__ = [
     "ChannelInfo",
     "DeviceInfo",
-    "CompiledSequencePlotter",
-    "InteractiveSequencePlotter",
     "WaveformMemory",
     "Program",
     "register_compiler",
@@ -1136,4 +816,5 @@ __all__ = [
     "WaitTriggerInstruction",
     "ReadInstruction",
     "ResetInstruction",
+    "QWiPExePlotter",
 ]
