@@ -319,7 +319,7 @@ class Marker(Waveform):
 @register_waveform
 @qfrozen
 class TriggeredWaveform(BasicWaveform):
-    target: "SequenceElement | None" = field(
+    target: "qwip.sequencer.elements.SequenceElement | None" = field(
         default=None, eq=id, metadata=dict(allow_override=False)
     )
 
