@@ -306,10 +306,13 @@ class QTRLCompiler(QWiPCompiler):
 
         trigger = self.channels["readout"].trigger
         marker = (trigger.index, trigger.subchannel)
-        waveforms["seq"].readout_locations = {
-            el: sample
-            for el, sample in enumerate(qwip_exe.programs["seq"].markers[marker])
-        }
+
+        for el, markers in enumerate(qwip_exe.programs["seq"].markers):
+            for m, time in reversed(markers):
+                if m == marker:
+                    waveforms["seq"].readout_locations[el] = int(
+                        time * waveforms["seq"].sample_rate
+                    )
 
         try:
             waveforms["readout"]._readout = _ReadoutInfo(
