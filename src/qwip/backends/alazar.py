@@ -1,10 +1,10 @@
 import numpy as np
 import pandas as pd
 from attrs import field
+from loguru import logger
 
 from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import ADCBackend
-from qwip.instruments.alazar.alazar import Alazar
 from qwip.processing.processors import IQTraceResult
 from qwip.sequencer.compilation import (
     DeviceInfo,
@@ -14,6 +14,11 @@ from qwip.sequencer.compilation import (
     QWiPExecutable,
     ReadInstruction,
 )
+
+try:
+    from qwip.instruments.alazar.alazar import Alazar
+except FileNotFoundError:
+    logger.warning("Unable to import Alazar. Check that ATSApi64.dll is installed.")
 
 
 def round_samples(samples: int) -> int:
@@ -51,7 +56,7 @@ class AlazarCompiler(HardwareCompiler):
 
 @qdefine
 class AlazarBackend(ADCBackend):
-    device: Alazar
+    device: "Alazar"
     exe: QWiPExecutable | None = None
     samples: int = 2048
     num_reads: int = 1

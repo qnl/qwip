@@ -61,7 +61,7 @@ class QuantumBackend(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def acquire(self, exe: QuantumExecutable | None = None, **kwargs) -> dict:
+    def acquire(self, **kwargs) -> dict:
         ...
 
     @abstractmethod
