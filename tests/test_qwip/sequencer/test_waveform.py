@@ -16,6 +16,7 @@ from qwip.sequencer.waveform import (
     CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
+    PhaseResetWaveform,
     SquareWaveform,
     TriggeredWaveform,
     VirtualZWaveform,
@@ -411,6 +412,37 @@ class TestVirtualZWaveform:
             z.update_phase_tracker(t, phase_tracker)
 
         assert phase_tracker.compressed(mod_key) == phase_jumps
+
+
+class TestPhaseResetWaveform:
+    @pytest.mark.parametrize(
+        "mod_key,resets,expected",
+        [
+            (
+                ModulationFrequency("Q0.mod"),
+                [
+                    (10, PhaseResetWaveform(mod_key="Q0.mod")),
+                    (0, PhaseResetWaveform(mod_key="Q0.mod")),
+                ],
+                [10, 0],
+            ),
+            (
+                ModulationFrequency("Q1.mod"),
+                [
+                    (10, PhaseResetWaveform(mod_key="Q0.mod")),
+                    (0, PhaseResetWaveform(mod_key="Q0.mod")),
+                ],
+                [],
+            ),
+        ],
+    )
+    def test_update_phase_tracker(self, mod_key, resets, expected):
+        pt = PhaseTracker()
+
+        for t, r in resets:
+            r.update_phase_tracker(t, pt)
+
+        assert pt.resets.get(mod_key, []) == expected
 
 
 class TestTriggeredWaveform:

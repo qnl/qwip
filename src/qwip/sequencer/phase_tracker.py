@@ -48,9 +48,12 @@ class PhaseTracker:
 
     Attributes:
         phases: A dictionary mapping ModulationFrequency to a list of phase jumps.
+        resets: A mapping of reference frames to a list of times at which the phase
+            should get reset.
     """
 
     phases: dict[ModulationFrequency, list[PhaseJump]] = field(factory=dict)
+    resets: dict[ModulationFrequency, list[float]] = field(factory=dict)
 
     @classmethod
     def from_modulations(
@@ -80,7 +83,11 @@ class PhaseTracker:
             val = ModulationFrequency.from_string(val)
 
         if not val.references:
-            return self.phases[val]
+            try:
+                return self.phases[val]
+            except KeyError:
+                phases = self.phases[val] = []
+                return phases
 
         phases = []
         for modkey, c in val.references:
@@ -109,7 +116,15 @@ class PhaseTracker:
                 f"Cannot add a virtual phase on a non-independent phase {modkey}"
             )
 
-        self.phases[modkey].append(phase)
+        self[modkey].append(phase)
+
+    def reset(self, modkey: ModulationFrequency, time: float):
+        """Adds a phase reset."""
+
+        try:
+            self.resets[modkey].append(time)
+        except KeyError:
+            self.resets[modkey] = [time]
 
     @staticmethod
     def compress(phases: Iterable[PhaseJump]) -> list[PhaseJump]:
@@ -128,20 +143,56 @@ class PhaseTracker:
             )
         )
 
-    def compute_integrated_phase(
+    def integrate_phase(
         self,
         modkey: ModulationFrequency,
-        ts: np.ndarray,
-    ) -> np.ndarray:
-        if modkey not in self:
-            return np.zeros_like(ts)
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Computes the total accumulated phase from phase jumps.
 
+        Args:
+            modkey: The reference frame on which to compute the phase accumulation.
+
+        Returns:
+            The timestep of each phase jump, and the resulting cumulative phase after
+            each phase jump.
+        """
         phase_jumps = self.compressed(modkey)
         if phase_jumps:
             t_jump, phase_jumps = np.array([(pj.t, pj.phi) for pj in phase_jumps]).T
         else:
             t_jump = phase_jumps = np.zeros(1)
-        accumulated_phase = np.cumsum(phase_jumps)
+
+        # Get accumulated phase accounting for phase resets
+        t_resets = np.sort(self.resets.get(modkey, []))
+        acc_idx = np.r_[0, np.searchsorted(t_jump, t_resets), len(t_jump)]
+        acc_idx = np.unique(acc_idx)
+        accumulated_phase = np.zeros_like(phase_jumps)
+        for (
+            s,
+            e,
+        ) in zip(acc_idx, acc_idx[1:]):
+            accumulated_phase[s:e] = np.cumsum(phase_jumps[s:e])
+
+        return t_jump, accumulated_phase
+
+    def compute_integrated_phase(
+        self,
+        modkey: ModulationFrequency,
+        ts: np.ndarray,
+    ) -> np.ndarray:
+        """Computes the jump phases for a set of timepoints.
+
+        Args:
+            modkey: The reference frame for the phase jumps.
+            ts: The timepoints at which to evaluate the phases.
+
+        Returns:
+            The jump phase at each time point.
+        """
+        if modkey not in self:
+            return np.zeros_like(ts)
+
+        t_jump, accumulated_phase = self.integrate_phase(modkey)
 
         # Find phase_jumps that are relevant for the time slice
         s = np.searchsorted(t_jump, ts[0])
@@ -165,6 +216,36 @@ class PhaseTracker:
                 phis[idx[-1] :] = accumulated_phase[s + len(idx) - 1]
 
         return phis
+
+    def compute_oscillator_phase(
+        self,
+        modkey: ModulationFrequency,
+        ts: np.ndarray,
+        modulations: dict[str, ModulationFrequency] = {},
+    ) -> np.ndarray:
+        """Computes the phase on a reference frame due to time evolution.
+
+        When there are no specified phase resets before `t=0`, it is assumed that the
+        time evolution begins at `t=0`. However, if there is a phase reset for some
+        `t < 0`, the phase at `t=0` will no longer be zero unless another phase reset
+        at `t=0` is explicitly added. Note that a phase reset at time `t` will only
+        affect timepoints greater than or equal to `t`.
+
+        Args:
+            modkey: The reference frame to evaluate.
+            ts: The timepoints at which to compute the time-evolved phase.
+            modulations: A map from reference frame names to concrete frequencies.
+
+        Returns:
+            The time evolved phase at the specified timepoints. This phase is assumed
+        """
+        freq = modkey.resolve(**modulations).offset
+
+        t_resets = np.sort(np.unique(self.resets.get(modkey, [])))
+        diffs = np.diff(np.r_[0, t_resets])
+        adjusted_ts = ts - sum(d * (ts >= t_r) for t_r, d in zip(t_resets, diffs))
+
+        return 2 * np.pi * freq * adjusted_ts
 
 
 @runtime_checkable
