@@ -147,6 +147,15 @@ class PhaseTracker:
         self,
         modkey: ModulationFrequency,
     ) -> tuple[np.ndarray, np.ndarray]:
+        """Computes the total accumulated phase from phase jumps.
+
+        Args:
+            modkey: The reference frame on which to compute the phase accumulation.
+
+        Returns:
+            The timestep of each phase jump, and the resulting cumulative phase after
+            each phase jump.
+        """
         phase_jumps = self.compressed(modkey)
         if phase_jumps:
             t_jump, phase_jumps = np.array([(pj.t, pj.phi) for pj in phase_jumps]).T
@@ -171,6 +180,15 @@ class PhaseTracker:
         modkey: ModulationFrequency,
         ts: np.ndarray,
     ) -> np.ndarray:
+        """Computes the jump phases for a set of timepoints.
+
+        Args:
+            modkey: The reference frame for the phase jumps.
+            ts: The timepoints at which to evaluate the phases.
+
+        Returns:
+            The jump phase at each time point.
+        """
         if modkey not in self:
             return np.zeros_like(ts)
 
@@ -205,9 +223,25 @@ class PhaseTracker:
         ts: np.ndarray,
         modulations: dict[str, ModulationFrequency] = {},
     ) -> np.ndarray:
+        """Computes the phase on a reference frame due to time evolution.
+
+        When there are no specified phase resets before `t=0`, it is assumed that the
+        time evolution begins at `t=0`. However, if there is a phase reset for some
+        `t < 0`, the phase at `t=0` will no longer be zero unless another phase reset
+        at `t=0` is explicitly added. Note that a phase reset at time `t` will only
+        affect timepoints greater than or equal to `t`.
+
+        Args:
+            modkey: The reference frame to evaluate.
+            ts: The timepoints at which to compute the time-evolved phase.
+            modulations: A map from reference frame names to concrete frequencies.
+
+        Returns:
+            The time evolved phase at the specified timepoints. This phase is assumed
+        """
         freq = modkey.resolve(**modulations).offset
 
-        t_resets = np.sort(self.resets.get(modkey, []))
+        t_resets = np.sort(np.unique(self.resets.get(modkey, [])))
         diffs = np.diff(np.r_[0, t_resets])
         adjusted_ts = ts - sum(d * (ts >= t_r) for t_r, d in zip(t_resets, diffs))
 
