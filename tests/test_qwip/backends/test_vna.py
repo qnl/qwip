@@ -1,7 +1,83 @@
+import itertools as it
+
+import numpy as np
+import pandas as pd
 import pytest
 
-from qwip.backends.vna import VNABackend, VNAExecutable
+from qwip.backends.vna import VNABackend, VNAExecutable, sweep_parameters
 from qwip.processing.processors import IQResult
+
+
+class TestVNAExecutable:
+    def test_center(self):
+        exe = VNAExecutable()
+
+        with pytest.raises(ValueError):
+            exe.center = 7e9
+
+        exe.start = 6e9
+        exe.stop = 7e9
+        exe.center = 7e9
+        assert (exe.start, exe.stop) == (6.5e9, 7.5e9)
+        assert exe.center == 7e9
+
+    def test_span(self):
+        exe = VNAExecutable()
+
+        with pytest.raises(ValueError):
+            exe.span = 1e9
+
+        exe.start = 5e9
+        exe.stop = 6e9
+        exe.span = 2e9
+
+        assert (exe.start, exe.stop) == (4.5e9, 6.5e9)
+        assert exe.span == 2e9
+
+
+def test_empty_sweep_parameters():
+    exe_list = [VNAExecutable()] * 5
+    sweep = sweep_parameters(exe_list)
+
+    assert sweep.equals(pd.RangeIndex(0, 5))
+
+
+def test_single_sweep_parameters():
+    exe_list = [VNAExecutable(power=p) for p in [-50, -40, -30]]
+
+    sweep = sweep_parameters(exe_list)
+
+    assert sweep.equals(
+        pd.MultiIndex.from_tuples([(-50,), (-40,), (-30,)], names=["power"])
+    )
+
+
+def test_repeats_sweep_parameters():
+    exe_list = [VNAExecutable(power=p, averages=1) for p in (-50, -40, -30)]
+
+    sweep = sweep_parameters(exe_list)
+
+    assert sweep.equals(
+        pd.MultiIndex.from_tuples([(-50,), (-40,), (-30,)], names=["power"])
+    )
+
+
+def test_nan_sweep_parameters():
+    exe_list = [VNAExecutable(averages=1), VNAExecutable(averages=2), VNAExecutable()]
+
+    sweep = sweep_parameters(exe_list)
+    assert sweep.equals(pd.MultiIndex.from_tuples([(1,), (2,), (np.nan,)]))
+
+
+def test_multi_sweep_parameters():
+    exe_list = [
+        VNAExecutable(power=p, averages=a) for p, a in it.product([-50, -40], [1, 2, 3])
+    ]
+
+    sweep = sweep_parameters(exe_list)
+    assert sweep.equals(
+        pd.MultiIndex.from_product(([-50, -40], [1, 2, 3]), names=["power", "averages"])
+    )
 
 
 @pytest.mark.skip_instrument("vna")

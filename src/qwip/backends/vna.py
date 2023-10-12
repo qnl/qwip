@@ -6,6 +6,7 @@ import pandas as pd
 import pendulum
 from attrs import field
 
+import qwip
 from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import QuantumBackend
 from qwip.processing.processors import IQResult
@@ -80,6 +81,63 @@ class VNAExecutable(QuantumExecutable):
     if_bandwidth: float | None = None
     meas: str | None = field(default=None, metadata=dict(parameter="trace"))
 
+    @property
+    def center(self) -> float | None:
+        if self.start is None or self.stop is None:
+            return None
+
+        return (self.start + self.stop) / 2
+
+    @center.setter
+    def center(self, center) -> None:
+        if (span := self.span) is None:
+            raise ValueError("Cannot set center when span is None.")
+
+        self.start = center - span / 2
+        self.stop = center + span / 2
+
+    @property
+    def span(self) -> float | None:
+        if self.start is None or self.stop is None:
+            return None
+
+        return self.stop - self.start
+
+    @span.setter
+    def span(self, span) -> None:
+        if (center := self.center) is None:
+            raise ValueError("Cannot set span when center is None.")
+
+        self.start = center - span / 2
+        self.stop = center + span / 2
+
+    def sweep(self, **kwargs):
+        ...
+
+
+def sweep_parameters(exe_list: list[VNAExecutable]) -> pd.Index:
+    """Returns an index with the parameters that are swept.
+
+    Any parameters that remain the same across all executables are not included in the
+    returned index.
+
+    Args:
+        exe_list: A list of `VNAExecutable`
+
+    Returns:
+        A pandas multi-index.
+    """
+    params = pd.DataFrame([qwip.converter.unstructure(exe) for exe in exe_list])
+
+    for col in params.columns:
+        if params[col].nunique() == 1:
+            del params[col]
+
+    if params.empty:
+        return pd.RangeIndex(0, len(exe_list))
+
+    return pd.MultiIndex.from_frame(params)
+
 
 @qdefine
 class VNABackend(QuantumBackend):
@@ -127,7 +185,7 @@ class VNABackend(QuantumBackend):
                 if f.name == "averages":
                     self.vna.averages_enabled(value > 1)
 
-    def acquire(self, exe: None = None, **kwargs) -> dict:
+    def acquire(self, **kwargs) -> dict:
         """Acquires the complex IQ data from the VNA.
 
         Args:
