@@ -489,6 +489,19 @@ class VirtualZWaveform(Marker):
 
 @register_waveform
 @qfrozen
+class PhaseResetWaveform(Marker):
+    mod_key: ModulationFrequency
+
+    def update_phase_tracker(
+        self,
+        time,
+        phase_tracker: PhaseTracker,
+    ) -> None:
+        phase_tracker.reset(self.mod_key, time)
+
+
+@register_waveform
+@qfrozen
 class SquareWaveform(BasicWaveform):
     def evaluate_timepoints(
         self, ts: np.ndarray, width: float, amplitude: float, t0: float, **kwargs
