@@ -390,21 +390,26 @@ class CWWaveform(InfiniteWaveform):
             A ndarray containing the function w(t) evaluated at the specified
             times.
         """
-        freq = 2 * np.pi * self.frequency.resolve(**modulations).offset
-
         if phase_tracker:
             phis = phase_tracker.compute_integrated_phase(
                 self.mod_key or self.frequency, ts
             )
+            software_oscillator = phase_tracker.compute_oscillator_phase(
+                self.frequency,
+                ts,
+                modulations,
+            )
         else:
             phis = np.zeros_like(ts)
+            freq = 2 * np.pi * self.frequency.resolve(**modulations).offset
+            software_oscillator = freq * ts
 
         if phase_unit.lower() == "degrees":
             phase *= np.pi / 180
             phis *= np.pi / 180
 
         # Add base modulation at the relevant frequency if doing software modulation
-        oscillator = 0 if self.hardware_modulation else freq * ts
+        oscillator = 0 if self.hardware_modulation else software_oscillator
         amplitude = 1 if self.hardware_modulation else amplitude
         wave = (
             amplitude * np.exp(1j * (oscillator + phis + phase), dtype=np.complex64)

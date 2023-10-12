@@ -48,9 +48,12 @@ class PhaseTracker:
 
     Attributes:
         phases: A dictionary mapping ModulationFrequency to a list of phase jumps.
+        resets: A mapping of reference frames to a list of times at which the phase
+            should get reset.
     """
 
     phases: dict[ModulationFrequency, list[PhaseJump]] = field(factory=dict)
+    resets: dict[ModulationFrequency, list[float]] = field(factory=dict)
 
     @classmethod
     def from_modulations(
@@ -80,7 +83,11 @@ class PhaseTracker:
             val = ModulationFrequency.from_string(val)
 
         if not val.references:
-            return self.phases[val]
+            try:
+                return self.phases[val]
+            except KeyError:
+                phases = self.phases[val] = []
+                return phases
 
         phases = []
         for modkey, c in val.references:
@@ -109,7 +116,15 @@ class PhaseTracker:
                 f"Cannot add a virtual phase on a non-independent phase {modkey}"
             )
 
-        self.phases[modkey].append(phase)
+        self[modkey].append(phase)
+
+    def reset(self, modkey: ModulationFrequency, time: float):
+        """Adds a phase reset."""
+
+        try:
+            self.resets[modkey].append(time)
+        except KeyError:
+            self.resets[modkey] = [time]
 
     @staticmethod
     def compress(phases: Iterable[PhaseJump]) -> list[PhaseJump]:
@@ -128,6 +143,29 @@ class PhaseTracker:
             )
         )
 
+    def integrate_phase(
+        self,
+        modkey: ModulationFrequency,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        phase_jumps = self.compressed(modkey)
+        if phase_jumps:
+            t_jump, phase_jumps = np.array([(pj.t, pj.phi) for pj in phase_jumps]).T
+        else:
+            t_jump = phase_jumps = np.zeros(1)
+
+        # Get accumulated phase accounting for phase resets
+        t_resets = np.sort(self.resets.get(modkey, []))
+        acc_idx = np.r_[0, np.searchsorted(t_jump, t_resets), len(t_jump)]
+        acc_idx = np.unique(acc_idx)
+        accumulated_phase = np.zeros_like(phase_jumps)
+        for (
+            s,
+            e,
+        ) in zip(acc_idx, acc_idx[1:]):
+            accumulated_phase[s:e] = np.cumsum(phase_jumps[s:e])
+
+        return t_jump, accumulated_phase
+
     def compute_integrated_phase(
         self,
         modkey: ModulationFrequency,
@@ -136,12 +174,7 @@ class PhaseTracker:
         if modkey not in self:
             return np.zeros_like(ts)
 
-        phase_jumps = self.compressed(modkey)
-        if phase_jumps:
-            t_jump, phase_jumps = np.array([(pj.t, pj.phi) for pj in phase_jumps]).T
-        else:
-            t_jump = phase_jumps = np.zeros(1)
-        accumulated_phase = np.cumsum(phase_jumps)
+        t_jump, accumulated_phase = self.integrate_phase(modkey)
 
         # Find phase_jumps that are relevant for the time slice
         s = np.searchsorted(t_jump, ts[0])
@@ -165,6 +198,20 @@ class PhaseTracker:
                 phis[idx[-1] :] = accumulated_phase[s + len(idx) - 1]
 
         return phis
+
+    def compute_oscillator_phase(
+        self,
+        modkey: ModulationFrequency,
+        ts: np.ndarray,
+        modulations: dict[str, ModulationFrequency] = {},
+    ) -> np.ndarray:
+        freq = modkey.resolve(**modulations).offset
+
+        t_resets = np.sort(self.resets.get(modkey, []))
+        diffs = np.diff(np.r_[0, t_resets])
+        adjusted_ts = ts - sum(d * (ts >= t_r) for t_r, d in zip(t_resets, diffs))
+
+        return 2 * np.pi * freq * adjusted_ts
 
 
 @runtime_checkable
