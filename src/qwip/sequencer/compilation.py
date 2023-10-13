@@ -205,7 +205,7 @@ class WaveformMemory:
             case ChannelInfo(index=idx, subchannel=sc):
                 return self.data[idx, sc]
             case _:
-                return self.waveforms[key]
+                return self.data[key]
 
     def __contains__(self, key) -> bool:
         try:
