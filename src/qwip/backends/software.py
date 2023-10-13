@@ -2,25 +2,15 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from attrs import cmp_using, field
-from typing_extensions import Self
 
-import qwip
 from qwip.attrs import qdefine, qfrozen
-from qwip.backends.backend import DACBackend, QuantumBackend
 from qwip.sequencer.compilation import (
-    DelayInstruction,
     DeviceInfo,
     HardwareCompiler,
     IntermediateProgram,
     PlayInstruction,
     Program,
-    QuantumExecutable,
-    QWiPCompiler,
-    QWiPExecutable,
-    WaitTriggerInstruction,
 )
-from qwip.sequencer.sequence import Sequence
-from qwip.sequencer.utils import Location
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU

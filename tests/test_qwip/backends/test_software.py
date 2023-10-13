@@ -3,7 +3,6 @@ import pytest
 from numpy.testing import assert_array_equal
 
 from qwip.backends.software import HeterodyneCompiler
-from qwip.processing.processors import IQTraceResult
 from qwip.sequencer.compilation import (
     ChannelInfo,
     DeviceInfo,
@@ -12,17 +11,6 @@ from qwip.sequencer.compilation import (
     TriggerInfo,
     WaitTriggerInstruction,
     WaveformMemory,
-)
-from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency
-from qwip.sequencer.sequence import Sequence
-from qwip.sequencer.waveform import (
-    CWWaveform,
-    GaussianWaveform,
-    ModulatedWaveform,
-    SquareWaveform,
-    TriggeredWaveform,
-    VirtualZWaveform,
 )
 
 
