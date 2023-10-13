@@ -12,6 +12,7 @@ from qwip.sequencer.compilation import (
 
 
 def _weights_equal(a, b):
+    """Checks if two sets of weights are equal."""
     if len(a) != len(b):
         return False
 
