@@ -307,12 +307,11 @@ class QPU:
         if program is not None:
             self.backend.upload(exe)
 
-        seq = exe.seq if exe else None
         raw_data = self.backend.acquire(repetitions=repetitions, **backend)
-        processed = self.process_results(raw_data, processor, seq=seq)
+        processed = self.process_results(raw_data, processor, exe=exe)
 
         if self.datastore:
-            data = dict(config_db=self.db, seq=seq) | data
+            data = dict(config_db=self.db, seq=exe.sequence) | data
             self.datastore.save(self.pipeline.grouped_data(), **data)
 
         return processed

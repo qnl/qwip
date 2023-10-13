@@ -18,7 +18,7 @@ from qwip.processing.data_processor import (
     GenericDataProcessor,
     MeasurementResult,
 )
-from qwip.sequencer import Sequence
+from qwip.sequencer.compilation import QuantumExecutable
 
 M = TypeVar("M", bound=MeasurementResult)
 
@@ -706,10 +706,11 @@ class Labeled(GenericDataProcessor):
 
     level: str = "element"
 
-    def run(self, result: M, seq: Sequence | None = None, **kwargs) -> M:
-        if seq is None:
+    def run(self, result: M, exe: QuantumExecutable | None = None, **kwargs) -> M:
+        if exe is None or exe.seq is None:
             return result
 
+        seq = exe.sequence
         result = attrs.evolve(result, data=result.data.copy())
         old_idx = result.data.index
 

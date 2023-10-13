@@ -27,6 +27,7 @@ from qwip.processing.processors import (
     dataframe_real_to_complex,
 )
 from qwip.sequencer import Sequence
+from qwip.sequencer.compilation import QuantumExecutable
 
 
 @pytest.mark.parametrize(
@@ -484,7 +485,7 @@ class TestLabeled:
         seq = Sequence.empty(
             (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
         )
-        labeled = Labeled()(iqdata, seq=seq)
+        labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
 
         assert labeled is not iqdata
         assert labeled.data is not iqdata.data
@@ -497,7 +498,7 @@ class TestLabeled:
         seq = Sequence.empty(
             (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
         )
-        labeled = Labeled()(iqdata, seq=seq)
+        labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
 
         expected = pd.MultiIndex.from_tuples(
             it.product(np.arange(5), np.arange(2), np.arange(2), np.arange(3)),
