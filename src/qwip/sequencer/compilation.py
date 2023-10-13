@@ -473,6 +473,7 @@ class QWiPCompiler:
                     t0=start + w.t0,
                     phase_tracker=phase_tracker,
                     modulations=self.modulations,
+                    complex_out=issubclass(device.dtype, np.complexfloating),
                     **pulse_kwargs,
                 )
 
