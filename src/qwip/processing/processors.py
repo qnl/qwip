@@ -6,6 +6,7 @@ import attrs
 import numpy as np
 import pandas as pd
 from attrs import cmp_using, field
+from loguru import logger
 from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
@@ -300,46 +301,66 @@ class HeterodyneDemodulation(DataProcessor):
     various frequencies specific to readouts.
 
     Attributes:
-        weights: A mapping from readout to the weights used to demodulate the raw
-            IQ traces (ex. np.exp(-1j*2pi*freq*ts)).
+        device: The name of the device/program that stores the weights.
     """
 
-    weights: dict[str, NDArray[complex]] = field(factory=dict)
+    device: str = "demod"
 
-    def run(self, result: IQTraceResult, **kwargs) -> list[IQResult]:
+    def run(
+        self, result: IQTraceResult, exe: QuantumExecutable, **kwargs
+    ) -> list[IQResult]:
         """Demodulates the raw IQ traces at the specified frequencies.
 
-        For now, time points are assumed to be the same across all elements, readouts,
-        and shots. Weights later on will be added to account for differences across
-        elements and readouts.
+        The demodulated channels may not be the same across all elements/readouts, in
+        which case the resulting IQ values at those index locations will be nan. The
+        demodulation weights can also vary for each readout. See `HeterodyneProgram` for
+        more details.
 
         Args:
-            result: IQTraceResult.
+            result: An IQTraceResult. The index should have the same number timesteps
+                for every trace. It is assumed that the index levels are of the form
+                `(shot, element, readout, time)`.
 
         Returns:
-            A dictionary mapping readout to its IQResult object containing the processed
-            IQ traces in the `data` attribute. For the specific format of the data frame,
-            go to the IQResult documentation.
+            A list of IQResult, one for each demodulation channel present.
         """
 
-        weight_arr = np.stack(list(self.weights.values()))
-        tsize = result.data.index.levshape[-1]
-        integrated = (
-            np.dot(weight_arr, result.data.values.reshape(-1, tsize).T)
-            / weight_arr.shape[-1]
-        )
+        in_shape = result.data.index.levshape
+        n_shots = in_shape[0]
+        n_times = in_shape[-1]
+        arr = result.data.values.reshape(n_shots, -1, n_times)
 
-        output = list()
-        for i, k in enumerate(self.weights):
-            data = pd.DataFrame(
-                integrated[i],
-                index=result.data.index[::tsize].droplevel("time"),
-                columns=["IQ"],
+        if arr.dtype != np.complex64:
+            logger.warning(f"IQ trace data has dtype {arr.dtype}!")
+
+        program = exe.programs[self.device]
+        outputs = {
+            key: np.zeros(np.prod(in_shape[:-1]), dtype=arr.dtype)
+            for key in program.keys
+        }
+
+        for w_idx, weights in enumerate(program.weights):
+            (dslice,) = np.where(program.demods == w_idx)
+
+            t_cutoff = min(n_times, weights.shape[-1])
+            integrated = (
+                np.dot(
+                    weights[:, :t_cutoff].conj(),
+                    arr[:, dslice, :t_cutoff].reshape(-1, t_cutoff).T,
+                )
+                / t_cutoff
             )
 
-            output.append(IQResult(name=k, data=data))
+            for col, key in enumerate(program.keys):
+                outputs[key].reshape(n_shots, -1)[:, dslice] = integrated[col].reshape(
+                    n_shots, -1
+                )
 
-        return output
+        out_index = result.data.index[::n_times].droplevel(-1)
+        return [
+            IQResult(name=key, data=pd.DataFrame(data, index=out_index, columns=["IQ"]))
+            for key, data in outputs.items()
+        ]
 
     def output_keys(self) -> set[str]:
         """Returns the set of output keys returned by the processor."""
