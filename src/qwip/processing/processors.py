@@ -177,8 +177,8 @@ class IQTraceResult(MeasurementResult):
             An IQ trace result with the data formatted as a multi-indexed dataframe.
         """
 
-        index = pd.MultiIndex.from_tuples(
-            it.product(*(range(N) for N in arr.shape)), names=labels
+        index = pd.MultiIndex.from_arrays(
+            np.indices(arr.shape).reshape(len(arr.shape), -1), names=labels
         )
 
         data = pd.DataFrame(
@@ -218,8 +218,8 @@ class IQResult(MeasurementResult):
             An IQResult. The measurement data frame will have index labels as specified,
             and the columns will be the individual shots.
         """
-        index = pd.MultiIndex.from_tuples(
-            it.product(*(range(N) for N in arr.shape)), names=labels
+        index = pd.MultiIndex.from_arrays(
+            np.indices(arr.shape).reshape(len(arr.shape), -1), names=labels
         )
 
         df = pd.DataFrame(arr.flatten(), index=index, columns=["IQ"])
