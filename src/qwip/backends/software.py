@@ -1,5 +1,3 @@
-from typing import TYPE_CHECKING
-
 import numpy as np
 from attrs import cmp_using, field
 
@@ -11,9 +9,6 @@ from qwip.sequencer.compilation import (
     PlayInstruction,
     Program,
 )
-
-if TYPE_CHECKING:
-    from qwip.qpu.qpu import QPU
 
 
 def _weights_equal(a, b):
