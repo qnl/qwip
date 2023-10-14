@@ -58,6 +58,10 @@ class DataProcessor:
     def output_keys(self) -> set[str]:
         return {self.measurement_key}
 
+    def is_multi_output(self) -> bool:
+        out_keys = self.output_keys()
+        return len(out_keys) > 1 or ... in out_keys
+
 
 @qdefine
 class GenericDataProcessor(DataProcessor):
@@ -472,7 +476,10 @@ class ReadoutPipeline:
                 or p.measurement_key is None
             )
             output_fallback_match = (
-                output_key in output_keys or output_key is None or None in output_keys
+                output_key in output_keys
+                or output_key is None
+                or None in output_keys
+                or ... in output_keys
             )
 
             if input_fallback_match and output_fallback_match:
@@ -692,7 +699,7 @@ class ReadoutPipeline:
             predecessors = tuple(
                 (
                     # Need to handle processors with multiple output keys
-                    node_key if len(p.processor.output_keys()) > 1 else p.key,
+                    node_key if p.processor.is_multi_output() > 1 else p.key,
                     type(p.processor),
                 )
                 for p in graph.predecessors(node)
