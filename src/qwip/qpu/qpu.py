@@ -111,22 +111,18 @@ class QPU:
         compilation = config["compilation"]
         devices = []
 
-        for key, dev_config in compilation["devices"].items():
+        for dev_config in compilation["devices"].values():
             channels = tuple(
                 ChannelInfo(**compilation["channels"][ch_name])
                 for ch_name in dev_config["channels"]
             )
 
-            devices.append(
-                DeviceInfo(
-                    name=key,
-                    channels=channels,
-                    sample_rate=dev_config["sample_rate"],
-                    trigger=None
-                    if dev_config["trigger"]["device"] is None
-                    else TriggerInfo(**dev_config["trigger"]),
-                )
-            )
+            unstruct = dev_config.todict()
+            unstruct["channels"] = channels
+            if unstruct["trigger"]["device"] is None:
+                unstruct["trigger"] = None
+
+            devices.append(qwip.converter.structure(unstruct, DeviceInfo))
 
         if not modulations:
             modulations = dict()
@@ -311,12 +307,11 @@ class QPU:
         if program is not None:
             self.backend.upload(exe)
 
-        seq = exe.seq if exe else None
-        raw_data = self.backend.acquire(exe, repetitions=repetitions, **backend)
-        processed = self.process_results(raw_data, processor, seq=seq)
+        raw_data = self.backend.acquire(repetitions=repetitions, **backend)
+        processed = self.process_results(raw_data, processor, exe=exe)
 
         if self.datastore:
-            data = dict(config_db=self.db, seq=seq) | data
+            data = dict(config_db=self.db, seq=exe.sequence) | data
             self.datastore.save(self.pipeline.grouped_data(), **data)
 
         return processed

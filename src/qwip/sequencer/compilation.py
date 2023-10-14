@@ -91,6 +91,7 @@ class DeviceInfo:
         repr=lambda channels: repr(tuple(ch.name for ch in channels))
     )
     sample_rate: float
+    dtype: type = np.float32
     trigger: TriggerInfo | None = None
 
     @property
@@ -127,7 +128,7 @@ class DeviceInfo:
 
     @classmethod
     def from_channels(
-        self,
+        cls,
         channels: Iterable[ChannelInfo],
         sample_rate: float,
         name: str | None = None,
@@ -166,9 +167,7 @@ class DeviceInfo:
             ch if ch.device else evolve(ch, device=device) for ch in channels
         )
 
-        return DeviceInfo(
-            name=device, channels=channels, sample_rate=sample_rate, **kwargs
-        )
+        return cls(name=device, channels=channels, sample_rate=sample_rate, **kwargs)
 
     def __iter__(self):
         yield from self.channels.__iter__()
@@ -206,7 +205,7 @@ class WaveformMemory:
             case ChannelInfo(index=idx, subchannel=sc):
                 return self.data[idx, sc]
             case _:
-                return self.waveforms[key]
+                return self.data[key]
 
     def __contains__(self, key) -> bool:
         try:
@@ -474,6 +473,7 @@ class QWiPCompiler:
                     t0=start + w.t0,
                     phase_tracker=phase_tracker,
                     modulations=self.modulations,
+                    complex_out=issubclass(device.dtype, np.complexfloating),
                     **pulse_kwargs,
                 )
 
@@ -561,7 +561,7 @@ class QWiPCompiler:
                 instructions = instruction_cache[id(se), device.name]
             else:
                 wmem = WaveformMemory.from_channels(
-                    num_timepoints, sample_rate, channels
+                    num_timepoints, sample_rate, channels, dtype=device.dtype
                 )
                 instructions = self.compile_single_timeline(
                     exe,

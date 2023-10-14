@@ -9,6 +9,7 @@ from numpy.testing import assert_allclose, assert_array_almost_equal, assert_arr
 
 import qwip
 from qwip.backends.qutip import QutipBackend
+from qwip.backends.software import HeterodyneProgram
 from qwip.processing.data_processor import DataProcessor
 from qwip.processing.processors import (
     Averaged,
@@ -27,6 +28,7 @@ from qwip.processing.processors import (
     dataframe_real_to_complex,
 )
 from qwip.sequencer import Sequence
+from qwip.sequencer.compilation import QuantumExecutable, QWiPExecutable
 
 
 @pytest.mark.parametrize(
@@ -150,7 +152,7 @@ class TestIQTraceResult:
 
 
 class TestHeterodyneDemodulation:
-    @pytest.fixture(scope="function")
+    @pytest.fixture(scope="class")
     def signal_generator(self, seed):
         rng = default_rng(seed=seed)
 
@@ -163,62 +165,74 @@ class TestHeterodyneDemodulation:
             noise = rng.random((*shape, ts.shape[0], 2)).view(np.complex128)
             noise = noise.reshape(*noise.shape[:-1])
 
-            return V_t + noise
+            data = (V_t + noise).astype(np.complex64)
+            return IQTraceResult.from_numpy(data)
 
         return generate
 
     @pytest.mark.parametrize(
-        "IQ,freq",
+        "IQ,signal_freq,demod_freq,expect",
         [
-            (10 + 5j, 0.5),
-            (10 - 5j, 0.3),
+            ([10 + 5j], [500e6], [500e6], [10 + 5j]),
+            ([10 - 5j], [300e6], [-300e6], [0]),
+            ([8 + 4j, 20 + 3j], [250e6, 300e6], [250e6, 300e6], [8 + 4j, 20 + 3j]),
+            ([10j, 20], [100e6, 150e6], [100e6, 150e6, 250e6], [10j, 20, 0]),
         ],
     )
-    def test_single(self, IQ, freq, signal_generator):
-        ts = np.arange(1024) / 1.8
-        freqs = np.array([freq])
-        IQ = np.array([IQ])
+    def test_single_slice(self, IQ, signal_freq, demod_freq, expect, signal_generator):
+        ts = np.arange(1024) / 1.8e9
+        freqs = np.array(signal_freq)
+        demod_freq = np.array(demod_freq).reshape(-1, 1)
+        IQ = np.array(IQ)
 
-        shape = (20, 1, 100)
+        shape = (100, 20, 1)
+        result = signal_generator(IQ, freqs, ts, shape)
 
-        data = signal_generator(IQ, freqs, ts, shape)
+        weight = np.exp(2 * np.pi * 1j * demod_freq * ts).astype(np.complex64)
 
-        res = IQTraceResult.from_numpy(data, "raw")
+        demods = np.zeros(20, dtype=int)
+        keys = [f"D{i}" for i in range(demod_freq.shape[0])]
 
-        weight = np.exp(-1j * 2 * np.pi * freqs[0] * ts)
+        program = HeterodyneProgram(
+            device="demod", demods=demods, weights=(weight,), keys=keys
+        )
+        exe = QWiPExecutable(num_reads=[1] * 20, programs=dict(demod=program))
+        processor = HeterodyneDemodulation(device="demod")
+        processed = processor(result, exe=exe)
+        demod_IQ = [p.data.values.mean() for p in processed]
 
-        processor = HeterodyneDemodulation(weights={"Q0": weight})
-        processed = processor(res)
-
-        demod_IQ = processed[0].data.mean(axis=1).mean()
-
-        assert_allclose(IQ[0], demod_IQ, atol=1.5e-3)
+        assert_allclose(demod_IQ, expect, atol=0.05, rtol=0.05)
 
     @pytest.mark.parametrize(
-        "IQ,freqs",
+        "IQ,signal_freq,demod_freq,expect",
         [
-            (np.array([10 + 5j, 10 - 5j]), np.array([0.5, 0.6])),
+            ([10 + 5j], [500e6], [500e6], [10 + 5j]),
+            ([10 - 5j], [300e6], [-300e6], [0]),
+            ([8 + 4j, 20 + 3j], [250e6, 300e6], [250e6, 300e6], [8 + 4j, 20 + 3j]),
+            ([10j, 20], [100e6, 150e6], [100e6, 150e6, 400e6], [10j, 20, 0]),
         ],
     )
-    def test_multiplexed(self, IQ, freqs, signal_generator):
-        ts = np.arange(1024) / 1.8
+    def test_multi_slice(self, IQ, signal_freq, demod_freq, expect, signal_generator):
+        ts = np.arange(1024) / 1.0e9
+        freqs = np.array(signal_freq)
+        IQ = np.array(IQ)
 
-        shape = (20, 1, 100)
+        shape = (512, len(demod_freq), 1)
+        result = signal_generator(IQ, freqs, ts, shape)
 
-        data = signal_generator(IQ, freqs, ts, shape)
+        weights = [
+            np.exp(2*np.pi * 1j * f * ts).reshape(1, -1) for f in demod_freq
+        ]
+        demods = np.r_[:len(demod_freq)]
+        keys = ["D0"]
 
-        res = IQTraceResult.from_numpy(data, "raw")
+        program = HeterodyneProgram(device="demod", demods=demods, weights=weights, keys=keys)
+        exe = QWiPExecutable(num_reads=[1]*len(freqs), programs=dict(demod=program))
+        processor = HeterodyneDemodulation(device="demod")
+        processed = processor(result, exe=exe)[0]
+        demod_IQ = processed.groupby(["element", "readout"]).mean().to_numpy().flatten()
 
-        weights = {
-            f"Q{i}": np.exp(-1j * 2 * np.pi * freqs[i] * ts) for i in range(len(freqs))
-        }
-
-        processor = HeterodyneDemodulation(weights=weights)
-        processed = processor(res)
-
-        demod_IQ = np.array([res.data.mean(axis=1).mean() for res in processed])
-
-        assert_allclose(IQ, demod_IQ, atol=5e-2)
+        assert_allclose(demod_IQ, expect, atol=0.05, rtol=0.05)
 
 
 class TestIQResult:
@@ -484,7 +498,7 @@ class TestLabeled:
         seq = Sequence.empty(
             (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
         )
-        labeled = Labeled()(iqdata, seq=seq)
+        labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
 
         assert labeled is not iqdata
         assert labeled.data is not iqdata.data
@@ -497,7 +511,7 @@ class TestLabeled:
         seq = Sequence.empty(
             (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
         )
-        labeled = Labeled()(iqdata, seq=seq)
+        labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
 
         expected = pd.MultiIndex.from_tuples(
             it.product(np.arange(5), np.arange(2), np.arange(2), np.arange(3)),
