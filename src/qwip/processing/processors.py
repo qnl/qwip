@@ -329,6 +329,7 @@ class HeterodyneDemodulation(DataProcessor):
         n_shots = in_shape[0]
         n_times = in_shape[-1]
         arr = result.data.values.reshape(n_shots, -1, n_times)
+        arr = arr - np.mean(arr)
 
         if arr.dtype != np.complex64:
             logger.warning(f"IQ trace data has dtype {arr.dtype}!")
@@ -364,7 +365,7 @@ class HeterodyneDemodulation(DataProcessor):
 
     def output_keys(self) -> set[str]:
         """Returns the set of output keys returned by the processor."""
-        return set(self.weights)
+        return {...}
 
 
 @DATA_PROCESSORS.register
@@ -743,14 +744,15 @@ class Labeled(GenericDataProcessor):
                 )
             ),
             columns=[name or f"{self.level}{i}" for i, name in enumerate(seq.names)],
-        ).loc[result.data.index.get_level_values(self.level)]
+        )
+        broadcasted = new_idx.loc[result.data.index.get_level_values(self.level)]
 
         idx_vals = []
         idx_names = []
         for name in old_idx.names:
             if name == self.level:
                 for c in new_idx.columns:
-                    idx_vals.append(new_idx[c].values)
+                    idx_vals.append(broadcasted[c].values)
                     idx_names.append(c)
             else:
                 level = old_idx.get_level_values(name)
