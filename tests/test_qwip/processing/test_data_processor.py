@@ -206,9 +206,7 @@ class TestPipeline:
     @pytest.fixture
     def single_qubit(self):
         processors = [
-            HeterodyneDemodulation(
-                measurement_key="ADC", weights=dict(R0=np.zeros(10), R1=np.zeros(20))
-            ),
+            HeterodyneDemodulation(measurement_key="ADC"),
             IQRotation(measurement_key="R0", angle=np.pi / 2),
             GMMClassification(
                 measurement_key=None, means=np.zeros((2, 2)), covariances=np.zeros(2)
@@ -342,7 +340,7 @@ class TestPipeline:
             dict(R0=Labeled[Averaged[HeterodyneDemodulation]])
         )
         assert resolved[-2:] == [
-            ("R0", Averaged(), (("R0", HeterodyneDemodulation),)),
+            ("R0", Averaged(), (("ADC", HeterodyneDemodulation),)),
             ("R0", Labeled(), (("R0", Averaged),)),
         ]
 

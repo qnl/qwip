@@ -203,6 +203,37 @@ class TestHeterodyneDemodulation:
 
         assert_allclose(demod_IQ, expect, atol=0.05, rtol=0.05)
 
+    @pytest.mark.parametrize(
+        "IQ,signal_freq,demod_freq,expect",
+        [
+            ([10 + 5j], [500e6], [500e6], [10 + 5j]),
+            ([10 - 5j], [300e6], [-300e6], [0]),
+            ([8 + 4j, 20 + 3j], [250e6, 300e6], [250e6, 300e6], [8 + 4j, 20 + 3j]),
+            ([10j, 20], [100e6, 150e6], [100e6, 150e6, 400e6], [10j, 20, 0]),
+        ],
+    )
+    def test_multi_slice(self, IQ, signal_freq, demod_freq, expect, signal_generator):
+        ts = np.arange(1024) / 1.0e9
+        freqs = np.array(signal_freq)
+        IQ = np.array(IQ)
+
+        shape = (512, len(demod_freq), 1)
+        result = signal_generator(IQ, freqs, ts, shape)
+
+        weights = [
+            np.exp(2*np.pi * 1j * f * ts).reshape(1, -1) for f in demod_freq
+        ]
+        demods = np.r_[:len(demod_freq)]
+        keys = ["D0"]
+
+        program = HeterodyneProgram(device="demod", demods=demods, weights=weights, keys=keys)
+        exe = QWiPExecutable(num_reads=[1]*len(freqs), programs=dict(demod=program))
+        processor = HeterodyneDemodulation(device="demod")
+        processed = processor(result, exe=exe)[0]
+        demod_IQ = processed.groupby(["element", "readout"]).mean().to_numpy().flatten()
+
+        assert_allclose(demod_IQ, expect, atol=0.05, rtol=0.05)
+
 
 class TestIQResult:
     def test_unstructure(self, fixed_time):
