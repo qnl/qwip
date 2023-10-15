@@ -378,9 +378,7 @@ class QTRLBackend(QuantumBackend):
 
         return iqdata
 
-    def update_parameters(
-        self, qpu: "QPU", **kwargs
-    ):
+    def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU.
 
         The QTRL backend requires that all readout frequencies are specified in the
