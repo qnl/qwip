@@ -85,6 +85,7 @@ class QWiPBackend(QuantumBackend):
     adc: ADCBackend
 
     def upload(self, exe: QuantumExecutable, **kwargs) -> None:
+        self.uploaded = exe
         self.dac.upload(exe, **kwargs)
         self.adc.upload(exe, **kwargs)
 
@@ -225,4 +226,4 @@ class FakeBackend(QuantumBackend):
                     self.gmms[key] = proc
 
 
-__all__ = ["FakeBackend"]
+__all__ = ["ADCBackend", "DACBackend", "QuantumBackend", "QWiPBackend", "FakeBackend"]

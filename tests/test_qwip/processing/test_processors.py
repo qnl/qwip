@@ -220,14 +220,14 @@ class TestHeterodyneDemodulation:
         shape = (512, len(demod_freq), 1)
         result = signal_generator(IQ, freqs, ts, shape)
 
-        weights = [
-            np.exp(2*np.pi * 1j * f * ts).reshape(1, -1) for f in demod_freq
-        ]
-        demods = np.r_[:len(demod_freq)]
+        weights = [np.exp(2 * np.pi * 1j * f * ts).reshape(1, -1) for f in demod_freq]
+        demods = np.r_[: len(demod_freq)]
         keys = ["D0"]
 
-        program = HeterodyneProgram(device="demod", demods=demods, weights=weights, keys=keys)
-        exe = QWiPExecutable(num_reads=[1]*len(freqs), programs=dict(demod=program))
+        program = HeterodyneProgram(
+            device="demod", demods=demods, weights=weights, keys=keys
+        )
+        exe = QWiPExecutable(num_reads=[1] * len(freqs), programs=dict(demod=program))
         processor = HeterodyneDemodulation(device="demod")
         processed = processor(result, exe=exe)[0]
         demod_IQ = processed.groupby(["element", "readout"]).mean().to_numpy().flatten()
