@@ -149,6 +149,8 @@ class Waveform:
     @lru_cache
     def variables(self) -> frozenset[str]:
         """Returns the set of variables referenced in the waveform."""
+        from qwip.sequencer.elements import SequenceElement
+
         varset = set()
 
         for f in attrs.fields(type(self)):
@@ -158,12 +160,16 @@ class Waveform:
                 varset.update(var.variables())
             elif isinstance(var, LinearExpression):
                 varset.update(var.variables(return_string=True))
+            elif isinstance(var, SequenceElement):
+                varset.update(var.variables())
             elif isinstance(var, str) and is_union_type(f.type):
                 varset.add(var)
 
         return frozenset(varset)
 
     def resolve(self, **variable_map) -> Self:
+        from qwip.sequencer.elements import SequenceElement
+
         variable_map = {k: v for k, v in variable_map.items() if k in self.variables()}
 
         if not variable_map:
@@ -176,6 +182,12 @@ class Waveform:
 
             if isinstance(orig, (LinearExpression, Waveform)):
                 to_update[f.name] = orig.resolve(**variable_map)
+            elif isinstance(orig, SequenceElement) and set(
+                variable_map
+            ) & orig.variables(subset="waveform"):
+                new = orig.copy()
+                new.resolve_waveforms(**variable_map)
+                to_update[f.name] = new
             elif (
                 isinstance(orig, str)
                 and is_union_type(f.type)
