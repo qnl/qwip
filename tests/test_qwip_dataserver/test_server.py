@@ -38,7 +38,7 @@ def test_list_directory(client, tmp_path, files):
 
     assert r.status_code == status.HTTP_200_OK
     assert r.json() == {
-        "path": tmp_path.name,
+        "path": "/" + tmp_path.name,
         "num_children": len(files),
         "contents": files,
     }

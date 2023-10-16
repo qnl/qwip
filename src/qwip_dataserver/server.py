@@ -39,8 +39,10 @@ async def list_directory(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid directory."
         )
 
-    contents = list(p.relative_to(directory).as_posix() for p in directory.iterdir())
-    return dict(path=file_path, num_children=len(contents), contents=contents)
+    contents = [p.relative_to(directory).as_posix() for p in directory.iterdir()]
+    return dict(
+        path="/" + file_path.rstrip("/"), num_children=len(contents), contents=contents
+    )
 
 
 @api_v1.post("/folder/{file_path:path}")
