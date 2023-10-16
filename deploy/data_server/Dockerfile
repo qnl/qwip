@@ -12,6 +12,5 @@ RUN pip install --prefix=/install -r /requirements.txt
 FROM base
 
 COPY --from=builder /install /usr/local
-COPY src/qwip_dataserver /qwip_dataserver
 
 ENTRYPOINT ["gunicorn", "-w 4", "--worker-class", "uvicorn.workers.UvicornWorker", "qwip_dataserver.server:app", "--bind", "0.0.0.0:4002"]
