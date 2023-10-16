@@ -30,6 +30,9 @@ from qwip.processing.processors import (
         ("file", ".csv", "file.csv"),
         ("file", "csv", "file.csv"),
         ("file.csv", "csv", "file.csv"),
+        ("", "", ""),
+        ("file.", ".csv", "file.csv"),
+        (".gitignore", "", ".gitignore")
     ],
 )
 def test_add_extension(name, ext, expected):

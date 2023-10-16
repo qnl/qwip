@@ -57,8 +57,8 @@ def add_extension(name: str, ext: str) -> str:
     Returns:
         A modified filename with the specified extension.
     """
-    ext = ext if ext.startswith(".") else f".{ext}"
-    name = name if name.endswith(ext) else f"{name}{ext}"
+    ext = ext if ext.startswith(".") or ext == "" else f".{ext}"
+    name = name if name.endswith(ext) else f"{name.rstrip('.')}{ext}"
 
     return name
 
