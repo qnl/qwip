@@ -50,3 +50,6 @@ docs/pages/api/
 
 # VSCode
 .vscode
+
+# Environment Files
+*.env
