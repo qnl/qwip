@@ -27,11 +27,21 @@ def client(settings, dataserver):
         yield client
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture
 def storage(client, request):
-    if client.app is None:
-        for marker in request.node.iter_markers():
-            if marker.name == "skip_dataserver":
-                pytest.skip("Skipping test on live dataserver.")
+    for marker in request.node.iter_markers():
+        if marker.name != "skip_dataserver":
+            continue
+
+        skipif = "app" if hasattr(client, "app") else "live"
+
+        match marker.args:
+            case (tp, *args):
+                ...
+            case ():
+                tp = "live"
+
+        if tp.lower() == skipif:
+            pytest.skip(f"Skipping test on {tp} dataserver.")
 
     yield HTTPStorageBackend(client=client)

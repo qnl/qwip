@@ -8,12 +8,25 @@ import httpx
 from loguru import logger
 from typing_extensions import Self
 
+import qwip
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 
+REGISTERED_STORAGE_BACKENDS: dict[str, "StorageBackend"] = dict()
 
+
+def register_storage_backend(cls: type["StorageBackend"]) -> type["StorageBackend"]:
+    if not issubclass(cls, StorageBackend):
+        raise TypeError(
+            f"Registered storage backends must subclass {StorageBackend}, got {cls}."
+        )
+
+    REGISTERED_STORAGE_BACKENDS[cls.__name__] = cls
+    return cls
+
+
+@qdefine
 class StorageBackend(metaclass=ABCMeta):
-    __slots__ = ()
-
     def save(self, address: str, asset: Any, **kwargs):
         ...
 
@@ -37,6 +50,7 @@ class StorageBackend(metaclass=ABCMeta):
         ...
 
 
+@register_storage_backend
 @qdefine
 class HTTPStorageBackend(StorageBackend):
     client: httpx.Client
@@ -191,6 +205,7 @@ class HTTPStorageBackend(StorageBackend):
         self.client.close()
 
 
+@register_storage_backend
 @qdefine
 class LocalStorageBackend(StorageBackend):
     directory: Path = Path()
@@ -202,3 +217,61 @@ class LocalStorageBackend(StorageBackend):
 
     def load_buffer(self, address: str, **kwargs) -> SpooledTemporaryFile:
         ...
+
+
+# ========== httpx.Client converters ========== #
+
+
+def httpx_client_structure_fn(val, cls):
+    if isinstance(val, cls):
+        return val
+
+    return httpx.Client(**val)
+
+
+def httpx_client_unstructure_fn(obj):
+    return dict(base_url=str(obj.base_url))
+
+
+qwip.converter.register_structure_hook(httpx.Client, httpx_client_structure_fn)
+qwip.converter.register_unstructure_hook(httpx.Client, httpx_client_unstructure_fn)
+
+# ========== StorageBackend converters ========== #
+
+
+def make_storage_backend_structure_fn(cls):
+    structure_attrs = make_attrs_structure_fn(cls)
+
+    def structure_fn(val, cls):
+        if isinstance(val, cls):
+            return val
+
+        subclass = REGISTERED_STORAGE_BACKENDS.get(
+            val.get("__class__"),
+        )
+
+        if subclass is None:
+            logger.warning(f"No registered backend found. Structuring {val} as {cls}.")
+            return structure_attrs(val, cls)
+
+        return qwip.converter.structure(val, subclass)
+
+    return structure_fn
+
+
+def make_storage_backend_unstructure_fn(cls):
+    unstructure_attrs = make_attrs_unstructure_fn(cls)
+
+    def unstructure_fn(obj):
+        return {**unstructure_attrs(obj), "__class__": type(obj).__name__}
+
+    return unstructure_fn
+
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: cls is StorageBackend, make_storage_backend_structure_fn
+)
+
+qwip.converter.register_unstructure_hook_factory(
+    lambda cls: issubclass(cls, StorageBackend), make_storage_backend_unstructure_fn
+)

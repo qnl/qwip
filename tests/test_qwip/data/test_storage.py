@@ -3,6 +3,8 @@ from pathlib import Path
 import httpx
 import pytest
 
+import qwip
+from qwip.data.storage import HTTPStorageBackend, StorageBackend
 from qwip.flatdict import FlatDict
 
 
@@ -147,8 +149,35 @@ class TestHTTPStorageBackend:
             assert downloaded == expect
 
     @pytest.mark.parametrize("address,data", [("text.txt", b"ASCII bytes.")])
-    def test_round_trip(self, storage, address, data):
+    def test_data_round_trip(self, storage, address, data):
         download_address = storage.save_buffer(address, data, folder="pytest-roundtrip")
         downloaded = storage.load_buffer(download_address).read()
 
         assert data == downloaded
+
+    def test_unstructure(self, storage):
+        unstructured = qwip.converter.unstructure(storage)
+
+        assert unstructured == dict(
+            client=dict(base_url=str(storage.client.base_url)),
+            __class__="HTTPStorageBackend",
+        )
+
+    def test_structure(self):
+        structured = qwip.converter.structure(
+            dict(
+                client=dict(base_url="http://dataserver"),
+                __class__="HTTPStorageBackend",
+            ),
+            StorageBackend,
+        )
+
+        assert structured.client.base_url == httpx.URL("http://dataserver")
+        assert isinstance(structured, HTTPStorageBackend)
+
+    def test_structure_round_trip(self, storage):
+        unstructured = qwip.converter.unstructure(storage)
+        structured = qwip.converter.structure(unstructured, StorageBackend)
+
+        assert structured.client.base_url == storage.client.base_url
+        assert type(structured) == type(storage)
