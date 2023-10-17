@@ -110,6 +110,12 @@ class HTTPStorageBackend(StorageBackend):
         files = [("uploads", (filename, stream))]
 
         response = self.client.post(url, files=files)
+
+        try:
+            stream.close()
+        except AttributeError:
+            ...
+
         response.raise_for_status()
 
         match response.json()["uploads"][0]:
@@ -142,6 +148,12 @@ class HTTPStorageBackend(StorageBackend):
         ]
 
         response = self.client.post(url, files=files)
+
+        for stream in streams.values():
+            try:
+                stream.close()
+            except AttributeError:
+                ...
 
         response.raise_for_status()
         download_addresses = []
