@@ -2,19 +2,14 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
-from qwip.data.storage import HTTPStorageBackend
 from qwip.flatdict import FlatDict
-from qwip_dataserver.settings import get_settings
 
 
 class TestHTTPStorageBackend:
     @pytest.fixture(scope="class")
-    def settings(self, tmp_path_factory):
-        settings = get_settings()
-        root = settings.DATASERVER_ROOT = tmp_path_factory.mktemp("pytest")
-
+    def root(self, settings):
+        root = settings.DATASERVER_ROOT
         file_structure = FlatDict(
             {
                 "empty": {},
@@ -38,28 +33,7 @@ class TestHTTPStorageBackend:
                 with open(root / path, "wb") as f:
                     f.write(contents)
 
-        yield settings
-
-    @pytest.fixture(scope="class")
-    def client(self, settings, dataserver):
-        if dataserver:
-            client = httpx.Client(base_url=dataserver)
-        else:
-            from qwip_dataserver.server import app
-
-            client = TestClient(app)
-
-        with client:
-            yield client
-
-    @pytest.fixture(scope="class")
-    def storage(self, client, request):
-        if client.app is None:
-            for marker in request.node.iter_markers():
-                if marker.name == "skip_dataserver":
-                    pytest.skip("Skipping test on live dataserver.")
-
-        yield HTTPStorageBackend(client=client)
+        yield root
 
     @pytest.mark.parametrize(
         "folder,address,expect",
@@ -116,7 +90,7 @@ class TestHTTPStorageBackend:
             ),
         ],
     )
-    def test_list_directory(self, storage, folder, expect):
+    def test_list_directory(self, storage, folder, expect, root):
         if isinstance(expect, type) and issubclass(expect, Exception):
             with pytest.raises(expect):
                 storage.list_directory(folder)
@@ -127,9 +101,9 @@ class TestHTTPStorageBackend:
     @pytest.mark.parametrize(
         "folder", ["/pytest", "/pytest/folder1/folder2/folder3", "/", ""]
     )
-    def test_make_directory(self, storage, settings, folder):
+    def test_make_directory(self, storage, root, folder):
         storage.make_directory(folder)
-        assert (settings.DATASERVER_ROOT / folder.lstrip("./")).exists()
+        assert (root / folder.lstrip("./")).exists()
 
     @pytest.mark.skip_dataserver
     @pytest.mark.parametrize(
@@ -144,17 +118,13 @@ class TestHTTPStorageBackend:
             ("exists", b"", None),
         ],
     )
-    def test_save_buffer(self, storage, settings, address, data, expect):
-        (settings.DATASERVER_ROOT / "save_buffer/exists").mkdir(
-            parents=True, exist_ok=True
-        )
+    def test_save_buffer(self, storage, root, address, data, expect):
+        (root / "save_buffer/exists").mkdir(parents=True, exist_ok=True)
 
         download_address = storage.save_buffer(address, data, folder="/save_buffer")
         assert download_address == expect
         if download_address:
-            assert (
-                settings.DATASERVER_ROOT / "save_buffer" / address.lstrip("./")
-            ).read_bytes() == data
+            assert (root / "save_buffer" / address.lstrip("./")).read_bytes() == data
 
     @pytest.mark.skip_dataserver
     @pytest.mark.parametrize(
@@ -166,7 +136,7 @@ class TestHTTPStorageBackend:
             ("empty", httpx.HTTPStatusError),
         ],
     )
-    def test_load_buffer(self, storage, address, expect):
+    def test_load_buffer(self, storage, address, expect, root):
         if isinstance(expect, type) and issubclass(expect, Exception):
             with pytest.raises(expect):
                 downloaded = storage.load_buffer(address)
