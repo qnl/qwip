@@ -1,23 +1,24 @@
-from pathlib import Path
+import platform
+from collections.abc import Iterable
 
 import pendulum
 import sqlalchemy as sa
 from attrs import field
-from sqlalchemy import Column
+from sqlalchemy import Column, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import relationship
+from sqlalchemy.orm.collections import attribute_mapped_collection
 from uuid6 import UUID, uuid7
 
+import qwip
 from qwip.attrs import qdefine
 from qwip.database.database import VersionControlled
 from qwip.database.dolt import DoltTable
 from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
-from qwip.database.utils import GUID, FilePath, PendulumDateTime
+from qwip.database.utils import GUID, PendulumDateTime
 
 
-def _sequence_repr(seq: dict) -> str:
-    try:
-        return f"Sequence(shape={seq['shape']}, names=({seq['names']})"
-    except KeyError:
-        return repr(seq)
+def _get_source() -> dict:
+    return qwip.converter.unstructure(qwip.qsettings["src"])
 
 
 @qdefine(slots=False)
@@ -29,21 +30,36 @@ class Dataset(VersionControlled):
         else repr(dt),
         factory=pendulum.now,
     )
-    host: str
-    filename: Path | None = field(repr=lambda p: p.as_posix(), default=None)
-    fmt: str | None = None
+    host: str = field(factory=platform.node)
     user: str | None = None
+    version: str = qwip.qsettings["version"]
+    source: dict = field(factory=_get_source)
     config_db: str | None = None
     commit: str | None = None
-    diff: dict = field(factory=dict)
     sample_id: str | None = None
     cooldown_id: str | None = None
     protocol: str | None = None
-    sequence: dict = field(
-        factory=dict,
-        repr=_sequence_repr,
-    )
     comments: str | None = None
+
+    def add(self, assets: "Asset | Iterable[Asset]"):
+        match assets:
+            case Asset():
+                assets = [assets]
+
+        for asset in assets:
+            self._assets[asset.name] = asset
+
+    def __getitem__(self, key: str) -> "Asset":
+        return self._assets[key]
+
+
+@qdefine(slots=False)
+class Asset(VersionControlled):
+    name: str
+    dataset_id: UUID | None = field(repr=lambda uid: uid.hex, default=None)
+    backend: str | None = None
+    address: str = "/"
+    serializer: dict = field(factory=dict)
 
 
 dataset_table = DoltTable(
@@ -58,17 +74,38 @@ dataset_table = DoltTable(
     ),
     Column("timestamp", PendulumDateTime),
     Column("host", sa.String(255)),
-    Column("filename", FilePath(255)),
-    Column("fmt", sa.String(32)),
     Column("user", sa.String(255)),
+    Column("qwip_version", sa.String(255)),
+    Column("qwip_source", sa.JSON),
     Column("config_db", sa.String(255)),
     Column("config_commit", sa.String(32)),
-    Column("config_diff", sa.JSON),
     Column("sample_id", sa.String(16)),
     Column("cooldown_id", sa.String(16)),
     Column("protocol", sa.String(255)),
-    Column("sequence", sa.JSON),
     Column("comments", sa.String(4096)),
+)
+
+asset_table = DoltTable(
+    "assets",
+    QWIP_DB_METADATA,
+    Column("asset_id", sa.Integer, primary_key=True, autoincrement=True),
+    Column(
+        "dataset_id",
+        GUID,
+        ForeignKey(
+            "datasets.dataset_id",
+            name="fk_assets_datasets",
+            onupdate="CASCADE",
+            ondelete="CASCADE",
+        ),
+        nullable=False,
+    ),
+    Column("name", sa.String(255)),
+    Column("storage_backend", sa.String(255)),
+    Column("address", sa.String(1024)),
+    Column("serializer", sa.JSON),
+    UniqueConstraint("name", "dataset_id", name="uq_assets_name_dataset_id"),
+    UniqueConstraint("dataset_id", "asset_id", name="uq_assets_asset_id_dataset_id"),
 )
 
 QWIP_DB_REGISTRY.map_imperatively(
@@ -76,8 +113,26 @@ QWIP_DB_REGISTRY.map_imperatively(
     dataset_table,
     properties=dict(
         id=dataset_table.c.dataset_id,
+        version=dataset_table.c.qwip_version,
+        source=dataset_table.c.qwip_source,
         commit=dataset_table.c.config_commit,
-        diff=dataset_table.c.config_diff,
+        _assets=relationship(
+            Asset,
+            cascade="all, delete-orphan",
+            back_populates="dataset",
+            collection_class=attribute_mapped_collection("name"),
+        ),
+    ),
+)
+
+QWIP_DB_REGISTRY.map_imperatively(
+    Asset,
+    asset_table,
+    properties=dict(
+        dataset=relationship(
+            Dataset,
+            back_populates="_assets",
+        )
     ),
 )
 
