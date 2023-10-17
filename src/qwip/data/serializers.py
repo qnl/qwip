@@ -35,13 +35,17 @@ class Serializer(metaclass=ABCMeta):
     def formats(self) -> frozenset[str]:
         ...
 
-    def to_stream(self, obj: Any, *, fmt: str | None = None, **kwargs) -> BufferedReader:
+    def to_stream(
+        self, obj: Any, *, fmt: str | None = None, **kwargs
+    ) -> BufferedReader:
         if fmt not in self.formats():
             raise ValueError(f"{fmt} is not a known format for {type(self).__name__}")
 
         return getattr(self, f"to_stream_{fmt}")(obj, **kwargs)
 
-    def from_stream(self, stream: BufferedReader, *, fmt: str | None = None, **kwargs) -> Any:
+    def from_stream(
+        self, stream: BufferedReader, *, fmt: str | None = None, **kwargs
+    ) -> Any:
         if fmt not in self.formats():
             raise ValueError(f"{fmt} is not a known format for {type(self).__name__}")
 
@@ -101,7 +105,9 @@ class DataFrameSerializer(Serializer):
         return frozenset("parquet", "feather", "csv")
 
     def to_stream_parquet(
-        self, data: pd.DataFrame, metadata: dict = {},
+        self,
+        data: pd.DataFrame,
+        metadata: dict = {},
     ) -> BufferedReader:
         table = to_arrow_table(metadata, data)
 
