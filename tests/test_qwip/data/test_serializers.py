@@ -1,0 +1,209 @@
+import itertools as it
+from io import BytesIO
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+import pytest
+from pandas.testing import assert_frame_equal
+
+from qwip.data.serializers import (
+    DataFrameSerializer,
+    ResultSerializer,
+    from_arrow_table,
+    to_arrow_table,
+)
+from qwip.processing.data_processor import MeasurementResult
+from qwip.processing.processors import (
+    GMMClassification,
+    IQResult,
+    ReadoutBitstring,
+    ReadoutHistogram,
+    StatePopulations,
+)
+
+PANDAS_ARROW_CASES = [
+    (np.complex64, dict(date="2006-01-02"), b'{"date": "2006-01-02"}'),
+    (np.complex128, dict(counts=20), b'{"counts": 20}'),
+    (np.float32, dict(average=3.1415), b'{"average": 3.1415}'),
+    (np.int64, dict(important=False), b'{"important": false}'),
+    (np.float64, dict(extra=None), b'{"extra": null}'),
+    (np.int32, dict(array=[1, 2, 3]), b'{"array": [1, 2, 3]}'),
+    (
+        np.int8,
+        dict(nested=dict(counts=10, average=1.5)),
+        b'{"nested": {"counts": 10, "average": 1.5}}',
+    ),
+]
+
+
+@pytest.mark.parametrize("dtype,metadata,metadata_str", PANDAS_ARROW_CASES)
+def test_to_arrow_table(dtype, metadata, metadata_str):
+    data = pd.DataFrame(
+        np.arange(100, dtype=dtype).reshape(20, 5),
+        columns=list("ABCDE"),
+        index=pd.RangeIndex(20, name="Index"),
+    )
+
+    table = to_arrow_table(metadata, data)
+
+    assert (
+        table.schema.metadata[b"qwip_complex"]
+        == str(issubclass(dtype, np.complexfloating)).encode()
+    )
+    assert table.schema.metadata[b"qwip"] == metadata_str
+
+    if issubclass(dtype, np.complexfloating):
+        expected_names = [
+            f"('{col}', '{iq}')" for col, iq in it.product(data.columns, "IQ")
+        ]
+    else:
+        expected_names = list(data.columns)
+
+    assert table.schema.names == expected_names
+
+
+@pytest.mark.parametrize("dtype,metadata,metadata_str", PANDAS_ARROW_CASES)
+def test_arrow_roundtrip(dtype, metadata, metadata_str):
+    data = pd.DataFrame(
+        np.arange(100, dtype=dtype).reshape(20, 5),
+        columns=list("ABCDE"),
+        index=pd.RangeIndex(20, name="Index"),
+    )
+
+    table = to_arrow_table(metadata, data)
+    reloaded_metadata, reloaded_data = from_arrow_table(table)
+
+    assert_frame_equal(data, reloaded_data)
+    assert metadata == reloaded_metadata
+
+
+class TestDataFrameSerializer:
+    @pytest.fixture
+    def serializer(self):
+        return DataFrameSerializer()
+
+    @pytest.mark.parametrize("dtype,metadata,metadata_str", PANDAS_ARROW_CASES)
+    def test_parquet(self, serializer, dtype, metadata, metadata_str):
+        data = pd.DataFrame(
+            np.arange(100, dtype=dtype).reshape(20, 5),
+            columns=list("ABCDE"),
+            index=pd.RangeIndex(20, name="Index"),
+        )
+
+        stream = serializer.to_stream_parquet(data, metadata)
+        reloaded_data, reloaded_metadata = serializer.from_stream_parquet(stream)
+
+        assert_frame_equal(data, reloaded_data)
+        assert metadata == reloaded_metadata
+        assert stream.closed
+
+    @pytest.mark.parametrize("dtype,metadata,metadata_str", PANDAS_ARROW_CASES)
+    def test_feather(self, serializer, dtype, metadata, metadata_str):
+        data = pd.DataFrame(
+            np.arange(100, dtype=dtype).reshape(20, 5),
+            columns=list("ABCDE"),
+            index=pd.RangeIndex(20, name="Index"),
+        )
+
+        stream = serializer.to_stream_feather(data, metadata)
+        reloaded_data, reloaded_metadata = serializer.from_stream_feather(stream)
+
+        assert_frame_equal(data, reloaded_data)
+        assert metadata == reloaded_metadata
+        assert stream.closed
+
+
+class TestResultSerializer:
+    @pytest.fixture
+    def serializer(self):
+        return ResultSerializer()
+
+    @pytest.mark.parametrize(
+        "processors",
+        [
+            tuple(),
+            (ReadoutHistogram,),
+            (ReadoutBitstring, ReadoutHistogram, StatePopulations),
+        ],
+    )
+    def test_get_result_processor(self, processors):
+        result = MeasurementResult(
+            name="result",
+            data=pd.DataFrame(),
+            processors=tuple(p() for p in processors),
+        )
+
+        expected = processors[-1] if processors else None
+        assert ResultSerializer.get_result_processor(result) == expected
+
+    def test_get_result_processor_exception(self):
+        result = dict(
+            R0=MeasurementResult(name="R0", data=pd.DataFrame()),
+            R1=MeasurementResult(
+                name="R1",
+                data=pd.DataFrame(),
+                processors=(ReadoutBitstring(), StatePopulations()),
+            ),
+        )
+
+        with pytest.raises(ValueError):
+            ResultSerializer.get_result_processor(result)
+
+    def test_split_result(self, fixed_time, rng):
+        shape = (21, 2048, 2)
+
+        result = {
+            k: IQResult.random(shape, rng=rng, name=k) for k in ("R0", "R1", "R2")
+        }
+
+        metadata, data = ResultSerializer.split_result(result)
+
+        assert metadata == {
+            k: {
+                "name": k,
+                "timestamp": fixed_time.isoformat(),
+                "processors": [],
+                "__class__": "IQResult",
+            }
+            for k in result
+        }
+        assert data.columns.equals(
+            pd.MultiIndex.from_tuples(((k, "IQ") for k in result), names=["key", None])
+        )
+
+    @pytest.mark.parametrize(
+        "processor,filename",
+        [
+            (GMMClassification, "gmm-classification"),
+            (None, "raw"),
+            (StatePopulations, "state-populations"),
+        ],
+    )
+    def get_filename(self, processor, filename, serializer):
+        for fmt in serializer.formats():
+            assert serializer.get_filename(processor, fmt) == Path(
+                filename
+            ).with_suffix(fmt)
+
+    @pytest.mark.parametrize(
+        "filename,processor",
+        [
+            ("gmm-classification", GMMClassification),
+            ("raw", None),
+            ("state-populations", StatePopulations),
+            ("random", ValueError),
+        ],
+    )
+    def test_processor_from_filename(self, filename, processor, serializer):
+        if processor is ValueError:
+            with pytest.raises(processor):
+                serializer.processor_from_filename(filename)
+
+        else:
+            cache_hits = serializer.processor_from_filename.cache_info().hits
+            assert serializer.processor_from_filename(filename) is processor
+            serializer.processor_from_filename(filename)
+            assert serializer.processor_from_filename.cache_info().hits > cache_hits
