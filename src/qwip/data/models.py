@@ -83,6 +83,7 @@ class Asset(VersionControlled):
     storage: StorageBackend | None = None
     serializer: str = "default"
     params: dict = field(factory=dict)
+    obj: Any = None
 
     @property
     def fmt(self) -> str | None:
@@ -102,19 +103,20 @@ class Asset(VersionControlled):
         filename = add_extension(self.name, self.fmt or "").lstrip("/")
         return f"/{self.dataset_id.hex}/{filename}"
 
-    def save(self, obj: Any, **kwargs):
+    def save(self, **kwargs):
         if not self.storage:
             raise ValueError("No storage backend specified, cannot save!")
 
         params = {"serializer": self.serializer, **self.params} | kwargs
-        self.storage.save(self.address, obj, **params)
+        self.storage.save(self.address, self.obj, **params)
 
     def load(self, **kwargs) -> Any:
         if not self.storage:
             raise ValueError("No storage backend specified, cannot load!")
 
         params = {"serializer": self.serializer, **self.params} | kwargs
-        return self.storage.load(self.address, **params)
+        self.obj = self.storage.load(self.address, **params)
+        return self.obj
 
 
 dataset_table = DoltTable(

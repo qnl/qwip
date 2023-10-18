@@ -123,10 +123,14 @@ class TestAsset:
 
     def test_save(self, storage, measurement_results):
         asset = Asset(
-            name="raw", dataset_id=uuid7(), storage=storage, serializer="result"
+            name="raw",
+            dataset_id=uuid7(),
+            storage=storage,
+            serializer="result",
+            obj=measurement_results,
         )
 
-        asset.save(measurement_results)
+        asset.save()
 
         assert storage.list_directory(asset.dataset_id.hex) == {
             "path": f"/{asset.dataset_id.hex}",
@@ -136,9 +140,13 @@ class TestAsset:
 
     def test_roundtrip(self, storage, measurement_results):
         asset = Asset(
-            name="raw", dataset_id=uuid7(), storage=storage, serializer="result"
+            name="raw",
+            dataset_id=uuid7(),
+            storage=storage,
+            serializer="result",
+            obj=measurement_results,
         )
 
-        asset.save(measurement_results)
+        asset.save()
         reloaded = asset.load()
         assert reloaded == measurement_results
