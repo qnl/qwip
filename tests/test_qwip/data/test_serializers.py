@@ -41,8 +41,8 @@ class TestDefaultSerializer:
 
     @pytest.mark.parametrize("obj,cls", DEFAULT_CASES)
     def test_json(self, serializer, obj, cls):
-        stream = serializer.to_stream_json(obj)
-        reloaded = serializer.from_stream_json(stream, cls)
+        stream = serializer.to_stream(obj, fmt="json")
+        reloaded = serializer.from_stream(stream, fmt="json", cls=cls)
 
         assert obj == reloaded
         assert stream.closed
@@ -117,7 +117,7 @@ class TestDataFrameSerializer:
             index=pd.RangeIndex(20, name="Index"),
         )
 
-        stream = serializer.to_stream(data, metadata, fmt="parquet")
+        stream = serializer.to_stream(data, fmt="parquet", metadata=metadata)
         reloaded_data, reloaded_metadata = serializer.from_stream(stream, fmt="parquet")
 
         assert_frame_equal(data, reloaded_data)
@@ -132,7 +132,7 @@ class TestDataFrameSerializer:
             index=pd.RangeIndex(20, name="Index"),
         )
 
-        stream = serializer.to_stream(data, metadata, fmt="feather")
+        stream = serializer.to_stream(data, fmt="feather", metadata=metadata)
         reloaded_data, reloaded_metadata = serializer.from_stream(stream, fmt="feather")
 
         assert_frame_equal(data, reloaded_data)

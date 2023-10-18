@@ -1,3 +1,4 @@
+import codecs
 import json
 import re
 from abc import ABCMeta, abstractproperty
@@ -24,7 +25,6 @@ from qwip.processing.processors import (
     dataframe_complex_to_real,
     dataframe_real_to_complex,
 )
-from qwip.typing import generic_to_string, typedispatch
 
 SERIALIZERS: dict[str, "Serializer"] = dict()
 
@@ -76,7 +76,7 @@ class DefaultSerializer(Serializer):
         return ("json",)
 
     def to_stream_json(self, obj: Any) -> BufferedReader:
-        stream = BytesIO()
+        stream = codecs.getwriter("utf-8")(BytesIO())
         json.dump(qwip.converter.unstructure(obj), stream)
         stream.seek(0)
         return stream
