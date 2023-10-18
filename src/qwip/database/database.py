@@ -254,15 +254,19 @@ class Database:
 
     @property
     def username(self) -> str:
-        return self.url.username
+        return self.url.username if self.url.username else ""
 
     @property
     def backend(self) -> str:
         return self.url.get_backend_name()
 
     @property
+    def host(self) -> str:
+        return self.url.host if self.url.host else ""
+
+    @property
     def database(self) -> str:
-        return self.url.database
+        return self.url.database if self.url.database else ""
 
     @session_context
     def tables(self) -> set[str]:
