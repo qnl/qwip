@@ -70,6 +70,14 @@ class TestAsset:
         results = {f"R{i}": IQResult.random((2048, 50, 2), rng=rng) for i in range(8)}
         return results
 
+    @pytest.fixture
+    def dataset_id(self, storage):
+        dataset_id = uuid7()
+        try:
+            yield dataset_id
+        finally:
+            storage.remove_directory(dataset_id.hex)
+
     def test_insert_select(self, session, models):
         storage = HTTPStorageBackend.from_url("http://dataserver")
         dataset = Dataset(
@@ -119,12 +127,12 @@ class TestAsset:
     )
     def test_address(self, asset, filename):
         asset.dataset_id = uuid7()
-        assert asset.address == f"/{asset.dataset_id.hex}/{filename}"
+        assert asset.default_address() == f"/{asset.dataset_id.hex}/{filename}"
 
-    def test_save(self, storage, measurement_results):
+    def test_save(self, storage, measurement_results, dataset_id):
         asset = Asset(
             name="raw",
-            dataset_id=uuid7(),
+            dataset_id=dataset_id,
             storage=storage,
             serializer="result",
             obj=measurement_results,
@@ -138,10 +146,18 @@ class TestAsset:
             "contents": ["raw.parquet"],
         }
 
-    def test_roundtrip(self, storage, measurement_results):
+    def test_save_no_address(self, storage, measurement_results):
+        asset = Asset(
+            name="raw", storage=storage, serializer="result", obj=measurement_results
+        )
+
+        with pytest.raises(ValueError):
+            asset.save()
+
+    def test_roundtrip(self, storage, measurement_results, dataset_id):
         asset = Asset(
             name="raw",
-            dataset_id=uuid7(),
+            dataset_id=dataset_id,
             storage=storage,
             serializer="result",
             obj=measurement_results,

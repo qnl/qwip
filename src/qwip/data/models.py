@@ -46,7 +46,7 @@ class StorageBackendType(types.TypeDecorator):
 
 @qdefine(slots=False)
 class Dataset(VersionControlled):
-    id: UUID = field(factory=uuid7, repr=lambda uid: uid.hex)
+    id: UUID = field(factory=uuid7, repr=lambda uid: uid.hex if uid else str(uid))
     timestamp: pendulum.DateTime = field(
         repr=lambda dt: dt.in_tz("local").isoformat()
         if isinstance(dt, pendulum.DateTime)
@@ -54,15 +54,15 @@ class Dataset(VersionControlled):
         factory=pendulum.now,
     )
     host: str = field(factory=platform.node)
-    user: str = ""
+    user: str | None = None
     version: str = qwip.qsettings["version"]
     source: dict = field(factory=_get_source)
-    config_db: str = ""
-    commit: str = ""
-    sample_id: str = ""
-    cooldown_id: str = ""
-    protocol: str = ""
-    comments: str = ""
+    config_db: str | None = None
+    commit: str | None = None
+    sample_id: str | None = None
+    cooldown_id: str | None = None
+    protocol: str | None = None
+    comments: str | None = None
 
     def add(self, assets: "Asset | Iterable[Asset]"):
         match assets:
@@ -76,6 +76,9 @@ class Dataset(VersionControlled):
     def __getitem__(self, key: str) -> "Asset":
         return self._assets[key]
 
+    def __contains__(self, key: str) -> bool:
+        return key in self._assets
+
     def assets(self) -> tuple[str]:
         return tuple(asset.name for asset in self._assets.values())
 
@@ -83,8 +86,11 @@ class Dataset(VersionControlled):
 @qdefine(slots=False)
 class Asset(VersionControlled):
     name: str
-    dataset_id: UUID | None = field(repr=lambda uid: uid.hex, default=None)
+    dataset_id: UUID | None = field(
+        repr=lambda uid: uid.hex if uid else str(uid), default=None
+    )
     storage: StorageBackend | None = None
+    address: str | None = None
     serializer: str = "default"
     params: dict = field(factory=dict)
     obj: Any = None
@@ -94,24 +100,27 @@ class Asset(VersionControlled):
         if "fmt" in self.params:
             return self.params["fmt"]
 
-        serializer = get_serializer(self.serializer)
+        serializer = get_serializer(key=self.serializer, obj=self.obj)
         return serializer.default_format
 
-    @property
-    def address(self) -> str:
-        if self.dataset_id is None:
-            raise ValueError(
-                "Cannot compute address for asset with no associated dataset."
-            )
+    def default_address(self) -> str:
+        if self.dataset_id:
+            dataset_id = self.dataset_id
+        elif self.dataset:
+            dataset_id = self.dataset.id
+        else:
+            return None
+
+        if dataset_id is None:
+            return None
 
         filename = add_extension(self.name, self.fmt or "").lstrip("/")
-        return f"/{self.dataset_id.hex}/{filename}"
+        return f"/{dataset_id.hex}/{filename}"
 
     @classmethod
-    def create(cls, obj: Any, /, name: str = "", **kwargs) -> Self:
-        serializer = get_serializer(obj=obj)
-        if not name:
-            name = camel_to_kebab(type(obj).__name__)
+    def create(cls, obj: Any, /, name: str | None = None, **kwargs) -> Self:
+        serializer = get_serializer(key=kwargs.get("serializer"), obj=obj)
+        name = name or camel_to_kebab(type(obj).__name__)
 
         kwargs = dict(serializer=serializer.key) | kwargs
 
@@ -121,12 +130,19 @@ class Asset(VersionControlled):
         if not self.storage:
             raise ValueError("No storage backend specified, cannot save!")
 
+        self.address = self.address or self.default_address()
+        if not self.address:
+            raise ValueError(f"Asset {self} cannot be saved without an address.")
+
         params = {"serializer": self.serializer, **self.params} | kwargs
         self.storage.save(self.address, self.obj, **params)
 
     def load(self, **kwargs) -> Any:
         if not self.storage:
             raise ValueError("No storage backend specified, cannot load!")
+
+        if not self.address:
+            raise ValueError(f"Asset {self} cannot be loaded without an address.")
 
         params = {"serializer": self.serializer, **self.params} | kwargs
         self.obj = self.storage.load(self.address, **params)

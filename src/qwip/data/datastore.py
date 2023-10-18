@@ -1,8 +1,9 @@
 import platform
-from typing import Literal
+from typing import Any, Literal
 
 import sqlalchemy as sa
 from attrs import field
+from loguru import logger
 from pendulum import DateTime
 from sqlalchemy.engine import URL, make_url
 from uuid6 import UUID
@@ -10,9 +11,10 @@ from uuid6 import UUID
 import qwip
 from qwip.attrs import qdefine
 from qwip.config.interface import OfflineConfigDB
-from qwip.data.filesystem import DataFormat, DataSaver
-from qwip.data.models import Dataset
-from qwip.database.database import Database, DoltDB
+from qwip.data.models import Asset, Dataset
+from qwip.data.serializers import Serializer
+from qwip.data.storage import StorageBackend
+from qwip.database.database import Database, DoltDB, session_context
 from qwip.processing.data_processor import DataProcessor, MeasurementResult
 from qwip.sequencer.sequence import Sequence
 
@@ -31,111 +33,171 @@ class OfflineDatastore(Database):
 
     """
 
-    datasaver: DataSaver
+    storage: StorageBackend
 
+    @session_context
     def save(
         self,
-        results: list[dict[str, MeasurementResult]]
-        | dict[str, MeasurementResult]
-        | MeasurementResult,
-        fmt: DataFormat | Literal[".csv", ".parquet", ".feather"] = DataFormat.parquet,
+        *unnamed,
         config_db: OfflineConfigDB | None = None,
-        seq: Sequence | None = None,
+        sample_id: str | None = None,
+        cooldown_id: str | None = None,
+        protocol: str | None = None,
         comments: str | None = None,
+        **named: Any | Asset,
     ) -> Dataset:
-        """Saves a set of measurement results.
+        """Saves a set of assets to a new dataset.
 
         Args:
-            results: A list of result sets. Each result set is a dictionary mapping
-                measurement keys to `MeasurementResult`. A single result set or a single
-                `MeasurementResult` can also be saved individually.
-            fmt: The data format to use.
-            config_db: The configuration database used to acquire the measurement.
-            seq: The sequence used to acquire the measurement.
-            comments: A string attached to the dataset. Can be used to tag datasets with
-                additional information.
+            *unnamed: A variable number of unnamed assets. If these are not instances of
+                `Asset`, an `Asset` will be created with `Asset.create`.
+            config_db: A `ConfigDB` instance to pull searchable metadata from.
+            sample_id: A sample identifier. This will override the `sample_id` in the
+                configuration database.
+            cooldown_id: A cooldown identifier. This will override the `cooldown_id` in
+                the configuration database.
+            protocol: A measurement protocol name.
+            comments: A comment to attach to the dataset.
+            **named: Any additional keyword arguments are taken to be assets to add to
+                the dataset. If these are not instances of `Asset`, an `Asset` will be
+                created, and the key will be passed in as the asset name.
 
         Returns:
-            The dataset that was saved to the datastore.
+            A new dataset containing the assets.
         """
-        match results:
-            case dict():
-                results = [results]
-            case MeasurementResult(name=name):
-                results = [{name: results}]
-
-        with self.session.begin():
-            sequence_data = {} if seq is None else qwip.converter.unstructure(seq)
-
-            config_data = {}
-            if config_db:
-                config_data.update(
-                    config_db=str(config_db.url).split("@")[-1],
-                    commit=config_db.log()[-1].hash,
-                    diff={},
-                    sample_id=config_db.config["sample_id"],
-                    cooldown_id=config_db.config["cooldown_id"],
-                )
-
-            dataset = Dataset(
-                fmt=fmt,
-                host=platform.node(),
-                user=self.username,
-                comments=comments,
-                sequence=sequence_data,
-                **config_data,
+        config_data = {}
+        if config_db:
+            config_data.update(
+                config_db=f"{config_db.host}/{config_db.database}",
+                sample_id=config_db.config["sample_id"],
+                cooldown_id=config_db.config["cooldown_id"],
             )
 
-            for result in results:
-                save_path = self.datasaver.save(dataset.id.hex, result, fmt=fmt)
+            try:
+                config_data["commit"] = (config_db.log()[-1].hash,)
+            except AttributeError:
+                ...
 
-            dataset.filename = save_path.parent
-            self.session.add(dataset)
+        if sample_id is not None:
+            config_data.update(sample_id=sample_id)
+
+        if cooldown_id is not None:
+            config_data.update(cooldown_id=cooldown_id)
+
+        dataset = Dataset(
+            host=platform.node(),
+            user=self.username,
+            protocol=protocol,
+            comments=comments,
+            **config_data,
+        )
+
+        assets = self._make_assets(*unnamed, **named)
+        dataset.add(assets)
+        for asset in assets:
+            asset.save()
+        self.session.add(dataset)
 
         return dataset
 
-    def load(
-        self, dataset_id: UUID | str, result_type: type[DataProcessor] | None = None
-    ) -> tuple[Dataset, dict[MeasurementResult]]:
-        """Loads a dataset and associated measurement results from the datastore.
+    def _make_assets(self, *unnamed, **named):
+        assets = []
+        for obj in unnamed:
+            match obj:
+                case Asset(storage=sb) if sb is None:
+                    obj.storage = self.storage
+                case _:
+                    obj = Asset.create(obj, storage=self.storage)
 
+            assets.append(obj)
+
+        for name, obj in named.items():
+            match obj:
+                case Asset(name=n, storage=sb):
+                    if n != name:
+                        logger.warning(
+                            f"Keyword name '{name}' differs from asset name "
+                            f"'{n}'. Using '{n}'."
+                        )
+                    if sb is None:
+                        obj.storage = self.storage
+                case _:
+                    obj = Asset.create(obj, name, storage=self.storage)
+
+            assets.append(obj)
+
+        return assets
+
+    @session_context
+    def add_asset(
+        self,
+        dataset_id: UUID | str,
+        obj: Any,
+        name: str | None = None,
+        overwrite: bool = False,
+    ) -> Asset:
+        """Add an asset to an existing dataset.
+        
         Args:
-            dataset_id: The dataset identifier.
-            result_type: The final processor for the measurement result.
+            dataset_id: The identifier for the dataset to add the asset to.
+            obj: The object to save.
+            name: An optional name for the asset. If no name is provided and the object
+                is not already wrapped in an Asset, a generic name will be generated.
+                See `Asset.create` for the naming behavior.
+            overwrite: If `False`, will raise an exception if an asset with the same
+                name already exists on the dataset.
 
         Returns:
-            A tuple `(dataset, measurement_result)`.
-        """
-        dataset = self.load_dataset(dataset_id)
-
-        filename = dataset.filename / self.datasaver.get_filename(
-            result_type, fmt=dataset.fmt
-        )
-        return dataset, self.datasaver.load(filename)
-
-    def load_dataset(self, dataset_id: UUID | str) -> Dataset:
-        """Gets a dataset from the datastore by id.
-
-        Args:
-            dataset_id: The dataset identifier.
-
-        Returns:
-            The dataset with the corresponding identifier.
+            The created asset that was added to the dataset and saved.
         """
         if isinstance(dataset_id, str):
             dataset_id = UUID(dataset_id)
 
-        with self.session.begin():
-            stmt = sa.select(Dataset).where(Dataset.id == dataset_id)
-            dataset = self.session.scalars(stmt).one()
+        dataset = self.load(dataset_id)
+        if dataset is None:
+            raise KeyError(f"Could not find dataset '{dataset_id.hex}'")
+
+        match obj:
+            case Asset(storage=sb):
+                if sb is None:
+                    obj.storage = self.storage
+
+                if obj.name != name:
+                    logger.warning(
+                        f"Name '{name}' differs from asset name '{obj.name}'. Using "
+                        f"'{obj.name}'."
+                    )
+            case _:
+                obj = Asset.create(obj, name, storage=self.storage)
+
+        if obj.name in dataset and not overwrite:
+            raise FileExistsError(
+                f"There already exists an asset with name '{obj.name}'. Set "
+                f"`overwrite=True` to update the asset."
+            )
+
+        dataset.add(obj)
+        obj.save()
+
+        return obj
+
+    @session_context
+    def load(self, dataset_id: UUID | str) -> Dataset | None:
+        """Loads a dataset from the datastore.
+
+        Args:
+            dataset_id: The dataset identifier.
+
+        Returns:
+            The corresponding dataset if one exists or None.
+        """
+        if isinstance(dataset_id, str):
+            dataset_id = UUID(dataset_id)
+
+        stmt = sa.select(Dataset).where(Dataset.id == dataset_id)
+        dataset = self.session.scalars(stmt).one_or_none()
 
         return dataset
-
-    def files(self, dataset_id: UUID | str) -> set[type[DataProcessor]]:
-        dataset = self.get_dataset(dataset_id)
-        return [
-            f.name for f in dataset.filename.iterdir() if f.suffix[1:] == dataset.fmt
-        ]
 
     @classmethod
     def _add_equals(cls, stmt: sa.Selectable, **kwargs) -> sa.Selectable:
@@ -178,14 +240,14 @@ class OfflineDatastore(Database):
         start: DateTime | None = None,
         end: DateTime | None = None,
         host: str | None = None,
-        fmt: DataFormat | str | None = None,
+        fmt: str | None = None,
         user: str | None = None,
         config_db: str | None = None,
         commit: str | None = None,
         sample_id: str | None = None,
         cooldown_id: str | None = None,
         comments: str | None = None,
-        limit: int | None = None,
+        limit: int = 50,
         offset: int | None = None,
         order_desc: bool = True,
     ) -> list[Dataset]:
@@ -217,9 +279,9 @@ class OfflineDatastore(Database):
         stmt = sa.select(Dataset)
 
         if order_desc:
-            stmt = stmt.order_by(Dataset.timestamp.desc())
+            stmt = stmt.order_by(Dataset.id.desc())
         else:
-            stmt = stmt.order_by(Dataset.timestamp)
+            stmt = stmt.order_by(Dataset.id)
 
         if start:
             stmt = stmt.where(Dataset.timestamp >= start)
@@ -249,7 +311,7 @@ class OfflineDatastore(Database):
 
         return datasets
 
-    def tail(self, limit: int, **kwargs) -> list[Dataset]:
+    def tail(self, limit: int = 50, **kwargs) -> list[Dataset]:
         kwargs |= dict(limit=limit)
 
         return self.search(**kwargs)
