@@ -42,6 +42,10 @@ class Serializer(metaclass=ABCMeta):
         except IndexError:
             return None
 
+    @property
+    def key(self) -> str:
+        return type(self).__name__.lower().replace("serializer", "")
+
     def to_stream(
         self, obj: Any, *, fmt: str | None = None, **kwargs
     ) -> BufferedReader:
@@ -77,14 +81,17 @@ class DefaultSerializer(Serializer):
         stream.seek(0)
         return stream
 
-    def from_stream_json(self, stream: BufferedReader, cls: type) -> Any:
+    def from_stream_json(self, stream: BufferedReader, cls: type | None = None) -> Any:
         unstructured = json.load(stream)
         try:
             stream.close()
         except AttributeError:
             ...
 
-        return qwip.converter.structure(unstructured, cls)
+        if cls:
+            return qwip.converter.structure(unstructured, cls)
+
+        return unstructured
 
 
 def to_arrow_table(metadata: dict, data: pd.DataFrame) -> pa.Table:
@@ -321,21 +328,30 @@ class ResultSerializer(DataFrameSerializer):
 
 
 def register_serializer(serializer: Serializer) -> str:
-    key = type(serializer).__name__.lower().replace("serializer", "")
-    SERIALIZERS[key] = serializer
-    return key
+    SERIALIZERS[serializer.key] = serializer
+    return serializer.key
 
 
-def get_serializer(key: str) -> Serializer:
-    normalized = key.lower()
-    try:
-        return SERIALIZERS[normalized]
-    except KeyError as e:
-        registered = ", ".join(f"'{k}'" for k in SERIALIZERS.keys())
-        raise KeyError(
-            f"'{normalized}' is not a registered serializer. "
-            f"Supported values are: {registered}"
-        ) from e
+def detect_serializer(obj: Any):
+    return SERIALIZERS["default"]
+
+
+def get_serializer(*, key: str | None = None, obj: Any = None) -> Serializer:
+    if key is not None:
+        normalized = key.lower()
+        try:
+            return SERIALIZERS[normalized]
+        except KeyError:
+            ...
+
+    if serializer := detect_serializer(obj):
+        return serializer
+
+    registered = ", ".join(f"'{k}'" for k in SERIALIZERS.keys())
+    raise KeyError(
+        f"'{normalized}' is not a registered serializer. "
+        f"Supported values are: {registered}"
+    )
 
 
 register_serializer(DefaultSerializer())
