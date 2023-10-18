@@ -27,7 +27,7 @@ def client(settings, dataserver):
         yield client
 
 
-@pytest.fixture
+@pytest.fixture()
 def storage(client, request):
     for marker in request.node.iter_markers():
         if marker.name != "skip_dataserver":
