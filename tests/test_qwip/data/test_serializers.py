@@ -200,21 +200,18 @@ class TestResultSerializer:
         )
 
     @pytest.mark.parametrize(
-        "processor,filename",
+        "processor,name",
         [
             (GMMClassification, "gmm-classification"),
             (None, "raw"),
             (StatePopulations, "state-populations"),
         ],
     )
-    def get_filename(self, processor, filename, serializer):
-        for fmt in serializer.formats():
-            assert serializer.get_filename(processor, fmt) == Path(
-                filename
-            ).with_suffix(fmt)
+    def test_name_from_processor(self, processor, name, serializer):
+        assert serializer.name_from_processor(processor) == name
 
     @pytest.mark.parametrize(
-        "filename,processor",
+        "name,processor",
         [
             ("gmm-classification", GMMClassification),
             ("raw", None),
@@ -222,16 +219,16 @@ class TestResultSerializer:
             ("random", ValueError),
         ],
     )
-    def test_processor_from_filename(self, filename, processor, serializer):
+    def test_processor_from_name(self, name, processor, serializer):
         if processor is ValueError:
             with pytest.raises(processor):
-                serializer.processor_from_filename(filename)
+                serializer.processor_from_name(name)
 
         else:
-            cache_hits = serializer.processor_from_filename.cache_info().hits
-            assert serializer.processor_from_filename(filename) is processor
-            serializer.processor_from_filename(filename)
-            assert serializer.processor_from_filename.cache_info().hits > cache_hits
+            cache_hits = serializer.processor_from_name.cache_info().hits
+            assert serializer.processor_from_name(name) is processor
+            serializer.processor_from_name(name)
+            assert serializer.processor_from_name.cache_info().hits > cache_hits
 
 
 DETECT_SERIALIZER_CASES = [

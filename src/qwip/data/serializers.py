@@ -68,6 +68,10 @@ class Serializer(metaclass=ABCMeta):
 
         return getattr(self, f"from_stream_{fmt}")(stream, **kwargs)
 
+    def get_name(self, obj: Any) -> str:
+        """Returns an auto-generated name for the object based on the type."""
+        return camel_to_kebab(type(obj).__name__)
+
 
 @qfrozen
 class DefaultSerializer(Serializer):
@@ -291,40 +295,43 @@ class ResultSerializer(DataFrameSerializer):
 
         return metadata, data
 
-    def get_filename(
+    def get_name(self, result: MeasurementResult | dict[str, MeasurementResult]) -> str:
+        """Returns an auto-generated name from a result.
+
+        Args:
+            result: A measurement result.
+
+        Returns:
+            A kebab-case name based on the final processor for the result.
+        """
+        return self.name_from_processor(type(self).get_result_processor(result))
+
+    def name_from_processor(
         self,
         processor: type[DataProcessor] | None = None,
-        fmt: str = "parquet",
     ) -> Path:
-        """Returns the filename for a given processor type.
+        """Returns the name for a given processor type.
 
-        The filename will be a kebab-case variant of the processor class name with
-        the proper file extension.
+        The name will be a kebab-case variant of the processor class name.
 
         Args:
             processor: A processor class.
-            fmt: An allowed data format.
 
         Returns:
-            A relative file path for the given processor type and file format.
+            A name for the given processor type.
         """
         if processor is None:
-            pname = "raw"
-        else:
-            pname = camel_to_kebab(re.sub(r"[\[\]]", "", generic_to_string(processor)))
+            return "raw"
 
-        return Path(add_extension(pname, fmt))
+        return camel_to_kebab(re.sub(r"[\[\]]", "", generic_to_string(processor)))
 
     @lru_cache(maxsize=32)
-    def processor_from_filename(self, filename: str | Path) -> type[DataProcessor]:
-        if isinstance(filename, str):
-            filename = Path(filename)
-
+    def processor_from_name(self, name: str) -> type[DataProcessor]:
         for processor in (None, *DATA_PROCESSORS.registered.values()):
-            if self.get_filename(processor).stem == filename.stem:
+            if self.name_from_processor(processor) == name:
                 return processor
 
-        raise ValueError(f"{filename} does not correspond to a known processor.")
+        raise ValueError(f"{name} does not correspond to a known processor.")
 
 
 def register_serializer(serializer: Serializer) -> str:
