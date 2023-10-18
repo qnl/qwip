@@ -9,11 +9,12 @@ from attrs import field
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, types
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
+from typing_extensions import Self
 from uuid6 import UUID, uuid7
 
 import qwip
 from qwip.attrs import qdefine
-from qwip.data.filesystem import add_extension
+from qwip.data.filesystem import add_extension, camel_to_kebab
 from qwip.data.serializers import get_serializer
 from qwip.data.storage import StorageBackend
 from qwip.database.database import VersionControlled
@@ -75,6 +76,9 @@ class Dataset(VersionControlled):
     def __getitem__(self, key: str) -> "Asset":
         return self._assets[key]
 
+    def assets(self) -> tuple[str]:
+        return tuple(asset.name for asset in self._assets.values())
+
 
 @qdefine(slots=False)
 class Asset(VersionControlled):
@@ -102,6 +106,16 @@ class Asset(VersionControlled):
 
         filename = add_extension(self.name, self.fmt or "").lstrip("/")
         return f"/{self.dataset_id.hex}/{filename}"
+
+    @classmethod
+    def create(cls, obj: Any, /, name: str = "", **kwargs) -> Self:
+        serializer = get_serializer(obj=obj)
+        if not name:
+            name = camel_to_kebab(type(obj).__name__)
+
+        kwargs = dict(serializer=serializer.key) | kwargs
+
+        return cls(name=name, obj=obj, **kwargs)
 
     def save(self, **kwargs):
         if not self.storage:
