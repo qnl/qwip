@@ -61,35 +61,19 @@ class TestHTTPStorageBackend:
             ("/non-existent", httpx.HTTPStatusError),
             (
                 "/",
-                dict(
-                    path="/",
-                    num_children=3,
-                    contents=["data-folder", "empty", "README.md"],
-                ),
+                ["data-folder", "empty", "README.md"],
             ),
             (
                 "/empty",
-                dict(
-                    path="/empty",
-                    num_children=0,
-                    contents=[],
-                ),
+                [],
             ),
             (
                 "/data-folder/",
-                dict(
-                    path="/data-folder",
-                    num_children=2,
-                    contents=["file.txt", "number.bin"],
-                ),
+                ["file.txt", "number.bin"],
             ),
             (
                 "/../..",
-                dict(
-                    path="/",
-                    num_children=3,
-                    contents=["data-folder", "empty", "README.md"],
-                ),
+                ["data-folder", "empty", "README.md"],
             ),
         ],
     )
@@ -109,7 +93,7 @@ class TestHTTPStorageBackend:
         if hasattr(storage.client, "app"):
             assert (root / folder.lstrip("./")).exists()
 
-        assert "path" in storage.list_directory(folder)
+        assert isinstance(storage.list_directory(folder), list)
 
     def test_delete_folder(self, storage, root):
         folder = "/pytest-delete-folder"
