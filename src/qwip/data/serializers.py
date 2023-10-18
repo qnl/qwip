@@ -345,13 +345,18 @@ def detect_serializer(obj: Any):
 
 
 @detect_serializer.register(dict)
-def detect_result(obj: dict):
+def detect_dict(obj: dict):
     values = set(type(v) for v in obj.values())
 
     if len(values) == 1 and issubclass(values.pop(), MeasurementResult):
         return SERIALIZERS["result"]
 
     return SERIALIZERS["default"]
+
+
+@detect_serializer.register(MeasurementResult)
+def detect_measurement_result(obj: MeasurementResult):
+    return SERIALIZERS["result"]
 
 
 @detect_serializer.register(pd.DataFrame)
