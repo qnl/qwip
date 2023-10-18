@@ -91,6 +91,14 @@ def test_remove_directory(client, tmp_path):
     assert (tmp_path / "subdirectory").exists() is False
 
 
+def test_remove_file(client, tmp_path):
+    (tmp_path / "file.txt").write_text("Some text in a file.")
+
+    url = f"/api/v1/folder/{tmp_path.name}/file.txt"
+    r = client.delete(url)
+    assert r.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+
+
 @pytest.mark.parametrize(
     "url", ["/api/v1/folder/", "/api/v1/folder//", "/api/v1/folder/\\"]
 )
