@@ -67,7 +67,7 @@ def test_make_directory(client, tmp_path):
     r = client.post(url)
 
     assert r.status_code == status.HTTP_200_OK
-    assert r.json() == {"path": f"{tmp_path.name}/new_folder"}
+    assert r.json() == {"path": f"/{tmp_path.name}/new_folder"}
 
 
 def test_make_directory_file_exists(client, tmp_path):
@@ -77,6 +77,26 @@ def test_make_directory_file_exists(client, tmp_path):
     r = client.post(url)
     assert r.status_code == status.HTTP_400_BAD_REQUEST
     assert r.json() == {"detail": "Cannot create directory."}
+
+
+def test_remove_directory(client, tmp_path):
+    (tmp_path / "subdirectory").mkdir()
+    (tmp_path / "subdirectory/file.txt").write_text("Some text in a file.")
+    (tmp_path / "subdirectory/file1.txt").write_text("Some more text in a file.")
+
+    url = f"/api/v1/folder/{tmp_path.name}/subdirectory"
+    r = client.delete(url)
+    assert r.status_code == status.HTTP_200_OK
+    assert r.json() == {"path": f"/{tmp_path.name}/subdirectory"}
+    assert (tmp_path / "subdirectory").exists() is False
+
+
+def test_remove_directory_nonexistent(client, tmp_path):
+    url = f"/api/v1/folder/{tmp_path.name}/not_a_directory"
+
+    r = client.delete(url)
+    assert r.status_code == status.HTTP_400_BAD_REQUEST
+    assert r.json() == {"detail": "Invalid directory."}
 
 
 @pytest.mark.parametrize(

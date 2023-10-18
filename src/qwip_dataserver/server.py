@@ -73,7 +73,35 @@ async def make_directory(
             detail="Error when creating directory.",
         )
 
-    return dict(path=directory.relative_to(root).as_posix())
+    return dict(path=f"/{directory.relative_to(root).as_posix()}")
+
+
+@api_v1.delete("/folder/{file_path:path}")
+async def remove_directory(
+    root: Annotated[Path, Depends(get_root_path)], file_path: str = ""
+):
+    """Removes a directory and all contents."""
+
+    directory = root / file_path
+
+    if not directory.exists():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid directory."
+        )
+
+    try:
+        shutil.rmtree(directory)
+    except Exception as e:
+        logger.exception(
+            f"Error removing directory '{directory.as_posix()}'", exception=e
+        )
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error when creating directory.",
+        )
+
+    return dict(path=f"/{directory.relative_to(root).as_posix()}")
 
 
 @api_v1.post("/upload/{file_path:path}")
