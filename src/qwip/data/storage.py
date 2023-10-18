@@ -31,7 +31,7 @@ class StorageBackend(metaclass=ABCMeta):
     def save(
         self,
         address: str,
-        asset: Any,
+        obj: Any,
         serializer: str | Serializer = "default",
         **kwargs,
     ):
@@ -40,7 +40,7 @@ class StorageBackend(metaclass=ABCMeta):
         Args:
             address: The address specifying where in the storage backend to save
                 the object.
-            asset: The object to save. This will be serialized and then saved to the
+            obj: The object to save. This will be serialized and then saved to the
                 storage backend.
             serializer: The serializer to use. If a string is given, a serializer will
                 be looked from the list of registered serializers.
@@ -49,8 +49,10 @@ class StorageBackend(metaclass=ABCMeta):
         Return:
             The location of the saved object, or `None` if it failed to save.
         """
-        serializer = get_serializer(serializer)
-        stream = serializer.to_stream(asset, **kwargs)
+        if not isinstance(serializer, Serializer):
+            serializer = get_serializer(key=serializer, obj=obj)
+
+        stream = serializer.to_stream(obj, **kwargs)
         return self.save_buffer(address, stream)
 
     def load(
@@ -68,9 +70,11 @@ class StorageBackend(metaclass=ABCMeta):
         Returns:
             The loaded object.
         """
-        serializer = get_serializer(serializer)
-        stream = self.load_buffer(address, **kwargs)
-        return serializer.from_stream(stream)
+        if not isinstance(serializer, Serializer):
+            serializer = get_serializer(key=serializer)
+
+        stream = self.load_buffer(address)
+        return serializer.from_stream(stream, **kwargs)
 
     @abstractmethod
     def save_buffer(
@@ -85,7 +89,7 @@ class StorageBackend(metaclass=ABCMeta):
             self.save_stream(address, stream, folder=folder)
 
     @abstractmethod
-    def load_buffer(self, address: str, **kwargs) -> SpooledTemporaryFile:
+    def load_buffer(self, address: str) -> SpooledTemporaryFile:
         ...
 
 
@@ -221,7 +225,7 @@ class HTTPStorageBackend(StorageBackend):
         return download_addresses
 
     def load_buffer(
-        self, address: str, folder: str = "/", **kwargs
+        self, address: str, folder: str = "/"
     ) -> SpooledTemporaryFile:
         folder, filename = self.parse_url(folder, address)
 
