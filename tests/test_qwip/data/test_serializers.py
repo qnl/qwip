@@ -11,6 +11,7 @@ from pandas.testing import assert_frame_equal
 
 from qwip.data.serializers import (
     DataFrameSerializer,
+    DefaultSerializer,
     ResultSerializer,
     from_arrow_table,
     to_arrow_table,
@@ -23,6 +24,29 @@ from qwip.processing.processors import (
     ReadoutHistogram,
     StatePopulations,
 )
+
+DEFAULT_CASES = [
+    (1, int),
+    (1, float),
+    (True, bool),
+    (dict(a=1, b=2, c=3), dict[str, int]),
+    (ResultSerializer, type),
+]
+
+
+class TestDefaultSerializer:
+    @pytest.fixture
+    def serializer(self):
+        return DefaultSerializer()
+
+    @pytest.mark.parametrize("obj,cls", DEFAULT_CASES)
+    def test_json(self, serializer, obj, cls):
+        stream = serializer.to_stream_json(obj)
+        reloaded = serializer.from_stream_json(stream, cls)
+
+        assert obj == reloaded
+        assert stream.closed
+
 
 PANDAS_ARROW_CASES = [
     (np.complex64, dict(date="2006-01-02"), b'{"date": "2006-01-02"}'),
@@ -93,8 +117,8 @@ class TestDataFrameSerializer:
             index=pd.RangeIndex(20, name="Index"),
         )
 
-        stream = serializer.to_stream_parquet(data, metadata)
-        reloaded_data, reloaded_metadata = serializer.from_stream_parquet(stream)
+        stream = serializer.to_stream(data, metadata, fmt="parquet")
+        reloaded_data, reloaded_metadata = serializer.from_stream(stream, fmt="parquet")
 
         assert_frame_equal(data, reloaded_data)
         assert metadata == reloaded_metadata
@@ -108,8 +132,8 @@ class TestDataFrameSerializer:
             index=pd.RangeIndex(20, name="Index"),
         )
 
-        stream = serializer.to_stream_feather(data, metadata)
-        reloaded_data, reloaded_metadata = serializer.from_stream_feather(stream)
+        stream = serializer.to_stream(data, metadata, fmt="feather")
+        reloaded_data, reloaded_metadata = serializer.from_stream(stream, fmt="feather")
 
         assert_frame_equal(data, reloaded_data)
         assert metadata == reloaded_metadata

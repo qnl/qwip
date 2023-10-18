@@ -2,7 +2,7 @@ import json
 import re
 from abc import ABCMeta, abstractproperty
 from functools import lru_cache
-from io import BufferedReader
+from io import BufferedReader, BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -24,21 +24,31 @@ from qwip.processing.processors import (
     dataframe_complex_to_real,
     dataframe_real_to_complex,
 )
-from qwip.typing import generic_to_string
+from qwip.typing import generic_to_string, typedispatch
 
-SERIALIZERS = dict()
+SERIALIZERS: dict[str, "Serializer"] = dict()
 
 
 @qfrozen
 class Serializer(metaclass=ABCMeta):
     @abstractproperty
-    def formats(self) -> frozenset[str]:
+    def formats(self) -> tuple[str, ...]:
         ...
+
+    @property
+    def default_format(self) -> str | None:
+        try:
+            return self.formats[0]
+        except IndexError:
+            return None
 
     def to_stream(
         self, obj: Any, *, fmt: str | None = None, **kwargs
     ) -> BufferedReader:
-        if fmt not in self.formats():
+        if fmt is None:
+            fmt = self.default_format
+
+        if fmt not in self.formats:
             raise ValueError(f"{fmt} is not a known format for {type(self).__name__}")
 
         return getattr(self, f"to_stream_{fmt}")(obj, **kwargs)
@@ -46,10 +56,35 @@ class Serializer(metaclass=ABCMeta):
     def from_stream(
         self, stream: BufferedReader, *, fmt: str | None = None, **kwargs
     ) -> Any:
-        if fmt not in self.formats():
+        if fmt is None:
+            fmt = self.default_format
+
+        if fmt not in self.formats:
             raise ValueError(f"{fmt} is not a known format for {type(self).__name__}")
 
-        return getattr(self, f"to_stream_{fmt}")(stream, **kwargs)
+        return getattr(self, f"from_stream_{fmt}")(stream, **kwargs)
+
+
+@qfrozen
+class DefaultSerializer(Serializer):
+    @property
+    def formats(self) -> tuple[str, ...]:
+        return ("json",)
+
+    def to_stream_json(self, obj: Any) -> BufferedReader:
+        stream = BytesIO()
+        json.dump(qwip.converter.unstructure(obj), stream)
+        stream.seek(0)
+        return stream
+
+    def from_stream_json(self, stream: BufferedReader, cls: type) -> Any:
+        unstructured = json.load(stream)
+        try:
+            stream.close()
+        except AttributeError:
+            ...
+
+        return qwip.converter.structure(unstructured, cls)
 
 
 def to_arrow_table(metadata: dict, data: pd.DataFrame) -> pa.Table:
@@ -101,8 +136,8 @@ def from_arrow_table(table: pa.Table) -> tuple[dict, pd.DataFrame]:
 @qfrozen
 class DataFrameSerializer(Serializer):
     @property
-    def formats(self) -> frozenset[str]:
-        return frozenset("parquet", "feather", "csv")
+    def formats(self) -> tuple[str, ...]:
+        return ("parquet", "feather", "csv")
 
     def to_stream_parquet(
         self,
@@ -125,7 +160,11 @@ class DataFrameSerializer(Serializer):
             ...
 
         metadata, data = from_arrow_table(table)
-        return data, metadata
+
+        if metadata:
+            return data, metadata
+
+        return data
 
     def to_stream_feather(
         self, data: pd.DataFrame, metadata: dict = {}
@@ -146,7 +185,10 @@ class DataFrameSerializer(Serializer):
             ...
 
         metadata, data = from_arrow_table(table)
-        return data, metadata
+        if metadata:
+            return data, metadata
+
+        return data
 
 
 @qfrozen
@@ -276,3 +318,26 @@ class ResultSerializer(DataFrameSerializer):
                 return processor
 
         raise ValueError(f"{filename} does not correspond to a known processor.")
+
+
+def register_serializer(serializer: Serializer) -> str:
+    key = type(serializer).__name__.lower().replace("serializer", "")
+    SERIALIZERS[key] = serializer
+    return key
+
+
+def get_serializer(key: str) -> Serializer:
+    normalized = key.lower()
+    try:
+        return SERIALIZERS[normalized]
+    except KeyError as e:
+        registered = ", ".join(f"'{k}'" for k in SERIALIZERS.keys())
+        raise KeyError(
+            f"'{normalized}' is not a registered serializer. "
+            f"Supported values are: {registered}"
+        ) from e
+
+
+register_serializer(DefaultSerializer())
+register_serializer(DataFrameSerializer())
+register_serializer(ResultSerializer())
