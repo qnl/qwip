@@ -133,6 +133,18 @@ class HTTPStorageBackend(StorageBackend):
         return base, name
 
     def make_directory(self, folder: str = "/"):
+        """Create a directory in the storage backend.
+
+        If the specified folder already exists, the state of the dataserver will
+        remain unchanged.
+
+        Args:
+            folder: The path of the folder to create. All parent directories are also
+                created as needed.
+
+        Return:
+            The created folder path.
+        """
         folder, _ = self.parse_url(folder, "")
         url = "/api/v1/folder" + folder
 
@@ -145,18 +157,61 @@ class HTTPStorageBackend(StorageBackend):
             case body:
                 raise ValueError(f"Unknown response from server: {body}")
 
+    def remove_directory(self, folder: str = "/"):
+        """Remove a directory in the storage backend.
+
+        All subfolders and files in the directory are recursively removed. The root
+        folder cannot be deleted.
+
+        Args:
+            folder: The path of the folder to delete. All child directories and files
+                are also removed.
+
+        Return:
+            The path of the deleted folder.
+        """
+        folder, _ = self.parse_url(folder, "")
+        url = "/api/v1/folder" + folder
+
+        response = self.client.delete(url)
+        response.raise_for_status()
+
+        match response.json():
+            case {"path": folder}:
+                return folder
+            case body:
+                raise ValueError(f"Unknown response from server: {body}")
+
     def list_directory(self, folder: str = "/"):
+        """Get contents of a directory.
+
+        Args:
+            folder: The folder to list.
+
+        Returns:
+            A list of the folder contents.
+        """
         folder, _ = self.parse_url(folder, "")
         url = "/api/v1/folder" + folder
 
         response = self.client.get(url)
         response.raise_for_status()
 
-        return response.json()
+        return response.json()["contents"]
 
     def save_buffer(
         self, address: str, stream: io.BufferedReader, folder: str = "/"
     ) -> str | None:
+        """Saves the contents of a file-like object to the storage backend.
+
+        Args:
+            address: The address of the new file to create.
+            folder: A subfolder that the address should be referenced to.
+
+        Returns:
+            The address of the file on the storage backend or `None`, if it failed to
+            save.
+        """
         folder, filename = self.parse_url(folder, address)
 
         if not filename:
@@ -184,7 +239,17 @@ class HTTPStorageBackend(StorageBackend):
 
     def save_buffers(
         self, streams: dict[str, io.BufferedReader], folder: str = "/"
-    ) -> list[str]:
+    ) -> list[str | None]:
+        """Saves multiple files with a single http request.
+
+        Args:
+            streams: A mapping of addresses to file-like objects that can be read.
+            folder: A subfolder that the addresses should be referenced to.
+
+        Returns:
+            A list of addresses for the files that were uploaded. If a given file
+            fails to save, the address will be `None` instead.
+        """
         folders = set()
         filenames = []
 
@@ -224,9 +289,20 @@ class HTTPStorageBackend(StorageBackend):
                     download_addresses.append(address)
         return download_addresses
 
-    def load_buffer(
-        self, address: str, folder: str = "/"
-    ) -> SpooledTemporaryFile:
+    def load_buffer(self, address: str, folder: str = "/") -> SpooledTemporaryFile:
+        """Loads the contents of a file from the storage backend.
+
+        The file contents are loaded to a `SpooledTemporaryFile` so that large files
+        are not completely read into memory. The file is deleted from disk and memory
+        once it is closed.
+
+        Args:
+            address: The address of the file to load.
+            folder: A subfolder that the address should be referenced to.
+
+        Returns:
+            A temporary file that can be read from.
+        """
         folder, filename = self.parse_url(folder, address)
 
         if not folder.startswith("/static"):

@@ -100,13 +100,18 @@ class TestHTTPStorageBackend:
         else:
             assert storage.list_directory(folder) == expect
 
-    @pytest.mark.skip_dataserver
     @pytest.mark.parametrize(
         "folder", ["/pytest", "/pytest/folder1/folder2/folder3", "/", ""]
     )
     def test_make_directory(self, storage, root, folder):
         storage.make_directory(folder)
-        assert (root / folder.lstrip("./")).exists()
+
+        if storage.client.app:
+            assert (root / folder.lstrip("./")).exists()
+        
+        print(storage.list_directory(folder))
+
+    # @pytest.mark.lar
 
     @pytest.mark.skip_dataserver
     @pytest.mark.parametrize(
