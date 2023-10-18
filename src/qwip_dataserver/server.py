@@ -19,12 +19,18 @@ def get_root_path(settings: Annotated[Settings, Depends(get_settings)]) -> Path:
     return settings.DATASERVER_ROOT
 
 
+def get_file_path(file_path: str = ""):
+    """Strips leading file delimeters from the file path."""
+    return file_path.lstrip("/\\")
+
+
 api_v1 = APIRouter(prefix="/api/v1")
 
 
 @api_v1.get("/folder/{file_path:path}")
 async def list_directory(
-    root: Annotated[Path, Depends(get_root_path)], file_path: str = ""
+    root: Annotated[Path, Depends(get_root_path)],
+    file_path: Annotated[str, Depends(get_file_path)],
 ):
     """List directory with the given path.
 
@@ -47,7 +53,8 @@ async def list_directory(
 
 @api_v1.post("/folder/{file_path:path}")
 async def make_directory(
-    root: Annotated[Path, Depends(get_root_path)], file_path: str = ""
+    root: Annotated[Path, Depends(get_root_path)],
+    file_path: Annotated[str, Depends(get_file_path)],
 ):
     """Create a directory with the given path.
 
@@ -78,11 +85,18 @@ async def make_directory(
 
 @api_v1.delete("/folder/{file_path:path}")
 async def remove_directory(
-    root: Annotated[Path, Depends(get_root_path)], file_path: str = ""
+    root: Annotated[Path, Depends(get_root_path)],
+    file_path: Annotated[str, Depends(get_file_path)],
 ):
     """Removes a directory and all contents."""
 
     directory = root / file_path
+
+    if directory == root:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove root directory.",
+        )
 
     if not directory.exists():
         raise HTTPException(
@@ -108,7 +122,7 @@ async def remove_directory(
 def upload_files(
     root: Annotated[Path, Depends(get_root_path)],
     uploads: Annotated[list[UploadFile], File(description="File upload.")],
-    file_path: str = "",
+    file_path: Annotated[str, Depends(get_file_path)],
 ):
     """Saves the uploaded files to the root data server folder.
 

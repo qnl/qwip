@@ -91,6 +91,16 @@ def test_remove_directory(client, tmp_path):
     assert (tmp_path / "subdirectory").exists() is False
 
 
+@pytest.mark.parametrize(
+    "url", ["/api/v1/folder/", "/api/v1/folder//", "/api/v1/folder/\\"]
+)
+def test_remove_directory_root(client, url):
+    r = client.delete(url)
+
+    assert r.status_code == status.HTTP_400_BAD_REQUEST
+    assert r.json() == {"detail": "Cannot remove root directory."}
+
+
 def test_remove_directory_nonexistent(client, tmp_path):
     url = f"/api/v1/folder/{tmp_path.name}/not_a_directory"
 
