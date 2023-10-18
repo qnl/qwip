@@ -2,7 +2,7 @@ import codecs
 import json
 import re
 from abc import ABCMeta, abstractproperty
-from functools import lru_cache
+from functools import lru_cache, singledispatch
 from io import BufferedReader, BytesIO
 from pathlib import Path
 from typing import Any
@@ -332,8 +332,24 @@ def register_serializer(serializer: Serializer) -> str:
     return serializer.key
 
 
+@singledispatch
 def detect_serializer(obj: Any):
     return SERIALIZERS["default"]
+
+
+@detect_serializer.register(dict)
+def detect_result(obj: dict):
+    values = set(type(v) for v in obj.values())
+
+    if len(values) == 1 and issubclass(values.pop(), MeasurementResult):
+        return SERIALIZERS["result"]
+
+    return SERIALIZERS["default"]
+
+
+@detect_serializer.register(pd.DataFrame)
+def detect_dataframe(obj: pd.DataFrame):
+    return SERIALIZERS["dataframe"]
 
 
 def get_serializer(*, key: str | None = None, obj: Any = None) -> Serializer:

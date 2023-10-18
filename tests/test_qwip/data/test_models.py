@@ -140,11 +140,7 @@ class TestAsset:
 
         asset.save()
 
-        assert storage.list_directory(asset.dataset_id.hex) == {
-            "path": f"/{asset.dataset_id.hex}",
-            "num_children": 1,
-            "contents": ["raw.parquet"],
-        }
+        assert storage.list_directory(asset.dataset_id.hex) == ["raw.parquet"]
 
     def test_save_no_address(self, storage, measurement_results):
         asset = Asset(
@@ -155,12 +151,11 @@ class TestAsset:
             asset.save()
 
     def test_roundtrip(self, storage, measurement_results, dataset_id):
-        asset = Asset(
+        asset = Asset.create(
+            measurement_results,
             name="raw",
             dataset_id=dataset_id,
             storage=storage,
-            serializer="result",
-            obj=measurement_results,
         )
 
         asset.save()

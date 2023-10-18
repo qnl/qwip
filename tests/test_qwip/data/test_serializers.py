@@ -13,6 +13,7 @@ from qwip.data.serializers import (
     DataFrameSerializer,
     DefaultSerializer,
     ResultSerializer,
+    detect_serializer,
     from_arrow_table,
     to_arrow_table,
 )
@@ -231,3 +232,14 @@ class TestResultSerializer:
             assert serializer.processor_from_filename(filename) is processor
             serializer.processor_from_filename(filename)
             assert serializer.processor_from_filename.cache_info().hits > cache_hits
+
+
+DETECT_SERIALIZER_CASES = [
+    ({"R0": IQResult.random((256, 10, 2))}, "result"),
+    (pd.DataFrame(), "dataframe"),
+]
+
+
+@pytest.mark.parametrize("obj,expect", DETECT_SERIALIZER_CASES)
+def test_detect_serializer(obj, expect):
+    assert detect_serializer(obj).key == expect
