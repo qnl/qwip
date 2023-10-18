@@ -15,7 +15,7 @@ import pyarrow.parquet as pq
 
 import qwip
 from qwip.attrs import qfrozen
-from qwip.data.filesystem import add_extension, camel_to_kebab, generic_to_string
+from qwip.data.filesystem import camel_to_kebab, generic_to_string
 from qwip.processing.data_processor import (
     DATA_PROCESSORS,
     DataProcessor,
