@@ -1,3 +1,4 @@
+import pendulum
 import pytest
 import sqlalchemy as sa
 from uuid6 import uuid7
@@ -128,6 +129,18 @@ class TestAsset:
     def test_address(self, asset, filename):
         asset.dataset_id = uuid7()
         assert asset.default_address() == f"/{asset.dataset_id.hex}/{filename}"
+
+    @pytest.mark.parametrize(
+        "obj,name,expect",
+        [
+            (IQResult.random((128, 10, 2)), None, "raw"),
+            (pendulum.now(), None, "date-time"),
+        ],
+    )
+    def test_autoname(self, obj, name, expect):
+        asset = Asset.create(obj, name=name)
+
+        assert asset.name == expect
 
     def test_save(self, storage, measurement_results, dataset_id):
         asset = Asset(

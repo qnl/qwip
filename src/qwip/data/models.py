@@ -120,7 +120,7 @@ class Asset(VersionControlled):
     @classmethod
     def create(cls, obj: Any, /, name: str | None = None, **kwargs) -> Self:
         serializer = get_serializer(key=kwargs.get("serializer"), obj=obj)
-        name = name or camel_to_kebab(type(obj).__name__)
+        name = name or serializer.get_name(obj)
 
         kwargs = dict(serializer=serializer.key) | kwargs
 
