@@ -10,9 +10,10 @@ from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
-from qwip.attrs import qdefine
+from qwip.attrs import qfrozen
+from qwip.data.serializers import Serializer, get_serializer
 
-REGISTERED_STORAGE_BACKENDS: dict[str, "StorageBackend"] = dict()
+REGISTERED_STORAGE_BACKENDS: dict[str, type["StorageBackend"]] = dict()
 
 
 def register_storage_backend(cls: type["StorageBackend"]) -> type["StorageBackend"]:
@@ -25,25 +26,63 @@ def register_storage_backend(cls: type["StorageBackend"]) -> type["StorageBacken
     return cls
 
 
-@qdefine
+@qfrozen
 class StorageBackend(metaclass=ABCMeta):
-    def save(self, address: str, asset: Any, **kwargs):
-        ...
+    def save(
+        self,
+        address: str,
+        asset: Any,
+        serializer: str | Serializer = "default",
+        **kwargs,
+    ):
+        """Saves a single object.
 
-    def load(self, address: str, cls: type, **kwargs):
-        ...
+        Args:
+            address: The address specifying where in the storage backend to save
+                the object.
+            asset: The object to save. This will be serialized and then saved to the
+                storage backend.
+            serializer: The serializer to use. If a string is given, a serializer will
+                be looked from the list of registered serializers.
+            **kwargs: Additional keyword arguments are passed to the serializer.
+
+        Return:
+            The location of the saved object, or `None` if it failed to save.
+        """
+        serializer = get_serializer(serializer)
+        stream = serializer.to_stream(asset, **kwargs)
+        return self.save_buffer(address, stream)
+
+    def load(
+        self, address: str, serializer: str | Serializer = "default", **kwargs
+    ) -> Any:
+        """Loads a single object.
+
+        Args:
+            address: The address specifying where in the storage backend to locate
+                the object.
+            serializer: The serializer to use. If a string is given, a serializer will
+                be looked from the list of registered serializers.
+            **kwargs: Remaining keyword arguments are passed to the serializer.
+
+        Returns:
+            The loaded object.
+        """
+        serializer = get_serializer(serializer)
+        stream = self.load_buffer(address, **kwargs)
+        return serializer.from_stream(stream)
 
     @abstractmethod
     def save_buffer(
-        self, address: str, stream: io.BufferedReader, folder: str = "/", **kwargs
+        self, address: str, stream: io.BufferedReader, folder: str = "/"
     ) -> str:
         ...
 
     def save_buffers(
-        self, streams: dict[str, io.BufferedReader], folder: str = "/", **kwargs
+        self, streams: dict[str, io.BufferedReader], folder: str = "/"
     ) -> list[str]:
         for address, stream in streams.items():
-            self.save_stream(address, stream, folder=folder, **kwargs)
+            self.save_stream(address, stream, folder=folder)
 
     @abstractmethod
     def load_buffer(self, address: str, **kwargs) -> SpooledTemporaryFile:
@@ -51,7 +90,7 @@ class StorageBackend(metaclass=ABCMeta):
 
 
 @register_storage_backend
-@qdefine
+@qfrozen
 class HTTPStorageBackend(StorageBackend):
     client: httpx.Client
     read_buffer: int = 1024 * 1024
@@ -76,7 +115,7 @@ class HTTPStorageBackend(StorageBackend):
         """
         # pathlib handles // differently when it is at the beginning of a path
         # but strips extra / otherwise. Using /// to avoid this difference in behavior.
-        url = Path(folder + "///" + address).resolve()
+        url = Path("///" + folder + "///" + address).resolve()
         filename = Path(address)
 
         base, name = (url.parent, url.name) if filename.name else (url, "")
@@ -112,7 +151,7 @@ class HTTPStorageBackend(StorageBackend):
         return response.json()
 
     def save_buffer(
-        self, address: str, stream: io.BufferedReader, folder: str = "/", **kwargs
+        self, address: str, stream: io.BufferedReader, folder: str = "/"
     ) -> str | None:
         folder, filename = self.parse_url(folder, address)
 
@@ -140,7 +179,7 @@ class HTTPStorageBackend(StorageBackend):
                 return download_address
 
     def save_buffers(
-        self, streams: dict[str, io.BufferedReader], folder: str = "/", **kwargs
+        self, streams: dict[str, io.BufferedReader], folder: str = "/"
     ) -> list[str]:
         folders = set()
         filenames = []
@@ -152,7 +191,7 @@ class HTTPStorageBackend(StorageBackend):
 
         if len(folders) > 1:
             # Must send post requests one at a time.
-            return super().save_buffers(streams, folder=folder, **kwargs)
+            return super().save_buffers(streams, folder=folder)
 
         url = "/api/v1/upload" + next(iter(folders))
 
@@ -206,12 +245,12 @@ class HTTPStorageBackend(StorageBackend):
 
 
 @register_storage_backend
-@qdefine
+@qfrozen
 class LocalStorageBackend(StorageBackend):
     directory: Path = Path()
 
     def save_buffer(
-        self, address: str, stream: io.BufferedReader, folder: str = "/", **kwargs
+        self, address: str, stream: io.BufferedReader, folder: str = "/"
     ) -> str:
         ...
 

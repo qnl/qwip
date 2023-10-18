@@ -43,6 +43,7 @@ class TestHTTPStorageBackend:
             ("", "", ("/", "")),
             ("/", "", ("/", "")),
             ("", "", ("/", "")),
+            ("folder", "", ("/folder/", "")),
             ("/folder", "", ("/folder/", "")),
             ("/a", "/a/b/c", ("/a/a/b/", "c")),
             ("/folder", "./file", ("/folder/", "file")),
