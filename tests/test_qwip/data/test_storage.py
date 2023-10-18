@@ -106,12 +106,22 @@ class TestHTTPStorageBackend:
     def test_make_directory(self, storage, root, folder):
         storage.make_directory(folder)
 
-        if storage.client.app:
+        if hasattr(storage.client, "app"):
             assert (root / folder.lstrip("./")).exists()
-        
-        print(storage.list_directory(folder))
 
-    # @pytest.mark.lar
+        assert "path" in storage.list_directory(folder)
+
+    def test_delete_folder(self, storage, root):
+        folder = "/pytest-delete-folder"
+        storage.make_directory(folder + "/a/b/c/")
+        storage.make_directory(folder + "/a/b1/c/")
+        storage.remove_directory(folder)
+
+        if hasattr(storage.client, "app"):
+            assert (root / folder.lstrip("./")).exists() is False
+
+        with pytest.raises(httpx.HTTPStatusError):
+            storage.list_directory(folder)
 
     @pytest.mark.skip_dataserver
     @pytest.mark.parametrize(
