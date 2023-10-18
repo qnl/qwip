@@ -120,7 +120,7 @@ app = FastAPI(
     title="QWiP Data Server",
 )
 app.include_router(api_v1)
-app.mount("/static/", StaticFiles(directory=settings.DATASERVER_ROOT), "static")
+app.mount("/static", StaticFiles(directory=settings.DATASERVER_ROOT), "static")
 
 
 # Set all CORS enabled origins

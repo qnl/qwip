@@ -6,7 +6,7 @@ from qwip.data.storage import HTTPStorageBackend
 from qwip_dataserver.settings import get_settings
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="session")
 def settings(tmp_path_factory):
     settings = get_settings()
     settings.DATASERVER_ROOT = tmp_path_factory.mktemp("pytest")

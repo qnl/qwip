@@ -1,16 +1,21 @@
 import platform
 from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
 
 import pendulum
 import sqlalchemy as sa
 from attrs import field
-from sqlalchemy import Column, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, UniqueConstraint, types
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from uuid6 import UUID, uuid7
 
 import qwip
 from qwip.attrs import qdefine
+from qwip.data.filesystem import add_extension
+from qwip.data.serializers import get_serializer
+from qwip.data.storage import StorageBackend
 from qwip.database.database import VersionControlled
 from qwip.database.dolt import DoltTable
 from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
@@ -19,6 +24,23 @@ from qwip.database.utils import GUID, PendulumDateTime
 
 def _get_source() -> dict:
     return qwip.converter.unstructure(qwip.qsettings["src"])
+
+
+class StorageBackendType(types.TypeDecorator):
+    impl = types.JSON
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return value
+
+        return qwip.converter.unstructure(value)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return value
+
+        return qwip.converter.structure(value, StorageBackend)
 
 
 @qdefine(slots=False)
@@ -31,15 +53,15 @@ class Dataset(VersionControlled):
         factory=pendulum.now,
     )
     host: str = field(factory=platform.node)
-    user: str | None = None
+    user: str = ""
     version: str = qwip.qsettings["version"]
     source: dict = field(factory=_get_source)
-    config_db: str | None = None
-    commit: str | None = None
-    sample_id: str | None = None
-    cooldown_id: str | None = None
-    protocol: str | None = None
-    comments: str | None = None
+    config_db: str = ""
+    commit: str = ""
+    sample_id: str = ""
+    cooldown_id: str = ""
+    protocol: str = ""
+    comments: str = ""
 
     def add(self, assets: "Asset | Iterable[Asset]"):
         match assets:
@@ -47,6 +69,7 @@ class Dataset(VersionControlled):
                 assets = [assets]
 
         for asset in assets:
+            asset.dataset_id = self.id
             self._assets[asset.name] = asset
 
     def __getitem__(self, key: str) -> "Asset":
@@ -57,9 +80,41 @@ class Dataset(VersionControlled):
 class Asset(VersionControlled):
     name: str
     dataset_id: UUID | None = field(repr=lambda uid: uid.hex, default=None)
-    backend: str | None = None
-    address: str = "/"
-    serializer: dict = field(factory=dict)
+    storage: StorageBackend | None = None
+    serializer: str = "default"
+    params: dict = field(factory=dict)
+
+    @property
+    def fmt(self) -> str | None:
+        if "fmt" in self.params:
+            return self.params["fmt"]
+
+        serializer = get_serializer(self.serializer)
+        return serializer.default_format
+
+    @property
+    def address(self) -> str:
+        if self.dataset_id is None:
+            raise ValueError(
+                "Cannot compute address for asset with no associated dataset."
+            )
+
+        filename = add_extension(self.name, self.fmt or "").lstrip("/")
+        return f"/{self.dataset_id.hex}/{filename}"
+
+    def save(self, obj: Any, **kwargs):
+        if not self.storage:
+            raise ValueError("No storage backend specified, cannot save!")
+
+        params = {"serializer": self.serializer, **self.params} | kwargs
+        self.storage.save(self.address, obj, **params)
+
+    def load(self, **kwargs) -> Any:
+        if not self.storage:
+            raise ValueError("No storage backend specified, cannot load!")
+
+        params = {"serializer": self.serializer, **self.params} | kwargs
+        return self.storage.load(self.address, **params)
 
 
 dataset_table = DoltTable(
@@ -101,9 +156,10 @@ asset_table = DoltTable(
         nullable=False,
     ),
     Column("name", sa.String(255)),
-    Column("storage_backend", sa.String(255)),
+    Column("storage_backend", StorageBackendType),
     Column("address", sa.String(1024)),
-    Column("serializer", sa.JSON),
+    Column("serializer", sa.String(255)),
+    Column("params", sa.JSON),
     UniqueConstraint("name", "dataset_id", name="uq_assets_name_dataset_id"),
     UniqueConstraint("dataset_id", "asset_id", name="uq_assets_asset_id_dataset_id"),
 )
@@ -121,6 +177,7 @@ QWIP_DB_REGISTRY.map_imperatively(
             cascade="all, delete-orphan",
             back_populates="dataset",
             collection_class=attribute_mapped_collection("name"),
+            lazy="selectin",
         ),
     ),
 )
@@ -129,10 +186,11 @@ QWIP_DB_REGISTRY.map_imperatively(
     Asset,
     asset_table,
     properties=dict(
+        storage=asset_table.c.storage_backend,
         dataset=relationship(
             Dataset,
             back_populates="_assets",
-        )
+        ),
     ),
 )
 
