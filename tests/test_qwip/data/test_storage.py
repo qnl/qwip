@@ -82,7 +82,7 @@ class TestHTTPStorageBackend:
             with pytest.raises(expect):
                 storage.list_directory(folder)
         else:
-            assert storage.list_directory(folder) == expect
+            assert set(storage.list_directory(folder)) == set(expect)
 
     @pytest.mark.parametrize(
         "folder", ["/pytest", "/pytest/folder1/folder2/folder3", "/", ""]
@@ -154,6 +154,8 @@ class TestHTTPStorageBackend:
         downloaded = storage.load_buffer(download_address).read()
 
         assert data == downloaded
+
+        storage.remove_directory("pytest-roundtrip")
 
     def test_unstructure(self, storage):
         unstructured = qwip.converter.unstructure(storage)
