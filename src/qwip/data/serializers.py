@@ -15,7 +15,7 @@ import pyarrow.parquet as pq
 
 import qwip
 from qwip.attrs import qfrozen
-from qwip.data.filesystem import camel_to_kebab, generic_to_string
+from qwip.data.filesystem import camel_to_kebab
 from qwip.processing.data_processor import (
     DATA_PROCESSORS,
     DataProcessor,
@@ -25,6 +25,7 @@ from qwip.processing.processors import (
     dataframe_complex_to_real,
     dataframe_real_to_complex,
 )
+from qwip.typing import generic_to_string
 
 SERIALIZERS: dict[str, "Serializer"] = dict()
 
