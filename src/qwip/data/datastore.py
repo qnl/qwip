@@ -6,6 +6,7 @@ from attrs import field
 from loguru import logger
 from pendulum import DateTime
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.orm import lazyload
 from uuid6 import UUID
 
 from qwip.attrs import qdefine
@@ -236,7 +237,6 @@ class OfflineDatastore(Database):
         start: DateTime | None = None,
         end: DateTime | None = None,
         host: str | None = platform.node(),
-        fmt: str | None = None,
         user: str | None = None,
         config_db: str | None = None,
         commit: str | None = None,
@@ -249,13 +249,16 @@ class OfflineDatastore(Database):
     ) -> list[Dataset]:
         """Search the datastore for a list of datasets.
 
+        Note that assets are not loaded automatically in order to speed up queries. To
+        load the assets for a specific dataset, reload the dataset with the
+        `Datastore.load` method.
+
         Args:
             start: The start time to filter the datasets by. All returned datasets will
                 have a timestamp greater than or equal to `start`.
             end: The end time to filter the datasets by. All returned datasets will have
                 a timestamp less than or equal to `end`.
             host: The host computer on which the dataset was taken from.
-            fmt: The data format used to store the data.
             user: The user who saved the data.
             config_db: The databse url (`hostname:port/db_name`) for the configuration
                 database associated with the dataset.
@@ -272,7 +275,7 @@ class OfflineDatastore(Database):
         Returns:
             A list of datasets that fit the search criteria.
         """
-        stmt = sa.select(Dataset)
+        stmt = sa.select(Dataset).options(lazyload(Dataset._assets))
 
         if order_desc:
             stmt = stmt.order_by(Dataset.id.desc())
@@ -284,7 +287,7 @@ class OfflineDatastore(Database):
         if end:
             stmt = stmt.where(Dataset.timestamp <= end)
 
-        exact = dict(host=host, fmt=fmt, sample_id=sample_id, cooldown_id=cooldown_id)
+        exact = dict(host=host, sample_id=sample_id, cooldown_id=cooldown_id)
         substring = dict(
             user=user, config_db=config_db, commit=commit, comments=comments
         )
