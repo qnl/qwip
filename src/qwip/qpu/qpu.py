@@ -309,7 +309,9 @@ class QPU:
 
         if self.datastore:
             data = dict(config_db=self.db) | data
-            if exe and exe.sequence is not None:
+            if exe and exe.sequence is None:
+                data["executable"] = exe
+            elif exe:
                 data["sequence"] = exe.sequence
 
             self.datastore.save(*self.pipeline.grouped_data(), **data)
