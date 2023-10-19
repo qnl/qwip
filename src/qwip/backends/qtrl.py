@@ -362,7 +362,7 @@ class QTRLBackend(QuantumBackend):
         self.uploaded = exe
         self.meta.write_sequence(exe)
 
-    def acquire(self, exe: QTRLExecutable, repetitions: int = 512, **kwargs) -> dict:
+    def acquire(self, repetitions: int = 512, **kwargs) -> dict:
         acquisition_kwargs = dict(n_reps=repetitions, save_data=False) | kwargs
 
         meas = self.meta.acquire(**acquisition_kwargs)
@@ -378,9 +378,7 @@ class QTRLBackend(QuantumBackend):
 
         return iqdata
 
-    def update_parameters(
-        self, qpu: "QPU", readout: dict | SequenceElement = {}, **kwargs
-    ):
+    def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU.
 
         The QTRL backend requires that all readout frequencies are specified in the

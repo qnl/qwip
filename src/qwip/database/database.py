@@ -5,13 +5,12 @@ import attrs
 import pendulum
 import sqlalchemy as sa
 from attrs import field
-from loguru import logger
+from rich.prompt import Prompt
 from sqlalchemy import event
 from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.orm import Session
 from typing_extensions import Self
 
-import qwip
 from qwip.attrs import qdefine, qfrozen
 from qwip.database.dolt import (
     DoltBranch,
@@ -144,6 +143,9 @@ def sqlite_connect(dbapi_connection, connection_record):
     # disable pysqlite's emitting of the BEGIN statement entirely.
     # also stops it from emitting COMMIT before any DDL.
     dbapi_connection.isolation_level = None
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON;")
+    cursor.close()
 
 
 def sqlite_begin(connection):
@@ -251,15 +253,19 @@ class Database:
 
     @property
     def username(self) -> str:
-        return self.url.username
+        return self.url.username if self.url.username else ""
 
     @property
     def backend(self) -> str:
         return self.url.get_backend_name()
 
     @property
+    def host(self) -> str:
+        return self.url.host if self.url.host else ""
+
+    @property
     def database(self) -> str:
-        return self.url.database
+        return self.url.database if self.url.database else ""
 
     @session_context
     def tables(self) -> set[str]:
@@ -413,13 +419,19 @@ class DoltDB(Database):
         database: str | None = None,
         **kwargs,
     ) -> Self:
+        prompts = dict(username=username, password=password, database=database)
+
+        for key, val in prompts.items():
+            if val is None:
+                prompts[key] = Prompt().ask(
+                    key.capitalize(), password=key == "password"
+                )
+
         return super().from_parameters(
             driver=driver,
-            username=username,
-            password=password,
             host=host,
             port=port,
-            database=database,
+            **prompts,
             **kwargs,
         )
 

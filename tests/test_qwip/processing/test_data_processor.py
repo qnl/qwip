@@ -55,6 +55,16 @@ class TestMeasurementResult:
             name="NAME", data=y
         )
 
+    @pytest.mark.parametrize(
+        "df,size",
+        [
+            (pd.DataFrame(), 0),
+            (pd.DataFrame(np.zeros((10, 10), dtype=np.complex64)), 1056),
+        ],
+    )
+    def test_num_bytes(self, df, size):
+        assert MeasurementResult(name="name", data=df).num_bytes == size
+
     def test_repr(self, fixed_time):
         res = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3, 4]))
 
@@ -206,9 +216,7 @@ class TestPipeline:
     @pytest.fixture
     def single_qubit(self):
         processors = [
-            HeterodyneDemodulation(
-                measurement_key="ADC", weights=dict(R0=np.zeros(10), R1=np.zeros(20))
-            ),
+            HeterodyneDemodulation(measurement_key="ADC"),
             IQRotation(measurement_key="R0", angle=np.pi / 2),
             GMMClassification(
                 measurement_key=None, means=np.zeros((2, 2)), covariances=np.zeros(2)
@@ -342,7 +350,7 @@ class TestPipeline:
             dict(R0=Labeled[Averaged[HeterodyneDemodulation]])
         )
         assert resolved[-2:] == [
-            ("R0", Averaged(), (("R0", HeterodyneDemodulation),)),
+            ("R0", Averaged(), (("ADC", HeterodyneDemodulation),)),
             ("R0", Labeled(), (("R0", Averaged),)),
         ]
 

@@ -58,6 +58,10 @@ class DataProcessor:
     def output_keys(self) -> set[str]:
         return {self.measurement_key}
 
+    def is_multi_output(self) -> bool:
+        out_keys = self.output_keys()
+        return len(out_keys) > 1 or ... in out_keys
+
 
 @qdefine
 class GenericDataProcessor(DataProcessor):
@@ -131,6 +135,13 @@ class MeasurementResult:
                 return None
 
         return get_last_processor(self.processors)
+
+    @property
+    def num_bytes(self) -> int:
+        """An estimate of the dataframe size in bytes."""
+        return (
+            self.data.values.nbytes + self.data.index.nbytes + self.data.columns.nbytes
+        )
 
 
 @qdefine
@@ -472,7 +483,10 @@ class ReadoutPipeline:
                 or p.measurement_key is None
             )
             output_fallback_match = (
-                output_key in output_keys or output_key is None or None in output_keys
+                output_key in output_keys
+                or output_key is None
+                or None in output_keys
+                or ... in output_keys
             )
 
             if input_fallback_match and output_fallback_match:
@@ -692,7 +706,7 @@ class ReadoutPipeline:
             predecessors = tuple(
                 (
                     # Need to handle processors with multiple output keys
-                    node_key if len(p.processor.output_keys()) > 1 else p.key,
+                    node_key if p.processor.is_multi_output() > 1 else p.key,
                     type(p.processor),
                 )
                 for p in graph.predecessors(node)
@@ -845,11 +859,25 @@ class ReadoutPipeline:
 
         return results
 
-    def grouped_data(self) -> list[dict[str, MeasurementResult]]:
-        """Returns a list of all results, grouped by final processor."""
+    def grouped_data(
+        self, max_size: int | None = 1024**2
+    ) -> list[dict[str, MeasurementResult]]:
+        """Groups measurement results by their final processor.
+
+        Args:
+            max_size: The maximum size in bytes of any single result object to include.
+                Any result with an estimated size greater than `max_size` is discarded.
+                To ignore the size limit, set `max_size=None`.
+
+        Returns:
+            A list of all results, grouped by final processor.
+        """
         results = defaultdict(dict)
 
         for (key, proc), result in self.dependency_cache.items():
+            if max_size is not None and result.num_bytes > max_size:
+                continue
+
             results[proc][key] = result
 
         return list(results.values())

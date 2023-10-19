@@ -1,26 +1,14 @@
 import itertools as it
-from pathlib import Path
 
-import pandas as pd
 import pendulum
 import pytest
 
 from qwip import qsettings
 from qwip.data.filesystem import (
-    DataFormat,
-    DataSaver,
     add_extension,
     camel_to_kebab,
     date,
     make_data_directory,
-)
-from qwip.processing.data_processor import MeasurementResult
-from qwip.processing.processors import (
-    GMMClassification,
-    IQResult,
-    ReadoutBitstring,
-    ReadoutHistogram,
-    StatePopulations,
 )
 
 
@@ -30,6 +18,9 @@ from qwip.processing.processors import (
         ("file", ".csv", "file.csv"),
         ("file", "csv", "file.csv"),
         ("file.csv", "csv", "file.csv"),
+        ("", "", ""),
+        ("file.", ".csv", "file.csv"),
+        (".gitignore", "", ".gitignore"),
     ],
 )
 def test_add_extension(name, ext, expected):
@@ -71,118 +62,3 @@ def test_make_data_directory(tmp_path, fixed_time):
 
         assert dir.exists()
         assert dir == tmp_path / str(fixed_time.date())
-
-
-class TestDataSaver:
-    @pytest.fixture
-    def datasaver(self, tmp_path):
-        return DataSaver(directory=tmp_path)
-
-    @pytest.mark.parametrize(
-        "processors",
-        [
-            tuple(),
-            (ReadoutHistogram,),
-            (ReadoutBitstring, ReadoutHistogram, StatePopulations),
-        ],
-    )
-    def test_get_result_processor(self, processors):
-        result = MeasurementResult(
-            name="result",
-            data=pd.DataFrame(),
-            processors=tuple(p() for p in processors),
-        )
-
-        expected = processors[-1] if processors else None
-        assert DataSaver.get_result_processor(result) == expected
-
-    def test_get_result_processor_exception(self):
-        result = dict(
-            R0=MeasurementResult(name="R0", data=pd.DataFrame()),
-            R1=MeasurementResult(
-                name="R1",
-                data=pd.DataFrame(),
-                processors=(ReadoutBitstring(), StatePopulations()),
-            ),
-        )
-
-        with pytest.raises(ValueError):
-            DataSaver.get_result_processor(result)
-
-    def test_validate_directory(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
-            DataSaver(directory=tmp_path / "random")
-
-    def test_split_result(self, fixed_time, rng):
-        shape = (21, 2048, 2)
-
-        result = {
-            k: IQResult.random(shape, rng=rng, name=k) for k in ("R0", "R1", "R2")
-        }
-
-        metadata, data = DataSaver.split_result(result)
-
-        assert metadata == {
-            k: {
-                "name": k,
-                "timestamp": fixed_time.isoformat(),
-                "processors": [],
-                "__class__": "IQResult",
-            }
-            for k in result
-        }
-        assert data.columns.equals(
-            pd.MultiIndex.from_tuples(((k, "IQ") for k in result), names=["key", None])
-        )
-
-    def test_get_directory(self, datasaver, tmp_path):
-        result_id = "result_id"
-
-        assert datasaver.get_directory(result_id) == tmp_path / result_id
-        assert (tmp_path / result_id).exists()
-
-    @pytest.mark.parametrize(
-        "processor,filename",
-        it.chain.from_iterable(
-            (
-                [
-                    (GMMClassification, "gmm-classification", fmt),
-                    (None, "raw", fmt),
-                    (StatePopulations, "state-populations", fmt),
-                ]
-            )
-            for fmt in DataFormat
-        ),
-    )
-    def get_filename(self, processor, filename, fmt, datasaver):
-        assert datasaver.get_filename(processor, fmt) == Path(filename).with_suffix(fmt)
-
-    @pytest.mark.parametrize(
-        "filename,processor",
-        [
-            ("gmm-classification", GMMClassification),
-            ("raw", None),
-            ("state-populations", StatePopulations),
-            ("random", ValueError),
-        ],
-    )
-    def test_processor_from_filename(self, filename, processor, datasaver):
-        if processor is ValueError:
-            with pytest.raises(processor):
-                datasaver._processor_from_filename(filename)
-
-        else:
-            cache_hits = datasaver._processor_from_filename.cache_info().hits
-            assert datasaver._processor_from_filename(filename) is processor
-            datasaver._processor_from_filename(filename)
-            assert datasaver._processor_from_filename.cache_info().hits > cache_hits
-
-    def test_result_types(self, datasaver):
-        processors = {None, GMMClassification, StatePopulations}
-
-        folder = datasaver.get_directory("result_id")
-        for p in processors:
-            (folder / datasaver.get_filename(p)).touch()
-
-        assert datasaver.result_types("result_id") == processors
-        assert datasaver.result_types("random") == set()

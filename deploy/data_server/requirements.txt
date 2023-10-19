@@ -1,0 +1,7 @@
+# Requirements for qwip_data_server
+
+fastapi[all]==0.103.2
+uvicorn[standard]==0.23.2
+gunicorn==21.2.0
+loguru==0.7.2
+pydantic_settings==2.0.3

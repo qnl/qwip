@@ -77,11 +77,9 @@ class AlazarBackend(ADCBackend):
 
     def acquire(self, **kwargs) -> np.ndarray:
         arr = self.device.acquire()
-        arr = (
-            np.ascontiguousarray(arr.transpose(1, 2, 3, 0).astype(np.float32))
-            .view(np.complex64)
-            .squeeze()
-        )
+        arr = np.ascontiguousarray(arr.transpose(1, 2, 3, 0).astype(np.float32)).view(
+            np.complex64
+        )[..., 0]
 
         num_shots, num_readouts, num_samples = arr.shape
 
@@ -127,4 +125,7 @@ class AlazarBackend(ADCBackend):
         self.device.stop()
 
     def update_parameters(self, qpu: "QPU", **kwargs):
-        ...
+        self.sample_rate = qpu.compiler.channels[self.device.name].sample_rate
+
+
+__all__ = ["AlazarBackend", "AlazarCompiler", "AlazarProgram"]
