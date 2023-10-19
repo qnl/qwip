@@ -5,6 +5,7 @@ import attrs
 import pendulum
 import sqlalchemy as sa
 from attrs import field
+from rich.prompt import Prompt
 from sqlalchemy import event
 from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.orm import Session
@@ -418,13 +419,19 @@ class DoltDB(Database):
         database: str | None = None,
         **kwargs,
     ) -> Self:
+        prompts = dict(username=username, password=password, database=database)
+
+        for key, val in prompts.items():
+            if val is None:
+                prompts[key] = Prompt().ask(
+                    key.capitalize(), password=key == "password"
+                )
+
         return super().from_parameters(
             driver=driver,
-            username=username,
-            password=password,
             host=host,
             port=port,
-            database=database,
+            **prompts,
             **kwargs,
         )
 
