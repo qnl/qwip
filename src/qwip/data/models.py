@@ -226,7 +226,7 @@ QWIP_DB_REGISTRY.map_imperatively(
     ),
 )
 
-datastore_tables = [dataset_table]
+datastore_tables = [dataset_table, asset_table]
 
 for table in datastore_tables:
     if isinstance(table, DoltTable):
