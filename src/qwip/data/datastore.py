@@ -235,7 +235,7 @@ class OfflineDatastore(Database):
         *,
         start: DateTime | None = None,
         end: DateTime | None = None,
-        host: str | None = None,
+        host: str | None = platform.node(),
         fmt: str | None = None,
         user: str | None = None,
         config_db: str | None = None,
