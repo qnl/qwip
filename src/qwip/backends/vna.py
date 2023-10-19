@@ -5,7 +5,9 @@ import numpy as np
 import pandas as pd
 import pendulum
 from attrs import field
+from typing_extensions import Self
 
+import qwip
 from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import QuantumBackend
 from qwip.processing.processors import IQResult
@@ -80,6 +82,88 @@ class VNAExecutable(QuantumExecutable):
     if_bandwidth: float | None = None
     meas: str | None = field(default=None, metadata=dict(parameter="trace"))
 
+    @property
+    def center(self) -> float | None:
+        if self.start is None or self.stop is None:
+            return None
+
+        return (self.start + self.stop) / 2
+
+    @center.setter
+    def center(self, center) -> None:
+        if (span := self.span) is None:
+            raise ValueError("Cannot set center when span is None.")
+
+        self.start = center - span / 2
+        self.stop = center + span / 2
+
+    @property
+    def span(self) -> float | None:
+        if self.start is None or self.stop is None:
+            return None
+
+        return self.stop - self.start
+
+    @span.setter
+    def span(self, span) -> None:
+        if (center := self.center) is None:
+            raise ValueError("Cannot set span when center is None.")
+
+        self.start = center - span / 2
+        self.stop = center + span / 2
+
+    def sweep(self, **kwargs) -> list[Self]:
+        """Creates a list of executables that sweep the specified parameters.
+
+        Use the `sweep_parameters` function to construct a pandas index from the sweep
+        to use with the resulting data.
+
+        Args:
+            **kwargs: sweep parameters should be passed in as keyword arguments that
+                specify the values the arguments should take.
+
+        Returns:
+            A list of executables.
+        """
+        N = set(len(vals) for vals in kwargs.values())
+
+        if len(N) > 1:
+            raise ValueError("Sweep parameters do not have the same length.")
+
+        N = N.pop()
+
+        exes = [attrs.evolve(self) for _ in range(N)]
+
+        for i, params in enumerate(zip(*kwargs.values())):
+            for k, p in zip(kwargs, params):
+                setattr(exes[i], k, p)
+
+        return exes
+
+
+def sweep_parameters(exe_list: list[VNAExecutable]) -> pd.Index:
+    """Returns an index with the parameters that are swept.
+
+    Any parameters that remain the same across all executables are not included in the
+    returned index.
+
+    Args:
+        exe_list: A list of `VNAExecutable`
+
+    Returns:
+        A pandas multi-index.
+    """
+    params = pd.DataFrame([qwip.converter.unstructure(exe) for exe in exe_list])
+
+    for col in params.columns:
+        if params[col].nunique() == 1:
+            del params[col]
+
+    if params.empty:
+        return pd.RangeIndex(0, len(exe_list))
+
+    return pd.MultiIndex.from_frame(params)
+
 
 @qdefine
 class VNABackend(QuantumBackend):
@@ -92,10 +176,20 @@ class VNABackend(QuantumBackend):
     processing and analysis code.
 
     Attributes:
-        vna: A VNA instrument for interfacing with a Vector Network Analyzer.
+        device: A VNA instrument for interfacing with a Vector Network Analyzer.
     """
 
-    vna: VNA
+    device: VNA
+
+    @property
+    def name(self) -> str:
+        return self.device.name
+
+    def download(self) -> VNAExecutable:
+        """Creates an executable with that matches the current instrument state."""
+        exe = VNAExecutable()
+        self.upload(exe)
+        return exe
 
     def upload(self, exe: VNAExecutable, **kwargs):
         """Sets the parameters for a frequency sweep.
@@ -109,7 +203,7 @@ class VNABackend(QuantumBackend):
 
         for f in attrs.fields(type(exe)):
             try:
-                parameter = getattr(self.vna, f.metadata.get("parameter", f.name))
+                parameter = getattr(self.device, f.metadata.get("parameter", f.name))
             except AttributeError:
                 continue
 
@@ -119,15 +213,15 @@ class VNABackend(QuantumBackend):
                 setattr(exe, f.name, parameter())
 
                 # Letting averages <= 1 be equivalent to no averaging disabled
-                if f.name == "averages" and not self.vna.averages_enabled():
+                if f.name == "averages" and not self.device.averages_enabled():
                     setattr(exe, f.name, 1)
             else:
                 parameter(value)
 
                 if f.name == "averages":
-                    self.vna.averages_enabled(value > 1)
+                    self.device.averages_enabled(value > 1)
 
-    def acquire(self, exe: None = None, **kwargs) -> dict:
+    def acquire(self, **kwargs) -> dict:
         """Acquires the complex IQ data from the VNA.
 
         Args:
@@ -138,19 +232,21 @@ class VNABackend(QuantumBackend):
         """
         timestamp = pendulum.now()
 
-        frequencies = np.linspace(self.vna.start(), self.vna.stop(), self.vna.points())
+        frequencies = np.linspace(
+            self.device.start(), self.device.stop(), self.device.points()
+        )
 
-        power_on = self.vna.power_on()
-        self.vna.power_on(True)
-        IQ = self.vna.get_complex_data(**kwargs)
-        self.vna.power_on(power_on)
+        power_on = self.device.power_on()
+        self.device.power_on(True)
+        IQ = self.device.get_complex_data(**kwargs)
+        self.device.power_on(power_on)
 
         df = pd.DataFrame(
             IQ, index=pd.Index(frequencies, name="frequency"), columns=["IQ"]
         )
-        result = IQResult(name=self.vna.trace(), data=df, timestamp=timestamp)
+        result = IQResult(name=self.device.trace(), data=df, timestamp=timestamp)
 
-        return {self.vna.name: result}
+        return {self.name: result}
 
     def update_parameters(self, qpu: "QPU", **kwargs):
         ...
