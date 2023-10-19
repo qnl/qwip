@@ -1,5 +1,5 @@
 import platform
-from typing import Any, Literal
+from typing import Any
 
 import sqlalchemy as sa
 from attrs import field
@@ -235,7 +235,7 @@ class OfflineDatastore(Database):
         *,
         start: DateTime | None = None,
         end: DateTime | None = None,
-        host: str | None = None,
+        host: str | None = platform.node(),
         fmt: str | None = None,
         user: str | None = None,
         config_db: str | None = None,
@@ -337,3 +337,6 @@ class Datastore(OfflineDatastore, DoltDB):
 
         if value.database is None:
             raise ValueError("Database name must be provided for Datastore.")
+
+
+__all__ = ["Datastore", "OfflineDatastore"]

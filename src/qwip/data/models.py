@@ -1,6 +1,5 @@
 import platform
 from collections.abc import Iterable
-from pathlib import Path
 from typing import Any
 
 import pendulum
@@ -14,7 +13,7 @@ from uuid6 import UUID, uuid7
 
 import qwip
 from qwip.attrs import qdefine
-from qwip.data.filesystem import add_extension, camel_to_kebab
+from qwip.data.filesystem import add_extension
 from qwip.data.serializers import get_serializer
 from qwip.data.storage import StorageBackend
 from qwip.database.database import VersionControlled
@@ -166,7 +165,7 @@ dataset_table = DoltTable(
     Column("qwip_source", sa.JSON),
     Column("config_db", sa.String(255)),
     Column("config_commit", sa.String(32)),
-    Column("sample_id", sa.String(16)),
+    Column("sample_id", sa.String(255)),
     Column("cooldown_id", sa.String(16)),
     Column("protocol", sa.String(255)),
     Column("comments", sa.String(4096)),
@@ -231,3 +230,5 @@ datastore_tables = [dataset_table, asset_table]
 for table in datastore_tables:
     if isinstance(table, DoltTable):
         table.create_system_tables()
+
+__all__ = ["Asset", "Dataset"]
