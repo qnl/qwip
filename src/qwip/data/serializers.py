@@ -12,6 +12,8 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.feather as pf
 import pyarrow.parquet as pq
+from loguru import logger
+from matplotlib.figure import Figure
 
 import qwip
 from qwip.attrs import qfrozen
@@ -67,7 +69,15 @@ class Serializer(metaclass=ABCMeta):
         if fmt not in self.formats:
             raise ValueError(f"{fmt} is not a known format for {type(self).__name__}")
 
-        return getattr(self, f"from_stream_{fmt}")(stream, **kwargs)
+        try:
+            obj = getattr(self, f"from_stream_{fmt}")(stream, **kwargs)
+        finally:
+            try:
+                stream.close()
+            except Exception as e:
+                logger.exception(exception=e)
+
+        return obj
 
     def get_name(self, obj: Any) -> str:
         """Returns an auto-generated name for the object based on the type."""
@@ -88,10 +98,6 @@ class DefaultSerializer(Serializer):
 
     def from_stream_json(self, stream: BufferedReader, cls: type | None = None) -> Any:
         unstructured = json.load(stream)
-        try:
-            stream.close()
-        except AttributeError:
-            ...
 
         if cls:
             return qwip.converter.structure(unstructured, cls)
@@ -165,12 +171,6 @@ class DataFrameSerializer(Serializer):
 
     def from_stream_parquet(self, stream: BufferedReader) -> tuple[pd.DataFrame, dict]:
         table = pq.read_table(stream)
-
-        try:
-            stream.close()
-        except AttributeError:
-            ...
-
         metadata, data = from_arrow_table(table)
 
         if metadata:
@@ -190,12 +190,6 @@ class DataFrameSerializer(Serializer):
 
     def from_stream_feather(self, stream: BufferedReader) -> tuple[pd.DataFrame, dict]:
         table = pf.read_table(stream)
-
-        try:
-            stream.close()
-        except AttributeError:
-            ...
-
         metadata, data = from_arrow_table(table)
         if metadata:
             return data, metadata
@@ -333,6 +327,73 @@ class ResultSerializer(DataFrameSerializer):
                 return processor
 
         raise ValueError(f"{name} does not correspond to a known processor.")
+
+
+@qfrozen
+class MatplotlibSerializer(Serializer):
+    """A serializer for matplotlib figures."""
+
+    @property
+    def formats(self) -> tuple[str, ...]:
+        return ("png", "svg", "pdf")
+
+    def to_stream_png(
+        self,
+        figure: Figure,
+        **kwargs,
+    ) -> BufferedReader:
+        stream = BytesIO()
+
+        kwargs["format"] = "png"
+        figure.savefig(stream, **kwargs)
+        stream.seek(0)
+        return stream
+
+    def from_stream_png(self, stream: BufferedReader):
+        try:
+            from IPython.display import Image
+
+            return Image(stream)
+        except ModuleNotFoundError:
+            image = stream.read()
+            return image
+
+    def to_stream_svg(
+        self,
+        figure: Figure,
+        **kwargs,
+    ) -> BufferedReader:
+        stream = BytesIO()
+
+        kwargs["format"] = "svg"
+        figure.savefig(stream, **kwargs)
+        stream.seek(0)
+        return stream
+
+    def from_stream_svg(self, stream: BufferedReader):
+        data = stream.read().decode("utf-8")
+
+        try:
+            from IPython.display import HTML
+
+            return HTML(data)
+        except ModuleNotFoundError:
+            return data
+
+    def to_stream_pdf(
+        self,
+        figure: Figure,
+        **kwargs,
+    ) -> BufferedReader:
+        stream = BytesIO()
+
+        kwargs["format"] = "pdf"
+        figure.savefig(stream, **kwargs)
+        stream.seek(0)
+        return stream
+
+    def from_stream_pdf(self, stream: BufferedReader):
+        return stream.read()
 
 
 def register_serializer(serializer: Serializer) -> str:

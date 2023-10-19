@@ -1,17 +1,15 @@
 import itertools as it
-from io import BytesIO
-from pathlib import Path
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
 from pandas.testing import assert_frame_equal
 
 from qwip.data.serializers import (
     DataFrameSerializer,
     DefaultSerializer,
+    MatplotlibSerializer,
     ResultSerializer,
     detect_serializer,
     from_arrow_table,
@@ -240,6 +238,28 @@ class TestResultSerializer:
             assert serializer.processor_from_name(name) is processor
             serializer.processor_from_name(name)
             assert serializer.processor_from_name.cache_info().hits > cache_hits
+
+
+class TestMatplotlibSerializer:
+    @pytest.fixture
+    def serializer(self):
+        return MatplotlibSerializer()
+
+    @pytest.fixture
+    def figure(self):
+        fig, ax = plt.subplots()
+        ts = np.linspace(0, 1)
+        ax.plot(ts, np.sin(2 * np.pi * ts))
+        ax.grid(True)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Y-Axis")
+
+        return fig
+
+    @pytest.mark.parametrize("fmt", ["png", "svg", "pdf"])
+    def test_png(self, serializer, figure, fmt):
+        stream = serializer.to_stream(figure, fmt=fmt)
+        reloaded = serializer.from_stream(stream, fmt=fmt)
 
 
 DETECT_SERIALIZER_CASES = [
