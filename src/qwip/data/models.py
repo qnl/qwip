@@ -73,7 +73,12 @@ class Dataset(VersionControlled):
             self._assets[asset.name] = asset
 
     def __getitem__(self, key: str) -> "Asset":
-        return self._assets[key]
+        asset = self._assets[key]
+        # repr fails if obj is not present due to ORM weirdness
+        if not hasattr(asset.obj):
+            asset.obj = None
+
+        return asset
 
     def __contains__(self, key: str) -> bool:
         return key in self._assets
