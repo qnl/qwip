@@ -166,7 +166,7 @@ dataset_table = DoltTable(
     Column("qwip_source", sa.JSON),
     Column("config_db", sa.String(255)),
     Column("config_commit", sa.String(32)),
-    Column("sample_id", sa.String(16)),
+    Column("sample_id", sa.String(255)),
     Column("cooldown_id", sa.String(16)),
     Column("protocol", sa.String(255)),
     Column("comments", sa.String(4096)),
