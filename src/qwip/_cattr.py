@@ -195,7 +195,7 @@ converter.register_unstructure_hook(pendulum.Date, lambda dt: dt.isoformat())
 # ========== attrs types ========== #
 
 
-def make_attrs_structure_fn(cls):
+def make_attrs_structure_fn(cls, overrides: dict = {}):
     def get_override(field):
         if override := field.metadata.get("unstructure_override"):
             return override
@@ -204,7 +204,7 @@ def make_attrs_structure_fn(cls):
 
     to_structure = {
         f.name: override for f in attrs.fields(cls) if (override := get_override(f))
-    }
+    } | overrides
 
     structure_from_dict = make_dict_structure_fn(cls, converter, **to_structure)
 
@@ -219,7 +219,7 @@ def make_attrs_structure_fn(cls):
     return structure_fn
 
 
-def make_attrs_unstructure_fn(cls, omit_defaults: bool = True):
+def make_attrs_unstructure_fn(cls, omit_defaults: bool = True, overrides: dict = {}):
     def get_override(field):
         if override := field.metadata.get("unstructure_override"):
             return override
@@ -232,7 +232,7 @@ def make_attrs_unstructure_fn(cls, omit_defaults: bool = True):
 
     to_unstructure = {
         f.name: override for f in attrs.fields(cls) if (override := get_override(f))
-    }
+    } | overrides
 
     unstructure_from_dict = make_dict_unstructure_fn(
         cls, converter, _cattrs_omit_if_default=omit_defaults, **to_unstructure
