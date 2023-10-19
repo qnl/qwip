@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal, assert_array_equal
 
+import qwip
 from qwip.sequencer.compilation import (
     ChannelInfo,
     DeviceInfo,
@@ -32,6 +33,44 @@ class TestQuantumExecutable:
         assert qxe1 != qxe2
         assert qxe1 == qxe3
         assert QuantumExecutable(sequence=None) == QuantumExecutable(sequence=None)
+
+    @pytest.mark.parametrize(
+        "exe,expected",
+        [
+            (
+                QuantumExecutable(),
+                dict(__class__="qwip.sequencer.compilation.QuantumExecutable"),
+            ),
+            (
+                QuantumExecutable(sequence=Sequence.empty((10, 2))),
+                dict(
+                    sequence=dict(
+                        names=[None, None],
+                        labels={},
+                        shape=(10, 2),
+                        data=[[{} for _ in range(2)] for _ in range(10)],
+                    ),
+                    __class__="qwip.sequencer.compilation.QuantumExecutable",
+                ),
+            ),
+        ],
+    )
+    def test_unstructure(self, exe, expected):
+        unstructured = qwip.converter.unstructure(exe)
+        assert unstructured == expected
+
+    @pytest.mark.parametrize(
+        "exe",
+        [QuantumExecutable(), QuantumExecutable(sequence=Sequence.empty((10, 2)))],
+    )
+    def test_structure(self, exe):
+        unstructured = qwip.converter.unstructure(exe)
+        structured = qwip.converter.structure(unstructured, QuantumExecutable)
+
+        assert (
+            exe.sequence is structured.sequence
+            or (exe.sequence == structured.sequence).all()
+        )
 
 
 class TestDeviceInfo:

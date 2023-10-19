@@ -4,6 +4,7 @@ from collections import Counter, defaultdict, deque
 from collections.abc import Callable, Collection, Iterable
 from typing import Any
 
+import cattr
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
@@ -16,6 +17,7 @@ from scipy.fft import fft, fftfreq, fftshift
 from typing_extensions import Self
 
 import qwip
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
@@ -263,6 +265,55 @@ class QuantumExecutable(metaclass=ABCMeta):
     @property
     def seq(self) -> Sequence | None:
         return self.sequence
+
+
+def make_executable_structure_fn(cls):
+    structure_attrs = make_attrs_structure_fn(cls)
+
+    def structure_fn(val, cls):
+        if isinstance(val, cls):
+            return val
+
+        try:
+            subclass = qwip.converter.structure(val.get("__class__"), type)
+        except NameError:
+            subclass = QuantumExecutable
+            logger.warning(
+                f"No executable subclass found. Attempting to structure {val} as {cls}."
+            )
+
+        if subclass is QuantumExecutable:
+            return structure_attrs(val, cls)
+
+        return qwip.converter.structure(val, subclass)
+
+    return structure_fn
+
+
+def make_executable_unstructure_fn(cls):
+    overrides = {"sequence": cattr.override(omit_if_default=False, omit=False)}
+    unstructure_attrs = make_attrs_unstructure_fn(cls, overrides=overrides)
+
+    def unstructure_fn(obj):
+        unstructured = {
+            **unstructure_attrs(obj),
+            "__class__": qwip.converter.unstructure(type(obj)),
+        }
+        if unstructured["sequence"] is None:
+            unstructured.pop("sequence")
+
+        return unstructured
+
+    return unstructure_fn
+
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: cls is QuantumExecutable, make_executable_structure_fn
+)
+
+qwip.converter.register_unstructure_hook_factory(
+    lambda cls: issubclass(cls, QuantumExecutable), make_executable_unstructure_fn
+)
 
 
 @qdefine
