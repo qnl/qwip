@@ -5,8 +5,6 @@ a superconduting quantum device as a quantum circuit processor, including circui
 compilation/transpilation, data acquisition, and measurement processing. This is the
 main user interface for interacting with experimental devices.
 """
-import re
-
 from attrs import field
 from loguru import logger
 
@@ -23,15 +21,14 @@ from qwip.processing.data_processor import (
     ReadoutPipeline,
 )
 from qwip.processing.processors import GMMClassification, IQRotation
-from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem, ReadoutResonator
-from qwip.sequencer import Sequence, SequenceElement
+from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem
+from qwip.sequencer import Sequence
 from qwip.sequencer.compilation import (
     REGISTERED_COMPILERS,
     ChannelInfo,
     DeviceInfo,
     QuantumExecutable,
     QWiPCompiler,
-    TriggerInfo,
 )
 from qwip.sequencer.phase_tracker import ModulationFrequency
 
@@ -311,8 +308,11 @@ class QPU:
         processed = self.process_results(raw_data, processor, exe=exe)
 
         if self.datastore:
-            data = dict(config_db=self.db, seq=exe.sequence) | data
-            self.datastore.save(self.pipeline.grouped_data(), **data)
+            data = dict(config_db=self.db) | data
+            if exe and exe.sequence is not None:
+                data["sequence"] = exe.sequence
+
+            self.datastore.save(*self.pipeline.grouped_data(), **data)
 
         return processed
 

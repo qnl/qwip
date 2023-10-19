@@ -144,6 +144,9 @@ def sqlite_connect(dbapi_connection, connection_record):
     # disable pysqlite's emitting of the BEGIN statement entirely.
     # also stops it from emitting COMMIT before any DDL.
     dbapi_connection.isolation_level = None
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON;")
+    cursor.close()
 
 
 def sqlite_begin(connection):
@@ -251,15 +254,19 @@ class Database:
 
     @property
     def username(self) -> str:
-        return self.url.username
+        return self.url.username if self.url.username else ""
 
     @property
     def backend(self) -> str:
         return self.url.get_backend_name()
 
     @property
+    def host(self) -> str:
+        return self.url.host if self.url.host else ""
+
+    @property
     def database(self) -> str:
-        return self.url.database
+        return self.url.database if self.url.database else ""
 
     @session_context
     def tables(self) -> set[str]:

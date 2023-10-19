@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  qwip_dataserver:
+    container_name: qwip_dataserver
+    build: .
+    image: qnl/qwip-dataserver
+    ports:
+      - 4002:4002
+    volumes:
+      - ../../src/qwip_dataserver:/qwip_dataserver
+      - dataserver-volume:/dataserver
+    command:
+      - '--reload'
+    environment:
+      - DATASERVER_ROOT=/dataserver
+    networks:
+      - web
+
+volumes:
+  dataserver-volume:
+    driver_opts:
+      type: none
+      device: ${QWIP_DATASERVER_ROOT}
+      o: bind
+
+networks:
+  web:
+    external: true
