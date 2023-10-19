@@ -311,8 +311,8 @@ class QPU:
         processed = self.process_results(raw_data, processor, exe=exe)
 
         if self.datastore:
-            data = dict(config_db=self.db, seq=exe.sequence) | data
-            self.datastore.save(self.pipeline.grouped_data(), **data)
+            data = dict(config_db=self.db) | data
+            self.datastore.save(*self.pipeline.grouped_data(), executable=exe, **data)
 
         return processed
 
