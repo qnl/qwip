@@ -136,6 +136,13 @@ class MeasurementResult:
 
         return get_last_processor(self.processors)
 
+    @property
+    def num_bytes(self) -> int:
+        """An estimate of the dataframe size in bytes."""
+        return (
+            self.data.values.nbytes + self.data.index.nbytes + self.data.columns.nbytes
+        )
+
 
 @qdefine
 class DataProcessorMetadata:
@@ -852,11 +859,25 @@ class ReadoutPipeline:
 
         return results
 
-    def grouped_data(self) -> list[dict[str, MeasurementResult]]:
-        """Returns a list of all results, grouped by final processor."""
+    def grouped_data(
+        self, max_size: int | None = 1024**2
+    ) -> list[dict[str, MeasurementResult]]:
+        """Groups measurement results by their final processor.
+
+        Args:
+            max_size: The maximum size in bytes of any single result object to include.
+                Any result with an estimated size greater than `max_size` is discarded.
+                To ignore the size limit, set `max_size=None`.
+
+        Returns:
+            A list of all results, grouped by final processor.
+        """
         results = defaultdict(dict)
 
         for (key, proc), result in self.dependency_cache.items():
+            if max_size is not None and result.num_bytes > max_size:
+                continue
+
             results[proc][key] = result
 
         return list(results.values())
