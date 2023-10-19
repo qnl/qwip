@@ -70,7 +70,7 @@ class OfflineDatastore(Database):
             )
 
             try:
-                config_data["commit"] = (config_db.log()[-1].hash,)
+                config_data["commit"] = config_db.log()[-1].hash
             except AttributeError:
                 ...
 
