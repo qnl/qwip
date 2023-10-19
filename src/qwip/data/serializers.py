@@ -353,7 +353,7 @@ class MatplotlibSerializer(Serializer):
         try:
             from IPython.display import Image
 
-            return Image(stream)
+            return Image(stream.read())
         except ModuleNotFoundError:
             image = stream.read()
             return image
@@ -426,6 +426,11 @@ def detect_dataframe(obj: pd.DataFrame):
     return SERIALIZERS["dataframe"]
 
 
+@detect_serializer.register(Figure)
+def detect_figure(obj: Figure):
+    return SERIALIZERS["matplotlib"]
+
+
 def get_serializer(*, key: str | None = None, obj: Any = None) -> Serializer:
     if key is not None:
         normalized = key.lower()
@@ -447,3 +452,4 @@ def get_serializer(*, key: str | None = None, obj: Any = None) -> Serializer:
 register_serializer(DefaultSerializer())
 register_serializer(DataFrameSerializer())
 register_serializer(ResultSerializer())
+register_serializer(MatplotlibSerializer())
