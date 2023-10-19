@@ -75,7 +75,7 @@ class Dataset(VersionControlled):
     def __getitem__(self, key: str) -> "Asset":
         asset = self._assets[key]
         # repr fails if obj is not present due to ORM weirdness
-        if not hasattr(asset.obj):
+        if not hasattr(asset, "obj"):
             asset.obj = None
 
         return asset
