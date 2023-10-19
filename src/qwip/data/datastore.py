@@ -1,5 +1,5 @@
 import platform
-from typing import Any, Literal
+from typing import Any
 
 import sqlalchemy as sa
 from attrs import field

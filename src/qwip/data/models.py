@@ -1,6 +1,5 @@
 import platform
 from collections.abc import Iterable
-from pathlib import Path
 from typing import Any
 
 import pendulum
@@ -14,7 +13,7 @@ from uuid6 import UUID, uuid7
 
 import qwip
 from qwip.attrs import qdefine
-from qwip.data.filesystem import add_extension, camel_to_kebab
+from qwip.data.filesystem import add_extension
 from qwip.data.serializers import get_serializer
 from qwip.data.storage import StorageBackend
 from qwip.database.database import VersionControlled

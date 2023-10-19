@@ -5,13 +5,11 @@ import attrs
 import pendulum
 import sqlalchemy as sa
 from attrs import field
-from loguru import logger
 from sqlalchemy import event
 from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.orm import Session
 from typing_extensions import Self
 
-import qwip
 from qwip.attrs import qdefine, qfrozen
 from qwip.database.dolt import (
     DoltBranch,
