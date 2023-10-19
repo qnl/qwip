@@ -230,3 +230,5 @@ datastore_tables = [dataset_table, asset_table]
 for table in datastore_tables:
     if isinstance(table, DoltTable):
         table.create_system_tables()
+
+__all__ = ["Asset", "Dataset"]

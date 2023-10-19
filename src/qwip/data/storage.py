@@ -394,3 +394,5 @@ qwip.converter.register_structure_hook_factory(
 qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, StorageBackend), make_storage_backend_unstructure_fn
 )
+
+__all__ = ["HTTPStorageBackend", "LocalStorageBackend", "StorageBackend"]

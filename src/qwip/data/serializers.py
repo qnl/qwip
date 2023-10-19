@@ -453,3 +453,13 @@ register_serializer(DefaultSerializer())
 register_serializer(DataFrameSerializer())
 register_serializer(ResultSerializer())
 register_serializer(MatplotlibSerializer())
+
+__all__ = [
+    "DataFrameSerializer",
+    "DefaultSerializer",
+    "MatplotlibSerializer",
+    "ResultSerializer",
+    "Serializer",
+    "get_serializer",
+    "detect_serializer",
+]

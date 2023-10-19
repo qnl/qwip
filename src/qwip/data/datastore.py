@@ -337,3 +337,6 @@ class Datastore(OfflineDatastore, DoltDB):
 
         if value.database is None:
             raise ValueError("Database name must be provided for Datastore.")
+
+
+__all__ = ["Datastore", "OfflineDatastore"]
