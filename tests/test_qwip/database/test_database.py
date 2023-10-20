@@ -17,6 +17,7 @@ class TestDatabase:
             "constraints",
             "sequence_elements",
             "datasets",
+            "assets",
         }
 
 

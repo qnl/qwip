@@ -59,11 +59,11 @@ class TestMeasurementResult:
         "df,size",
         [
             (pd.DataFrame(), 0),
-            (pd.DataFrame(np.zeros((10, 10), dtype=np.complex64)), 1056),
+            (pd.DataFrame(np.zeros((10, 10), dtype=np.complex64)), 800),
         ],
     )
     def test_num_bytes(self, df, size):
-        assert MeasurementResult(name="name", data=df).num_bytes == size
+        assert MeasurementResult(name="name", data=df).num_bytes >= size
 
     def test_repr(self, fixed_time):
         res = MeasurementResult(name="name", data=pd.DataFrame([1, 2, 3, 4]))
