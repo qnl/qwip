@@ -17,7 +17,7 @@ from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qfrozen
 from qwip.attrs.serialization import _TypeConverter
 from qwip.defaults import dynamic_default
-from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
+from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import LinearExpression, Location
 from qwip.typing import is_union_type
 
@@ -362,12 +362,12 @@ class DCWaveform(InfiniteWaveform):
 @register_waveform
 @qfrozen
 class CWWaveform(InfiniteWaveform):
-    frequency: ModulationFrequency
+    frequency: Frame
     phase: float | str = 0
     offset: float | complex | str = field(
         default=0, converter=lambda v: float(v) if isinstance(v, int) else v
     )
-    mod_key: ModulationFrequency | None = None
+    mod_key: Frame | None = None
     hardware_modulation: bool = False
 
     @dynamic_default(phase_unit="units/phase")
@@ -378,7 +378,7 @@ class CWWaveform(InfiniteWaveform):
         phase: float,
         offset: float | complex,
         phase_tracker: PhaseTracker | None = None,
-        modulations: dict[str, ModulationFrequency] = {},
+        modulations: dict[str, Frame] = {},
         phase_unit: str = None,
         complex_out: bool = False,
         **kwargs,
@@ -488,7 +488,7 @@ class ModulatedWaveform(Waveform):
 @register_waveform
 @qfrozen
 class VirtualZWaveform(Marker):
-    mod_key: ModulationFrequency
+    mod_key: Frame
     phase: float | str = 0
 
     def update_phase_tracker(
@@ -502,7 +502,7 @@ class VirtualZWaveform(Marker):
 @register_waveform
 @qfrozen
 class PhaseResetWaveform(Marker):
-    mod_key: ModulationFrequency
+    mod_key: Frame
 
     def update_phase_tracker(
         self,

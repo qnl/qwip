@@ -6,7 +6,7 @@ from scipy.integrate import solve_ivp
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
 
 REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
 
@@ -24,7 +24,7 @@ def register_qsystem(cls) -> type:
 class QuantumSystem:
     name: str
 
-    def get_modulations(self, **kwargs) -> dict[str, ModulationFrequency]:
+    def get_modulations(self, **kwargs) -> dict[str, Frame]:
         return dict()
 
 
@@ -45,9 +45,7 @@ class Transmon(QuantumSystem):
     def mod_keys(self) -> tuple[str, ...]:
         return ("GE", "EF")
 
-    def get_modulations(
-        self, LO_map: dict = {}, **kwargs
-    ) -> dict[str, ModulationFrequency]:
+    def get_modulations(self, LO_map: dict = {}, **kwargs) -> dict[str, Frame]:
         """Get the modulation dictionary associated with this system.
 
         Args:
@@ -77,9 +75,7 @@ class Transmon(QuantumSystem):
 
         return modulations
 
-    def mod_frequency(
-        self, mod_key: str = "GE", LO_map: dict = {}
-    ) -> ModulationFrequency:
+    def mod_frequency(self, mod_key: str = "GE", LO_map: dict = {}) -> Frame:
         """Returns the modulation frequency for a specific modulation_key"""
         name = self.modulation_name.format(name=self.name, mod_key=mod_key)
         return self.get_modulations(LO_map)[name]
@@ -95,9 +91,7 @@ class ReadoutResonator(QuantumSystem):
     local_oscillator: str | None = None
     modulation_name: str = "{name}.mod"
 
-    def get_modulations(
-        self, LO_map: dict = {}, **kwargs
-    ) -> dict[str, ModulationFrequency]:
+    def get_modulations(self, LO_map: dict = {}, **kwargs) -> dict[str, Frame]:
         """Get the modulation dictionary associated with this system.
 
         Args:
@@ -122,9 +116,7 @@ class ReadoutResonator(QuantumSystem):
         modulations[mod_name] = self.frequency - lo_freq
         return modulations
 
-    def mod_frequency(
-        self, mod_key: str = "GE", LO_map: dict = {}
-    ) -> ModulationFrequency:
+    def mod_frequency(self, mod_key: str = "GE", LO_map: dict = {}) -> Frame:
         """Returns the modulation frequency for a specific modulation_key"""
         name = self.modulation_name.format(name=self.name, mod_key=mod_key)
         return self.get_modulations(LO_map)[name]

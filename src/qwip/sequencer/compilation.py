@@ -20,7 +20,7 @@ import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
+from qwip.sequencer.phase_tracker import Frame, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import Marker, ReadoutMarker, TriggeredWaveform, Waveform
@@ -373,7 +373,7 @@ class QWiPCompiler:
     """
 
     channels: dict[str, DeviceInfo] = field(factory=dict)
-    modulations: dict[str, ModulationFrequency] = field(factory=dict)
+    modulations: dict[str, Frame] = field(factory=dict)
     subcompilers: dict[str, HardwareCompiler] = field(factory=dict)
 
     @classmethod

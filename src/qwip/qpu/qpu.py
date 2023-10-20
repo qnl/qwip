@@ -30,7 +30,7 @@ from qwip.sequencer.compilation import (
     QuantumExecutable,
     QWiPCompiler,
 )
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
 
 
 @qdefine
@@ -103,7 +103,7 @@ class QPU:
 
     @classmethod
     def load_compiler(
-        cls, config: ConfigFolder, modulations: dict[str, ModulationFrequency] = {}
+        cls, config: ConfigFolder, modulations: dict[str, Frame] = {}
     ) -> QWiPCompiler:
         compilation = config["compilation"]
         devices = []
@@ -166,7 +166,7 @@ class QPU:
                 case QuantumSystem(get_modulations=_):
                     modulation_keys |= qwip.converter.structure(
                         system.get_modulations(local_oscillators),
-                        dict[str, ModulationFrequency],
+                        dict[str, Frame],
                     )
                 case _:
                     logger.info(

@@ -10,11 +10,22 @@ from typing_extensions import Self
 
 from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.utils import LinearExpression
+from qwip.utils import deprecated
 
 
 @qfrozen(kw_only=False, repr=False)
-class ModulationFrequency(LinearExpression):
+class Frame(LinearExpression):
     ...
+
+
+@qfrozen(kw_only=False, repr=False)
+class ModulationFrequency(Frame):
+    ...
+
+
+ModulationFrequency.__init__ = deprecated(
+    version="23.10.0", removed="24.1.0", message="Use Frame instead."
+)(ModulationFrequency.__init__)
 
 
 @qfrozen(kw_only=False, order=True)
@@ -42,23 +53,21 @@ class PhaseTracker:
     """A data structure for maintaining a set of phase jumps.
 
     Each entry in the phase tracker references a relative phase between two states
-    in the Hilbert space. Phases are indexed by a unique ModulationFrequency that
+    in the Hilbert space. Phases are indexed by a unique Frame that
     also specifies the frequency at which the particular phase evolves in the
     absence of any discrete phase jumps.
 
     Attributes:
-        phases: A dictionary mapping ModulationFrequency to a list of phase jumps.
+        phases: A dictionary mapping Frame to a list of phase jumps.
         resets: A mapping of reference frames to a list of times at which the phase
             should get reset.
     """
 
-    phases: dict[ModulationFrequency, list[PhaseJump]] = field(factory=dict)
-    resets: dict[ModulationFrequency, list[float]] = field(factory=dict)
+    phases: dict[Frame, list[PhaseJump]] = field(factory=dict)
+    resets: dict[Frame, list[float]] = field(factory=dict)
 
     @classmethod
-    def from_modulations(
-        cls, modulations: TSequence[ModulationFrequency | str]
-    ) -> Self:
+    def from_modulations(cls, modulations: TSequence[Frame | str]) -> Self:
         """Creates an entry in the phase dictionary for each base modulation.
 
         A null phase jump (phase increment of 0) will always be added at t = 0 to
@@ -71,7 +80,7 @@ class PhaseTracker:
 
         for mod in modulations:
             if isinstance(mod, str):
-                mod = ModulationFrequency.from_string(mod)
+                mod = Frame.from_string(mod)
 
             if mod.variables():
                 for v in mod.variables():
@@ -97,7 +106,7 @@ class PhaseTracker:
             A list of phase jumps associated with the frame.
         """
         if isinstance(val, str):
-            val = ModulationFrequency.from_string(val)
+            val = Frame.from_string(val)
 
         if not val.references:
             try:
@@ -115,18 +124,18 @@ class PhaseTracker:
     def __contains__(self, val):
         """Returns True if all references are in the phase dictionary."""
         if isinstance(val, str):
-            val = ModulationFrequency.from_string(val)
+            val = Frame.from_string(val)
 
         deps = val.variables()
         if val.offset or not val.variables():
-            deps.add(ModulationFrequency(val.offset))
+            deps.add(Frame(val.offset))
 
         return all(v in self.phases for v in deps)
 
-    def append(self, modkey: ModulationFrequency | str, phase: PhaseJump):
+    def append(self, modkey: Frame | str, phase: PhaseJump):
         """Adds a phase jump."""
         if isinstance(modkey, str):
-            modkey = ModulationFrequency.from_string(modkey)
+            modkey = Frame.from_string(modkey)
 
         if modkey.references:
             raise ValueError(
@@ -135,7 +144,7 @@ class PhaseTracker:
 
         self[modkey].append(phase)
 
-    def reset(self, modkey: ModulationFrequency, time: float):
+    def reset(self, modkey: Frame, time: float):
         """Adds a phase reset."""
 
         try:
@@ -148,10 +157,10 @@ class PhaseTracker:
         """Returns a list of phases with a single entry per timepoint."""
         return [sum(tphis) for _, tphis in it.groupby(phases, key=lambda pt: pt.t)]
 
-    def compressed(self, modkey: ModulationFrequency) -> list[PhaseJump]:
+    def compressed(self, modkey: Frame) -> list[PhaseJump]:
         return type(self).compress(self[modkey])
 
-    def accumulated(self, modkey: ModulationFrequency) -> list[PhaseJump]:
+    def accumulated(self, modkey: Frame) -> list[PhaseJump]:
         phis = type(self).compress(self[modkey])
 
         return list(
@@ -162,7 +171,7 @@ class PhaseTracker:
 
     def integrate_phase(
         self,
-        modkey: ModulationFrequency,
+        modkey: Frame,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Computes the total accumulated phase from phase jumps.
 
@@ -194,7 +203,7 @@ class PhaseTracker:
 
     def compute_integrated_phase(
         self,
-        modkey: ModulationFrequency,
+        modkey: Frame,
         ts: np.ndarray,
     ) -> np.ndarray:
         """Computes the jump phases for a set of timepoints.
@@ -236,9 +245,9 @@ class PhaseTracker:
 
     def compute_oscillator_phase(
         self,
-        modkey: ModulationFrequency,
+        modkey: Frame,
         ts: np.ndarray,
-        modulations: dict[str, ModulationFrequency] = {},
+        modulations: dict[str, Frame] = {},
     ) -> np.ndarray:
         """Computes the phase on a reference frame due to time evolution.
 
@@ -270,13 +279,13 @@ class PhaseUpdater(Protocol):
     def update_phase_tracker(
         self,
         time: float,
-        phase_tracker: dict[ModulationFrequency, list[tuple[float, float]]],
+        phase_tracker: dict[Frame, list[tuple[float, float]]],
     ) -> None:
         ...
 
 
 __all__ = [
-    "ModulationFrequency",
+    "Frame",
     "PhaseJump",
     "PhaseTracker",
     "PhaseUpdater",

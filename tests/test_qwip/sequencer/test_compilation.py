@@ -10,7 +10,7 @@ from qwip.sequencer.compilation import (
     QWiPCompiler,
 )
 from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
@@ -132,10 +132,10 @@ class TestQWiPCompiler:
         )
 
         modulations = dict(
-            mod_Q0=ModulationFrequency(200e6),
-            mod_Q1=ModulationFrequency(150e6),
-            mod_R0=ModulationFrequency(-300e6),
-            mod_R1=ModulationFrequency(-400e6),
+            mod_Q0=Frame(200e6),
+            mod_Q1=Frame(150e6),
+            mod_R0=Frame(-300e6),
+            mod_R1=Frame(-400e6),
         )
 
         return QWiPCompiler.from_devices([dac, adc], modulations=modulations)

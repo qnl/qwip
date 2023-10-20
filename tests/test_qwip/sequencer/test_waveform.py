@@ -8,7 +8,7 @@ from numpy.testing import assert_allclose, assert_almost_equal
 
 import qwip
 from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
+from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     DRAG,
@@ -171,12 +171,10 @@ class TestCWWaveform:
     def test_modulation(self, ts, phase_jumps, data_file):
         expected = np.loadtxt(str(data_file))
 
-        w = CWWaveform(frequency=ModulationFrequency(0.2), channels=("I", "Q"))
+        w = CWWaveform(frequency=Frame(0.2), channels=("I", "Q"))
 
         phase_tracker = PhaseTracker(
-            phases={
-                ModulationFrequency(0.2): [PhaseJump(t, pj) for t, pj in phase_jumps]
-            }
+            phases={Frame(0.2): [PhaseJump(t, pj) for t, pj in phase_jumps]}
         )
 
         wave = w(ts, phase_tracker=phase_tracker, phase_unit="degrees")
@@ -200,15 +198,13 @@ class TestCWWaveform:
     def test_hardware_modulation(self, ts, phase_jumps, data_file):
         expected = np.loadtxt(str(data_file), dtype=np.complex64)
         w = CWWaveform(
-            frequency=ModulationFrequency(5e9),
+            frequency=Frame(5e9),
             channels=("Q0.drv",),
             hardware_modulation=True,
         )
 
         phase_tracker = PhaseTracker(
-            phases={
-                ModulationFrequency(5e9): [PhaseJump(t, pj) for t, pj in phase_jumps]
-            }
+            phases={Frame(5e9): [PhaseJump(t, pj) for t, pj in phase_jumps]}
         )
 
         wave = w(
@@ -226,7 +222,7 @@ class TestCWWaveform:
         pj_deg = phase_jumps
         pj_rad = phase_jumps * np.array([[1, np.pi / 180]])
 
-        mod_freq = ModulationFrequency(0.5)
+        mod_freq = Frame(0.5)
 
         phase_tracker_deg = PhaseTracker(
             phases={mod_freq: [PhaseJump(t, pj) for t, pj in pj_deg]}
@@ -300,7 +296,7 @@ class TestModulatedWaveform:
     def test_IQ_modulation(self, ts, phase_jumps, data_file):
         expected = np.loadtxt(str(data_file))
 
-        freq = ModulationFrequency(100e6)
+        freq = Frame(100e6)
         env = SquareWaveform(width=40e-9)
         mod = CWWaveform(frequency=freq, channels=("I", "Q"))
 
@@ -362,7 +358,7 @@ class TestDRAGWaveform:
         f1 = -100e6
         env = DRAG(envelope=GaussianWaveform(width=20e-9), lmbda=1 / (2 * np.pi * f1))
 
-        freq = CWWaveform(frequency=ModulationFrequency(f0), channels=("I", "Q"))
+        freq = CWWaveform(frequency=Frame(f0), channels=("I", "Q"))
 
         wave_drag = ModulatedWaveform(envelope=env, modulation=freq)
         wave_nodrag = ModulatedWaveform(envelope=env.envelope, modulation=freq)
@@ -419,7 +415,7 @@ class TestPhaseResetWaveform:
         "mod_key,resets,expected",
         [
             (
-                ModulationFrequency("Q0.mod"),
+                Frame("Q0.mod"),
                 [
                     (10, PhaseResetWaveform(mod_key="Q0.mod")),
                     (0, PhaseResetWaveform(mod_key="Q0.mod")),
@@ -427,7 +423,7 @@ class TestPhaseResetWaveform:
                 [10, 0],
             ),
             (
-                ModulationFrequency("Q1.mod"),
+                Frame("Q1.mod"),
                 [
                     (10, PhaseResetWaveform(mod_key="Q0.mod")),
                     (0, PhaseResetWaveform(mod_key="Q0.mod")),

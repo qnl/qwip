@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_almost_equal, assert_array_equal
 
-from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
+from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
 from qwip.testing import UnorderedList
 
 
@@ -41,9 +41,9 @@ class TestPhaseTracker:
         phi_tracker = PhaseTracker.from_modulations(["a", "b", "a - b + 0.5 * c"])
 
         assert list(phi_tracker.keys()) == [
-            ModulationFrequency("a"),
-            ModulationFrequency("b"),
-            ModulationFrequency("c"),
+            Frame("a"),
+            Frame("b"),
+            Frame("c"),
         ]
 
     def test_getitem(self, phi_tracker):
@@ -204,7 +204,7 @@ class TestPhaseTracker:
         integrated_phase = phase_tracker.compute_integrated_phase("Q0", ts)
         assert_almost_equal(integrated_phase, expected)
 
-        mod = ModulationFrequency(0)
+        mod = Frame(0)
         integrated_phase = phase_tracker.compute_integrated_phase(mod, ts)
         assert_almost_equal(integrated_phase, np.zeros_like(expected))
 
@@ -235,7 +235,7 @@ class TestPhaseTracker:
     def test_compute_oscillator_phase(self, resets, ts, frequency, expected):
         pt = PhaseTracker(resets=dict(Q0=resets))
 
-        modulations = dict(Q0=ModulationFrequency(frequency))
-        phis = pt.compute_oscillator_phase(ModulationFrequency("Q0"), ts, modulations)
+        modulations = dict(Q0=Frame(frequency))
+        phis = pt.compute_oscillator_phase(Frame("Q0"), ts, modulations)
 
         assert_almost_equal(phis, expected)

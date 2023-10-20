@@ -11,7 +11,7 @@ from qwip.backends.qtrl import (
 )
 from qwip.sequencer.compilation import ChannelInfo, DeviceInfo, TriggerInfo
 from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (
     CWWaveform,
@@ -76,14 +76,14 @@ def compiler():
     )
 
     modulations = dict(
-        mod_Q0=ModulationFrequency(400e6),
-        mod_Q1=ModulationFrequency(500e6),
-        mod_Q2=ModulationFrequency(-30e6),
-        mod_Q3=ModulationFrequency(-450e6),
-        mod_R0=ModulationFrequency(100e6),
-        mod_R1=ModulationFrequency(200e6),
-        mod_R2=ModulationFrequency(-50e6),
-        mod_R3=ModulationFrequency(-150e6),
+        mod_Q0=Frame(400e6),
+        mod_Q1=Frame(500e6),
+        mod_Q2=Frame(-30e6),
+        mod_Q3=Frame(-450e6),
+        mod_R0=Frame(100e6),
+        mod_R1=Frame(200e6),
+        mod_R2=Frame(-50e6),
+        mod_R3=Frame(-150e6),
     )
 
     return QTRLCompiler.from_devices(

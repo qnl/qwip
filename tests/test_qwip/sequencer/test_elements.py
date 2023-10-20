@@ -5,7 +5,7 @@ import pytest
 
 import qwip
 from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
@@ -335,9 +335,9 @@ class TestSequenceElement:
         for _, wave in se.get_location_pairs():
             match wave:
                 case VirtualZWaveform():
-                    assert wave.mod_key == ModulationFrequency("Q0.mod_GE")
+                    assert wave.mod_key == Frame("Q0.mod_GE")
                 case ModulatedWaveform():
-                    assert wave.modulation.frequency == ModulationFrequency("Q0.mod_GE")
+                    assert wave.modulation.frequency == Frame("Q0.mod_GE")
 
     @pytest.mark.parametrize(
         "se",
