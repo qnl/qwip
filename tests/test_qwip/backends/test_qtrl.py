@@ -10,7 +10,7 @@ from qwip.backends.qtrl import (
     format_legacy_IQ,
 )
 from qwip.sequencer.compilation import ChannelInfo, DeviceInfo, TriggerInfo
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (
@@ -124,11 +124,11 @@ def pulses():
 
 @pytest.fixture
 def freq_sweep(pulses):
-    se = SequenceElement()
+    se = Timeline()
     se.add_waveform(pulses["Q0_X90"])
     se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
 
-    ro = SequenceElement()
+    ro = Timeline()
     ro.add_waveform(pulses["R0"])
     ro.add_waveform(SquareWaveform(width=pulses["R0"].width, channels=("R0",)))
     readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))
@@ -141,13 +141,13 @@ def freq_sweep(pulses):
 
 @pytest.fixture
 def t1_sweep(pulses):
-    se = SequenceElement()
+    se = Timeline()
     se.add_waveform(pulses["Q0_X90"])
     se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
     se.add_waveform(pulses["Q1_X90"])
     se.add_waveform(pulses["Q1_X90"], pulses["Q1_X90"].width)
 
-    ro = SequenceElement()
+    ro = Timeline()
     ro.add_waveform(pulses["R0"])
     ro.add_waveform(SquareWaveform(width=pulses["R0"].width, channels=("R0",)))
     readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))

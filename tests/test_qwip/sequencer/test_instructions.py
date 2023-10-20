@@ -10,7 +10,7 @@ from qwip.sequencer.compilation import (
     QWiPExecutable,
     TriggerInfo,
 )
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (
@@ -122,12 +122,12 @@ class TestQWiPSequencer:
         )
 
     def test_compile_sequence_element(self, sequencer, pulses):
-        se = SequenceElement()
+        se = Timeline()
         se.add_waveform(pulses["Q0_X90"])
         se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
         se.add_waveform(pulses["R0"], 2 * pulses["Q0_X90"].width)
 
-        ro = SequenceElement()
+        ro = Timeline()
         ro.add_waveform(pulses["read"])
         ro.add_waveform(pulses["D0"])
         ro.add_waveform(pulses["D1"])

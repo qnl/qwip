@@ -20,13 +20,13 @@ from qwip.config.models import (
     Folder,
     JSONTypes,
     Parameter,
-    SequenceElementModel,
+    TimelineModel,
     config_tables,
 )
 from qwip.database.database import SHORT_HASH_LEN, Database, DoltDB, session_context
 from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.flatdict import FlatDict, FlatMapping
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 from qwip.typing import issubtype
 
 try:
@@ -691,50 +691,50 @@ configschema = functools.partial(
 
 
 @qdefine
-class SequenceElementFolder:
+class PulsesFolder:
     session: sa.orm.Session
 
-    def _get_sequence_element_model(self, name: str) -> SequenceElementModel:
+    def _get_timeline_model(self, name: str) -> TimelineModel:
         se_model = self.session.scalar(
-            sa.select(SequenceElementModel).where(SequenceElementModel.name == name)
+            sa.select(TimelineModel).where(TimelineModel.name == name)
         )
 
         return se_model
 
     @session_context
     def keys(self) -> tuple[str]:
-        keys = self.session.scalars(sa.select(SequenceElementModel.name))
+        keys = self.session.scalars(sa.select(TimelineModel.name))
         return tuple(k for k in keys)
 
     @session_context
-    def add(self, name: str, se: SequenceElement):
+    def add(self, name: str, se: Timeline):
         if name in self.keys():
             raise ValueError(
-                f"SequenceElement '{name}' already exists. Use `update` to modify "
-                f"an existing SequenceElement in the database."
+                f"Timeline '{name}' already exists. Use `update` to modify "
+                f"an existing Timeline in the database."
             )
-        se_model = SequenceElementModel.from_sequence_element(se, name)
+        se_model = TimelineModel.from_timeline(se, name)
         self.session.add(se_model)
         self.session.flush()
 
     @session_context
-    def get(self, name: str) -> SequenceElement | None:
-        se_model = self._get_sequence_element_model(name)
+    def get(self, name: str) -> Timeline | None:
+        se_model = self._get_timeline_model(name)
 
         if se_model:
-            return se_model.to_sequence_element()
+            return se_model.to_timeline()
 
         return None
 
     @session_context
-    def update(self, name: str, new_se: SequenceElement) -> None:
-        se_model = self._get_sequence_element_model(name)
+    def update(self, name: str, new_se: Timeline) -> None:
+        se_model = self._get_timeline_model(name)
 
         if se_model is None:
             self.add(name, new_se)
             return
 
-        old_se = se_model.to_sequence_element()
+        old_se = se_model.to_timeline()
 
         if new_se == old_se:
             return
@@ -744,33 +744,33 @@ class SequenceElementFolder:
 
     @session_context
     def delete(self, name: str) -> None:
-        se_model = self._get_sequence_element_model(name)
+        se_model = self._get_timeline_model(name)
 
         if se_model is None:
-            raise KeyError(f"SequenceElement '{name}' not found.")
+            raise KeyError(f"Timeline '{name}' not found.")
 
         self.session.delete(se_model)
         self.session.flush()
 
     @session_context
-    def search(self, key: str) -> dict[str, SequenceElement]:
+    def search(self, key: str) -> dict[str, Timeline]:
         """Searches for sequence elements by name."""
 
         results = self.session.scalars(
-            sa.select(SequenceElementModel).where(
-                SequenceElementModel.name.icontains(key)
+            sa.select(TimelineModel).where(
+                TimelineModel.name.icontains(key)
             )
         )
 
-        return {s.name: s.to_sequence_element() for s in results}
+        return {s.name: s.to_timeline() for s in results}
 
-    def __getitem__(self, key: str) -> SequenceElement:
+    def __getitem__(self, key: str) -> Timeline:
         se = self.get(key)
 
         if se:
             return se
 
-        raise KeyError(f"'{key}' does not exist in the SequenceElement table.")
+        raise KeyError(f"'{key}' does not exist in the Timeline table.")
 
     def __contains__(self, key: str) -> bool:
         return key in self.keys()
@@ -794,7 +794,7 @@ class OfflineConfigDB(Database):
     schema: type[ConfigFolder] = ConfigFolder
 
     config: ConfigFolder | None = field(init=False, default=None)
-    pulses: SequenceElementFolder | None = field(init=False, default=None)
+    pulses: PulsesFolder | None = field(init=False, default=None)
 
     def init_config(self):
         self.config = self.schema.from_name(self.session, "/")
@@ -819,7 +819,7 @@ class OfflineConfigDB(Database):
             ...
 
     def init_pulses(self):
-        self.pulses = SequenceElementFolder(session=self.session)
+        self.pulses = PulsesFolder(session=self.session)
 
     def connect(self, test: bool = True, timeout: int = 2):
         engine = super().connect(test=test, timeout=timeout)
@@ -858,7 +858,7 @@ class OfflineConfigDB(Database):
         name: str,
         targets: tuple[str],
         pulse_key: str = None,
-        se: SequenceElement | None = None,
+        se: Timeline | None = None,
         include_var: Callable[[str], bool] = lambda v: True,
     ) -> ConfigFolder:
         """Adds a pulse to the config database.
@@ -911,8 +911,8 @@ class OfflineConfigDB(Database):
         rename_func: Callable[
             [str, "PulsesSchema"], str
         ] = lambda v, pm: f"{pm.folder_name()}.{v}",
-    ) -> SequenceElement:
-        """Loads a SequenceElement from the database.
+    ) -> Timeline:
+        """Loads a Timeline from the database.
 
         This method loads the pulse prototype specified by the pulse metadata and
         replaces all variables specified in the pulse metadata. These variables
@@ -930,11 +930,11 @@ class OfflineConfigDB(Database):
                 metadata `PulsesSchema` and returns the renamed variable `str`.
 
         Returns:
-            A `SequenceElement` representing the pulse.
+            A `Timeline` representing the pulse.
 
         Raises:
             `ValueError`: If any variables are specified but not present in the loaded
-                `SequenceElement` from the database.
+                `Timeline` from the database.
 
         """
         pulse_metadata = self.config["pulses"][name]
@@ -1026,5 +1026,5 @@ __all__ = [
     "ConfigFolder",
     "ValidatedConfigFolder",
     "configschema",
-    "SequenceElementFolder",
+    "PulsesFolder",
 ]

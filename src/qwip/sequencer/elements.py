@@ -1,11 +1,10 @@
 import itertools as it
 from collections.abc import Callable, Collection
 from copy import copy, deepcopy
-from functools import cache, singledispatchmethod
+from functools import singledispatchmethod
 from numbers import Real
-from typing import Callable, ForwardRef, Union
 
-import matplotlib as mpl
+
 import matplotlib.pyplot as plt
 import numpy as np
 from attrs import field
@@ -32,7 +31,7 @@ class UnderconstrainedSolveError(np.linalg.LinAlgError):
 
 
 @qdefine
-class SequenceElement:
+class Timeline:
     locations: dict[Location, list[Waveform]] = field(factory=dict)
     width: Location | None = None
     constraints: dict[str, Location] = field(factory=dict)
@@ -51,7 +50,7 @@ class SequenceElement:
         pulse_locations: list[tuple[LocationLike, Waveform | None]],
         width: LocationLike | None = None,
         constraints: dict[str, Location] = {},
-    ) -> "SequenceElement":
+    ) -> "Timeline":
         """Constructs a sequence from a tuple of locations and waveforms.
 
         The constructor will add `Location('start')` to every location if it does not
@@ -177,11 +176,11 @@ class SequenceElement:
 
     def append(
         self,
-        other: "SequenceElement",
+        other: "Timeline",
         self_loc: LocationLike = Location(),
         other_loc: LocationLike = Location(),
         name: str | None = None,
-    ) -> "SequenceElement":
+    ) -> "Timeline":
         """Appends a sequence element.
 
         Args:
@@ -579,11 +578,11 @@ class SequenceElement:
     ) -> Figure:
         """Plots the sequence element.
 
-        This function uses a default instance of SequenceElementPlotter to
+        This function uses a default instance of TimelinePlotter to
         render the sequence element. Since sequence elements are not yet compiled
         an abstract rendering of the sequence element is created.
 
-        See SequenceElementPlotter to customize how sequence elements are
+        See TimelinePlotter to customize how sequence elements are
         rendered.
 
         Args:
@@ -597,12 +596,12 @@ class SequenceElement:
             axes: A set of axes on which to plot the sequence element. Can be
                 used to plot the sequence element on an existing figure. If
                 None, a new figure is created.
-            fig_props: Optional arguments passed to SequenceElementPlotter.make_axes
+            fig_props: Optional arguments passed to TimelinePlotter.make_axes
 
         Returns:
             The matplotlib figure containing the plot axes.
         """
-        return SequenceElementPlotter().plot(
+        return TimelinePlotter().plot(
             self,
             channels,
             constraints,
@@ -680,13 +679,13 @@ class SequenceElement:
 
             constraints[key] = loc
 
-        return SequenceElement(
+        return Timeline(
             locations=locations, constraints=constraints, channels=channels
         )
 
 
 @qdefine
-class SequenceElementPlotter:
+class TimelinePlotter:
     """Plotter for Sequence elements."""
 
     axsize: tuple[float, float] = (8, 1)
@@ -794,7 +793,7 @@ class SequenceElementPlotter:
 
     def plot(
         self,
-        se: SequenceElement,
+        se: Timeline,
         channels: list[tuple[str, ...]] | None = None,
         constraints: dict[str, Location] = {},
         filter_func: Callable[[Location, Waveform], bool] = None,
@@ -803,7 +802,7 @@ class SequenceElementPlotter:
         pulse_vars: dict = {},
     ) -> Figure:
         locations = se.resolve_locations(**constraints)
-        channel_map = SequenceElement.locations_to_channel_map(
+        channel_map = Timeline.locations_to_channel_map(
             locations, *se.channels, None
         )
 
@@ -861,4 +860,4 @@ class SequenceElementPlotter:
         ax.axvline(start, **props)
 
 
-__all__ = ["SequenceElement", "SequenceElementPlotter", "UnderconstrainedSolveError"]
+__all__ = ["Timeline", "TimelinePlotter", "UnderconstrainedSolveError"]

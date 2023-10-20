@@ -4,7 +4,7 @@ from numpy.random import default_rng
 
 from qwip.backends.backend import FakeBackend
 from qwip.processing.processors import GMMClassification, StatePopulations
-from qwip.sequencer import ReadoutMarker, Sequence, SequenceElement
+from qwip.sequencer import ReadoutMarker, Sequence, Timeline
 from qwip.sequencer.compilation import IntermediateProgram, QWiPExecutable
 
 

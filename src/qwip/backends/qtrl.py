@@ -24,7 +24,7 @@ from qwip.sequencer.compilation import (
     WaitTriggerInstruction,
     register_compiler,
 )
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 from qwip.sequencer.sequence import Sequence
 
 
@@ -402,7 +402,7 @@ class QTRLBackend(QuantumBackend):
         readout: str = "default",
         length: float | None = None,
         length_variable: str = "width",
-    ) -> SequenceElement:
+    ) -> Timeline:
         """Constructs a readout sequence element from the readout config.
 
         Args:
@@ -416,7 +416,7 @@ class QTRLBackend(QuantumBackend):
         """
         readout_config = qpu.config.readout[readout]
 
-        ro_se = SequenceElement()
+        ro_se = Timeline()
         length = length or readout_config.length
 
         for r in qpu.compiler.readout_qubits:

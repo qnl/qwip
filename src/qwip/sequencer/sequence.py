@@ -10,7 +10,7 @@ from typing_extensions import Self
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 
 SEQUENCE_FUNCTIONS = {}
 
@@ -30,7 +30,7 @@ class Sequence(np.ndarray):
 
     def __new__(
         cls,
-        array: NDArray[SequenceElement],
+        array: NDArray[Timeline],
         names: tuple[str, ...] | None = None,
         **labels,
     ):
@@ -69,7 +69,7 @@ class Sequence(np.ndarray):
         return obj
 
     def __array_finalize__(
-        self, obj: NDArray[SequenceElement] | None = None, /
+        self, obj: NDArray[Timeline] | None = None, /
     ) -> None:
         # No additional cleanup necessary if this is explicit construction
         if obj is None:
@@ -278,7 +278,7 @@ class Sequence(np.ndarray):
         names: tuple[str, ...] | None = None,
         **labels: np.ndarray,
     ) -> Self:
-        """Creates a Sequence of the specified shape with empty SequenceElements.
+        """Creates a Sequence of the specified shape with empty Timelines.
 
         Args:
             shape: The desired shape of the output sequence.
@@ -289,12 +289,12 @@ class Sequence(np.ndarray):
         arr = np.empty(shape, dtype=object)
 
         for index in np.ndindex(*arr.shape):
-            arr[index] = SequenceElement()
+            arr[index] = Timeline()
 
         return cls(arr, names, **labels)
 
     @classmethod
-    def sweep(cls, se: SequenceElement, /, name=None, label=None, **params) -> Self:
+    def sweep(cls, se: Timeline, /, name=None, label=None, **params) -> Self:
         """Create a sequence from the sequence element."""
 
         shape = min(len(arr) for arr in params.values())
@@ -328,7 +328,7 @@ class Sequence(np.ndarray):
         return seq
 
     @classmethod
-    def product(cls, se: SequenceElement, /, **params) -> Self:
+    def product(cls, se: Timeline, /, **params) -> Self:
         """Create a sequence from the sequence element."""
         shape = tuple(len(arrs) for arrs in params.values())
         names = tuple(params)
@@ -690,7 +690,7 @@ def make_sequence_structure_fn(cls):
 
         shape = val["shape"]
 
-        tp = SequenceElement
+        tp = Timeline
         for _ in shape:
             tp = list[tp]
 

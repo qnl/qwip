@@ -220,42 +220,42 @@ QWIP_DB_REGISTRY.map_imperatively(
 class WaveformLocationModel(VersionControlled):
     location: str
     waveform: WaveformModel
-    sequence_element: "SequenceElementModel" = field(repr=False)
+    timeline: "TimelineModel" = field(repr=False)
 
 
 @qdefine(slots=False)
 class ConstraintModel(VersionControlled):
     name: str
     location: str
-    sequence_element: "SequenceElementModel" = field(repr=False)
+    timeline: "TimelineModel" = field(repr=False)
 
 
 @qdefine(slots=False)
-class SequenceElementModel(VersionControlled):
+class TimelineModel(VersionControlled):
     name: str
     width: str | None = None
     locations: list[WaveformLocationModel] = field(factory=list)
     constraints: dict[str, ConstraintModel] = field(factory=dict)
 
     @classmethod
-    def from_sequence_element(cls, se, name):
+    def from_timeline(cls, se, name):
         se_model = cls(name=name, width=qwip.converter.unstructure(se.width))
 
         for loc, wave in se.get_location_pairs():
             wave_model = WaveformModel.from_waveform(wave)
             pair = WaveformLocationModel(
-                location=str(loc), waveform=wave_model, sequence_element=se_model
+                location=str(loc), waveform=wave_model, timeline=se_model
             )
 
         for name, expr in se.constraints.items():
             constraint = ConstraintModel(
-                name=name, location=str(expr), sequence_element=se_model
+                name=name, location=str(expr), timeline=se_model
             )
 
         return se_model
 
-    def to_sequence_element(self):
-        from qwip.sequencer.elements import SequenceElement
+    def to_timeline(self):
+        from qwip.sequencer.elements import Timeline
         from qwip.sequencer.utils import Location
 
         constraints = {
@@ -267,7 +267,7 @@ class SequenceElementModel(VersionControlled):
             for waveloc in self.locations
         ]
 
-        return SequenceElement.fromtuples(
+        return Timeline.fromtuples(
             pairs, width=self.width, constraints=constraints
         )
 
@@ -288,11 +288,11 @@ waveform_location_table = DoltTable(
         primary_key=True,
     ),
     Column(
-        "sequence_element_id",
+        "timeline_id",
         sa.Integer,
         ForeignKey(
-            "sequence_elements.sequence_element_id",
-            name="fk_waveform_locations_sequence_elements",
+            "timelines.timeline_id",
+            name="fk_waveform_locations_timelines",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
@@ -307,24 +307,24 @@ constraint_table = DoltTable(
     Column("name", sa.String(255)),
     Column("location", sa.String(255)),
     Column(
-        "sequence_element_id",
+        "timeline_id",
         sa.Integer,
         ForeignKey(
-            "sequence_elements.sequence_element_id",
-            name="fk_constraints_sequence_elements",
+            "timelines.timeline_id",
+            name="fk_constraints_timelines",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
     ),
 )
 
-sequence_element_table = DoltTable(
-    "sequence_elements",
+timeline_table = DoltTable(
+    "timelines",
     QWIP_DB_METADATA,
-    Column("sequence_element_id", sa.Integer, primary_key=True, autoincrement=True),
+    Column("timeline_id", sa.Integer, primary_key=True, autoincrement=True),
     Column("name", sa.String(255)),
     Column("width", sa.String(255)),
-    UniqueConstraint("name", name="uq_sequence_elements_name"),
+    UniqueConstraint("name", name="uq_timelines_name"),
 )
 
 
@@ -336,8 +336,8 @@ QWIP_DB_REGISTRY.map_imperatively(
             WaveformModel,
             cascade="all",
         ),
-        sequence_element=relationship(
-            SequenceElementModel,
+        timeline=relationship(
+            TimelineModel,
             back_populates="locations",
         ),
     ),
@@ -347,24 +347,24 @@ QWIP_DB_REGISTRY.map_imperatively(
     ConstraintModel,
     constraint_table,
     properties=dict(
-        sequence_element=relationship(
-            SequenceElementModel, back_populates="constraints"
+        timeline=relationship(
+            TimelineModel, back_populates="constraints"
         )
     ),
 )
 
 QWIP_DB_REGISTRY.map_imperatively(
-    SequenceElementModel,
-    sequence_element_table,
+    TimelineModel,
+    timeline_table,
     properties=dict(
         locations=relationship(
             WaveformLocationModel,
-            back_populates="sequence_element",
+            back_populates="timeline",
             cascade="all, delete-orphan",
         ),
         constraints=relationship(
             ConstraintModel,
-            back_populates="sequence_element",
+            back_populates="timeline",
             collection_class=attribute_mapped_collection("name"),
             cascade="all, delete-orphan",
         ),
@@ -377,7 +377,7 @@ config_tables = [
     waveform_table,
     waveform_location_table,
     constraint_table,
-    sequence_element_table,
+    timeline_table,
 ]
 
 for table in config_tables:
@@ -392,11 +392,11 @@ __all__ = [
     "WaveformModel",
     "WaveformLocationModel",
     "ConstraintModel",
-    "SequenceElementModel",
+    "TimelineModel",
     "folder_table",
     "parameter_table",
     "waveform_table",
     "waveform_location_table",
     "constraint_table",
-    "sequence_element_table",
+    "timeline_table",
 ]

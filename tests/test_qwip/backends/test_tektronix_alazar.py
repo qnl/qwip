@@ -16,7 +16,7 @@ from qwip.sequencer.compilation import (
     QWiPCompiler,
     TriggerInfo,
 )
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (
@@ -147,12 +147,12 @@ def pulses():
 
 @pytest.fixture
 def freq_sweep(pulses):
-    se = SequenceElement()
+    se = Timeline()
     se.add_waveform(pulses["Q0_X90"])
     se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
     se.add_waveform(pulses["R0"], 2 * pulses["Q0_X90"].width + 100e-9)
 
-    ro = SequenceElement()
+    ro = Timeline()
     ro.add_waveform(pulses["read"])
     ro.add_waveform(pulses["D0"])
     ro.add_waveform(pulses["D1"])
@@ -167,11 +167,11 @@ def freq_sweep(pulses):
 
 @pytest.fixture
 def t1_sweep(pulses):
-    se = SequenceElement()
+    se = Timeline()
     se.add_waveform(pulses["Q0_X90"])
     se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
 
-    ro = SequenceElement()
+    ro = Timeline()
     ro.add_waveform(pulses["read"])
     ro.add_waveform(pulses["D0"])
     ro.add_waveform(pulses["D1"])

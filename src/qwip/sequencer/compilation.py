@@ -19,7 +19,7 @@ from typing_extensions import Self
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine, qfrozen
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
@@ -447,7 +447,7 @@ class QWiPCompiler:
 
         return phase_tracker
 
-    def compile_waveform(
+    def compile_instruction(
         self,
         exe: QWiPExecutable,
         instructions: list[Instruction],
@@ -476,7 +476,7 @@ class QWiPCompiler:
 
         match wave:
             case TriggeredWaveform():
-                self.compile_sequence_element(
+                self.compile_timeline(
                     exe,
                     wave.target,
                     location_kwargs,
@@ -489,7 +489,7 @@ class QWiPCompiler:
                         ((ch.index, ch.subchannel), start / device.sample_rate)
                     )
 
-    def compile_single_timeline(
+    def compile_waveforms(
         self,
         exe: QWiPExecutable,
         locations: dict[Location, list[Waveform]],
@@ -546,7 +546,7 @@ class QWiPCompiler:
                     except KeyError:
                         pass
 
-                self.compile_waveform(
+                self.compile_instruction(
                     exe,
                     instructions,
                     s_idx,
@@ -560,10 +560,10 @@ class QWiPCompiler:
 
         return instructions
 
-    def compile_sequence_element(
+    def compile_timeline(
         self,
         exe: QWiPExecutable,
-        se: SequenceElement,
+        se: Timeline,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
         instruction_cache: dict[tuple[int, str], list[Instruction]] = {},
@@ -623,7 +623,7 @@ class QWiPCompiler:
                 wmem = WaveformMemory.from_channels(
                     num_timepoints, sample_rate, channels, dtype=device.dtype
                 )
-                instructions = self.compile_single_timeline(
+                instructions = self.compile_waveforms(
                     exe,
                     locations,
                     wmem,
@@ -666,7 +666,7 @@ class QWiPCompiler:
 
         for se in seq.flat:
             exe.num_reads.append(0)
-            self.compile_sequence_element(
+            self.compile_timeline(
                 exe, se, location_kwargs, pulse_kwargs, instruction_cache
             )
 

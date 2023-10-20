@@ -9,7 +9,7 @@ from qwip.sequencer.compilation import (
     QuantumExecutable,
     QWiPCompiler,
 )
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.waveform import (
@@ -188,15 +188,15 @@ class TestQWiPCompiler:
         import matplotlib.pyplot as plt
         import numpy as np
 
-        ro_se = SequenceElement()
+        ro_se = Timeline()
         ro_se.add_waveform([pulses[f"R{r}"] for r in range(2)])
         readout = TriggeredWaveform(target=ro_se, width=50e-9, channels=("RO_marker",))
 
-        se_0 = SequenceElement()
+        se_0 = Timeline()
         se_0.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
         se_0.add_waveform(readout, 50e-9)
 
-        se_1 = SequenceElement()
+        se_1 = Timeline()
         se_1.add_waveform([pulses["Q0_Z90"], pulses["Q1_Z90"]])
         se_1.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
         se_1.add_waveform(readout, 50e-9)

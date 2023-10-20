@@ -7,7 +7,7 @@ import pytest
 from numpy.testing import assert_allclose, assert_almost_equal
 
 import qwip
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
@@ -446,16 +446,16 @@ class TestTriggeredWaveform:
     def wave(self):
         wave = TriggeredWaveform(
             width="width",
-            target=SequenceElement().add_waveform(SquareWaveform(amplitude="amp")),
+            target=Timeline().add_waveform(SquareWaveform(amplitude="amp")),
         )
         return wave
 
     def test_equality_by_id(self):
-        assert TriggeredWaveform(target=SequenceElement()) != TriggeredWaveform(
-            target=SequenceElement()
+        assert TriggeredWaveform(target=Timeline()) != TriggeredWaveform(
+            target=Timeline()
         )
 
-        w1 = TriggeredWaveform(target=SequenceElement())
+        w1 = TriggeredWaveform(target=Timeline())
         w2 = attrs.evolve(w1)
 
         assert w1 == w2
