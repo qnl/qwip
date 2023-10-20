@@ -34,7 +34,7 @@ class Transmon(QuantumSystem):
     frequency: float
     anharmonicity: float | None = None
     local_oscillator: str | None = None
-    frame_key: str = "{name}.{subspace}"
+    frame_key: str = "{name}.mod_{subspace}"
 
     @property
     def frequency_EF(self) -> float:
