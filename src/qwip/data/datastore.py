@@ -231,6 +231,7 @@ class OfflineDatastore(Database):
 
         return stmt
 
+    @session_context
     def search(
         self,
         *,
@@ -305,18 +306,45 @@ class OfflineDatastore(Database):
         if offset is not None:
             stmt = stmt.offset(offset)
 
-        with self.session.begin():
-            datasets = self.session.scalars(stmt).all()
+        datasets = self.session.scalars(stmt).all()
 
         return datasets
 
+    @session_context
     def tail(self, limit: int = 50, **kwargs) -> list[Dataset]:
-        kwargs |= dict(limit=limit)
+        """Get the n most recent datasets that fit the search criteria.
+
+        Note that datasets are always ordered from most recent to least recent.
+
+        Args:
+            limit: The maximum number of datasets to return.
+            **kwargs: See `datstore.search` for allowed keywords.
+
+        Returns:
+            A list of the n most recent datasets that fit the search criteria.
+        """
+        kwargs |= dict(limit=limit, order_desc=True)
 
         return self.search(**kwargs)
 
+    @session_context
     def last(self, **kwargs) -> Dataset:
-        return self.tail(1, **kwargs)[-1]
+        """Get the most recent ddataset that fits the search criteria.
+
+        This is equivalent to calling `datastore.tail(limit=1)[0]`, except assets are
+        loaded eagerly.
+
+        Args:
+            **kwargs: See `datastore.search` for allowed keywords.
+
+        Returns:
+            The most recent dataset that fits the search criteria.
+        """
+        dataset = self.tail(1, **kwargs)[-1]
+
+        # Force load of assets before session ends.
+        dataset._assets
+        return dataset
 
 
 @qdefine
