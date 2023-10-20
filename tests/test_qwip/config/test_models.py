@@ -129,7 +129,7 @@ class TestWaveformModel:
 class TestSequenceElements:
     @pytest.fixture
     def x90_se(self):
-        z_correction = VirtualZWaveform(mod_key="mod_GE", phase="z_phase")
+        z_correction = VirtualZWaveform(frame="mod_GE", phase="z_phase")
         x90 = ModulatedWaveform(
             name="X90",
             envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),
@@ -144,7 +144,7 @@ class TestSequenceElements:
 
     @pytest.fixture
     def se_no_width(self):
-        z_correction = VirtualZWaveform(mod_key="mod_GE", phase="z_phase")
+        z_correction = VirtualZWaveform(frame="mod_GE", phase="z_phase")
         x90 = ModulatedWaveform(
             name="X90",
             envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),

@@ -17,7 +17,7 @@ from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qfrozen
 from qwip.attrs.serialization import _TypeConverter
 from qwip.defaults import dynamic_default
-from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
+from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import LinearExpression, Location
 from qwip.typing import is_union_type
 
@@ -362,12 +362,12 @@ class DCWaveform(InfiniteWaveform):
 @register_waveform
 @qfrozen
 class CWWaveform(InfiniteWaveform):
-    frequency: ModulationFrequency
+    frequency: Frame
     phase: float | str = 0
     offset: float | complex | str = field(
         default=0, converter=lambda v: float(v) if isinstance(v, int) else v
     )
-    mod_key: ModulationFrequency | None = None
+    frame: Frame | None = None
     hardware_modulation: bool = False
 
     @dynamic_default(phase_unit="units/phase")
@@ -378,7 +378,7 @@ class CWWaveform(InfiniteWaveform):
         phase: float,
         offset: float | complex,
         phase_tracker: PhaseTracker | None = None,
-        modulations: dict[str, ModulationFrequency] = {},
+        frames: dict[str, Frame] = {},
         phase_unit: str = None,
         complex_out: bool = False,
         **kwargs,
@@ -404,16 +404,16 @@ class CWWaveform(InfiniteWaveform):
         """
         if phase_tracker:
             phis = phase_tracker.compute_integrated_phase(
-                self.mod_key or self.frequency, ts
+                self.frame or self.frequency, ts
             )
             software_oscillator = phase_tracker.compute_oscillator_phase(
                 self.frequency,
                 ts,
-                modulations,
+                frames,
             )
         else:
             phis = np.zeros_like(ts)
-            freq = 2 * np.pi * self.frequency.resolve(**modulations).offset
+            freq = 2 * np.pi * self.frequency.resolve(**frames).offset
             software_oscillator = freq * ts
 
         if phase_unit.lower() == "degrees":
@@ -488,7 +488,7 @@ class ModulatedWaveform(Waveform):
 @register_waveform
 @qfrozen
 class VirtualZWaveform(Marker):
-    mod_key: ModulationFrequency
+    frame: Frame
     phase: float | str = 0
 
     def update_phase_tracker(
@@ -496,20 +496,20 @@ class VirtualZWaveform(Marker):
         time: float,
         phase_tracker: PhaseTracker,
     ) -> None:
-        phase_tracker.append(self.mod_key, PhaseJump(time, self.phase))
+        phase_tracker.append(self.frame, PhaseJump(time, self.phase))
 
 
 @register_waveform
 @qfrozen
 class PhaseResetWaveform(Marker):
-    mod_key: ModulationFrequency
+    frame: Frame
 
     def update_phase_tracker(
         self,
         time,
         phase_tracker: PhaseTracker,
     ) -> None:
-        phase_tracker.reset(self.mod_key, time)
+        phase_tracker.reset(self.frame, time)
 
 
 @register_waveform
@@ -715,6 +715,14 @@ def make_waveform_structure_fn(cls):
         if subclass is None:
             logger.warning(f"No registered waveform found. Structuring {val} as {cls}.")
             return structure_attrs(val, cls)
+
+        if subclass is VirtualZWaveform and "mod_key" in val:
+            logger.warning(
+                "VirtualZWavefrom 'mod_key' has been renamed to 'frame' and is now "
+                "deprecated. Update all unstructured waveforms accordingly."
+            )
+            val["frame"] = val["mod_key"]
+            del val["mod_key"]
 
         return qwip.converter.structure(val, subclass)
 

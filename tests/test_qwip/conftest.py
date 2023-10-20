@@ -194,8 +194,8 @@ def qpu_01(configdb_01):
 
     # Is this necessary?
     for k, system in qpu.subsystems.items():
-        system.modulation_name = (
-            "mod_{name}_{mod_key}" if k.startswith("Q") else "mod_{name}"
+        system.frame_key = (
+            "mod_{name}_{subspace}" if k.startswith("Q") else "mod_{name}"
         )
-        qpu.update_modulations()
+        qpu.update_frames()
     return qpu
