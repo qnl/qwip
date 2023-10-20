@@ -13,17 +13,17 @@ class TestQuantumSystem:
 class TestTransmon:
     def test_get_frames(self):
         t = Transmon(name="Q0", frequency=5e9)
-        assert t.get_frames() == {"Q0.GE": 5e9}
+        assert t.get_frames() == {"Q0.mod_GE": 5e9}
 
         t = Transmon(name="Q1", frequency=5.1e9, local_oscillator="qubit_LO")
         with pytest.raises(KeyError):
             t.get_frames()
-        assert t.get_frames(dict(qubit_LO=5.2e9)) == {"Q1.GE": -100e6}
+        assert t.get_frames(dict(qubit_LO=5.2e9)) == {"Q1.mod_GE": -100e6}
 
         t.anharmonicity = -200e6
         assert t.get_frames(dict(qubit_LO=5e9)) == {
-            "Q1.GE": 100e6,
-            "Q1.EF": -100e6,
+            "Q1.mod_GE": 100e6,
+            "Q1.mod_EF": -100e6,
         }
 
     def test_frame_key(self):
