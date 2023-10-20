@@ -75,7 +75,7 @@ def compiler():
         name="readout_in",
     )
 
-    modulations = dict(
+    frames = dict(
         mod_Q0=Frame(400e6),
         mod_Q1=Frame(500e6),
         mod_Q2=Frame(-30e6),
@@ -88,7 +88,7 @@ def compiler():
 
     return QTRLCompiler.from_devices(
         [seq, readout, readout_in],
-        modulations=modulations,
+        frames=frames,
     )
 
 
@@ -106,7 +106,7 @@ def pulses():
     }
 
     Z = {
-        f"Q{q}_Z90": VirtualZWaveform(name=f"Q{q}_Z", mod_key=f"mod_Q{q}", phase=90)
+        f"Q{q}_Z90": VirtualZWaveform(name=f"Q{q}_Z", frame=f"mod_Q{q}", phase=90)
         for q in range(4)
     }
 

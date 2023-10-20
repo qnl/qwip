@@ -59,14 +59,14 @@ class TestQWiPSequencer:
             name="demod",
         )
 
-        modulations = dict(
+        frames = dict(
             mod_Q0=Frame(200e6),
             mod_Q1=Frame(150e6),
             mod_R0=Frame(-300e6),
             mod_R1=Frame(-400e6),
         )
 
-        return QWiPCompiler.from_devices([dac, adc, demod], modulations=modulations)
+        return QWiPCompiler.from_devices([dac, adc, demod], frames=frames)
 
     @pytest.fixture
     def pulses(self):
@@ -82,8 +82,8 @@ class TestQWiPSequencer:
             modulation=CWWaveform(frequency="mod_Q1", channels=("Q1_I", "Q1_Q")),
         )
 
-        Q0_Z90 = VirtualZWaveform(name="Q0_Z", mod_key="mod_Q0", phase=90)
-        Q1_Z90 = VirtualZWaveform(name="Q0_Z", mod_key="mod_Q1", phase=90)
+        Q0_Z90 = VirtualZWaveform(name="Q0_Z", frame="mod_Q0", phase=90)
+        Q1_Z90 = VirtualZWaveform(name="Q0_Z", frame="mod_Q1", phase=90)
 
         R0 = ModulatedWaveform(
             name="R0",

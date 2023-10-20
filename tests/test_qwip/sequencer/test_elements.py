@@ -305,7 +305,7 @@ class TestSequenceElement:
 
     def test_transform_waveforms(self):
         lws = [
-            (Location(), VirtualZWaveform(mod_key="mod_Q0_GE", phase="zphase")),
+            (Location(), VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
             (
                 Location(),
                 ModulatedWaveform(
@@ -315,14 +315,14 @@ class TestSequenceElement:
                     ),
                 ),
             ),
-            (Location("width"), VirtualZWaveform(mod_key="mod_Q0_GE", phase="zphase")),
+            (Location("width"), VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
         ]
         se = SequenceElement.fromtuples(lws, width="width")
 
         def transformer(loc, wave):
             match wave:
                 case VirtualZWaveform():
-                    new_wave = wave.evolve(mod_key="Q0.mod_GE")
+                    new_wave = wave.evolve(frame="Q0.mod_GE")
                 case ModulatedWaveform():
                     new_wave = wave.evolve(modulation_frequency="Q0.mod_GE")
                 case _:
@@ -335,7 +335,7 @@ class TestSequenceElement:
         for _, wave in se.get_location_pairs():
             match wave:
                 case VirtualZWaveform():
-                    assert wave.mod_key == Frame("Q0.mod_GE")
+                    assert wave.frame == Frame("Q0.mod_GE")
                 case ModulatedWaveform():
                     assert wave.modulation.frequency == Frame("Q0.mod_GE")
 

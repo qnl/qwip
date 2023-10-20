@@ -53,9 +53,9 @@ class PhaseTracker:
     """A data structure for maintaining a set of phase jumps.
 
     Each entry in the phase tracker references a relative phase between two states
-    in the Hilbert space. Phases are indexed by a unique Frame that
-    also specifies the frequency at which the particular phase evolves in the
-    absence of any discrete phase jumps.
+    in the Hilbert space. Phases are indexed by a unique Frame that also specifies the
+    frequency at which the particular phase evolves in the absence of any discrete phase
+    jumps.
 
     Attributes:
         phases: A dictionary mapping Frame to a list of phase jumps.
@@ -67,26 +67,26 @@ class PhaseTracker:
     resets: dict[Frame, list[float]] = field(factory=dict)
 
     @classmethod
-    def from_modulations(cls, modulations: TSequence[Frame | str]) -> Self:
-        """Creates an entry in the phase dictionary for each base modulation.
+    def from_frames(cls, frames: TSequence[Frame | str]) -> Self:
+        """Creates an entry in the phase dictionary for each base frame.
 
         A null phase jump (phase increment of 0) will always be added at t = 0 to
         indicate that the phase should start at 0 at t = 0.
 
         Args:
-            modulations: A sequence of frames to add to the phase tracker.
+            frames: A sequence of frames to add to the phase tracker.
         """
         phases = defaultdict(lambda: [PhaseJump(0, 0)])
 
-        for mod in modulations:
-            if isinstance(mod, str):
-                mod = Frame.from_string(mod)
+        for frame in frames:
+            if isinstance(frame, str):
+                frame = Frame.from_string(frame)
 
-            if mod.variables():
-                for v in mod.variables():
+            if frame.variables():
+                for v in frame.variables():
                     phases[v]
             else:
-                phases[mod]
+                phases[frame]
 
         return cls(phases=phases)
 
@@ -116,8 +116,8 @@ class PhaseTracker:
                 return phases
 
         phases = []
-        for modkey, c in val.references:
-            phases.append(tuple(evolve(pt, phi=pt.phi * c) for pt in self[modkey]))
+        for frame, c in val.references:
+            phases.append(tuple(evolve(pt, phi=pt.phi * c) for pt in self[frame]))
 
         return sorted(it.chain.from_iterable(phases))
 
@@ -132,36 +132,36 @@ class PhaseTracker:
 
         return all(v in self.phases for v in deps)
 
-    def append(self, modkey: Frame | str, phase: PhaseJump):
+    def append(self, frame: Frame | str, phase: PhaseJump):
         """Adds a phase jump."""
-        if isinstance(modkey, str):
-            modkey = Frame.from_string(modkey)
+        if isinstance(frame, str):
+            frame = Frame.from_string(frame)
 
-        if modkey.references:
+        if frame.references:
             raise ValueError(
-                f"Cannot add a virtual phase on a non-independent phase {modkey}"
+                f"Cannot add a virtual phase on a non-independent phase {frame}"
             )
 
-        self[modkey].append(phase)
+        self[frame].append(phase)
 
-    def reset(self, modkey: Frame, time: float):
+    def reset(self, frame: Frame, time: float):
         """Adds a phase reset."""
 
         try:
-            self.resets[modkey].append(time)
+            self.resets[frame].append(time)
         except KeyError:
-            self.resets[modkey] = [time]
+            self.resets[frame] = [time]
 
     @staticmethod
     def compress(phases: Iterable[PhaseJump]) -> list[PhaseJump]:
         """Returns a list of phases with a single entry per timepoint."""
         return [sum(tphis) for _, tphis in it.groupby(phases, key=lambda pt: pt.t)]
 
-    def compressed(self, modkey: Frame) -> list[PhaseJump]:
-        return type(self).compress(self[modkey])
+    def compressed(self, frame: Frame) -> list[PhaseJump]:
+        return type(self).compress(self[frame])
 
-    def accumulated(self, modkey: Frame) -> list[PhaseJump]:
-        phis = type(self).compress(self[modkey])
+    def accumulated(self, frame: Frame) -> list[PhaseJump]:
+        phis = type(self).compress(self[frame])
 
         return list(
             it.accumulate(
@@ -171,25 +171,25 @@ class PhaseTracker:
 
     def integrate_phase(
         self,
-        modkey: Frame,
+        frame: Frame,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Computes the total accumulated phase from phase jumps.
 
         Args:
-            modkey: The reference frame on which to compute the phase accumulation.
+            frame: The reference frame on which to compute the phase accumulation.
 
         Returns:
             The timestep of each phase jump, and the resulting cumulative phase after
             each phase jump.
         """
-        phase_jumps = self.compressed(modkey)
+        phase_jumps = self.compressed(frame)
         if phase_jumps:
             t_jump, phase_jumps = np.array([(pj.t, pj.phi) for pj in phase_jumps]).T
         else:
             t_jump = phase_jumps = np.zeros(1)
 
         # Get accumulated phase accounting for phase resets
-        t_resets = np.sort(self.resets.get(modkey, []))
+        t_resets = np.sort(self.resets.get(frame, []))
         acc_idx = np.r_[0, np.searchsorted(t_jump, t_resets), len(t_jump)]
         acc_idx = np.unique(acc_idx)
         accumulated_phase = np.zeros_like(phase_jumps)
@@ -203,22 +203,22 @@ class PhaseTracker:
 
     def compute_integrated_phase(
         self,
-        modkey: Frame,
+        frame: Frame,
         ts: np.ndarray,
     ) -> np.ndarray:
         """Computes the jump phases for a set of timepoints.
 
         Args:
-            modkey: The reference frame for the phase jumps.
+            frame: The reference frame for the phase jumps.
             ts: The timepoints at which to evaluate the phases.
 
         Returns:
             The jump phase at each time point.
         """
-        if modkey not in self:
+        if frame not in self:
             return np.zeros_like(ts)
 
-        t_jump, accumulated_phase = self.integrate_phase(modkey)
+        t_jump, accumulated_phase = self.integrate_phase(frame)
 
         # Find phase_jumps that are relevant for the time slice
         s = np.searchsorted(t_jump, ts[0])
@@ -245,9 +245,9 @@ class PhaseTracker:
 
     def compute_oscillator_phase(
         self,
-        modkey: Frame,
+        frame: Frame,
         ts: np.ndarray,
-        modulations: dict[str, Frame] = {},
+        frames: dict[str, Frame] = {},
     ) -> np.ndarray:
         """Computes the phase on a reference frame due to time evolution.
 
@@ -258,16 +258,16 @@ class PhaseTracker:
         affect timepoints greater than or equal to `t`.
 
         Args:
-            modkey: The reference frame to evaluate.
+            frame: The reference frame to evaluate.
             ts: The timepoints at which to compute the time-evolved phase.
-            modulations: A map from reference frame names to concrete frequencies.
+            frames: A map from reference frame names to concrete frequencies.
 
         Returns:
             The time evolved phase at the specified timepoints. This phase is assumed
         """
-        freq = modkey.resolve(**modulations).offset
+        freq = frame.resolve(**frames).offset
 
-        t_resets = np.sort(np.unique(self.resets.get(modkey, [])))
+        t_resets = np.sort(np.unique(self.resets.get(frame, [])))
         diffs = np.diff(np.r_[0, t_resets])
         adjusted_ts = ts - sum(d * (ts >= t_r) for t_r, d in zip(t_resets, diffs))
 

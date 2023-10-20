@@ -28,7 +28,7 @@ class TestPhaseJump:
 class TestPhaseTracker:
     @pytest.fixture
     def phi_tracker(self):
-        phi_tracker = PhaseTracker.from_modulations(["mod_Q0", "mod_Q1"])
+        phi_tracker = PhaseTracker.from_frames(["mod_Q0", "mod_Q1"])
 
         phi_tracker.append("mod_Q0", PhaseJump(0, 1))
         phi_tracker.append("mod_Q0", PhaseJump(0, 0.5))
@@ -37,8 +37,8 @@ class TestPhaseTracker:
         phi_tracker.append("mod_Q0", PhaseJump(2, 1))
         return phi_tracker
 
-    def test_from_modulations(self):
-        phi_tracker = PhaseTracker.from_modulations(["a", "b", "a - b + 0.5 * c"])
+    def test_from_frames(self):
+        phi_tracker = PhaseTracker.from_frames(["a", "b", "a - b + 0.5 * c"])
 
         assert list(phi_tracker.keys()) == [
             Frame("a"),
@@ -67,7 +67,7 @@ class TestPhaseTracker:
         assert phi_tracker["R0.mod"] == [PhaseJump(0, 0)]
 
     def test_contains(self):
-        phi_tracker = PhaseTracker.from_modulations(["a", "b", "c"])
+        phi_tracker = PhaseTracker.from_frames(["a", "b", "c"])
 
         assert "a" in phi_tracker
         assert "a + b" in phi_tracker
@@ -196,7 +196,7 @@ class TestPhaseTracker:
         ],
     )
     def test_compute_integrated_phase(self, ts, phase_jumps, expected):
-        phase_tracker = PhaseTracker.from_modulations(["Q0"])
+        phase_tracker = PhaseTracker.from_frames(["Q0"])
 
         for pj in phase_jumps:
             phase_tracker.append("Q0", pj)
@@ -235,7 +235,7 @@ class TestPhaseTracker:
     def test_compute_oscillator_phase(self, resets, ts, frequency, expected):
         pt = PhaseTracker(resets=dict(Q0=resets))
 
-        modulations = dict(Q0=Frame(frequency))
-        phis = pt.compute_oscillator_phase(Frame("Q0"), ts, modulations)
+        frames = dict(Q0=Frame(frequency))
+        phis = pt.compute_oscillator_phase(Frame("Q0"), ts, frames)
 
         assert_almost_equal(phis, expected)

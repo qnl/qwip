@@ -366,14 +366,14 @@ class QWiPCompiler:
     Attributes:
         channels: A mapping from device names to `DeviceInfo` instances that
             contain information about the channels.
-        modulations: A mapping from modulation keys for phase tracking to concrete
-            modulation frequencies.
+        frames: A mapping from named frames for phase tracking to frames with a numeric
+            frequency value.
         end_marker: A string specifying the marker name that is used to specify the
             end of a sequence element.
     """
 
     channels: dict[str, DeviceInfo] = field(factory=dict)
-    modulations: dict[str, Frame] = field(factory=dict)
+    frames: dict[str, Frame] = field(factory=dict)
     subcompilers: dict[str, HardwareCompiler] = field(factory=dict)
 
     @classmethod
@@ -425,7 +425,7 @@ class QWiPCompiler:
         Returns:
             An updated phase tracker.
         """
-        phase_tracker = PhaseTracker.from_modulations(self.modulations)
+        phase_tracker = PhaseTracker.from_frames(self.frames)
 
         for loc, waves in locations.items():
             loc = loc.offset
@@ -523,7 +523,7 @@ class QWiPCompiler:
                     ts_wave,
                     t0=start + w.t0,
                     phase_tracker=phase_tracker,
-                    modulations=self.modulations,
+                    frames=self.frames,
                     complex_out=issubclass(device.dtype, np.complexfloating),
                     **pulse_kwargs,
                 )

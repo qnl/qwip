@@ -31,6 +31,7 @@ from qwip.sequencer.compilation import (
     QWiPCompiler,
 )
 from qwip.sequencer.phase_tracker import Frame
+from qwip.utils import deprecated
 
 
 @qdefine
@@ -97,13 +98,13 @@ class QPU:
             pipeline=pipeline,
             subsystems=subsystems,
         )
-        qpu.update_modulations()
+        qpu.update_frames()
 
         return qpu
 
     @classmethod
     def load_compiler(
-        cls, config: ConfigFolder, modulations: dict[str, Frame] = {}
+        cls, config: ConfigFolder, frames: dict[str, Frame] = {}
     ) -> QWiPCompiler:
         compilation = config["compilation"]
         devices = []
@@ -121,8 +122,8 @@ class QPU:
 
             devices.append(qwip.converter.structure(unstruct, DeviceInfo))
 
-        if not modulations:
-            modulations = dict()
+        if not frames:
+            frames = dict()
 
         compiler_cls = compilation.get("compiler", dict(__class__="QWiPCompiler")).get(
             "__class__", "QWiPCompiler"
@@ -132,7 +133,7 @@ class QPU:
         except KeyError:
             raise KeyError(f"'{compiler_cls}' is not a registered compiler.")
 
-        compiler = compiler_cls.from_devices(devices, modulations=modulations)
+        compiler = compiler_cls.from_devices(devices, frames=frames)
 
         return compiler
 
@@ -154,8 +155,8 @@ class QPU:
                         **qwip.converter.unstructure(ch)
                     )
 
-    def update_modulations(self):
-        modulation_keys = {}
+    def update_frames(self):
+        frames = {}
         local_oscillators = {
             key: LO_info["frequency"]
             for key, LO_info in self.config["hardware/local_oscillators"].items()
@@ -163,19 +164,25 @@ class QPU:
 
         for system in self.subsystems.values():
             match system:
-                case QuantumSystem(get_modulations=_):
-                    modulation_keys |= qwip.converter.structure(
-                        system.get_modulations(local_oscillators),
+                case QuantumSystem(get_frames=_):
+                    frames |= qwip.converter.structure(
+                        system.get_frames(local_oscillators),
                         dict[str, Frame],
                     )
                 case _:
-                    logger.info(
-                        f"Skipping modulation frequency for system {system.name}"
-                    )
+                    logger.info(f"Skipping frame for system {system.name}")
                     continue
 
-        self.compiler.modulations.update(**modulation_keys)
-        return modulation_keys
+        self.compiler.frames.update(**frames)
+        return frames
+
+    @deprecated(
+        version="23.10.0",
+        removed="23.11.0",
+        message="Use `qpu.update_frames()` instead.",
+    )
+    def update_modulations(self):
+        return self.update_frames()
 
     @classmethod
     def load_pipeline(
@@ -285,7 +292,7 @@ class QPU:
         """
 
         ## Update all frequencies before compilation
-        self.update_modulations()
+        self.update_frames()
         self.backend.update_parameters(self)
 
         match program:
