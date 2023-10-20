@@ -238,7 +238,12 @@ class QPU:
             if not system_cls:
                 raise TypeError(f"'{system_cls}' is not a registered model.")
 
-            subsystems[target] = system_cls(name=target, **system_info["parameters"])
+            unstructured = dict(
+                name=target,
+                **system_info["parameters"],
+            )
+
+            subsystems[target] = qwip.converter.structure(unstructured, system_cls)
 
         return subsystems
 

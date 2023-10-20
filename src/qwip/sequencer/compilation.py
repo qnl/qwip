@@ -24,6 +24,7 @@ from qwip.sequencer.phase_tracker import Frame, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import Marker, ReadoutMarker, TriggeredWaveform, Waveform
+from qwip.utils import deprecated
 from qwip.visualization.utils import all_legend_handles_labels
 
 REGISTERED_COMPILERS: dict[str, "QWiPCompiler"] = dict()
@@ -375,6 +376,14 @@ class QWiPCompiler:
     channels: dict[str, DeviceInfo] = field(factory=dict)
     frames: dict[str, Frame] = field(factory=dict)
     subcompilers: dict[str, HardwareCompiler] = field(factory=dict)
+
+    @deprecated(
+        version="23.10.0",
+        removed="23.11.0",
+        message="Use `compiler.frames` instead.",
+    )
+    def modulations(self) -> dict[str, Frame]:
+        return self.frames
 
     @classmethod
     def from_devices(cls, devices: Iterable[DeviceInfo], **kwargs: Any) -> Self:

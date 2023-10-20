@@ -1,10 +1,12 @@
 from collections.abc import Callable
 
 import numpy as np
+from attrs import field
+from loguru import logger
 from scipy.integrate import solve_ivp
 
 import qwip
-from qwip._cattr import make_attrs_unstructure_fn
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.phase_tracker import Frame
 
@@ -28,13 +30,25 @@ class QuantumSystem:
         return dict()
 
 
+def _rename_frame_key(key: str) -> str:
+    if "{mod_key}" in key:
+        logger.warning(
+            "'mod_key' has been deprecated in favor of 'subspace'. Please update all "
+            "frame keys accordingly."
+        )
+
+        return key.replace("mod_key", "subspace")
+
+    return key
+
+
 @register_qsystem
 @qdefine
 class Transmon(QuantumSystem):
     frequency: float
     anharmonicity: float | None = None
     local_oscillator: str | None = None
-    frame_key: str = "{name}.{subspace}"
+    frame_key: str = field(converter=_rename_frame_key, default="{name}.mod_{subspace}")
 
     @property
     def frequency_EF(self) -> float:
@@ -199,6 +213,27 @@ class ReadoutResonator(QuantumSystem):
         return alphas
 
 
+def make_quantum_system_structure_fn(cls):
+    structure_attrs = make_attrs_structure_fn(cls)
+
+    def structure_fn(obj, cls):
+        if isinstance(obj, cls):
+            return obj
+
+        if "modulation_name" in obj:
+            logger.warning(
+                "The attribute `modulation_name` has been renamed to `frame_key` and is"
+                " now deprecated. Update all unstructured systems accordingly."
+            )
+
+            obj["frame_key"] = obj["modulation_name"]
+            del obj["modulation_name"]
+
+        return structure_attrs(obj, cls)
+
+    return structure_fn
+
+
 def make_quantum_system_unstructure_fn(cls):
     unstructure_attrs = make_attrs_unstructure_fn(cls)
 
@@ -207,6 +242,10 @@ def make_quantum_system_unstructure_fn(cls):
 
     return unstructure_fn
 
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: issubclass(cls, QuantumSystem), make_quantum_system_structure_fn
+)
 
 qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, QuantumSystem), make_quantum_system_unstructure_fn

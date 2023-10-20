@@ -715,7 +715,7 @@ def make_waveform_structure_fn(cls):
         if subclass is None:
             logger.warning(f"No registered waveform found. Structuring {val} as {cls}.")
             return structure_attrs(val, cls)
-        
+
         if subclass is VirtualZWaveform and "mod_key" in val:
             logger.warning(
                 "VirtualZWavefrom 'mod_key' has been renamed to 'frame' and is now "
