@@ -48,12 +48,15 @@ class TestPhaseTracker:
 
     def test_getitem(self, phi_tracker):
         assert UnorderedList(phi_tracker["mod_Q0"]) == [
+            PhaseJump(0, 0),
             PhaseJump(0, 1),
             PhaseJump(0, 0.5),
             PhaseJump(2, 1),
         ]
 
         assert UnorderedList(phi_tracker["0.5 * (mod_Q0 - mod_Q1)"]) == [
+            PhaseJump(0, 0),
+            PhaseJump(0, 0),
             PhaseJump(0, 0.5),
             PhaseJump(0, 0.25),
             PhaseJump(0, -0.75),
@@ -61,7 +64,7 @@ class TestPhaseTracker:
             PhaseJump(2, 0.5),
         ]
 
-        assert phi_tracker["R0.mod"] == []
+        assert phi_tracker["R0.mod"] == [PhaseJump(0, 0)]
 
     def test_contains(self):
         phi_tracker = PhaseTracker.from_modulations(["a", "b", "c"])
@@ -105,6 +108,7 @@ class TestPhaseTracker:
                 [25e-9, 80e-9],
                 np.array([90, 90, 180]),
             ),
+            ([PhaseJump(5, 90), PhaseJump(25, 90)], [], np.array([0, 90, 180])),
         ],
     )
     def test_integrate_phase(self, phase_jumps, resets, expect):
@@ -117,6 +121,9 @@ class TestPhaseTracker:
 
         if not t_expect:
             t_expect = [0]
+
+        if t_expect[0] != 0:
+            t_expect = [0] + t_expect
 
         for t in resets:
             pt.reset("Q0.mod", t)
@@ -180,6 +187,11 @@ class TestPhaseTracker:
                 np.arange(10) + 10,
                 [PhaseJump(0, 0), PhaseJump(9, 1), PhaseJump(20, -3)],
                 np.ones(10),
+            ),
+            (
+                np.arange(10),
+                [PhaseJump(5, 1), PhaseJump(20, -3)],
+                np.array([0, 0, 0, 0, 0, 1, 1, 1, 1, 1]),
             ),
         ],
     )

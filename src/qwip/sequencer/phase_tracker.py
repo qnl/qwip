@@ -59,8 +59,15 @@ class PhaseTracker:
     def from_modulations(
         cls, modulations: TSequence[ModulationFrequency | str]
     ) -> Self:
-        """Creates an entry in the phase dictionary for each base modulation."""
-        phases = defaultdict(list)
+        """Creates an entry in the phase dictionary for each base modulation.
+
+        A null phase jump (phase increment of 0) will always be added at t = 0 to
+        indicate that the phase should start at 0 at t = 0.
+
+        Args:
+            modulations: A sequence of frames to add to the phase tracker.
+        """
+        phases = defaultdict(lambda: [PhaseJump(0, 0)])
 
         for mod in modulations:
             if isinstance(mod, str):
@@ -77,8 +84,18 @@ class PhaseTracker:
     def keys(self):
         return self.phases.keys()
 
-    def __getitem__(self, val):
-        """Gets the list of phase jumps associated with the phase entry."""
+    def __getitem__(self, val) -> list[PhaseJump]:
+        """Gets the list of phase jumps associated with the phase entry.
+
+        If the frame that is requested does not already exist in the phase tracker, an
+        entry is created and populated with a null phase jump.
+
+        Args:
+            val: The frame or str representing a frame.
+
+        Returns:
+            A list of phase jumps associated with the frame.
+        """
         if isinstance(val, str):
             val = ModulationFrequency.from_string(val)
 
@@ -86,7 +103,7 @@ class PhaseTracker:
             try:
                 return self.phases[val]
             except KeyError:
-                phases = self.phases[val] = []
+                phases = self.phases[val] = [PhaseJump(0, 0)]
                 return phases
 
         phases = []
