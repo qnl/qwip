@@ -149,6 +149,8 @@ class Waveform:
     @lru_cache
     def variables(self) -> frozenset[str]:
         """Returns the set of variables referenced in the waveform."""
+        from qwip.sequencer.elements import SequenceElement
+
         varset = set()
 
         for f in attrs.fields(type(self)):
@@ -158,12 +160,16 @@ class Waveform:
                 varset.update(var.variables())
             elif isinstance(var, LinearExpression):
                 varset.update(var.variables(return_string=True))
+            elif isinstance(var, SequenceElement):
+                varset.update(var.variables())
             elif isinstance(var, str) and is_union_type(f.type):
                 varset.add(var)
 
         return frozenset(varset)
 
     def resolve(self, **variable_map) -> Self:
+        from qwip.sequencer.elements import SequenceElement
+
         variable_map = {k: v for k, v in variable_map.items() if k in self.variables()}
 
         if not variable_map:
@@ -176,6 +182,12 @@ class Waveform:
 
             if isinstance(orig, (LinearExpression, Waveform)):
                 to_update[f.name] = orig.resolve(**variable_map)
+            elif isinstance(orig, SequenceElement) and set(
+                variable_map
+            ) & orig.variables(subset="waveform"):
+                new = orig.copy()
+                new.resolve_waveforms(**variable_map)
+                to_update[f.name] = new
             elif (
                 isinstance(orig, str)
                 and is_union_type(f.type)
@@ -390,21 +402,26 @@ class CWWaveform(InfiniteWaveform):
             A ndarray containing the function w(t) evaluated at the specified
             times.
         """
-        freq = 2 * np.pi * self.frequency.resolve(**modulations).offset
-
         if phase_tracker:
             phis = phase_tracker.compute_integrated_phase(
                 self.mod_key or self.frequency, ts
             )
+            software_oscillator = phase_tracker.compute_oscillator_phase(
+                self.frequency,
+                ts,
+                modulations,
+            )
         else:
             phis = np.zeros_like(ts)
+            freq = 2 * np.pi * self.frequency.resolve(**modulations).offset
+            software_oscillator = freq * ts
 
         if phase_unit.lower() == "degrees":
             phase *= np.pi / 180
             phis *= np.pi / 180
 
         # Add base modulation at the relevant frequency if doing software modulation
-        oscillator = 0 if self.hardware_modulation else freq * ts
+        oscillator = 0 if self.hardware_modulation else software_oscillator
         amplitude = 1 if self.hardware_modulation else amplitude
         wave = (
             amplitude * np.exp(1j * (oscillator + phis + phase), dtype=np.complex64)
@@ -480,6 +497,19 @@ class VirtualZWaveform(Marker):
         phase_tracker: PhaseTracker,
     ) -> None:
         phase_tracker.append(self.mod_key, PhaseJump(time, self.phase))
+
+
+@register_waveform
+@qfrozen
+class PhaseResetWaveform(Marker):
+    mod_key: ModulationFrequency
+
+    def update_phase_tracker(
+        self,
+        time,
+        phase_tracker: PhaseTracker,
+    ) -> None:
+        phase_tracker.reset(self.mod_key, time)
 
 
 @register_waveform

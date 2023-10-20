@@ -7,6 +7,7 @@ from functools import partial, wraps
 from IPython.core.getipython import get_ipython
 from IPython.core.magic import Magics, cell_magic, magics_class, register_cell_magic
 from IPython.core.magic_arguments import argument, magic_arguments, parse_argstring
+from loguru import logger
 from notifiers import get_notifier
 
 from qwip import qsettings
@@ -33,14 +34,13 @@ def deprecated(*, version: str, removed: str, message: str = ""):
         def wrapper(*args, **kwargs):
             name = f"{target.__module__}.{target.__qualname__}"
 
-            warnings.warn(
-                (
-                    f"`{name}` is deprecated since {version} and will be removed in "
-                    f"{removed}.\n{message}"
-                ),
-                stacklevel=2,
-                category=DeprecationWarning,
+            warntxt = (
+                f"`{name}` is deprecated since {version} and will be removed in "
+                f"{removed}.\n{message}"
             )
+
+            warnings.warn(warntxt, stacklevel=2, category=DeprecationWarning)
+            logger.warning(warntxt)
 
             return target(*args, **kwargs)
 

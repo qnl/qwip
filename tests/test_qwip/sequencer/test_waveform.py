@@ -16,6 +16,7 @@ from qwip.sequencer.waveform import (
     CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
+    PhaseResetWaveform,
     SquareWaveform,
     TriggeredWaveform,
     VirtualZWaveform,
@@ -413,7 +414,46 @@ class TestVirtualZWaveform:
         assert phase_tracker.compressed(mod_key) == phase_jumps
 
 
+class TestPhaseResetWaveform:
+    @pytest.mark.parametrize(
+        "mod_key,resets,expected",
+        [
+            (
+                ModulationFrequency("Q0.mod"),
+                [
+                    (10, PhaseResetWaveform(mod_key="Q0.mod")),
+                    (0, PhaseResetWaveform(mod_key="Q0.mod")),
+                ],
+                [10, 0],
+            ),
+            (
+                ModulationFrequency("Q1.mod"),
+                [
+                    (10, PhaseResetWaveform(mod_key="Q0.mod")),
+                    (0, PhaseResetWaveform(mod_key="Q0.mod")),
+                ],
+                [],
+            ),
+        ],
+    )
+    def test_update_phase_tracker(self, mod_key, resets, expected):
+        pt = PhaseTracker()
+
+        for t, r in resets:
+            r.update_phase_tracker(t, pt)
+
+        assert pt.resets.get(mod_key, []) == expected
+
+
 class TestTriggeredWaveform:
+    @pytest.fixture
+    def wave(self):
+        wave = TriggeredWaveform(
+            width="width",
+            target=SequenceElement().add_waveform(SquareWaveform(amplitude="amp")),
+        )
+        return wave
+
     def test_equality_by_id(self):
         assert TriggeredWaveform(target=SequenceElement()) != TriggeredWaveform(
             target=SequenceElement()
@@ -423,3 +463,24 @@ class TestTriggeredWaveform:
         w2 = attrs.evolve(w1)
 
         assert w1 == w2
+
+    def test_resolve(self, wave):
+        resolved = wave.resolve(amp=0.5)
+
+        se = wave.target.copy()
+        se.resolve_waveforms(amp=0.5)
+        assert resolved.target == se
+
+    def test_resolve_copy(self, wave):
+        # No variables in target get resolved so no copy.
+        w1 = wave.resolve(width=1)
+        w2 = wave.resolve(width=1)
+        assert w1 == w2
+
+        w1 = wave.resolve(amp="amp")
+        w2 = wave.resolve(amp="amp")
+        assert w1 != w2
+        assert w1.target == w2.target
+
+    def test_variables(self, wave):
+        assert wave.variables() == {"amp", "width"}

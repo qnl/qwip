@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
 
 
+@qdefine
 class DACBackend(metaclass=ABCMeta):
     @abstractproperty
     def sample_rate(self) -> float:
@@ -32,6 +33,7 @@ class DACBackend(metaclass=ABCMeta):
         ...
 
 
+@qdefine
 class ADCBackend(metaclass=ABCMeta):
     @abstractproperty
     def sample_rate(self) -> float:
@@ -53,6 +55,7 @@ class ADCBackend(metaclass=ABCMeta):
         ...
 
 
+@qdefine
 class QuantumBackend(metaclass=ABCMeta):
     uploaded: QuantumExecutable | None = None
 
@@ -61,7 +64,7 @@ class QuantumBackend(metaclass=ABCMeta):
         ...
 
     @abstractmethod
-    def acquire(self, exe: QuantumExecutable | None = None, **kwargs) -> dict:
+    def acquire(self, **kwargs) -> dict:
         ...
 
     @abstractmethod
@@ -85,6 +88,7 @@ class QWiPBackend(QuantumBackend):
     adc: ADCBackend
 
     def upload(self, exe: QuantumExecutable, **kwargs) -> None:
+        self.uploaded = exe
         self.dac.upload(exe, **kwargs)
         self.adc.upload(exe, **kwargs)
 
@@ -225,4 +229,4 @@ class FakeBackend(QuantumBackend):
                     self.gmms[key] = proc
 
 
-__all__ = ["FakeBackend"]
+__all__ = ["ADCBackend", "DACBackend", "QuantumBackend", "QWiPBackend", "FakeBackend"]

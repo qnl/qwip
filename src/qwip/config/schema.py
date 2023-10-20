@@ -107,6 +107,7 @@ class DeviceSchema(ValidatedConfigFolder):
     channels: list[str] = field(factory=list)
     sample_rate: float
     trigger: TriggerInfoSchema
+    dtype: str = "numpy.float32"
 
 
 @configschema

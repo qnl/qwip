@@ -49,6 +49,9 @@ def pytest_addoption(parser):
         default=None,
         help="An instrument configuration file.",
     )
+    parser.addoption(
+        "--dataserver", action="store", default=None, help="A dataserver host."
+    )
 
 
 @pytest.fixture(scope="session")
@@ -59,6 +62,11 @@ def db_url(request):
 @pytest.fixture(scope="session")
 def seed(request):
     return int(request.config.getoption("--seed"))
+
+
+@pytest.fixture(scope="session")
+def dataserver(request):
+    return request.config.getoption("--dataserver")
 
 
 @pytest.fixture(scope="session")

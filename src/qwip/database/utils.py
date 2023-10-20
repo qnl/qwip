@@ -1,11 +1,10 @@
 from pathlib import Path
 
 import pendulum
-import sqlalchemy as sa
 from sqlalchemy import types
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.expression import FunctionElement
-from uuid6 import UUID, uuid7
+from uuid6 import UUID
 
 JSONTypes = dict | list | bool | float | int | str | None
 

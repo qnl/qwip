@@ -1,3 +1,4 @@
+import itertools as it
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -29,6 +30,30 @@ if TYPE_CHECKING:
 
 @qfrozen
 class TektronixProgram(Program):
+    """A representation of a tektronix sequencer program.
+
+    Most of the attributes are passed directly to the `make_send_and_load_awg_file`
+    method of the QCoDeS driver.
+
+    Attributes:
+        channels: The channels indices that are involved. Note that these are
+            zero-indexed, but the Tektronix channels are 1-indexed on the device itself.
+        waveforms: A tuple of lists of numpy arrays containing the waveform data. The
+            outermost tuple indexes the channels and each list indexes the sequence
+            element.
+        marker1s: A tuple of lists of numpy arrays containing the values for the first
+            marker on each channel, indexed the same way as waveforms. These values
+            should either be 0 or 1.
+        marker2s: A tuple of lists of numpy arrays containing the values for the second
+            marker on each channel, indexed the same way as waveforms. These values
+            should either be 0 or 1.
+        repeats: The number of times to repeat the corresponding element.
+        waits: Whether or not to wait for a trigger before playing the corresponding
+            element.
+        go_tos: The element to go to after completing the current sequence element.
+        jump_tos: The event jump value for each element. Should be 0 for most cases.
+    """
+
     channels: tuple[int, ...]
     waveforms: tuple[list[np.ndarray], ...] = field()
     marker1s: tuple[list[np.ndarray], ...] = field()
@@ -44,6 +69,65 @@ class TektronixProgram(Program):
     def _default_list(self) -> tuple[list[np.ndarray]]:
         return tuple([] for _ in self.channels)
 
+    def validate(self, raise_on_error: bool = False) -> bool:
+        """Validates a program.
+
+        The minimum number of samples for every element on the 5014c is 250, discovered
+        via experimental programming.
+
+        Args:
+            raise_on_error: Whether to raise an exception or just return False.
+
+        Raises:
+            ValueError: If the program is invalid in any way.
+        """
+        channels = (
+            len(self.channels)
+            == len(self.waveforms)
+            == len(self.marker1s)
+            == len(self.marker2s)
+        )
+
+        if not channels:
+            if raise_on_error:
+                raise ValueError(
+                    "The number of channels does not match across channels, waveforms, "
+                    "and markers."
+                )
+            return False
+
+        args = [self.repeats, self.waits, self.go_tos, self.jump_tos]
+        elements = {
+            len(l) for l in it.chain(self.waveforms, self.marker1s, self.marker2s, args)
+        }
+
+        if len(elements) != 1:
+            if raise_on_error:
+                raise ValueError("All lists must have the same number of elements.")
+            return False
+
+        num_elements = next(iter(elements))
+
+        for i in range(num_elements):
+            timesteps = {
+                len(arrs[i])
+                for arrs in it.chain(self.waveforms, self.marker1s, self.marker2s)
+            }
+
+            if len(timesteps) != 1:
+                if raise_on_error:
+                    raise ValueError(
+                        f"Waveforms and markers for element {i} have a different number "
+                        f"of samples."
+                    )
+                return False
+
+            if (nsamples := next(iter(timesteps))) < 250:
+                if raise_on_error:
+                    raise ValueError(f"Element {i} has {nsamples} < 250 samples.")
+
+        return True
+
 
 @qdefine
 class TektronixCompiler(HardwareCompiler):
@@ -58,13 +142,11 @@ class TektronixCompiler(HardwareCompiler):
         set of timepoints.
 
         Args:
-            seq: The sequence to compile.
-            location_kwargs: Any location constraints to add to the sequence
-                before compilation.
-            pulse_kwargs: A mapping of variables names to resolved pulse parameters.
+            program: The intermediate representation to be compiled.
+            device: Device information for the tektronix instrument being targeted.
 
         Returns:
-            A `TektronixExecutable` instance.
+            A `TektronixProgram` instance.
         """
 
         indices = sorted(device.channel_indices())
@@ -159,11 +241,15 @@ class TektronixChannel:
 
 @qdefine
 class TektronixBackend(DACBackend):
-    """A hardware backend for interfacing with the Tektronix AWGs."""
+    """A hardware DAC backend for interfacing with the Tektronix AWGs.
+
+    Attributes;
+        device: The QCoDeS instrument corresponding to the device.
+        channels: The channel information representing each channel.
+    """
 
     device: Tektronix_AWG5014
     channels: tuple[TektronixChannel, ...] = field()
-    reset_delay: float = 100e-6
 
     @channels.default
     def _default_channels(self) -> tuple[TektronixChannel, ...]:
@@ -178,10 +264,28 @@ class TektronixBackend(DACBackend):
 
     @property
     def sample_rate(self) -> float:
-        self.device.clock_freq()
+        return self.device.clock_freq()
+
+    @sample_rate.setter
+    def sample_rate(self, sample_rate: float):
+        self.device.clock_freq(sample_rate)
+
+    @property
+    def active(self) -> bool:
+        return self.device.state().lower() != "idle"
 
     @classmethod
     def connect(cls, ip: str, name: str = "tektronix", **kwargs) -> Self:
+        """Creates a new backend instance from an IP address.
+
+        Args:
+            ip: The IP address for the Tektronix instrument.
+            name: A unique name for the device. This should match the name specified
+                in the configuration database.
+
+        Returns:
+             A new `TektronixBackend` instance.
+        """
         address = f"TCPIP0::{ip}::inst0::INSTR"
 
         dev = Tektronix_AWG5014(name=name, address=address)
@@ -191,19 +295,37 @@ class TektronixBackend(DACBackend):
 
         return backend
 
-    def start(self):
+    def start(self) -> None:
+        """Starts the tektronix and turns on the output for all channels."""
         self.device.stop()
         self.device.all_channels_on()
         self.device.start()
 
-    def stop(self):
+    def stop(self) -> None:
+        """Stops the tektronix and turns off the output for all channels."""
         self.device.stop()
+        self.device.all_channels_off()
 
-    def update_parameters(self, qpu, **kwargs):
-        ...
+    def update_parameters(self, qpu: "QPU", **kwargs) -> None:
+        """Updates device parameters from the QPU.
 
-    def upload(self, exe: QWiPExecutable):
+        This will update the sample rate of the Tektronix to match the specified sample
+        rate in the device info.
+
+        Args:
+            qpu: A `QPU` instance.
+        """
+        self.sample_rate = qpu.compiler.channels[self.device.name].sample_rate
+
+    def upload(self, exe: QWiPExecutable) -> None:
+        """Uploads an executable to the AWG.
+
+        Args:
+            exe: A `QWiPExecutable` containing the `TektronixProgram` to upload. The
+                program should be keyed by the device name.
+        """
         program = exe.programs[self.device.name]
+        program.validate(raise_on_error=True)
         self.device.make_send_and_load_awg_file(
             waveforms=list(program.waveforms),
             m1s=list(program.marker1s),
