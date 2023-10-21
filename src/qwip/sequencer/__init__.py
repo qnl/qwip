@@ -1,4 +1,5 @@
 from qwip.sequencer.compilation import *
+from qwip.sequencer.elements import *
 from qwip.sequencer.phase_tracker import *
 from qwip.sequencer.sequence import *
 from qwip.sequencer.timeline import *
