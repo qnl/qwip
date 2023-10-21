@@ -761,5 +761,6 @@ __all__ = [
     "SquareWaveform",
     "GaussianWaveform",
     "CosineRampWaveform",
+    "PhaseResetWaveform",
     "DRAG",
 ]
