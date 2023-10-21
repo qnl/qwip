@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from attrs import field
 from loguru import logger
+from rich.progress import Progress
 
 from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import ADCBackend
@@ -75,26 +76,29 @@ class AlazarBackend(ADCBackend):
         samples = max(min_len, samples)
         return np.ceil(samples / incr).astype(int) * incr
 
-    def acquire(self, **kwargs) -> np.ndarray:
-        arr = self.device.acquire()
-        arr = np.ascontiguousarray(arr.transpose(1, 2, 3, 0).astype(np.float32)).view(
-            np.complex64
-        )[..., 0]
+    def acquire(self, progress: Progress | None = None, **kwargs) -> np.ndarray:
+        if progress:
+            progress(total=self.device.n_repetitions + 1)
+
+        arr = self.device.acquire(progress=progress)
+        arr = np.ascontiguousarray(arr.astype(np.float32)).view(np.complex64)[..., 0]
 
         num_shots, num_readouts, num_samples = arr.shape
 
         shots = np.arange(num_shots)
-        elems = np.r_[tuple(np.repeat(i, n) for i, n in enumerate(self.exe.num_reads))]
+        timelines = np.r_[
+            tuple(np.repeat(i, n) for i, n in enumerate(self.exe.num_reads))
+        ]
         reads = np.r_[tuple(np.arange(n) for n in self.exe.num_reads)]
         ts = np.arange(num_samples) / self.sample_rate
 
         idx = pd.MultiIndex.from_arrays(
             [
                 np.repeat(shots, num_readouts),
-                np.tile(elems, num_shots),
+                np.tile(timelines, num_shots),
                 np.tile(reads, num_shots),
             ],
-            names=["shot", "element", "readout"],
+            names=["shot", "timeline", "readout"],
         )
 
         data = (
@@ -106,6 +110,9 @@ class AlazarBackend(ADCBackend):
             .stack()
             .to_frame()
         )
+
+        if progress:
+            progress(advance=1, completed=True)
 
         return {self.device.name: IQTraceResult(name=self.device.name, data=data)}
 

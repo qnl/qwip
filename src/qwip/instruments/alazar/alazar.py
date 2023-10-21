@@ -823,12 +823,12 @@ class Alazar:
             self.bytes_to_copy = bytes_per_buffer
             if not self.mean:
                 self.data = np.ndarray(
-                    (n_channels, n_repetitions, self.expected_triggers, samples),
+                    (n_repetitions, self.expected_triggers, samples, n_channels),
                     dtype=data_type,
                 )
             else:
                 self.data = np.zeros(
-                    (n_channels, 1, self.expected_triggers, samples), dtype="float64"
+                    (1, self.expected_triggers, samples, n_channels), dtype="float64"
                 )
 
         self.buffers = []
@@ -849,7 +849,9 @@ class Alazar:
         except:
             self.stop()
 
-    def acquire(self, timeout: int = 10000, convert_to_float: bool = False):
+    def acquire(
+        self, timeout: int = 10000, convert_to_float: bool = False, progress=None
+    ):
         """Acquire data from the alazar. Returns a 4 dimensional array of data
 
         Args:
@@ -862,11 +864,13 @@ class Alazar:
             if `mean=False`, or `channels x 1 x expected_triggers x samples` if
             `mean=True`.
         """
-
+        n_channels = len(self.board.channel_dict)
         current_buffer = 0
         while current_buffer < self.n_repetitions:
             try:
                 for buffer in self.buffers:
+                    if progress:
+                        progress(advance=1)
                     # Wait for the buffer at the head of the list of available
                     # buffers to be filled by the board.
                     if self.save_file_path is None:
@@ -881,18 +885,22 @@ class Alazar:
                     if self.save_only:
                         pass
                     elif not self.mean:
-                        self.data[0][
-                            current_buffer : (1 + current_buffer)
-                        ] = np.reshape(
-                            buffer.buffer[0::2],
-                            (1, self.expected_triggers, self.samples),
+                        self.data[current_buffer] = np.reshape(
+                            buffer.buffer,
+                            (self.expected_triggers, self.samples, n_channels),
                         )
-                        self.data[1][
-                            current_buffer : (1 + current_buffer)
-                        ] = np.reshape(
-                            buffer.buffer[1::2],
-                            (1, self.expected_triggers, self.samples),
-                        )
+                        # self.data[0][
+                        #     current_buffer : (1 + current_buffer)
+                        # ] = np.reshape(
+                        #     buffer.buffer[0::2],
+                        #     (1, self.expected_triggers, self.samples),
+                        # )
+                        # self.data[1][
+                        #     current_buffer : (1 + current_buffer)
+                        # ] = np.reshape(
+                        #     buffer.buffer[1::2],
+                        #     (1, self.expected_triggers, self.samples),
+                        # )
                     else:
                         np.add(
                             np.float64(

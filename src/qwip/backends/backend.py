@@ -92,11 +92,11 @@ class QWiPBackend(QuantumBackend):
         self.dac.upload(exe, **kwargs)
         self.adc.upload(exe, **kwargs)
 
-    def acquire(self, repetitions: int | None = None, **kwargs) -> dict:
+    def acquire(self, repetitions: int | None = None, progress=None, **kwargs) -> dict:
         self.adc.start(repetitions=repetitions, **kwargs)
         self.dac.start(**kwargs)
 
-        results = self.adc.acquire(**kwargs)
+        results = self.adc.acquire(progress=progress, **kwargs)
         self.dac.stop()
         self.adc.stop()
 

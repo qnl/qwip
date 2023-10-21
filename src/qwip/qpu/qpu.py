@@ -5,8 +5,12 @@ a superconduting quantum device as a quantum circuit processor, including circui
 compilation/transpilation, data acquisition, and measurement processing. This is the
 main user interface for interacting with experimental devices.
 """
+from contextlib import nullcontext
+from functools import partial
+
 from attrs import field
 from loguru import logger
+from rich.progress import Progress, SpinnerColumn, TimeElapsedColumn
 
 import qwip
 from qwip.attrs import qdefine
@@ -275,10 +279,12 @@ class QPU:
         self,
         program: Sequence | QuantumExecutable | None,
         processor: type[DataProcessor] | dict[str, type[DataProcessor]] | None = None,
+        *,
         repetitions: int = 512,
         compilation: dict = {},
         backend: dict = {},
         data: dict = {},
+        show_progress: bool = True,
     ) -> dict[str, MeasurementResult]:
         """Uploads a sequence and acquires data from a backend.
 
@@ -300,33 +306,69 @@ class QPU:
         self.update_frames()
         self.backend.update_parameters(self)
 
-        match program:
-            case Sequence():
-                exe = self.compiler.compile(program, **compilation)
-            case QuantumExecutable():
-                exe = program
-            case None:
-                exe = self.backend.uploaded
-            case _:
-                raise NotImplementedError(
-                    f"Only 'Sequence' and 'CompiledSequence' programs are currently "
-                    f"supported. Got {program}"
-                )
+        if show_progress:
+            progress = Progress(
+                SpinnerColumn(),
+                *Progress.get_default_columns(),
+                TimeElapsedColumn(),
+                transient=True,
+            )
+        else:
+            progress = nullcontext()
 
-        if program is not None:
-            self.backend.upload(exe)
+        update = None
+        with progress:
+            if show_progress:
+                task = progress.add_task("Compiling", total=None)
+                update = partial(progress.update, task)
 
-        raw_data = self.backend.acquire(repetitions=repetitions, **backend)
-        processed = self.process_results(raw_data, processor, exe=exe)
+            match program:
+                case Sequence():
+                    exe = self.compiler.compile(program, **compilation, progress=update)
+                case QuantumExecutable():
+                    exe = program
+                case None:
+                    exe = self.backend.uploaded
+                case _:
+                    raise NotImplementedError(
+                        f"Only 'Sequence' and 'CompiledSequence' programs are currently "
+                        f"supported. Got {program}"
+                    )
 
-        if self.datastore:
-            data = dict(config_db=self.db) | data
-            if exe and exe.sequence is None:
-                data["executable"] = exe
-            elif exe:
-                data["sequence"] = exe.sequence
+            if show_progress:
+                update(visible=False)
+                task = progress.add_task("Acquiring", total=None)
+                update = partial(progress.update, task)
 
-            self.datastore.save(*self.pipeline.grouped_data(), **data)
+            if program is not None:
+                self.backend.upload(exe)
+
+            raw_data = self.backend.acquire(
+                repetitions=repetitions, **backend, progress=update
+            )
+
+            if show_progress:
+                update(visible=False)
+                task = progress.add_task("Processing", total=None)
+                update = partial(progress.update, task)
+
+            processed = self.process_results(
+                raw_data, processor, exe=exe, progress=update
+            )
+
+            if show_progress:
+                update(completed=True)
+                progress.refresh()
+                update(visible=False)
+
+            if self.datastore:
+                data = dict(config_db=self.db) | data
+                if exe and exe.sequence is None:
+                    data["executable"] = exe
+                elif exe:
+                    data["sequence"] = exe.sequence
+
+                self.datastore.save(*self.pipeline.grouped_data(), **data)
 
         return processed
 

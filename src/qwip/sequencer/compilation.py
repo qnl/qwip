@@ -13,6 +13,7 @@ from loguru import logger
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
+from rich.progress import Progress
 from scipy.fft import fft, fftfreq, fftshift
 from typing_extensions import Self
 
@@ -644,6 +645,7 @@ class QWiPCompiler:
         seq: Sequence,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
+        progress: Progress | None = None,
     ) -> QWiPExecutable:
         """Compiles a sequence.
 
@@ -661,6 +663,9 @@ class QWiPCompiler:
         """
         exe = QWiPExecutable.from_devices(sequence=seq, devices=self.channels.values())
 
+        if progress:
+            progress(total=len(seq.flat) + len(exe.programs))
+
         instruction_cache = dict()
 
         for tmln in seq.flat:
@@ -669,11 +674,17 @@ class QWiPCompiler:
                 exe, tmln, location_kwargs, pulse_kwargs, instruction_cache
             )
 
+            if progress:
+                progress(advance=1)
+
         for dev, program in exe.programs.items():
             if dev in self.subcompilers:
                 exe.programs[dev] = self.subcompilers[dev].compile(
                     program, device=self.channels[dev]
                 )
+
+            if progress:
+                progress(advance=1)
 
         return exe
 
