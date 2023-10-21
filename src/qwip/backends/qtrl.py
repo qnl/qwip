@@ -428,3 +428,6 @@ class QTRLBackend(QuantumBackend):
 
     def exe_formats(self) -> set[type[QuantumExecutable]]:
         return {QTRLExecutable}
+
+
+__all__ = ["QTRLBackend", "QTRLCompiler", "QTRLExecutable"]

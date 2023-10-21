@@ -219,3 +219,6 @@ def plot_GMM(
         ax.legend(**legend_kw)
 
     return fig
+
+
+__all__ = ["plot_IQ", "plot_IQ_histogram", "plot_GMM"]

@@ -108,3 +108,6 @@ class DataFramePlotter:
             ax.set_ylabel(ys.name)
 
         return fig
+
+
+__all__ = ["DataFramePlotter"]

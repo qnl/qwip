@@ -254,3 +254,6 @@ class VNABackend(QuantumBackend):
     @property
     def exe_formats(self) -> set[type[QuantumExecutable]]:
         return {VNAExecutable}
+
+
+__all__ = ["VnaBackend", "VNAExecutable"]
