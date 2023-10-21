@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-from qwip.backends.alazar import AlazarBackend, AlazarCompiler
 from qwip.backends.backend import QWiPBackend
 from qwip.backends.tektronix import (
     TektronixBackend,
@@ -27,6 +26,11 @@ from qwip.sequencer.waveform import (
     TriggeredWaveform,
     VirtualZWaveform,
 )
+
+try:
+    from qwip.backends.alazar import AlazarBackend, AlazarCompiler
+except ImportError:
+    pytest.skip("Alazar dependencies not installed.", allow_module_level=True)
 
 
 @pytest.fixture

@@ -1,6 +1,9 @@
 import pytest
 
-from qwip.backends.alazar import AlazarBackend
+try:
+    from qwip.backends.alazar import AlazarBackend
+except ImportError:
+    pytest.skip("Alazar dependencies not installed.", allow_module_level=True)
 
 
 @pytest.fixture
