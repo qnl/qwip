@@ -15,7 +15,7 @@ class TestDatabase:
             "waveforms",
             "waveform_locations",
             "constraints",
-            "sequence_elements",
+            "timelines",
             "datasets",
             "assets",
         }

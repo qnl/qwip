@@ -22,7 +22,7 @@ from qwip.sequencer.utils import LinearExpression, Location
 from qwip.typing import is_union_type
 
 if TYPE_CHECKING:
-    from qwip.sequencer.elements import SequenceElement
+    from qwip.sequencer.timeline import Timeline
 
 REGISTERED_WAVEFORMS: dict[str, "Waveform"] = dict()
 
@@ -149,7 +149,7 @@ class Waveform:
     @lru_cache
     def variables(self) -> frozenset[str]:
         """Returns the set of variables referenced in the waveform."""
-        from qwip.sequencer.elements import SequenceElement
+        from qwip.sequencer.timeline import Timeline
 
         varset = set()
 
@@ -160,7 +160,7 @@ class Waveform:
                 varset.update(var.variables())
             elif isinstance(var, LinearExpression):
                 varset.update(var.variables(return_string=True))
-            elif isinstance(var, SequenceElement):
+            elif isinstance(var, Timeline):
                 varset.update(var.variables())
             elif isinstance(var, str) and is_union_type(f.type):
                 varset.add(var)
@@ -168,7 +168,7 @@ class Waveform:
         return frozenset(varset)
 
     def resolve(self, **variable_map) -> Self:
-        from qwip.sequencer.elements import SequenceElement
+        from qwip.sequencer.timeline import Timeline
 
         variable_map = {k: v for k, v in variable_map.items() if k in self.variables()}
 
@@ -182,9 +182,9 @@ class Waveform:
 
             if isinstance(orig, (LinearExpression, Waveform)):
                 to_update[f.name] = orig.resolve(**variable_map)
-            elif isinstance(orig, SequenceElement) and set(
-                variable_map
-            ) & orig.variables(subset="waveform"):
+            elif isinstance(orig, Timeline) and set(variable_map) & orig.variables(
+                subset="waveform"
+            ):
                 new = orig.copy()
                 new.resolve_waveforms(**variable_map)
                 to_update[f.name] = new
@@ -331,7 +331,7 @@ class Marker(Waveform):
 @register_waveform
 @qfrozen
 class TriggeredWaveform(BasicWaveform):
-    target: "qwip.sequencer.elements.SequenceElement | None" = field(
+    target: "qwip.sequencer.timeline.Timeline | None" = field(
         default=None, eq=id, metadata=dict(allow_override=False)
     )
 

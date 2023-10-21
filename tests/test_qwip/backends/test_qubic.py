@@ -25,8 +25,8 @@ from qwip.sequencer import (
     GaussianWaveform,
     ModulatedWaveform,
     Sequence,
-    SequenceElement,
     SquareWaveform,
+    Timeline,
     VirtualZWaveform,
 )
 from qwip.sequencer.compilation import ChannelInfo, DeviceInfo
@@ -141,7 +141,7 @@ class TestQubicSequencer:
     def gates(self):
         gates = dict()
         for q in range(4):
-            X90 = SequenceElement()
+            X90 = Timeline()
             X90.add_waveform(VirtualZWaveform(mod_key=f"Q{q}.freq_GE"))
             X90.add_waveform(
                 ModulatedWaveform(
@@ -156,7 +156,7 @@ class TestQubicSequencer:
             X90.add_waveform(VirtualZWaveform(mod_key=f"Q{q}.freq_GE"))
             X90.width = 25e-9
 
-            ro = SequenceElement()
+            ro = Timeline()
             ro.add_waveform(
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
@@ -220,7 +220,7 @@ class TestQubicSequencer:
         ...
 
     def test_compile_sequence_element(self, sequencer, gates):
-        se = SequenceElement()
+        se = Timeline()
         se.append(gates["Q0_X90"])
         se.append(gates["Q0_X90"], gates["Q0_X90"].width)
         se.append(gates["Q0_RO"], 2 * gates["Q0_X90"].width)

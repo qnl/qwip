@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 import qwip
-from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.phase_tracker import Frame
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
@@ -27,15 +27,15 @@ WAVEFORMS = dict(
 )
 
 
-class TestSequenceElement:
+class TestTimeline:
     def test_create(self):
-        se = SequenceElement()
+        se = Timeline()
         assert se.locations == dict()
         assert se.constraints == dict()
         assert se.channels == set()
         assert se.width is None
 
-        se = SequenceElement(
+        se = Timeline(
             locations=dict(start=[WAVEFORMS["g1"]]),
             constraints=dict(start=Location()),
             width="width",
@@ -54,9 +54,7 @@ class TestSequenceElement:
         s = SquareWaveform()
         constraints = dict(start=start) if start else dict()
 
-        se = SequenceElement.fromtuples(
-            [(l, s) for l in locations], constraints=constraints
-        )
+        se = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
 
         variables = {v for v in locations if isinstance(v, str)} | set(constraints)
         assert se.variables() == variables
@@ -73,9 +71,7 @@ class TestSequenceElement:
         ],
     )
     def test_getitem(self, all_locs, get_loc, expect):
-        se = SequenceElement.fromtuples(
-            [(l, w) for l, w in zip(all_locs, WAVEFORMS.values())]
-        )
+        se = Timeline.fromtuples([(l, w) for l, w in zip(all_locs, WAVEFORMS.values())])
 
         context = noerror() if isinstance(expect, str) else expect
         with context:
@@ -89,7 +85,7 @@ class TestSequenceElement:
         ],
     )
     def test_contains(self, pairs, wave, expect):
-        se = SequenceElement.fromtuples(pairs)
+        se = Timeline.fromtuples(pairs)
         assert (wave in se) == expect
 
     @pytest.mark.parametrize(
@@ -104,9 +100,7 @@ class TestSequenceElement:
     def test_variables(self, locations, constraints, expect):
         s = SquareWaveform()
 
-        se = SequenceElement.fromtuples(
-            [(l, s) for l in locations], constraints=constraints
-        )
+        se = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
 
         assert se.variables() == expect
 
@@ -147,7 +141,7 @@ class TestSequenceElement:
         ],
     )
     def test_solve_constraints(self, locations, constraints, expect):
-        se = SequenceElement()
+        se = Timeline()
         for loc in locations:
             se.add_waveform([], loc)
 
@@ -161,7 +155,7 @@ class TestSequenceElement:
             assert all(np.allclose(result[k], expect[k]) for k in result.keys())
 
     def test_resolve_locations_negative(self):
-        se = SequenceElement.fromtuples(
+        se = Timeline.fromtuples(
             [(-20e-9, SquareWaveform(width=30e-9)), (0, GaussianWaveform(width=20e-9))]
         )
 
@@ -170,7 +164,7 @@ class TestSequenceElement:
         assert list(locations.keys()) == [Location(0), Location(20e-9), Location(40e-9)]
 
     def test_resolve_locations_infinite(self):
-        se = SequenceElement.fromtuples(
+        se = Timeline.fromtuples(
             [
                 (-10e-9, DCWaveform()),
                 (0, GaussianWaveform(width=20e-9)),
@@ -190,7 +184,7 @@ class TestSequenceElement:
         ],
     )
     def test_resolve_locations_marker(self, locs, end):
-        se = SequenceElement.fromtuples(locs)
+        se = Timeline.fromtuples(locs)
 
         markers = {}
         se.resolve_locations(markers=markers)
@@ -198,7 +192,7 @@ class TestSequenceElement:
         assert markers["end"].almost_equal(end)
 
     def test_rename_variables(self):
-        se = SequenceElement().fromtuples(
+        se = Timeline().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp", width="t")),
                 ("t", GaussianWaveform(width="t")),
@@ -207,7 +201,7 @@ class TestSequenceElement:
 
         se.rename_variables(lambda n: "tgate" if n == "t" else n)
 
-        assert se == SequenceElement().fromtuples(
+        assert se == Timeline().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp", width="tgate")),
                 ("tgate", GaussianWaveform(width="tgate")),
@@ -217,7 +211,7 @@ class TestSequenceElement:
         se.width = "tgate + tbuffer"
         se.rename_variables(lambda n: n + "1" if n != "tgate" else n)
 
-        assert se == SequenceElement().fromtuples(
+        assert se == Timeline().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp1", width="tgate")),
                 ("tgate", GaussianWaveform(width="tgate")),
@@ -226,8 +220,8 @@ class TestSequenceElement:
         )
 
     def test_append_sequence(self):
-        se1 = SequenceElement.fromtuples([("a", None), ("b", None)])
-        se2 = SequenceElement.fromtuples([("c", None), ("d", None)])
+        se1 = Timeline.fromtuples([("a", None), ("b", None)])
+        se2 = Timeline.fromtuples([("c", None), ("d", None)])
 
         se1.append(se2)
 
@@ -240,8 +234,8 @@ class TestSequenceElement:
         ],
     )
     def test_append_shared_variables(self, vars1, vars2, name, expect):
-        se1 = SequenceElement.fromtuples([(v, None) for v in vars1])
-        se2 = SequenceElement.fromtuples([(v, None) for v in vars2])
+        se1 = Timeline.fromtuples([(v, None) for v in vars1])
+        se2 = Timeline.fromtuples([(v, None) for v in vars2])
 
         if hasattr(expect, "__enter__"):
             with expect:
@@ -260,8 +254,8 @@ class TestSequenceElement:
         ],
     )
     def test_append_location_name(self, self_loc, other_loc, name):
-        se1 = SequenceElement()
-        se2 = SequenceElement()
+        se1 = Timeline()
+        se2 = Timeline()
 
         se1.append(se2, self_loc, other_loc, name=name)
 
@@ -273,17 +267,17 @@ class TestSequenceElement:
     @pytest.mark.parametrize(
         "se1,se2,result",
         [
-            (SequenceElement(), SequenceElement(), SequenceElement()),
+            (Timeline(), Timeline(), Timeline()),
             (
-                SequenceElement.fromtuples(
+                Timeline.fromtuples(
                     [(Location("start"), SquareWaveform(channels=["a"]))],
                     constraints=dict(start=Location()),
                 ),
-                SequenceElement.fromtuples(
+                Timeline.fromtuples(
                     [(Location("start"), SquareWaveform(channels=["b"]))],
                     constraints=dict(start=Location(), width=Location(10)),
                 ),
-                SequenceElement.fromtuples(
+                Timeline.fromtuples(
                     [
                         (Location("start"), SquareWaveform(channels=["a"])),
                         (Location("start"), SquareWaveform(channels=["b"])),
@@ -292,8 +286,8 @@ class TestSequenceElement:
                 ),
             ),
             (
-                SequenceElement.fromtuples([], constraints=dict(start=Location())),
-                SequenceElement.fromtuples([], constraints=dict(start=Location(1))),
+                Timeline.fromtuples([], constraints=dict(start=Location())),
+                Timeline.fromtuples([], constraints=dict(start=Location(1))),
                 pytest.raises(ValueError),
             ),
         ],
@@ -317,7 +311,7 @@ class TestSequenceElement:
             ),
             (Location("width"), VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
         ]
-        se = SequenceElement.fromtuples(lws, width="width")
+        se = Timeline.fromtuples(lws, width="width")
 
         def transformer(loc, wave):
             match wave:
@@ -342,11 +336,9 @@ class TestSequenceElement:
     @pytest.mark.parametrize(
         "se",
         [
-            SequenceElement(),
-            SequenceElement.fromtuples(
-                [("a", WAVEFORMS["c1"]), ("b", WAVEFORMS["g1"])]
-            ),
-            SequenceElement.fromtuples(
+            Timeline(),
+            Timeline.fromtuples([("a", WAVEFORMS["c1"]), ("b", WAVEFORMS["g1"])]),
+            Timeline.fromtuples(
                 [("a", WAVEFORMS["c1"]), ("a", WAVEFORMS["g1"])],
                 constraints=dict(a=Location()),
             ),
@@ -385,9 +377,7 @@ class TestSequenceElement:
         ],
     )
     def test_get_channel_map(self, waveforms, channels, channel_map):
-        se = SequenceElement.fromtuples(
-            [(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)]
-        )
+        se = Timeline.fromtuples([(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)])
 
         channel_map = {c: waves for c, waves in channel_map.items()}
         assert se.get_channel_map(*channels) == channel_map
@@ -395,9 +385,9 @@ class TestSequenceElement:
     @pytest.mark.parametrize(
         "se,se_dict",
         [
-            (SequenceElement(), {}),
+            (Timeline(), {}),
             (
-                SequenceElement.fromtuples(
+                Timeline.fromtuples(
                     [(1 + Location("width"), WAVEFORMS["s1"])],
                     constraints=dict(width=Location(5)),
                 ),
@@ -418,7 +408,7 @@ class TestSequenceElement:
     )
     def test_serialization(self, se, se_dict):
         unstructured = qwip.converter.unstructure(se)
-        restructured = qwip.converter.structure(unstructured, SequenceElement)
+        restructured = qwip.converter.structure(unstructured, Timeline)
 
         assert unstructured == se_dict
         assert se == restructured

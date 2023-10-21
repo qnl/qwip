@@ -6,11 +6,11 @@ from qwip.config.models import (
     ConstraintModel,
     Folder,
     Parameter,
-    SequenceElementModel,
+    TimelineModel,
     WaveformLocationModel,
     WaveformModel,
 )
-from qwip.sequencer.elements import SequenceElement
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.waveform import (
     DRAG,
     CosineRampWaveform,
@@ -126,7 +126,7 @@ class TestWaveformModel:
         assert [w.key for w in results] == ["envelope", "modulation", "envelope"]
 
 
-class TestSequenceElements:
+class TestTimelines:
     @pytest.fixture
     def x90_se(self):
         z_correction = VirtualZWaveform(frame="mod_GE", phase="z_phase")
@@ -135,7 +135,7 @@ class TestSequenceElements:
             envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),
             modulation=CWWaveform(channels=("I", "Q"), frequency="mod_GE"),
         )
-        se = SequenceElement.fromtuples(
+        se = Timeline.fromtuples(
             [("t0", z_correction), ("t0", x90), ("t0" + x90.width, z_correction)],
             width=x90.width,
             constraints=dict(t0=0),
@@ -150,14 +150,14 @@ class TestSequenceElements:
             envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),
             modulation=CWWaveform(channels=("I", "Q"), frequency="mod_GE"),
         )
-        se = SequenceElement.fromtuples(
+        se = Timeline.fromtuples(
             [("t0", z_correction), ("t0", x90), ("t0" + x90.width, z_correction)],
             constraints=dict(t0=0),
         )
         return se
 
     def test_insert_select(self, session, models, x90_se):
-        se_model = SequenceElementModel.from_sequence_element(x90_se, name="x90")
+        se_model = TimelineModel.from_timeline(x90_se, name="x90")
         session.add(se_model)
         session.flush()
 
@@ -173,12 +173,12 @@ class TestSequenceElements:
         assert num_waves == 3
         assert num_pairs == 3
 
-        new_model = session.scalars(sa.select(SequenceElementModel)).one()
+        new_model = session.scalars(sa.select(TimelineModel)).one()
 
         assert se_model == new_model
 
     def test_delete(self, session, models, x90_se):
-        se_model = SequenceElementModel.from_sequence_element(x90_se, name="x90")
+        se_model = TimelineModel.from_timeline(x90_se, name="x90")
         extra_wave = WaveformModel.from_waveform(
             CosineRampWaveform(amplitude=0.5, width=20e-9)
         )
@@ -202,12 +202,12 @@ class TestSequenceElements:
         assert num_pairs == 0
 
     def test_round_trip(self, session, models, se_no_width):
-        se_model = SequenceElementModel.from_sequence_element(se_no_width, name="x90")
+        se_model = TimelineModel.from_timeline(se_no_width, name="x90")
 
         session.add(se_model)
         session.flush()
 
-        new_model = session.scalars(sa.select(SequenceElementModel)).one()
-        new_se = new_model.to_sequence_element()
+        new_model = session.scalars(sa.select(TimelineModel)).one()
+        new_se = new_model.to_timeline()
 
         assert new_se == se_no_width

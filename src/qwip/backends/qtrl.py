@@ -24,8 +24,8 @@ from qwip.sequencer.compilation import (
     WaitTriggerInstruction,
     register_compiler,
 )
-from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import Sequence
+from qwip.sequencer.timeline import Timeline
 
 
 @qdefine(kw_only=False)
@@ -37,7 +37,7 @@ class _ReadoutInfo:
     Attributes:
         sequence: A WaveformData object to mirror a QTRL sequence.
         qubits: A list of qubit indices corresponding to which qubits a read out.
-        n_readouts: The total number of readouts across all sequence elements.
+        n_readouts: The total number of readouts across all pulse timelines.
     """
 
     sequence: "SequenceArray"
@@ -402,8 +402,8 @@ class QTRLBackend(QuantumBackend):
         readout: str = "default",
         length: float | None = None,
         length_variable: str = "width",
-    ) -> SequenceElement:
-        """Constructs a readout sequence element from the readout config.
+    ) -> Timeline:
+        """Constructs a readout pulse timeline from the readout config.
 
         Args:
             readout: The name of the readout config.
@@ -412,11 +412,11 @@ class QTRLBackend(QuantumBackend):
                 the readout pulse.
 
         Returns:
-            The readout sequence element.
+            The readout pulse timeline.
         """
         readout_config = qpu.config.readout[readout]
 
-        ro_se = SequenceElement()
+        ro_se = Timeline()
         length = length or readout_config.length
 
         for r in qpu.compiler.readout_qubits:

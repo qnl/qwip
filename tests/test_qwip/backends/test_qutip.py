@@ -12,7 +12,7 @@ from qwip.backends.qutip import (
     get_active_channels,
 )
 from qwip.processing.processors import HeterodyneDemodulation, IQTraceResult
-from qwip.sequencer import Sequence, SequenceElement, TriggeredWaveform
+from qwip.sequencer import Sequence, Timeline, TriggeredWaveform
 
 
 def check_fft(ts, drive):
@@ -206,9 +206,9 @@ class TestQutipBackend:
         def make_exe(shape):
             seq = Sequence.empty(shape)
             readout = TriggeredWaveform(
-                target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+                target=Timeline(), width=50e-9, channels=("RO_marker",)
             )
-            return compiler.compile(seq + SequenceElement().add_waveform(readout))
+            return compiler.compile(seq + Timeline().add_waveform(readout))
 
         return make_exe
 
@@ -241,9 +241,9 @@ class TestQutipBackend:
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
 
         readout = TriggeredWaveform(
-            target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+            target=Timeline(), width=50e-9, channels=("RO_marker",)
         )
-        rabi_se = SequenceElement()
+        rabi_se = Timeline()
         rabi_se.append(Q0_X)
         rabi_se.add_waveform(readout, location=Q0_X.width)
 
@@ -259,9 +259,9 @@ class TestQutipBackend:
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
 
         readout = TriggeredWaveform(
-            target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+            target=Timeline(), width=50e-9, channels=("RO_marker",)
         )
-        rabi_se = SequenceElement()
+        rabi_se = Timeline()
         rabi_se.append(Q0_X)
         rabi_se.append(Q0_X, self_loc=Q0_X.width)
         rabi_se.add_waveform(readout, location=2 * Q0_X.width)
@@ -280,9 +280,9 @@ class TestQutipBackend:
         Q1_X = db.load_pulse("Q1_X90", variables=dict(width="rabi_width"))
 
         readout = TriggeredWaveform(
-            target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+            target=Timeline(), width=50e-9, channels=("RO_marker",)
         )
-        rabi_se = SequenceElement()
+        rabi_se = Timeline()
         rabi_se.append(Q0_X)
         rabi_se.append(Q1_X)
         rabi_se.add_waveform(readout, location=Q0_X.width)
@@ -302,9 +302,9 @@ class TestQutipBackend:
         Q2_X = db.load_pulse("Q2_X90", variables=dict(width="rabi_width"))
 
         readout = TriggeredWaveform(
-            target=SequenceElement(), width=50e-9, channels=("RO_marker",)
+            target=Timeline(), width=50e-9, channels=("RO_marker",)
         )
-        rabi_se = SequenceElement()
+        rabi_se = Timeline()
         rabi_se.append(Q0_X)
         rabi_se.append(Q1_X)
         rabi_se.append(Q2_X)

@@ -141,14 +141,14 @@ class TestIQTraceResult:
         IQ_data = np.ones((512, 10, 2, 1000))
         IQ_default = IQTraceResult.from_numpy(IQ_data, name="Q0")
         assert IQ_default.data.to_numpy().shape == (10 * 2 * 512 * 1000, 1)
-        assert IQ_default.data.index.names == ["shot", "element", "readout", "time"]
+        assert IQ_default.data.index.names == ["shot", "timeline", "readout", "time"]
 
         IQ_data_no_readout = np.ones((512, 10, 1000))
         IQ_no_readout = IQTraceResult.from_numpy(
-            IQ_data_no_readout, name="Q1", labels=["shot", "element", "time"]
+            IQ_data_no_readout, name="Q1", labels=["shot", "timeline", "time"]
         )
         assert IQ_no_readout.data.to_numpy().shape == (512 * 10 * 1000, 1)
-        assert IQ_no_readout.data.index.names == ["shot", "element", "time"]
+        assert IQ_no_readout.data.index.names == ["shot", "timeline", "time"]
 
 
 class TestHeterodyneDemodulation:
@@ -230,7 +230,9 @@ class TestHeterodyneDemodulation:
         exe = QWiPExecutable(num_reads=[1] * len(freqs), programs=dict(demod=program))
         processor = HeterodyneDemodulation(device="demod")
         processed = processor(result, exe=exe)[0]
-        demod_IQ = processed.groupby(["element", "readout"]).mean().to_numpy().flatten()
+        demod_IQ = (
+            processed.groupby(["timeline", "readout"]).mean().to_numpy().flatten()
+        )
 
         assert_allclose(demod_IQ, expect, atol=0.05, rtol=0.05)
 

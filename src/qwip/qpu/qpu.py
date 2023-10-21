@@ -11,7 +11,7 @@ from loguru import logger
 import qwip
 from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
-from qwip.config.interface import ConfigFolder, OfflineConfigDB, SequenceElementFolder
+from qwip.config.interface import ConfigFolder, OfflineConfigDB, PulsesFolder
 from qwip.config.schema import Target
 from qwip.data.datastore import OfflineDatastore
 from qwip.processing.data_processor import (
@@ -77,7 +77,7 @@ class QPU:
         return self.db.config
 
     @property
-    def pulses(self) -> SequenceElementFolder:
+    def pulses(self) -> PulsesFolder:
         return self.db.pulses
 
     def set_backend(self, backend: QuantumBackend):
@@ -288,7 +288,7 @@ class QPU:
                 executable, it should match the backend being used. Otherwise, if `None`,
                 the previously uploaded sequence is run.
             processor: The data processor to use. See `qpu.process_results`.
-            repetitions: The number of shots to take for each sequence element.
+            repetitions: The number of shots to take for each pulse timeline.
             compilation: The compilation arguments, which are passed to
                 `self.compiler.compile`.
 
