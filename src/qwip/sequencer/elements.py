@@ -62,7 +62,7 @@ class Timeline:
                 of constraints.
 
         Returns:
-            The resulting sequence element instance
+            The resulting `Timeline` instance
         """
         locations = {}
         channels = set()
@@ -90,7 +90,7 @@ class Timeline:
         waveform: Waveform | Collection[Waveform],
         location: LocationLike = Location(),
     ) -> Self:
-        """Adds a waveform to the sequence element at the specified location.
+        """Adds a waveform to the pulse timeline at the specified location.
 
         Args:
             location: The location at which to place the waveform
@@ -112,7 +112,7 @@ class Timeline:
         waveform: Waveform | Collection[Waveform],
         location: LocationLike | None = None,
     ) -> Self:
-        """Removes a waveform to the sequence element.
+        """Removes a waveform to the pulse timeline.
 
         By default will remove all instances of the waveform(s). If a
         location is specified, only instances of the waveform at the
@@ -181,17 +181,17 @@ class Timeline:
         other_loc: LocationLike = Location(),
         name: str | None = None,
     ) -> "Timeline":
-        """Appends a sequence element.
+        """Appends a pulse timeline.
 
         Args:
-            other: The sequence element to append.
+            other: The pulse timeline to append.
             name: A (optional) variable name to set the new location of the origin
                 for the `other` sequence. This makes it simple to shift the origin
                 later.
-            self_loc: The location in the current sequence element to line up with
-                the location in the `other` sequence element.
-            other_loc: The location in the `other` sequence element to line up with
-                the location in the current sequence element.
+            self_loc: The location in the current pulse timeline to line up with
+                the location in the `other` pulse timeline.
+            other_loc: The location in the `other` pulse timeline to line up with
+                the location in the current pulse timeline.
 
         Raises:
             ValueError: If any constraints that are declared in both sequence
@@ -228,7 +228,7 @@ class Timeline:
         return self
 
     def variables(self, subset: str | None = None) -> set[str]:
-        """Returns the set of variables referenced in the sequence element.
+        """Returns the set of variables referenced in the pulse timeline.
 
         Args:
             subset: An optional string specifying whether to include just
@@ -268,7 +268,7 @@ class Timeline:
 
         Returns:
             A set containing the new names of all variables referenced by the
-            sequence element.
+            pulse timeline.
         """
         varmap = {n: rename_func(n) for n in self.variables()}
 
@@ -336,7 +336,7 @@ class Timeline:
         return {loc.offset: result[i] for loc, i in basis_set.items()}
 
     def solve_constraints(self, **kwargs) -> dict[str, Location]:
-        """Solves all timing constraints for the sequence element.
+        """Solves all timing constraints for the pulse timeline.
 
         **kwargs: Keyword arguments can be used to add constraints and are passed
             directly to `add_constraints`.
@@ -409,7 +409,7 @@ class Timeline:
             sort: Whether or not to time order the location mapping.
             reset_zero: Whether or not to translate the location mapping such that
                 the earliest location is t = 0. Can be 'neg', 'pos', 'both', or None.
-            **kwargs: Additional constraints to add to the sequence elements
+            **kwargs: Additional constraints to add to the pulse timelines
                 before solving for the locations.
 
         Returns:
@@ -465,16 +465,16 @@ class Timeline:
         self,
         dt: LocationLike,
     ) -> Self:
-        """Shifts a sequence element in time.
+        """Shifts a pulse timeline in time.
 
-        This function translates all the waveforms in the sequence element by dt, which
+        This function translates all the waveforms in the pulse timeline by dt, which
         is equivalent to taking s(t) -> s(t - dt).
 
         Args:
             dt: Amount of time to translate locations by.
 
         Returns:
-            The sequence element.
+            The pulse timeline.
         """
 
         self.locations = {loc + dt: waves for loc, waves in self.locations.items()}
@@ -484,7 +484,7 @@ class Timeline:
     def transform_waveforms(
         self, transformer: Callable[[Location, Waveform], Waveform]
     ) -> int:
-        """Applies a waveform transformer to every waveform in the sequence element.
+        """Applies a waveform transformer to every waveform in the pulse timeline.
 
         Args:
             transformer: A callable that takes a location, waveform pair and returns
@@ -507,9 +507,9 @@ class Timeline:
         return modified
 
     def copy(self, deep: bool = True) -> Self:
-        """Copies a sequence element.
+        """Copies a pulse timeline.
 
-        This function makes a copy of the sequence element. Defaults to making a deep copy
+        This function makes a copy of the pulse timeline. Defaults to making a deep copy
         but can also make a shallow copy where the constraint dict and waveform mappings are
         shared.
 
@@ -517,7 +517,7 @@ class Timeline:
             deep: Whether to make a deep copy or shallow copy. Defaults to True.
 
         Returns:
-            The new sequence element.
+            The new pulse timeline.
         """
 
         return deepcopy(self) if deep else copy(self)
@@ -576,25 +576,25 @@ class Timeline:
         fig_props: dict = {},
         pulse_vars: dict = {},
     ) -> Figure:
-        """Plots the sequence element.
+        """Plots the pulse timeline.
 
         This function uses a default instance of TimelinePlotter to
-        render the sequence element. Since sequence elements are not yet compiled
-        an abstract rendering of the sequence element is created.
+        render the pulse timeline. Since pulse timelines are not yet compiled
+        an abstract rendering of the pulse timeline is created.
 
-        See TimelinePlotter to customize how sequence elements are
+        See TimelinePlotter to customize how pulse timelines are
         rendered.
 
         Args:
             channels: An optional list of channel groups. Groups can be specified as a
                 tuple of channel names.
-            constraints: A constraint dict to apply to the sequence element
+            constraints: A constraint dict to apply to the pulse timeline
                 before resolving locations.
             filter_func: A callable used to filter the waveforms. Takes a
                 location and waveform and returns True if the waveform should be
                 included.
-            axes: A set of axes on which to plot the sequence element. Can be
-                used to plot the sequence element on an existing figure. If
+            axes: A set of axes on which to plot the pulse timeline. Can be
+                used to plot the pulse timeline on an existing figure. If
                 None, a new figure is created.
             fig_props: Optional arguments passed to TimelinePlotter.make_axes
 
@@ -629,7 +629,7 @@ class Timeline:
         return self.locations[key]
 
     def __contains__(self, waveform: Waveform) -> bool:
-        """Checks if the waveform exists in the sequence element."""
+        """Checks if the waveform exists in the pulse timeline."""
 
         for waves in self.locations.values():
             if waveform in waves:
@@ -638,16 +638,16 @@ class Timeline:
         return False
 
     def __add__(self, other: Self) -> Self:
-        """Adds two sequence elements.
+        """Adds two pulse timelines.
 
-        The sum of two sequence elements s(t) and r(t) is equivalent to the
+        The sum of two pulse timelines s(t) and r(t) is equivalent to the
         pointwise addition at every point in time.
 
         Args:
-            other: The other sequence element to add.
+            other: The other pulse timeline to add.
 
         Returns:
-            A new sequence element equal to s(t) + r(t).
+            A new pulse timeline equal to s(t) + r(t).
         """
 
         locations = dict()
@@ -686,7 +686,7 @@ class Timeline:
 
 @qdefine
 class TimelinePlotter:
-    """Plotter for Sequence elements."""
+    """Plotter for pulse timelines."""
 
     axsize: tuple[float, float] = (8, 1)
     sort_channels: bool = True
@@ -793,7 +793,7 @@ class TimelinePlotter:
 
     def plot(
         self,
-        se: Timeline,
+        tmln: Timeline,
         channels: list[tuple[str, ...]] | None = None,
         constraints: dict[str, Location] = {},
         filter_func: Callable[[Location, Waveform], bool] = None,
@@ -801,9 +801,9 @@ class TimelinePlotter:
         fig_props: dict = {},
         pulse_vars: dict = {},
     ) -> Figure:
-        locations = se.resolve_locations(**constraints)
+        locations = tmln.resolve_locations(**constraints)
         channel_map = Timeline.locations_to_channel_map(
-            locations, *se.channels, None
+            locations, *tmln.channels, None
         )
 
         channels = self.group_channels(channels, channel_map)

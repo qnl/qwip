@@ -25,9 +25,9 @@ from qwip.sequencer.waveform import (
 )
 
 
-class TestQWiPSequencer:
+class TestQWiPCompiler:
     @pytest.fixture
-    def sequencer(self):
+    def compiler(self):
         dac = DeviceInfo.from_channels(
             channels=(
                 ChannelInfo("Q0_I", 0),
@@ -121,11 +121,11 @@ class TestQWiPSequencer:
             D1=D1,
         )
 
-    def test_compile_sequence_element(self, sequencer, pulses):
-        se = Timeline()
-        se.add_waveform(pulses["Q0_X90"])
-        se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
-        se.add_waveform(pulses["R0"], 2 * pulses["Q0_X90"].width)
+    def test_compile_timeline(self, compiler, pulses):
+        tmln = Timeline()
+        tmln.add_waveform(pulses["Q0_X90"])
+        tmln.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
+        tmln.add_waveform(pulses["R0"], 2 * pulses["Q0_X90"].width)
 
         ro = Timeline()
         ro.add_waveform(pulses["read"])
@@ -134,15 +134,15 @@ class TestQWiPSequencer:
 
         readout = TriggeredWaveform(target=ro, width=2e-9, channels=("RO_marker",))
 
-        se.add_waveform(readout, 2 * pulses["Q0_X90"].width + 100e-9)
+        tmln.add_waveform(readout, 2 * pulses["Q0_X90"].width + 100e-9)
 
         exe = QWiPExecutable.from_devices(
-            sequence=None, devices=sequencer.channels.values()
+            sequence=None, devices=compiler.channels.values()
         )
         exe.num_reads.append(0)
 
         instruction_cache = dict()
-        sequencer.compile_sequence_element(exe, se, instruction_cache=instruction_cache)
+        compiler.compile_timeline(exe, tmln, instruction_cache=instruction_cache)
 
         for prog in exe.programs.values():
             print(prog)

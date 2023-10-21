@@ -37,7 +37,7 @@ class _ReadoutInfo:
     Attributes:
         sequence: A WaveformData object to mirror a QTRL sequence.
         qubits: A list of qubit indices corresponding to which qubits a read out.
-        n_readouts: The total number of readouts across all sequence elements.
+        n_readouts: The total number of readouts across all pulse timelines.
     """
 
     sequence: "SequenceArray"
@@ -403,7 +403,7 @@ class QTRLBackend(QuantumBackend):
         length: float | None = None,
         length_variable: str = "width",
     ) -> Timeline:
-        """Constructs a readout sequence element from the readout config.
+        """Constructs a readout pulse timeline from the readout config.
 
         Args:
             readout: The name of the readout config.
@@ -412,7 +412,7 @@ class QTRLBackend(QuantumBackend):
                 the readout pulse.
 
         Returns:
-            The readout sequence element.
+            The readout pulse timeline.
         """
         readout_config = qpu.config.readout[readout]
 

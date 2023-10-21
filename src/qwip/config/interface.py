@@ -707,54 +707,54 @@ class PulsesFolder:
         return tuple(k for k in keys)
 
     @session_context
-    def add(self, name: str, se: Timeline):
+    def add(self, name: str, tmln: Timeline):
         if name in self.keys():
             raise ValueError(
                 f"Timeline '{name}' already exists. Use `update` to modify "
                 f"an existing Timeline in the database."
             )
-        se_model = TimelineModel.from_timeline(se, name)
-        self.session.add(se_model)
+        tmln_model = TimelineModel.from_timeline(tmln, name)
+        self.session.add(tmln_model)
         self.session.flush()
 
     @session_context
     def get(self, name: str) -> Timeline | None:
-        se_model = self._get_timeline_model(name)
+        tmln_model = self._get_timeline_model(name)
 
-        if se_model:
-            return se_model.to_timeline()
+        if tmln_model:
+            return tmln_model.to_timeline()
 
         return None
 
     @session_context
-    def update(self, name: str, new_se: Timeline) -> None:
-        se_model = self._get_timeline_model(name)
+    def update(self, name: str, new_tmln: Timeline) -> None:
+        tmln_model = self._get_timeline_model(name)
 
-        if se_model is None:
-            self.add(name, new_se)
+        if tmln_model is None:
+            self.add(name, new_tmln)
             return
 
-        old_se = se_model.to_timeline()
+        old_tmln = tmln_model.to_timeline()
 
-        if new_se == old_se:
+        if new_tmln == old_tmln:
             return
 
-        self.session.delete(se_model)
-        self.add(name, new_se)
+        self.session.delete(tmln_model)
+        self.add(name, new_tmln)
 
     @session_context
     def delete(self, name: str) -> None:
-        se_model = self._get_timeline_model(name)
+        tmln_model = self._get_timeline_model(name)
 
-        if se_model is None:
+        if tmln_model is None:
             raise KeyError(f"Timeline '{name}' not found.")
 
-        self.session.delete(se_model)
+        self.session.delete(tmln_model)
         self.session.flush()
 
     @session_context
     def search(self, key: str) -> dict[str, Timeline]:
-        """Searches for sequence elements by name."""
+        """Searches for pulse timelines by name."""
 
         results = self.session.scalars(
             sa.select(TimelineModel).where(
@@ -762,13 +762,13 @@ class PulsesFolder:
             )
         )
 
-        return {s.name: s.to_timeline() for s in results}
+        return {t.name: t.to_timeline() for t in results}
 
     def __getitem__(self, key: str) -> Timeline:
-        se = self.get(key)
+        tmln = self.get(key)
 
-        if se:
-            return se
+        if tmln:
+            return tmln
 
         raise KeyError(f"'{key}' does not exist in the Timeline table.")
 
@@ -858,24 +858,23 @@ class OfflineConfigDB(Database):
         name: str,
         targets: tuple[str],
         pulse_key: str = None,
-        se: Timeline | None = None,
+        tmln: Timeline | None = None,
         include_var: Callable[[str], bool] = lambda v: True,
     ) -> ConfigFolder:
         """Adds a pulse to the config database.
 
-        A pulse is stored as a sequence element along with some metadata in the
-        configuration table. To faciliate tracking of calibration parameters,
-        the sequence element can act as a pulse "prototype" with string parameters
-        whose concrete values are referenced in the configuration database.
+        A pulse is stored as a timeline along with some metadata in the configuration
+        table. To faciliate tracking of calibration parameters, the pulse timeline can
+        act as a pulse "prototype" with string parameters whose concrete values are 
+        referenced in the configuration database.
 
         Args:
             name: The name of the pulse to add.
             targets: The targets on which this pulse acts.
-            pulse_key: The name of the sequence element that this pulse refers to.
+            pulse_key: The name of the timeline that this pulse refers to.
                 If `None`, the pulse key is assumed to be the same as `name`.
-            se: The sequence element pulse prototype to add to the database. If
-                `None`, the pulse key must refer to an existing sequence element
-                in the database.
+            tmln: The pulse prototype to add to the database. If `None`, the pulse key
+                must refer to an existing timeline in the database.
 
         Returns:
             The pulse configuration.
@@ -888,14 +887,14 @@ class OfflineConfigDB(Database):
 
         pulse_key = pulse_key or name
 
-        if se is None:
-            se = self.pulses[pulse_key]
+        if tmln is None:
+            tmln = self.pulses[pulse_key]
         else:
-            self.pulses.add(pulse_key, se)
+            self.pulses.add(pulse_key, tmln)
 
         parameters = {
             name: dict(
-                variables={v: v for v in se.variables() if include_var(v)},
+                variables={v: v for v in tmln.variables() if include_var(v)},
                 targets=targets,
                 pulse_key=pulse_key,
             )
@@ -938,11 +937,11 @@ class OfflineConfigDB(Database):
 
         """
         pulse_metadata = self.config["pulses"][name]
-        se = self.pulses[pulse_metadata["pulse_key"]]
+        tmln = self.pulses[pulse_metadata["pulse_key"]]
 
         to_replace = pulse_metadata["variables"].todict() | variables
 
-        if extra := set(to_replace) - se.variables():
+        if extra := set(to_replace) - tmln.variables():
             raise ValueError(
                 f"Found extra variables {extra} when loading pulse '{name}'"
             )
@@ -955,9 +954,9 @@ class OfflineConfigDB(Database):
             else:
                 return to_replace[v]
 
-        se.rename_variables(replace)
+        tmln.rename_variables(replace)
 
-        return se
+        return tmln
 
     def pulse_parameters(self, names: str | list[str] = r".*") -> pd.DataFrame:
         """Returns a dataframe of pulse parameters in table form.

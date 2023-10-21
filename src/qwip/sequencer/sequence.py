@@ -294,7 +294,7 @@ class Sequence(np.ndarray):
         return cls(arr, names, **labels)
 
     @classmethod
-    def sweep(cls, se: Timeline, /, name=None, label=None, **params) -> Self:
+    def sweep(cls, tmln: Timeline, /, name=None, label=None, **params) -> Self:
         """Create a sequence from the sequence element."""
 
         shape = min(len(arr) for arr in params.values())
@@ -317,7 +317,7 @@ class Sequence(np.ndarray):
         seq = Sequence.empty((shape,), names=(name,), **{name: label})
 
         for i, vals in enumerate(values):
-            new = se.copy()
+            new = tmln.copy()
 
             update = {n: v for n, v in zip(params, vals)}
             new.add_constraints(**update)
@@ -328,7 +328,7 @@ class Sequence(np.ndarray):
         return seq
 
     @classmethod
-    def product(cls, se: Timeline, /, **params) -> Self:
+    def product(cls, tmln: Timeline, /, **params) -> Self:
         """Create a sequence from the sequence element."""
         shape = tuple(len(arrs) for arrs in params.values())
         names = tuple(params)
@@ -336,7 +336,7 @@ class Sequence(np.ndarray):
         seq = Sequence.empty(shape, names=names, **params)
 
         for i, vals in enumerate(it.product(*params.values())):
-            new = se.copy()
+            new = tmln.copy()
 
             update = {n: v for n, v in zip(names, vals)}
             new.add_constraints(**update)

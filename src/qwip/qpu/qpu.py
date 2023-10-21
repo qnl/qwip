@@ -288,7 +288,7 @@ class QPU:
                 executable, it should match the backend being used. Otherwise, if `None`,
                 the previously uploaded sequence is run.
             processor: The data processor to use. See `qpu.process_results`.
-            repetitions: The number of shots to take for each sequence element.
+            repetitions: The number of shots to take for each pulse timeline.
             compilation: The compilation arguments, which are passed to
                 `self.compiler.compile`.
 
