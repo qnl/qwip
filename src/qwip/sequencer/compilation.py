@@ -19,9 +19,9 @@ from typing_extensions import Self
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine, qfrozen
-from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import Marker, ReadoutMarker, TriggeredWaveform, Waveform
 from qwip.utils import deprecated

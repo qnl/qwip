@@ -7,8 +7,8 @@ import pytest
 from numpy.testing import assert_allclose, assert_almost_equal
 
 import qwip
-from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     DRAG,

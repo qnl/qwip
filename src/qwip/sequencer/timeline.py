@@ -4,7 +4,6 @@ from copy import copy, deepcopy
 from functools import singledispatchmethod
 from numbers import Real
 
-
 import matplotlib.pyplot as plt
 import numpy as np
 from attrs import field
@@ -679,9 +678,7 @@ class Timeline:
 
             constraints[key] = loc
 
-        return Timeline(
-            locations=locations, constraints=constraints, channels=channels
-        )
+        return Timeline(locations=locations, constraints=constraints, channels=channels)
 
 
 @qdefine
@@ -802,9 +799,7 @@ class TimelinePlotter:
         pulse_vars: dict = {},
     ) -> Figure:
         locations = tmln.resolve_locations(**constraints)
-        channel_map = Timeline.locations_to_channel_map(
-            locations, *tmln.channels, None
-        )
+        channel_map = Timeline.locations_to_channel_map(locations, *tmln.channels, None)
 
         channels = self.group_channels(channels, channel_map)
 

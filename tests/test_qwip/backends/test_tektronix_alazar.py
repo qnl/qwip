@@ -16,9 +16,9 @@ from qwip.sequencer.compilation import (
     QWiPCompiler,
     TriggerInfo,
 )
-from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.waveform import (
     CWWaveform,
     GaussianWaveform,

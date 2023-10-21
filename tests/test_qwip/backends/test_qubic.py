@@ -25,8 +25,8 @@ from qwip.sequencer import (
     GaussianWaveform,
     ModulatedWaveform,
     Sequence,
-    Timeline,
     SquareWaveform,
+    Timeline,
     VirtualZWaveform,
 )
 from qwip.sequencer.compilation import ChannelInfo, DeviceInfo

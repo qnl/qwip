@@ -4,13 +4,13 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
-from qwip.sequencer.elements import Timeline
 from qwip.sequencer.sequence import (
     Sequence,
     _is_advanced_index,
     broadcast_names_and_labels,
     stack,
 )
+from qwip.sequencer.timeline import Timeline
 
 
 class TestSequenceConstruction:

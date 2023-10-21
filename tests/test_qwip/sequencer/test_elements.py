@@ -4,8 +4,8 @@ import numpy as np
 import pytest
 
 import qwip
-from qwip.sequencer.elements import Timeline
 from qwip.sequencer.phase_tracker import Frame
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
@@ -54,9 +54,7 @@ class TestTimeline:
         s = SquareWaveform()
         constraints = dict(start=start) if start else dict()
 
-        se = Timeline.fromtuples(
-            [(l, s) for l in locations], constraints=constraints
-        )
+        se = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
 
         variables = {v for v in locations if isinstance(v, str)} | set(constraints)
         assert se.variables() == variables
@@ -73,9 +71,7 @@ class TestTimeline:
         ],
     )
     def test_getitem(self, all_locs, get_loc, expect):
-        se = Timeline.fromtuples(
-            [(l, w) for l, w in zip(all_locs, WAVEFORMS.values())]
-        )
+        se = Timeline.fromtuples([(l, w) for l, w in zip(all_locs, WAVEFORMS.values())])
 
         context = noerror() if isinstance(expect, str) else expect
         with context:
@@ -104,9 +100,7 @@ class TestTimeline:
     def test_variables(self, locations, constraints, expect):
         s = SquareWaveform()
 
-        se = Timeline.fromtuples(
-            [(l, s) for l in locations], constraints=constraints
-        )
+        se = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
 
         assert se.variables() == expect
 
@@ -343,9 +337,7 @@ class TestTimeline:
         "se",
         [
             Timeline(),
-            Timeline.fromtuples(
-                [("a", WAVEFORMS["c1"]), ("b", WAVEFORMS["g1"])]
-            ),
+            Timeline.fromtuples([("a", WAVEFORMS["c1"]), ("b", WAVEFORMS["g1"])]),
             Timeline.fromtuples(
                 [("a", WAVEFORMS["c1"]), ("a", WAVEFORMS["g1"])],
                 constraints=dict(a=Location()),
@@ -385,9 +377,7 @@ class TestTimeline:
         ],
     )
     def test_get_channel_map(self, waveforms, channels, channel_map):
-        se = Timeline.fromtuples(
-            [(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)]
-        )
+        se = Timeline.fromtuples([(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)])
 
         channel_map = {c: waves for c, waves in channel_map.items()}
         assert se.get_channel_map(*channels) == channel_map

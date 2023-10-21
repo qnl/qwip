@@ -26,7 +26,7 @@ from qwip.config.models import (
 from qwip.database.database import SHORT_HASH_LEN, Database, DoltDB, session_context
 from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.flatdict import FlatDict, FlatMapping
-from qwip.sequencer.elements import Timeline
+from qwip.sequencer.timeline import Timeline
 from qwip.typing import issubtype
 
 try:
@@ -757,9 +757,7 @@ class PulsesFolder:
         """Searches for pulse timelines by name."""
 
         results = self.session.scalars(
-            sa.select(TimelineModel).where(
-                TimelineModel.name.icontains(key)
-            )
+            sa.select(TimelineModel).where(TimelineModel.name.icontains(key))
         )
 
         return {t.name: t.to_timeline() for t in results}
@@ -865,7 +863,7 @@ class OfflineConfigDB(Database):
 
         A pulse is stored as a timeline along with some metadata in the configuration
         table. To faciliate tracking of calibration parameters, the pulse timeline can
-        act as a pulse "prototype" with string parameters whose concrete values are 
+        act as a pulse "prototype" with string parameters whose concrete values are
         referenced in the configuration database.
 
         Args:

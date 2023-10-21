@@ -255,7 +255,7 @@ class TimelineModel(VersionControlled):
         return se_model
 
     def to_timeline(self):
-        from qwip.sequencer.elements import Timeline
+        from qwip.sequencer.timeline import Timeline
         from qwip.sequencer.utils import Location
 
         constraints = {
@@ -267,9 +267,7 @@ class TimelineModel(VersionControlled):
             for waveloc in self.locations
         ]
 
-        return Timeline.fromtuples(
-            pairs, width=self.width, constraints=constraints
-        )
+        return Timeline.fromtuples(pairs, width=self.width, constraints=constraints)
 
 
 waveform_location_table = DoltTable(
@@ -346,11 +344,7 @@ QWIP_DB_REGISTRY.map_imperatively(
 QWIP_DB_REGISTRY.map_imperatively(
     ConstraintModel,
     constraint_table,
-    properties=dict(
-        timeline=relationship(
-            TimelineModel, back_populates="constraints"
-        )
-    ),
+    properties=dict(timeline=relationship(TimelineModel, back_populates="constraints")),
 )
 
 QWIP_DB_REGISTRY.map_imperatively(

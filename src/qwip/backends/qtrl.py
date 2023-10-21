@@ -24,8 +24,8 @@ from qwip.sequencer.compilation import (
     WaitTriggerInstruction,
     register_compiler,
 )
-from qwip.sequencer.elements import Timeline
 from qwip.sequencer.sequence import Sequence
+from qwip.sequencer.timeline import Timeline
 
 
 @qdefine(kw_only=False)

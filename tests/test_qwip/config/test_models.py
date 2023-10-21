@@ -10,7 +10,7 @@ from qwip.config.models import (
     WaveformLocationModel,
     WaveformModel,
 )
-from qwip.sequencer.elements import Timeline
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.waveform import (
     DRAG,
     CosineRampWaveform,

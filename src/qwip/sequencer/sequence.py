@@ -10,7 +10,7 @@ from typing_extensions import Self
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
-from qwip.sequencer.elements import Timeline
+from qwip.sequencer.timeline import Timeline
 
 SEQUENCE_FUNCTIONS = {}
 
@@ -68,9 +68,7 @@ class Sequence(np.ndarray):
 
         return obj
 
-    def __array_finalize__(
-        self, obj: NDArray[Timeline] | None = None, /
-    ) -> None:
+    def __array_finalize__(self, obj: NDArray[Timeline] | None = None, /) -> None:
         # No additional cleanup necessary if this is explicit construction
         if obj is None:
             return
