@@ -185,9 +185,6 @@ class TestQWiPCompiler:
         assert compiler.get_channel_info(name) == expect
 
     def test_end_to_end(self, compiler, pulses, data_file):
-        import matplotlib.pyplot as plt
-        import numpy as np
-
         ro_se = Timeline()
         ro_se.add_waveform([pulses[f"R{r}"] for r in range(2)])
         readout = TriggeredWaveform(target=ro_se, width=50e-9, channels=("RO_marker",))
@@ -204,3 +201,18 @@ class TestQWiPCompiler:
         seq = Sequence([se_0, se_1])
 
         exe = compiler.compile(seq)
+
+    def test_resolve_widths_with_constraints(self, compiler):
+        # Make sure constraints are used to resolve pulse values since pulse variables
+        # and location variables are currently treated separately.
+        tmln = Timeline().add_waveform(SquareWaveform(width="wait", channels=("Q0_I",)))
+
+        tmln.add_constraints(wait=50e-9)
+        seq = Sequence([tmln])
+
+        exe = compiler.compile(seq)
+
+        wave = exe.programs["seq"].waveforms[0][0]
+
+        assert wave[0] == 0
+        assert (wave[1:] == 1).all()

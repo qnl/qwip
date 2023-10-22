@@ -629,7 +629,7 @@ class QWiPCompiler:
                     device,
                     phase_tracker,
                     location_kwargs,
-                    pulse_kwargs,
+                    tmln.constraints | pulse_kwargs,
                     instruction_cache,
                 )
                 instruction_cache[id(tmln), device.name] = instructions
