@@ -285,7 +285,7 @@ class QubicCompiler(QWiPCompiler):
                     ts_wave = np.arange(N) / sample_rate
                     w_t = wave(
                         ts_wave,
-                        modulations=self.modulations,
+                        frames=self.frames,
                         complex_out=True,
                         **pulse_kwargs,
                     )
@@ -327,7 +327,7 @@ class QubicCompiler(QWiPCompiler):
 
                     N = np.ceil(width.offset * sample_rate).astype(int)
                     ts_wave = np.arange(N) / sample_rate
-                    w_t = wave(ts_wave, modulations=self.modulations, **pulse_kwargs)
+                    w_t = wave(ts_wave, frames=self.frames, **pulse_kwargs)
 
                     waveform_cache[wave, ch_info.device] = w_t
 
@@ -344,7 +344,7 @@ class QubicCompiler(QWiPCompiler):
 
         return instructions
 
-    def compile_sequence_element(
+    def compile_timeline(
         self,
         locations: dict[Location, list[Waveform]],
         t0: int = 0,
@@ -392,25 +392,25 @@ class QubicCompiler(QWiPCompiler):
         markers = {}
         waveform_cache = {}
         locations = [
-            se.resolve_locations(end_marker="end", markers=markers, **location_kwargs)
-            for se in seq.flat
+            tmln.resolve_locations(end_marker="end", markers=markers, **location_kwargs)
+            for tmln in seq.flat
         ]
 
         reads_per_element = []
         circuit = []
-        for i, (se_locs, se) in enumerate(zip(locations, seq.flat)):
-            t_se = markers["end"].width
+        for i, (tmln_locs, tmln) in enumerate(zip(locations, seq.flat)):
+            t_end = markers["end"].width
 
-            if t_se > reset_delay:
+            if t_end > reset_delay:
                 raise ValueError(
-                    f"Sequence element length {t_se} is greater than reset delay "
+                    f"Sequence element length {t_end} is greater than reset delay "
                     f"{reset_delay}."
                 )
 
-            instructions, reads = self.compile_sequence_element(
-                se_locs,
+            instructions, reads = self.compile_timeline(
+                tmln_locs,
                 waveform_cache=waveform_cache,
-                pulse_kwargs=se.constraints | pulse_kwargs,
+                pulse_kwargs=tmln.constraints | pulse_kwargs,
                 t0=i * reset_delay,
             )
 
@@ -461,11 +461,11 @@ class QubicCompiler(QWiPCompiler):
 
     def get_qchip(self) -> QChip:
         """Returns a Qubic QChip object with the named modulation frequencies."""
-        modulations = FlatDict(
-            {k.replace(".", "/"): f.offset for k, f in self.modulations.items()}
+        frames = FlatDict(
+            {k.replace(".", "/"): f.offset for k, f in self.frames.items()}
         )
 
-        return QChip(dict(Qubits=modulations, Gates=dict()))
+        return QChip(dict(Qubits=frames, Gates=dict()))
 
     def get_channel_config(self) -> dict:
         """"""

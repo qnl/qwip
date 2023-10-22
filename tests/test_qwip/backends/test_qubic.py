@@ -11,7 +11,6 @@ try:
 except ImportError:
     pytest.skip("Qubic dependencies not installed.", allow_module_level=True)
 
-pytest.skip(allow_module_level=True)
 
 import qwip
 from qwip.backends.qubic import QubicCompiler, QubicExecutable  # VirtualZInstruction,
@@ -135,12 +134,12 @@ class TestQubicCompiler:
         readout = DeviceInfo.from_channels(readout, sample_rate=0.5e9, name="readout")
         adc = DeviceInfo.from_channels(adc, sample_rate=0.5e9, name="adc")
 
-        modulations = {
+        frames = {
             f"Q{i}.freq_GE": Frame((5 + 0.1 * i) * 1e9) for i in range(8)
         } | {f"Q{i}.readfreq": Frame((6.4 + 0.1 * i) * 1e9) for i in range(8)}
 
         return QubicCompiler.from_devices(
-            [qubit, readout, adc], modulations=modulations
+            [qubit, readout, adc], frames=frames
         )
 
     @pytest.fixture
@@ -148,8 +147,8 @@ class TestQubicCompiler:
         gates = dict()
         for q in range(4):
             X90 = Timeline()
-            X90.add_waveform(VirtualZWaveform(mod_key=f"Q{q}.freq_GE"))
-            X90.add_waveform(
+            X90.add(VirtualZWaveform(frame=f"Q{q}.freq_GE"))
+            X90.add(
                 ModulatedWaveform(
                     envelope=GaussianWaveform(width=30e-9),
                     modulation=CWWaveform(
@@ -159,11 +158,11 @@ class TestQubicCompiler:
                     ),
                 )
             )
-            X90.add_waveform(VirtualZWaveform(mod_key=f"Q{q}.freq_GE"), 30e-9)
+            X90.add(VirtualZWaveform(frame=f"Q{q}.freq_GE"), 30e-9)
             X90.width = 30e-9
 
             ro = Timeline()
-            ro.add_waveform(
+            ro.add(
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
                     modulation=CWWaveform(
@@ -173,7 +172,7 @@ class TestQubicCompiler:
                     ),
                 )
             )
-            ro.add_waveform(
+            ro.add(
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
                     modulation=CWWaveform(
@@ -227,7 +226,7 @@ class TestQubicCompiler:
         [
             (
                 Location(),
-                VirtualZWaveform(phase=90, mod_key="Q0.freq_GE"),
+                VirtualZWaveform(phase=90, frame="Q0.freq_GE"),
                 0,
                 [VirtualZ(qubit="Q0", phase=np.pi / 2, freq="freq_GE")],
             ),
@@ -291,15 +290,15 @@ class TestQubicCompiler:
 
         compare_instructions(instructions, expected)
 
-    def test_compile_sequence_element(self, compiler, gates):
-        se = SequenceElement()
-        se.append(gates["Q0_X90"])
-        se.append(gates["Q0_X90"], gates["Q0_X90"].width)
-        se.append(gates["Q0_RO"], 2 * gates["Q0_X90"].width)
+    def test_compile_timeline(self, compiler, gates):
+        tmln = Timeline()
+        tmln.add(gates["Q0_X90"])
+        tmln.add(gates["Q0_X90"], gates["Q0_X90"].width)
+        tmln.add(gates["Q0_RO"], 2 * gates["Q0_X90"].width)
 
         waveform_cache = {}
-        instructions, reads = compiler.compile_sequence_element(
-            se.resolve_locations(), waveform_cache=waveform_cache
+        instructions, reads = compiler.compile_timeline(
+            tmln.resolve_locations(), waveform_cache=waveform_cache
         )
 
         expected = [
