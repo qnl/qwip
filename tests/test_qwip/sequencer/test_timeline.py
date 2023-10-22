@@ -267,6 +267,21 @@ class TestTimeline:
             assert tmln1.constraints == dict()
 
     @pytest.mark.parametrize(
+        "tmln,target,result",
+        [
+            (Timeline(), Timeline(), Timeline()),
+            (
+                Timeline(),
+                SquareWaveform(),
+                Timeline.fromtuples([(Location(), SquareWaveform())]),
+            ),
+            (Timeline(), t := Timeline.fromtuples([(Location(), SquareWaveform())]), t),
+        ],
+    )
+    def test_add(self, tmln, target, result):
+        assert tmln.add(target) == result
+
+    @pytest.mark.parametrize(
         "tmln1,tmln2,result",
         [
             (Timeline(), Timeline(), Timeline()),
@@ -294,7 +309,7 @@ class TestTimeline:
             ),
         ],
     )
-    def test_add(self, tmln1, tmln2, result):
+    def test_add_operator(self, tmln1, tmln2, result):
         context = result if hasattr(result, "__enter__") else noerror()
         with context:
             assert tmln1 + tmln2 == result

@@ -85,6 +85,24 @@ class Timeline:
             locations=locations, width=width, constraints=constraints, channels=channels
         )
 
+    def add(self, target, /, location: LocationLike = Location()) -> Self:
+        """Adds a waveform or another pulse timeline to the specified location.
+
+        Args:
+            target: The waveform, list of waveforms or other pulse timeline to add.
+            location: The location in the current pulse timeline at which the target
+                should be added.
+
+        Returns:
+            The current pulse timeline.
+        """
+
+        match target:
+            case Timeline():
+                return self.add_timeline(target, self_loc=location)
+            case _:
+                return self.add_waveform(target, location=location)
+
     def add_waveform(
         self,
         waveform: Waveform | Collection[Waveform],
