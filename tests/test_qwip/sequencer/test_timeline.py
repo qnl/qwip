@@ -71,7 +71,9 @@ class TestTimeline:
         ],
     )
     def test_getitem(self, all_locs, get_loc, expect):
-        tmln = Timeline.fromtuples([(l, w) for l, w in zip(all_locs, WAVEFORMS.values())])
+        tmln = Timeline.fromtuples(
+            [(l, w) for l, w in zip(all_locs, WAVEFORMS.values())]
+        )
 
         context = noerror() if isinstance(expect, str) else expect
         with context:
@@ -219,11 +221,11 @@ class TestTimeline:
             width="tgate + tbuffer1",
         )
 
-    def test_append_sequence(self):
+    def test_add_timeline(self):
         tmln1 = Timeline.fromtuples([("a", None), ("b", None)])
         tmln2 = Timeline.fromtuples([("c", None), ("d", None)])
 
-        tmln1.append(tmln2)
+        tmln1.add_timeline(tmln2)
 
         assert tmln1.locations == {Location(l): [] for l in "abcd"}
 
@@ -233,15 +235,15 @@ class TestTimeline:
             (["a", "b", "c"], ["b", "c", "d"], None, set("abcd")),
         ],
     )
-    def test_append_shared_variables(self, vars1, vars2, name, expect):
+    def test_add_timeline_shared_variables(self, vars1, vars2, name, expect):
         tmln1 = Timeline.fromtuples([(v, None) for v in vars1])
         tmln2 = Timeline.fromtuples([(v, None) for v in vars2])
 
         if hasattr(expect, "__enter__"):
             with expect:
-                tmln1.append(tmln2, name=name)
+                tmln1.add_timeline(tmln2, name=name)
         else:
-            tmln1.append(tmln2, name=name)
+            tmln1.add_timeline(tmln2, name=name)
             tmln1.variables() == expect
 
     @pytest.mark.parametrize(
@@ -253,11 +255,11 @@ class TestTimeline:
             (Location(), Location(), None),
         ],
     )
-    def test_append_location_name(self, self_loc, other_loc, name):
+    def test_add_timeline_location_name(self, self_loc, other_loc, name):
         tmln1 = Timeline()
         tmln2 = Timeline()
 
-        tmln1.append(tmln2, self_loc, other_loc, name=name)
+        tmln1.add_timeline(tmln2, self_loc, other_loc, name=name)
 
         if name:
             assert tmln1.constraints[name] == self_loc - other_loc
