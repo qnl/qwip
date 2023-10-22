@@ -123,18 +123,18 @@ class TestQWiPCompiler:
 
     def test_compile_timeline(self, compiler, pulses):
         tmln = Timeline()
-        tmln.add_waveform(pulses["Q0_X90"])
-        tmln.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
-        tmln.add_waveform(pulses["R0"], 2 * pulses["Q0_X90"].width)
+        tmln.add(pulses["Q0_X90"])
+        tmln.add(pulses["Q0_X90"], pulses["Q0_X90"].width)
+        tmln.add(pulses["R0"], 2 * pulses["Q0_X90"].width)
 
         ro = Timeline()
-        ro.add_waveform(pulses["read"])
-        ro.add_waveform(pulses["D0"])
-        ro.add_waveform(pulses["D1"])
+        ro.add(pulses["read"])
+        ro.add(pulses["D0"])
+        ro.add(pulses["D1"])
 
         readout = TriggeredWaveform(target=ro, width=2e-9, channels=("RO_marker",))
 
-        tmln.add_waveform(readout, 2 * pulses["Q0_X90"].width + 100e-9)
+        tmln.add(readout, 2 * pulses["Q0_X90"].width + 100e-9)
 
         exe = QWiPExecutable.from_devices(
             sequence=None, devices=compiler.channels.values()

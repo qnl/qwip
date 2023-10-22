@@ -29,22 +29,22 @@ WAVEFORMS = dict(
 
 class TestTimeline:
     def test_create(self):
-        se = Timeline()
-        assert se.locations == dict()
-        assert se.constraints == dict()
-        assert se.channels == set()
-        assert se.width is None
+        tmln = Timeline()
+        assert tmln.locations == dict()
+        assert tmln.constraints == dict()
+        assert tmln.channels == set()
+        assert tmln.width is None
 
-        se = Timeline(
+        tmln = Timeline(
             locations=dict(start=[WAVEFORMS["g1"]]),
             constraints=dict(start=Location()),
             width="width",
         )
 
-        assert se.locations == {Location("start"): [WAVEFORMS["g1"]]}
-        assert se.constraints == dict(start=Location())
-        assert se.channels == set({"I"})
-        assert se.width == Location("width")
+        assert tmln.locations == {Location("start"): [WAVEFORMS["g1"]]}
+        assert tmln.constraints == dict(start=Location())
+        assert tmln.channels == set({"I"})
+        assert tmln.width == Location("width")
 
     @pytest.mark.parametrize(
         "locations,start",
@@ -54,13 +54,13 @@ class TestTimeline:
         s = SquareWaveform()
         constraints = dict(start=start) if start else dict()
 
-        se = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
+        tmln = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
 
         variables = {v for v in locations if isinstance(v, str)} | set(constraints)
-        assert se.variables() == variables
+        assert tmln.variables() == variables
 
         if start:
-            assert se.constraints["start"] == start
+            assert tmln.constraints["start"] == start
 
     @pytest.mark.parametrize(
         "all_locs,get_loc,expect",
@@ -71,11 +71,13 @@ class TestTimeline:
         ],
     )
     def test_getitem(self, all_locs, get_loc, expect):
-        se = Timeline.fromtuples([(l, w) for l, w in zip(all_locs, WAVEFORMS.values())])
+        tmln = Timeline.fromtuples(
+            [(l, w) for l, w in zip(all_locs, WAVEFORMS.values())]
+        )
 
         context = noerror() if isinstance(expect, str) else expect
         with context:
-            assert se[get_loc] == [WAVEFORMS[expect]]
+            assert tmln[get_loc] == [WAVEFORMS[expect]]
 
     @pytest.mark.parametrize(
         "pairs,wave,expect",
@@ -85,8 +87,8 @@ class TestTimeline:
         ],
     )
     def test_contains(self, pairs, wave, expect):
-        se = Timeline.fromtuples(pairs)
-        assert (wave in se) == expect
+        tmln = Timeline.fromtuples(pairs)
+        assert (wave in tmln) == expect
 
     @pytest.mark.parametrize(
         "locations,constraints,expect",
@@ -100,9 +102,9 @@ class TestTimeline:
     def test_variables(self, locations, constraints, expect):
         s = SquareWaveform()
 
-        se = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
+        tmln = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
 
-        assert se.variables() == expect
+        assert tmln.variables() == expect
 
     @pytest.mark.parametrize(
         "locations,constraints,expect",
@@ -141,30 +143,30 @@ class TestTimeline:
         ],
     )
     def test_solve_constraints(self, locations, constraints, expect):
-        se = Timeline()
+        tmln = Timeline()
         for loc in locations:
-            se.add_waveform([], loc)
+            tmln.add_waveform([], loc)
 
-        se.add_constraints(**constraints)
+        tmln.add_constraints(**constraints)
 
         context = expect if hasattr(expect, "__enter__") else noerror()
         with context:
-            result = se.solve_constraints()
+            result = tmln.solve_constraints()
 
             assert result.keys() == expect.keys()
             assert all(np.allclose(result[k], expect[k]) for k in result.keys())
 
     def test_resolve_locations_negative(self):
-        se = Timeline.fromtuples(
+        tmln = Timeline.fromtuples(
             [(-20e-9, SquareWaveform(width=30e-9)), (0, GaussianWaveform(width=20e-9))]
         )
 
-        locations = se.resolve_locations()
+        locations = tmln.resolve_locations()
 
         assert list(locations.keys()) == [Location(0), Location(20e-9), Location(40e-9)]
 
     def test_resolve_locations_infinite(self):
-        se = Timeline.fromtuples(
+        tmln = Timeline.fromtuples(
             [
                 (-10e-9, DCWaveform()),
                 (0, GaussianWaveform(width=20e-9)),
@@ -172,7 +174,7 @@ class TestTimeline:
             ]
         )
 
-        locations = se.resolve_locations()
+        locations = tmln.resolve_locations()
 
         assert list(locations.keys()) == [Location(t) for t in (0, 10e-9, 20e-9, 50e-9)]
 
@@ -184,34 +186,34 @@ class TestTimeline:
         ],
     )
     def test_resolve_locations_marker(self, locs, end):
-        se = Timeline.fromtuples(locs)
+        tmln = Timeline.fromtuples(locs)
 
         markers = {}
-        se.resolve_locations(markers=markers)
+        tmln.resolve_locations(markers=markers)
 
         assert markers["end"].almost_equal(end)
 
     def test_rename_variables(self):
-        se = Timeline().fromtuples(
+        tmln = Timeline().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp", width="t")),
                 ("t", GaussianWaveform(width="t")),
             ]
         )
 
-        se.rename_variables(lambda n: "tgate" if n == "t" else n)
+        tmln.rename_variables(lambda n: "tgate" if n == "t" else n)
 
-        assert se == Timeline().fromtuples(
+        assert tmln == Timeline().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp", width="tgate")),
                 ("tgate", GaussianWaveform(width="tgate")),
             ]
         )
 
-        se.width = "tgate + tbuffer"
-        se.rename_variables(lambda n: n + "1" if n != "tgate" else n)
+        tmln.width = "tgate + tbuffer"
+        tmln.rename_variables(lambda n: n + "1" if n != "tgate" else n)
 
-        assert se == Timeline().fromtuples(
+        assert tmln == Timeline().fromtuples(
             [
                 (0, SquareWaveform(amplitude="amp1", width="tgate")),
                 ("tgate", GaussianWaveform(width="tgate")),
@@ -219,13 +221,13 @@ class TestTimeline:
             width="tgate + tbuffer1",
         )
 
-    def test_append_sequence(self):
-        se1 = Timeline.fromtuples([("a", None), ("b", None)])
-        se2 = Timeline.fromtuples([("c", None), ("d", None)])
+    def test_add_timeline(self):
+        tmln1 = Timeline.fromtuples([("a", None), ("b", None)])
+        tmln2 = Timeline.fromtuples([("c", None), ("d", None)])
 
-        se1.append(se2)
+        tmln1.add_timeline(tmln2)
 
-        assert se1.locations == {Location(l): [] for l in "abcd"}
+        assert tmln1.locations == {Location(l): [] for l in "abcd"}
 
     @pytest.mark.parametrize(
         "vars1,vars2,name,expect",
@@ -233,16 +235,16 @@ class TestTimeline:
             (["a", "b", "c"], ["b", "c", "d"], None, set("abcd")),
         ],
     )
-    def test_append_shared_variables(self, vars1, vars2, name, expect):
-        se1 = Timeline.fromtuples([(v, None) for v in vars1])
-        se2 = Timeline.fromtuples([(v, None) for v in vars2])
+    def test_add_timeline_shared_variables(self, vars1, vars2, name, expect):
+        tmln1 = Timeline.fromtuples([(v, None) for v in vars1])
+        tmln2 = Timeline.fromtuples([(v, None) for v in vars2])
 
         if hasattr(expect, "__enter__"):
             with expect:
-                se1.append(se2, name=name)
+                tmln1.add_timeline(tmln2, name=name)
         else:
-            se1.append(se2, name=name)
-            se1.variables() == expect
+            tmln1.add_timeline(tmln2, name=name)
+            tmln1.variables() == expect
 
     @pytest.mark.parametrize(
         "self_loc,other_loc,name",
@@ -253,19 +255,34 @@ class TestTimeline:
             (Location(), Location(), None),
         ],
     )
-    def test_append_location_name(self, self_loc, other_loc, name):
-        se1 = Timeline()
-        se2 = Timeline()
+    def test_add_timeline_location_name(self, self_loc, other_loc, name):
+        tmln1 = Timeline()
+        tmln2 = Timeline()
 
-        se1.append(se2, self_loc, other_loc, name=name)
+        tmln1.add_timeline(tmln2, self_loc, other_loc, name=name)
 
         if name:
-            assert se1.constraints[name] == self_loc - other_loc
+            assert tmln1.constraints[name] == self_loc - other_loc
         else:
-            assert se1.constraints == dict()
+            assert tmln1.constraints == dict()
 
     @pytest.mark.parametrize(
-        "se1,se2,result",
+        "tmln,target,result",
+        [
+            (Timeline(), Timeline(), Timeline()),
+            (
+                Timeline(),
+                SquareWaveform(),
+                Timeline.fromtuples([(Location(), SquareWaveform())]),
+            ),
+            (Timeline(), t := Timeline.fromtuples([(Location(), SquareWaveform())]), t),
+        ],
+    )
+    def test_add(self, tmln, target, result):
+        assert tmln.add(target) == result
+
+    @pytest.mark.parametrize(
+        "tmln1,tmln2,result",
         [
             (Timeline(), Timeline(), Timeline()),
             (
@@ -292,10 +309,10 @@ class TestTimeline:
             ),
         ],
     )
-    def test_add(self, se1, se2, result):
+    def test_add_operator(self, tmln1, tmln2, result):
         context = result if hasattr(result, "__enter__") else noerror()
         with context:
-            assert se1 + se2 == result
+            assert tmln1 + tmln2 == result
 
     def test_transform_waveforms(self):
         lws = [
@@ -311,7 +328,7 @@ class TestTimeline:
             ),
             (Location("width"), VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
         ]
-        se = Timeline.fromtuples(lws, width="width")
+        tmln = Timeline.fromtuples(lws, width="width")
 
         def transformer(loc, wave):
             match wave:
@@ -324,9 +341,9 @@ class TestTimeline:
 
             return new_wave
 
-        assert se.transform_waveforms(transformer) == 3
+        assert tmln.transform_waveforms(transformer) == 3
 
-        for _, wave in se.get_location_pairs():
+        for _, wave in tmln.get_location_pairs():
             match wave:
                 case VirtualZWaveform():
                     assert wave.frame == Frame("Q0.mod_GE")
@@ -334,7 +351,7 @@ class TestTimeline:
                     assert wave.modulation.frequency == Frame("Q0.mod_GE")
 
     @pytest.mark.parametrize(
-        "se",
+        "tmln",
         [
             Timeline(),
             Timeline.fromtuples([("a", WAVEFORMS["c1"]), ("b", WAVEFORMS["g1"])]),
@@ -344,16 +361,16 @@ class TestTimeline:
             ),
         ],
     )
-    def test_deep_copy(self, se):
-        secopy = se.copy()
+    def test_deep_copy(self, tmln):
+        secopy = tmln.copy()
 
-        assert se == secopy
-        assert se.locations is not secopy.locations
-        assert se.constraints is not secopy.constraints
-        assert se.channels is not secopy.channels
+        assert tmln == secopy
+        assert tmln.locations is not secopy.locations
+        assert tmln.constraints is not secopy.constraints
+        assert tmln.channels is not secopy.channels
 
-        for loc in se.locations:
-            assert se[loc] is not secopy[loc]
+        for loc in tmln.locations:
+            assert tmln[loc] is not secopy[loc]
 
     @pytest.mark.parametrize(
         "waveforms,channels,channel_map",
@@ -377,13 +394,13 @@ class TestTimeline:
         ],
     )
     def test_get_channel_map(self, waveforms, channels, channel_map):
-        se = Timeline.fromtuples([(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)])
+        tmln = Timeline.fromtuples([(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)])
 
         channel_map = {c: waves for c, waves in channel_map.items()}
-        assert se.get_channel_map(*channels) == channel_map
+        assert tmln.get_channel_map(*channels) == channel_map
 
     @pytest.mark.parametrize(
-        "se,se_dict",
+        "tmln,tmln_dict",
         [
             (Timeline(), {}),
             (
@@ -406,9 +423,9 @@ class TestTimeline:
             ),
         ],
     )
-    def test_serialization(self, se, se_dict):
-        unstructured = qwip.converter.unstructure(se)
+    def test_serialization(self, tmln, tmln_dict):
+        unstructured = qwip.converter.unstructure(tmln)
         restructured = qwip.converter.structure(unstructured, Timeline)
 
-        assert unstructured == se_dict
-        assert se == restructured
+        assert unstructured == tmln_dict
+        assert tmln == restructured

@@ -19,6 +19,7 @@ from qwip.sequencer.waveform import (
     Marker,
     Waveform,
 )
+from qwip.utils import deprecated
 from qwip.visualization.utils import all_legend_handles_labels
 
 LocationLike = Location | str | Real
@@ -49,7 +50,7 @@ class Timeline:
         pulse_locations: list[tuple[LocationLike, Waveform | None]],
         width: LocationLike | None = None,
         constraints: dict[str, Location] = {},
-    ) -> "Timeline":
+    ) -> Self:
         """Constructs a sequence from a tuple of locations and waveforms.
 
         The constructor will add `Location('start')` to every location if it does not
@@ -83,6 +84,24 @@ class Timeline:
         return cls(
             locations=locations, width=width, constraints=constraints, channels=channels
         )
+
+    def add(self, target, /, location: LocationLike = Location()) -> Self:
+        """Adds a waveform or another pulse timeline to the specified location.
+
+        Args:
+            target: The waveform, list of waveforms or other pulse timeline to add.
+            location: The location in the current pulse timeline at which the target
+                should be added.
+
+        Returns:
+            The current pulse timeline.
+        """
+
+        match target:
+            case Timeline():
+                return self.add_timeline(target, self_loc=location)
+            case _:
+                return self.add_waveform(target, location=location)
 
     def add_waveform(
         self,
@@ -173,24 +192,66 @@ class Timeline:
         """
         return self.constraints.pop(name, None)
 
+    @deprecated(
+        version="23.10.0", removed="23.12.0", message="Use `add_timeline` instead."
+    )
     def append(
         self,
-        other: "Timeline",
+        other: Self,
         self_loc: LocationLike = Location(),
         other_loc: LocationLike = Location(),
         name: str | None = None,
-    ) -> "Timeline":
-        """Appends a pulse timeline.
+    ) -> Self:
+        """Adds another pulse timeline to the current timeline.
+
+        !!! Warning
+            Deprecated since version 23.10.0. `append` will be removed in 24.1.0.
 
         Args:
             other: The pulse timeline to append.
-            name: A (optional) variable name to set the new location of the origin
-                for the `other` sequence. This makes it simple to shift the origin
-                later.
             self_loc: The location in the current pulse timeline to line up with
                 the location in the `other` pulse timeline.
             other_loc: The location in the `other` pulse timeline to line up with
                 the location in the current pulse timeline.
+            name: A variable name to define as the new location of the origin
+                for the `other` sequence. This makes it simpler to shift the origin
+                later.
+
+        Returns:
+            The current pulse timeline.
+
+        Raises:
+            ValueError: If any constraints that are declared in both sequence
+                elements and differ from each other.
+        """
+
+        return self.add_timeline(other, self_loc, other_loc, name)
+
+    def add_timeline(
+        self,
+        other: Self,
+        self_loc: LocationLike = Location(),
+        other_loc: LocationLike = Location(),
+        name: str | None = None,
+    ) -> Self:
+        """Adds another pulse timeline to the current timeline.
+
+        With default arguments, this is equivalent to:
+
+        >>> self += other
+
+        However, this method enables other to be translated on the fly by passing in
+        locations in each timeline to line up.
+
+        Args:
+            other: The pulse timeline to append.
+            self_loc: The location in the current pulse timeline to line up with
+                the location in the `other` pulse timeline.
+            other_loc: The location in the `other` pulse timeline to line up with
+                the location in the current pulse timeline.
+            name: A variable name to define as the new location of the origin
+                for the `other` sequence. This makes it simpler to shift the origin
+                later.
 
         Raises:
             ValueError: If any constraints that are declared in both sequence
