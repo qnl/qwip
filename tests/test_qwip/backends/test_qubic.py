@@ -28,13 +28,14 @@ from qwip.sequencer import (
 from qwip.sequencer.compilation import ChannelInfo, DeviceInfo
 
 
-def compare_instructions(ins1: list, ins2: list):
-    for i1, i2 in zip(ins1, ins2):
-        for f in attrs.fields(type(i1)):
-            if f.name == "env":
-                assert_almost_equal(i1.env, i2.env)
-            else:
-                assert getattr(i1, f.name) == getattr(i2, f.name)
+def assert_instructions_almost_equal(ins1, ins2):
+    assert type(ins1) == type(ins2)
+    for f in attrs.fields(type(ins1)):
+        if f.name == "env":
+            assert ins1.env.dtype == ins2.env.dtype
+            assert_almost_equal(ins1.env, ins2.env)
+        else:
+            assert getattr(ins1, f.name) == getattr(ins2, f.name)
 
 
 # # class TestQubicInstruction:
@@ -130,9 +131,9 @@ class TestQubicCompiler:
             for i in range(8)
         ]
 
-        qubit = DeviceInfo.from_channels(qubit, sample_rate=8e9, name="qubit")
-        readout = DeviceInfo.from_channels(readout, sample_rate=0.5e9, name="readout")
-        adc = DeviceInfo.from_channels(adc, sample_rate=0.5e9, name="adc")
+        qubit = DeviceInfo.from_channels(qubit, sample_rate=8e9, name="qubit", dtype=np.complex64)
+        readout = DeviceInfo.from_channels(readout, sample_rate=0.5e9, name="readout", dtype=np.complex64)
+        adc = DeviceInfo.from_channels(adc, sample_rate=0.5e9, name="adc", dtype=np.complex64)
 
         frames = {
             f"Q{i}.freq_GE": Frame((5 + 0.1 * i) * 1e9) for i in range(8)
@@ -240,7 +241,7 @@ class TestQubicCompiler:
                         phase=0,
                         amp=1,
                         twidth=50e-9,
-                        env=np.array([0] + [0.5] * 399),
+                        env=np.array([0] + [0.5] * 399).astype(np.complex64),
                         dest="Q0.qdrv",
                         start_time=525,
                     )
@@ -265,7 +266,7 @@ class TestQubicCompiler:
                         phase=0,
                         amp=0.5,
                         twidth=2e-6,
-                        env=np.array([0] + [np.exp(1j * np.pi)] * 999),
+                        env=np.array([0] + [np.exp(1j * np.pi)] * 999).astype(np.complex64),
                         dest="Q1.rdlo",
                         start_time=100,
                     )
@@ -288,7 +289,10 @@ class TestQubicCompiler:
             if "rdlo" in c:
                 assert reads[c] == 1
 
-        compare_instructions(instructions, expected)
+        assert len(instructions) == len(expected)
+
+        for i1, i2 in zip(instructions, expected):
+            assert_instructions_almost_equal(i1, i2)
 
     def test_compile_timeline(self, compiler, gates):
         tmln = Timeline()
@@ -344,5 +348,5 @@ class TestQubicCompiler:
             ),
         ]
 
-        compare_instructions(instructions, expected)
+        assert instructions == expected
         assert reads == Counter({"Q0.rdlo": 1})

@@ -233,6 +233,9 @@ class QubicCompiler(QWiPCompiler):
             if ch_info.read:
                 reads[channel] += 1
 
+            dtype = self.channels[ch_info.device].dtype
+        else:
+            dtype = None
             # logger.debug(
             #     f"Start is {start} and channel {channel} is at {channel_times[channel]}"
             # )
@@ -251,18 +254,18 @@ class QubicCompiler(QWiPCompiler):
         ).astype(int)
 
         match wave:
-            case VirtualZWaveform(mod_key=mod_key, phase=phase):
-                if mod_key.references:
+            case VirtualZWaveform(frame=frame, phase=phase):
+                if frame.references:
                     raise ValueError(
-                        f"Qubic does not support vector mod keys, got {mod_key}."
+                        f"Qubic does not support vector mod keys, got {frame}."
                     )
 
-                if not isinstance(mod_key.offset, str):
+                if not isinstance(frame.offset, str):
                     raise ValueError(
-                        f"Virtual Z mod_keys must be named on Qubic, got {mod_key}"
+                        f"Virtual Z frames must be named on Qubic, got {frame}"
                     )
 
-                match mod_key.offset.split("."):
+                match frame.offset.split("."):
                     case (qubit, *freqname):
                         qubit = qubit
                         freqname = ".".join(freqname)
@@ -286,7 +289,7 @@ class QubicCompiler(QWiPCompiler):
                     w_t = wave(
                         ts_wave,
                         frames=self.frames,
-                        complex_out=True,
+                        complex_out=issubclass(dtype, np.complexfloating),
                         **pulse_kwargs,
                     )
 
@@ -336,7 +339,7 @@ class QubicCompiler(QWiPCompiler):
                     phase=0,
                     amp=1,
                     twidth=width.offset,
-                    env=w_t.astype(np.float64),
+                    env=w_t.astype(dtype),
                     dest=channel,
                     start_time=start_cycle,
                 )
