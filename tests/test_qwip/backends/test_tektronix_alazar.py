@@ -151,19 +151,19 @@ def pulses():
 
 @pytest.fixture
 def freq_sweep(pulses):
-    se = Timeline()
-    se.add_waveform(pulses["Q0_X90"])
-    se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
-    se.add_waveform(pulses["R0"], 2 * pulses["Q0_X90"].width + 100e-9)
+    tmln = Timeline()
+    tmln.add(pulses["Q0_X90"])
+    tmln.add(pulses["Q0_X90"], pulses["Q0_X90"].width)
+    tmln.add(pulses["R0"], 2 * pulses["Q0_X90"].width + 100e-9)
 
     ro = Timeline()
-    ro.add_waveform(pulses["read"])
-    ro.add_waveform(pulses["D0"])
-    ro.add_waveform(pulses["D1"])
+    ro.add(pulses["read"])
+    ro.add(pulses["D0"])
+    ro.add(pulses["D1"])
 
     readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))
 
-    se.add_waveform(readout, 2 * pulses["Q0_X90"].width)
+    tmln.add(readout, 2 * pulses["Q0_X90"].width)
 
     seq = Sequence.sweep(se, mod_R0=np.arange(100, 501, 50) * 1e6)
     return seq
@@ -171,18 +171,18 @@ def freq_sweep(pulses):
 
 @pytest.fixture
 def t1_sweep(pulses):
-    se = Timeline()
-    se.add_waveform(pulses["Q0_X90"])
-    se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
+    tmln = Timeline()
+    tmln.add(pulses["Q0_X90"])
+    tmln.add(pulses["Q0_X90"], pulses["Q0_X90"].width)
 
     ro = Timeline()
-    ro.add_waveform(pulses["read"])
-    ro.add_waveform(pulses["D0"])
-    ro.add_waveform(pulses["D1"])
+    ro.add(pulses["read"])
+    ro.add(pulses["D0"])
+    ro.add(pulses["D1"])
 
     readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))
-    se.add_waveform(readout, 2 * pulses["Q0_X90"].width + "delay")
-    se.add_waveform(pulses["R0"], 2 * pulses["Q0_X90"].width + 100e-9 + "delay")
+    tmln.add(readout, 2 * pulses["Q0_X90"].width + "delay")
+    tmln.add(pulses["R0"], 2 * pulses["Q0_X90"].width + 100e-9 + "delay")
 
     seq = Sequence.sweep(se, delay=np.linspace(0, 200e-6, 21))
     return seq
