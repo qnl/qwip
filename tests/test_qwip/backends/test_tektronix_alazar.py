@@ -1,7 +1,6 @@
 import numpy as np
 import pytest
 
-from qwip.backends.alazar import AlazarBackend, AlazarCompiler
 from qwip.backends.backend import QWiPBackend
 from qwip.backends.tektronix import (
     TektronixBackend,
@@ -16,9 +15,9 @@ from qwip.sequencer.compilation import (
     QWiPCompiler,
     TriggerInfo,
 )
-from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.waveform import (
     CWWaveform,
     GaussianWaveform,
@@ -27,6 +26,11 @@ from qwip.sequencer.waveform import (
     TriggeredWaveform,
     VirtualZWaveform,
 )
+
+try:
+    from qwip.backends.alazar import AlazarBackend, AlazarCompiler
+except ImportError:
+    pytest.skip("Alazar dependencies not installed.", allow_module_level=True)
 
 
 @pytest.fixture
@@ -77,16 +81,16 @@ def compiler():
         name="demod",
     )
 
-    modulations = dict(
-        mod_Q0=ModulationFrequency(200e6),
-        mod_Q1=ModulationFrequency(150e6),
-        mod_R0=ModulationFrequency(-300e6),
-        mod_R1=ModulationFrequency(-400e6),
+    frames = dict(
+        mod_Q0=Frame(200e6),
+        mod_Q1=Frame(150e6),
+        mod_R0=Frame(-300e6),
+        mod_R1=Frame(-400e6),
     )
 
     return QWiPCompiler.from_devices(
         [dac, adc, demod],
-        modulations=modulations,
+        frames=frames,
         subcompilers=dict(tektronix=TektronixCompiler(), alazar=AlazarCompiler()),
     )
 
@@ -105,8 +109,8 @@ def pulses():
         modulation=CWWaveform(frequency="mod_Q1", channels=("Q1_I", "Q1_Q")),
     )
 
-    Q0_Z90 = VirtualZWaveform(name="Q0_Z", mod_key="mod_Q0", phase=90)
-    Q1_Z90 = VirtualZWaveform(name="Q0_Z", mod_key="mod_Q1", phase=90)
+    Q0_Z90 = VirtualZWaveform(name="Q0_Z", frame="mod_Q0", phase=90)
+    Q1_Z90 = VirtualZWaveform(name="Q0_Z", frame="mod_Q1", phase=90)
 
     R0 = ModulatedWaveform(
         name="R0",
@@ -147,12 +151,12 @@ def pulses():
 
 @pytest.fixture
 def freq_sweep(pulses):
-    se = SequenceElement()
+    se = Timeline()
     se.add_waveform(pulses["Q0_X90"])
     se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
     se.add_waveform(pulses["R0"], 2 * pulses["Q0_X90"].width + 100e-9)
 
-    ro = SequenceElement()
+    ro = Timeline()
     ro.add_waveform(pulses["read"])
     ro.add_waveform(pulses["D0"])
     ro.add_waveform(pulses["D1"])
@@ -167,11 +171,11 @@ def freq_sweep(pulses):
 
 @pytest.fixture
 def t1_sweep(pulses):
-    se = SequenceElement()
+    se = Timeline()
     se.add_waveform(pulses["Q0_X90"])
     se.add_waveform(pulses["Q0_X90"], pulses["Q0_X90"].width)
 
-    ro = SequenceElement()
+    ro = Timeline()
     ro.add_waveform(pulses["read"])
     ro.add_waveform(pulses["D0"])
     ro.add_waveform(pulses["D1"])

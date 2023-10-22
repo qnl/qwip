@@ -19,11 +19,12 @@ from typing_extensions import Self
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine, qfrozen
-from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseTracker, PhaseUpdater
+from qwip.sequencer.phase_tracker import Frame, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import Marker, ReadoutMarker, TriggeredWaveform, Waveform
+from qwip.utils import deprecated
 from qwip.visualization.utils import all_legend_handles_labels
 
 REGISTERED_COMPILERS: dict[str, "QWiPCompiler"] = dict()
@@ -366,15 +367,23 @@ class QWiPCompiler:
     Attributes:
         channels: A mapping from device names to `DeviceInfo` instances that
             contain information about the channels.
-        modulations: A mapping from modulation keys for phase tracking to concrete
-            modulation frequencies.
-        end_marker: A string specifying the marker name that is used to specify the
-            end of a sequence element.
+        frames: A mapping from named frames for phase tracking to frames with a numeric
+            frequency value.
+        subcompilers: A mapping of subcompilers to compile intermediate programs down
+            to their hardware-specific representation.
     """
 
     channels: dict[str, DeviceInfo] = field(factory=dict)
-    modulations: dict[str, ModulationFrequency] = field(factory=dict)
+    frames: dict[str, Frame] = field(factory=dict)
     subcompilers: dict[str, HardwareCompiler] = field(factory=dict)
+
+    @deprecated(
+        version="23.10.0",
+        removed="23.11.0",
+        message="Use `compiler.frames` instead.",
+    )
+    def modulations(self) -> dict[str, Frame]:
+        return self.frames
 
     @classmethod
     def from_devices(cls, devices: Iterable[DeviceInfo], **kwargs: Any) -> Self:
@@ -425,7 +434,7 @@ class QWiPCompiler:
         Returns:
             An updated phase tracker.
         """
-        phase_tracker = PhaseTracker.from_modulations(self.modulations)
+        phase_tracker = PhaseTracker.from_frames(self.frames)
 
         for loc, waves in locations.items():
             loc = loc.offset
@@ -438,7 +447,7 @@ class QWiPCompiler:
 
         return phase_tracker
 
-    def compile_waveform(
+    def compile_instruction(
         self,
         exe: QWiPExecutable,
         instructions: list[Instruction],
@@ -467,7 +476,7 @@ class QWiPCompiler:
 
         match wave:
             case TriggeredWaveform():
-                self.compile_sequence_element(
+                self.compile_timeline(
                     exe,
                     wave.target,
                     location_kwargs,
@@ -480,7 +489,7 @@ class QWiPCompiler:
                         ((ch.index, ch.subchannel), start / device.sample_rate)
                     )
 
-    def compile_single_timeline(
+    def compile_waveforms(
         self,
         exe: QWiPExecutable,
         locations: dict[Location, list[Waveform]],
@@ -523,7 +532,7 @@ class QWiPCompiler:
                     ts_wave,
                     t0=start + w.t0,
                     phase_tracker=phase_tracker,
-                    modulations=self.modulations,
+                    frames=self.frames,
                     complex_out=issubclass(device.dtype, np.complexfloating),
                     **pulse_kwargs,
                 )
@@ -537,7 +546,7 @@ class QWiPCompiler:
                     except KeyError:
                         pass
 
-                self.compile_waveform(
+                self.compile_instruction(
                     exe,
                     instructions,
                     s_idx,
@@ -551,23 +560,22 @@ class QWiPCompiler:
 
         return instructions
 
-    def compile_sequence_element(
+    def compile_timeline(
         self,
         exe: QWiPExecutable,
-        se: SequenceElement,
+        tmln: Timeline,
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
         instruction_cache: dict[tuple[int, str], list[Instruction]] = {},
     ) -> None:
-        """Compiles a single sequence elements.
+        """Compiles a single pulse timelines.
 
         This method makes two passes through location waveform mapping. The
         first pass compiles all phase jumps and the second pass evaluates the
         pulse timepoints.
 
         Args:
-            se: The sequence element to compile. The locations
-                should be time ordered.
+            tmln: The timeline to compile. The locations should be time ordered.
             waveform_array: A numpy array with shape `(channels, timepoints, subchannels)`
                 that will hold the compiled timepoints
             device: The device that corresponds to this location
@@ -577,7 +585,7 @@ class QWiPCompiler:
 
         """
         markers = {}
-        locations = se.resolve_locations(
+        locations = tmln.resolve_locations(
             end_marker="end", markers=markers, **location_kwargs
         )
 
@@ -591,7 +599,7 @@ class QWiPCompiler:
             num_timepoints = int(t_end * sample_rate)
 
             # Skip compilation for device if no waveforms on channel
-            if not (se.channels & device.channel_names()):
+            if not (tmln.channels & device.channel_names()):
                 continue
 
             if device.trigger:
@@ -606,25 +614,25 @@ class QWiPCompiler:
             program.instructions.append(start)
             program.markers.append([])
 
-            channels = (ch for ch in device.channels if ch.name in se.channels)
+            channels = (ch for ch in device.channels if ch.name in tmln.channels)
 
-            if (id(se), device.name) in instruction_cache:
-                instructions = instruction_cache[id(se), device.name]
+            if (id(tmln), device.name) in instruction_cache:
+                instructions = instruction_cache[id(tmln), device.name]
             else:
                 wmem = WaveformMemory.from_channels(
                     num_timepoints, sample_rate, channels, dtype=device.dtype
                 )
-                instructions = self.compile_single_timeline(
+                instructions = self.compile_waveforms(
                     exe,
                     locations,
                     wmem,
                     device,
                     phase_tracker,
                     location_kwargs,
-                    pulse_kwargs,
+                    tmln.constraints | pulse_kwargs,
                     instruction_cache,
                 )
-                instruction_cache[id(se), device.name] = instructions
+                instruction_cache[id(tmln), device.name] = instructions
 
             program.instructions.extend(instructions)
             exe.num_reads[-1] += sum(
@@ -655,10 +663,10 @@ class QWiPCompiler:
 
         instruction_cache = dict()
 
-        for se in seq.flat:
+        for tmln in seq.flat:
             exe.num_reads.append(0)
-            self.compile_sequence_element(
-                exe, se, location_kwargs, pulse_kwargs, instruction_cache
+            self.compile_timeline(
+                exe, tmln, location_kwargs, pulse_kwargs, instruction_cache
             )
 
         for dev, program in exe.programs.items():
@@ -747,14 +755,14 @@ class QWiPExePlotter:
         time: float,
         device: str,
         colors: dict[str, int],
-        elements: list[int] | None = None,
+        timelines: list[int] | None = None,
         **kwargs,
     ) -> float:
         wmem = exe.programs[device].waveforms[ins.waveform_index]
         ts = np.arange(wmem.samples) / wmem.sample_rate + time
 
-        el = int(time // exe.reset_delay)
-        if elements is None or el in elements:
+        tmln_index = int(time // exe.reset_delay)
+        if timelines is None or tmln_index in timelines:
             for (ch, subch), arr in wmem.data.items():
                 label = f"{device} - CH{ch}" + (f"- {subch}" if subch else "")
                 showlegend = label not in colors
@@ -780,10 +788,10 @@ class QWiPExePlotter:
         self,
         fig,
         exe: QWiPExecutable,
-        element_end_times,
-        elements: list[int] | None = None,
+        timeline_end_times,
+        timelines: list[int] | None = None,
     ):
-        elements = elements or range(len(exe.num_reads))
+        timelines = timelines or range(len(exe.num_reads))
         buttons = [
             dict(
                 args=["xaxis", dict(range=[None, None])],
@@ -794,12 +802,12 @@ class QWiPExePlotter:
             dict(
                 args=[
                     "xaxis",
-                    dict(range=[el * exe.reset_delay, element_end_times[el]]),
+                    dict(range=[tmln * exe.reset_delay, timeline_end_times[tmln]]),
                 ],
-                label=f"Element {el}",
+                label=f"Timeline {tmln}",
                 method="relayout",
             )
-            for el in elements
+            for tmln in timelines
         ]
 
         fig.update_layout(
@@ -816,13 +824,13 @@ class QWiPExePlotter:
             margin=dict(t=0, b=0, l=0, r=0),
         )
 
-    def plot(self, exe: QWiPExecutable, elements: list[int] | None = None):
+    def plot(self, exe: QWiPExecutable, timelines: list[int] | None = None):
         fig = go.Figure()
         fig.update_yaxes(fixedrange=True)
 
         colors = {}
         marker_timestamps = self.marker_timestamps(exe)
-        element_end_times = []
+        timeline_end_times = []
 
         for dev, prog in exe.programs.items():
             trigger_counter = Counter()
@@ -835,16 +843,16 @@ class QWiPExePlotter:
                         )
                     case PlayInstruction():
                         time = self.plot_play(
-                            fig, exe, ins, time, dev, colors, elements
+                            fig, exe, ins, time, dev, colors, timelines
                         )
 
-                el = int(time // exe.reset_delay)
+                tmln = int(time // exe.reset_delay)
                 try:
-                    element_end_times[el] = max(time, element_end_times[el])
+                    timeline_end_times[tmln] = max(time, timeline_end_times[tmln])
                 except IndexError:
-                    element_end_times.append(time)
+                    timeline_end_times.append(time)
 
-        self.make_dropdown(fig, exe, element_end_times, elements)
+        self.make_dropdown(fig, exe, timeline_end_times, timelines)
         fig.update_layout(
             yaxis_title="Amplitude",
             xaxis_title="Time (s)",

@@ -865,9 +865,9 @@ class ReadoutPipeline:
         """Groups measurement results by their final processor.
 
         Args:
-            max_size: The maximum size in bytes of any single result object to include.
-                Any result with an estimated size greater than `max_size` is discarded.
-                To ignore the size limit, set `max_size=None`.
+            max_size: The maximum size in number of values of any single result object to
+                include. Any result with a total size greater than `max_size` is
+                discarded. To ignore the size limit, set `max_size=None`.
 
         Returns:
             A list of all results, grouped by final processor.
@@ -875,7 +875,8 @@ class ReadoutPipeline:
         results = defaultdict(dict)
 
         for (key, proc), result in self.dependency_cache.items():
-            if max_size is not None and result.num_bytes > max_size:
+            # Could use result.num_bytes instead, but this is really slow for large data
+            if max_size is not None and np.prod(result.shape) > max_size:
                 continue
 
             results[proc][key] = result
@@ -926,3 +927,6 @@ qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, (DataProcessor, MeasurementResult)),
     make_data_processor_unstructure_fn,
 )
+
+
+__all__ = ["MeasurementResult", "ReadoutPipeline"]

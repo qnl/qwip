@@ -7,8 +7,8 @@ import pytest
 from numpy.testing import assert_allclose, assert_almost_equal
 
 import qwip
-from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency, PhaseJump, PhaseTracker
+from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     DRAG,
@@ -171,12 +171,10 @@ class TestCWWaveform:
     def test_modulation(self, ts, phase_jumps, data_file):
         expected = np.loadtxt(str(data_file))
 
-        w = CWWaveform(frequency=ModulationFrequency(0.2), channels=("I", "Q"))
+        w = CWWaveform(frequency=Frame(0.2), channels=("I", "Q"))
 
         phase_tracker = PhaseTracker(
-            phases={
-                ModulationFrequency(0.2): [PhaseJump(t, pj) for t, pj in phase_jumps]
-            }
+            phases={Frame(0.2): [PhaseJump(t, pj) for t, pj in phase_jumps]}
         )
 
         wave = w(ts, phase_tracker=phase_tracker, phase_unit="degrees")
@@ -200,15 +198,13 @@ class TestCWWaveform:
     def test_hardware_modulation(self, ts, phase_jumps, data_file):
         expected = np.loadtxt(str(data_file), dtype=np.complex64)
         w = CWWaveform(
-            frequency=ModulationFrequency(5e9),
+            frequency=Frame(5e9),
             channels=("Q0.drv",),
             hardware_modulation=True,
         )
 
         phase_tracker = PhaseTracker(
-            phases={
-                ModulationFrequency(5e9): [PhaseJump(t, pj) for t, pj in phase_jumps]
-            }
+            phases={Frame(5e9): [PhaseJump(t, pj) for t, pj in phase_jumps]}
         )
 
         wave = w(
@@ -226,7 +222,7 @@ class TestCWWaveform:
         pj_deg = phase_jumps
         pj_rad = phase_jumps * np.array([[1, np.pi / 180]])
 
-        mod_freq = ModulationFrequency(0.5)
+        mod_freq = Frame(0.5)
 
         phase_tracker_deg = PhaseTracker(
             phases={mod_freq: [PhaseJump(t, pj) for t, pj in pj_deg]}
@@ -300,7 +296,7 @@ class TestModulatedWaveform:
     def test_IQ_modulation(self, ts, phase_jumps, data_file):
         expected = np.loadtxt(str(data_file))
 
-        freq = ModulationFrequency(100e6)
+        freq = Frame(100e6)
         env = SquareWaveform(width=40e-9)
         mod = CWWaveform(frequency=freq, channels=("I", "Q"))
 
@@ -362,7 +358,7 @@ class TestDRAGWaveform:
         f1 = -100e6
         env = DRAG(envelope=GaussianWaveform(width=20e-9), lmbda=1 / (2 * np.pi * f1))
 
-        freq = CWWaveform(frequency=ModulationFrequency(f0), channels=("I", "Q"))
+        freq = CWWaveform(frequency=Frame(f0), channels=("I", "Q"))
 
         wave_drag = ModulatedWaveform(envelope=env, modulation=freq)
         wave_nodrag = ModulatedWaveform(envelope=env.envelope, modulation=freq)
@@ -381,68 +377,68 @@ class TestDRAGWaveform:
 
 class TestVirtualZWaveform:
     @pytest.mark.parametrize(
-        "mod_key,z_gates,phase_jumps",
+        "frame,z_gates,phase_jumps",
         [
             (
                 "mod_Q0",
                 [
-                    (0, VirtualZWaveform(mod_key="mod_Q0", phase=45)),
-                    (0, VirtualZWaveform(mod_key="mod_Q0", phase=45)),
-                    (1.5, VirtualZWaveform(mod_key="mod_Q1", phase=-90)),
-                    (2, VirtualZWaveform(mod_key="mod_Q0", phase=-180)),
+                    (0, VirtualZWaveform(frame="mod_Q0", phase=45)),
+                    (0, VirtualZWaveform(frame="mod_Q0", phase=45)),
+                    (1.5, VirtualZWaveform(frame="mod_Q1", phase=-90)),
+                    (2, VirtualZWaveform(frame="mod_Q0", phase=-180)),
                 ],
                 [PhaseJump(0, 90), PhaseJump(2, -180)],
             ),
             (
                 "mod_Q0 - mod_Q1",
                 [
-                    (0, VirtualZWaveform(mod_key="mod_Q0", phase=45)),
-                    (0, VirtualZWaveform(mod_key="mod_Q0", phase=45)),
-                    (1.5, VirtualZWaveform(mod_key="mod_Q1", phase=-90)),
-                    (2, VirtualZWaveform(mod_key="mod_Q0", phase=-180)),
+                    (0, VirtualZWaveform(frame="mod_Q0", phase=45)),
+                    (0, VirtualZWaveform(frame="mod_Q0", phase=45)),
+                    (1.5, VirtualZWaveform(frame="mod_Q1", phase=-90)),
+                    (2, VirtualZWaveform(frame="mod_Q0", phase=-180)),
                 ],
                 [PhaseJump(0, 90), PhaseJump(1.5, 90), PhaseJump(2, -180)],
             ),
         ],
     )
-    def test_update_phase_tracker(self, mod_key, z_gates, phase_jumps):
-        phase_tracker = PhaseTracker.from_modulations(["mod_Q0", "mod_Q1"])
+    def test_update_phase_tracker(self, frame, z_gates, phase_jumps):
+        phase_tracker = PhaseTracker.from_frames(["mod_Q0", "mod_Q1"])
 
         for t, z in z_gates:
             z.update_phase_tracker(t, phase_tracker)
 
-        assert phase_tracker.compressed(mod_key) == phase_jumps
+        assert phase_tracker.compressed(frame) == phase_jumps
 
 
 class TestPhaseResetWaveform:
     @pytest.mark.parametrize(
-        "mod_key,resets,expected",
+        "frame,resets,expected",
         [
             (
-                ModulationFrequency("Q0.mod"),
+                Frame("Q0.mod"),
                 [
-                    (10, PhaseResetWaveform(mod_key="Q0.mod")),
-                    (0, PhaseResetWaveform(mod_key="Q0.mod")),
+                    (10, PhaseResetWaveform(frame="Q0.mod")),
+                    (0, PhaseResetWaveform(frame="Q0.mod")),
                 ],
                 [10, 0],
             ),
             (
-                ModulationFrequency("Q1.mod"),
+                Frame("Q1.mod"),
                 [
-                    (10, PhaseResetWaveform(mod_key="Q0.mod")),
-                    (0, PhaseResetWaveform(mod_key="Q0.mod")),
+                    (10, PhaseResetWaveform(frame="Q0.mod")),
+                    (0, PhaseResetWaveform(frame="Q0.mod")),
                 ],
                 [],
             ),
         ],
     )
-    def test_update_phase_tracker(self, mod_key, resets, expected):
+    def test_update_phase_tracker(self, frame, resets, expected):
         pt = PhaseTracker()
 
         for t, r in resets:
             r.update_phase_tracker(t, pt)
 
-        assert pt.resets.get(mod_key, []) == expected
+        assert pt.resets.get(frame, []) == expected
 
 
 class TestTriggeredWaveform:
@@ -450,16 +446,16 @@ class TestTriggeredWaveform:
     def wave(self):
         wave = TriggeredWaveform(
             width="width",
-            target=SequenceElement().add_waveform(SquareWaveform(amplitude="amp")),
+            target=Timeline().add_waveform(SquareWaveform(amplitude="amp")),
         )
         return wave
 
     def test_equality_by_id(self):
-        assert TriggeredWaveform(target=SequenceElement()) != TriggeredWaveform(
-            target=SequenceElement()
+        assert TriggeredWaveform(target=Timeline()) != TriggeredWaveform(
+            target=Timeline()
         )
 
-        w1 = TriggeredWaveform(target=SequenceElement())
+        w1 = TriggeredWaveform(target=Timeline())
         w2 = attrs.evolve(w1)
 
         assert w1 == w2

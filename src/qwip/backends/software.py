@@ -95,3 +95,6 @@ class HeterodyneCompiler(HardwareCompiler):
         return HeterodyneProgram(
             device=device.name, demods=demods, weights=weights, keys=keys
         )
+
+
+__all__ = ["HeterodyneCompiler", "HeterodyneProgram"]

@@ -113,7 +113,7 @@ def random_data_sampler(
 ) -> Callable[..., np.ndarray]:
     def generate(
         readout_key: str,
-        element_index: int,
+        timeline_index: int,
         readout_index: int,
         repetitions: int,
     ) -> np.ndarray:
@@ -128,11 +128,11 @@ def population_data_sampler(
 ) -> Callable[..., np.ndarray]:
     def generate(
         readout_key: str,
-        element_index: int,
+        timeline_index: int,
         readout_index: int,
         repetitions: int,
     ) -> np.ndarray:
-        p1 = populations[element_index, readout_index]
+        p1 = populations[timeline_index, readout_index]
         return rng.choice(2, size=repetitions, p=[1 - p1, p1])
 
     return generate
@@ -149,7 +149,7 @@ class FakeBackend(QuantumBackend):
         uploaded: Stores the last uploaded executable, which is referenced when
             generating data.
         data_func: Used to generate simulated data when calling acquire. Takes in the
-            readout key, element index, readout index, repetitions and returns an
+            readout key, timeline index, readout index, repetitions and returns an
             array of qudit states per repetition.
         gmms: A mapping from resonator keys to GMM data. This is used to generate IQ
             data.
@@ -187,18 +187,18 @@ class FakeBackend(QuantumBackend):
         Args:
             cseq: The compiled sequence.
             repetitions: The number of shots in the resulting data.
-            num_readouts: The number of readouts per sequence element.
+            num_readouts: The number of readouts per timeline.
 
         Returns:
             A mapping of measurement keys to `IQResult`.
         """
         readout_keys = [f"R{r}" for r in sorted(self.uploaded.read_registers)]
-        num_elements = len(self.uploaded.num_reads)
+        num_timelines = len(self.uploaded.num_reads)
 
         data = dict()
         for key in readout_keys:
-            states = np.zeros((repetitions, num_elements, num_readouts))
-            for el in range(num_elements):
+            states = np.zeros((repetitions, num_timelines, num_readouts))
+            for el in range(num_timelines):
                 for ro in range(num_readouts):
                     states[:, el, ro] = self.data_func(key, el, ro, repetitions)
 

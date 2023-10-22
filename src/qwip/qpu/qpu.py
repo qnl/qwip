@@ -11,7 +11,7 @@ from loguru import logger
 import qwip
 from qwip.attrs import qdefine
 from qwip.backends.backend import QuantumBackend
-from qwip.config.interface import ConfigFolder, OfflineConfigDB, SequenceElementFolder
+from qwip.config.interface import ConfigFolder, OfflineConfigDB, PulsesFolder
 from qwip.config.schema import Target
 from qwip.data.datastore import OfflineDatastore
 from qwip.processing.data_processor import (
@@ -30,7 +30,8 @@ from qwip.sequencer.compilation import (
     QuantumExecutable,
     QWiPCompiler,
 )
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
+from qwip.utils import deprecated
 
 
 @qdefine
@@ -76,7 +77,7 @@ class QPU:
         return self.db.config
 
     @property
-    def pulses(self) -> SequenceElementFolder:
+    def pulses(self) -> PulsesFolder:
         return self.db.pulses
 
     def set_backend(self, backend: QuantumBackend):
@@ -97,13 +98,13 @@ class QPU:
             pipeline=pipeline,
             subsystems=subsystems,
         )
-        qpu.update_modulations()
+        qpu.update_frames()
 
         return qpu
 
     @classmethod
     def load_compiler(
-        cls, config: ConfigFolder, modulations: dict[str, ModulationFrequency] = {}
+        cls, config: ConfigFolder, frames: dict[str, Frame] = {}
     ) -> QWiPCompiler:
         compilation = config["compilation"]
         devices = []
@@ -121,8 +122,8 @@ class QPU:
 
             devices.append(qwip.converter.structure(unstruct, DeviceInfo))
 
-        if not modulations:
-            modulations = dict()
+        if not frames:
+            frames = dict()
 
         compiler_cls = compilation.get("compiler", dict(__class__="QWiPCompiler")).get(
             "__class__", "QWiPCompiler"
@@ -132,7 +133,7 @@ class QPU:
         except KeyError:
             raise KeyError(f"'{compiler_cls}' is not a registered compiler.")
 
-        compiler = compiler_cls.from_devices(devices, modulations=modulations)
+        compiler = compiler_cls.from_devices(devices, frames=frames)
 
         return compiler
 
@@ -154,8 +155,8 @@ class QPU:
                         **qwip.converter.unstructure(ch)
                     )
 
-    def update_modulations(self):
-        modulation_keys = {}
+    def update_frames(self):
+        frames = {}
         local_oscillators = {
             key: LO_info["frequency"]
             for key, LO_info in self.config["hardware/local_oscillators"].items()
@@ -163,19 +164,25 @@ class QPU:
 
         for system in self.subsystems.values():
             match system:
-                case QuantumSystem(get_modulations=_):
-                    modulation_keys |= qwip.converter.structure(
-                        system.get_modulations(local_oscillators),
-                        dict[str, ModulationFrequency],
+                case QuantumSystem(get_frames=_):
+                    frames |= qwip.converter.structure(
+                        system.get_frames(local_oscillators),
+                        dict[str, Frame],
                     )
                 case _:
-                    logger.info(
-                        f"Skipping modulation frequency for system {system.name}"
-                    )
+                    logger.info(f"Skipping frame for system {system.name}")
                     continue
 
-        self.compiler.modulations.update(**modulation_keys)
-        return modulation_keys
+        self.compiler.frames.update(**frames)
+        return frames
+
+    @deprecated(
+        version="23.10.0",
+        removed="23.11.0",
+        message="Use `qpu.update_frames()` instead.",
+    )
+    def update_modulations(self):
+        return self.update_frames()
 
     @classmethod
     def load_pipeline(
@@ -231,7 +238,12 @@ class QPU:
             if not system_cls:
                 raise TypeError(f"'{system_cls}' is not a registered model.")
 
-            subsystems[target] = system_cls(name=target, **system_info["parameters"])
+            unstructured = dict(
+                name=target,
+                **system_info["parameters"],
+            )
+
+            subsystems[target] = qwip.converter.structure(unstructured, system_cls)
 
         return subsystems
 
@@ -276,7 +288,7 @@ class QPU:
                 executable, it should match the backend being used. Otherwise, if `None`,
                 the previously uploaded sequence is run.
             processor: The data processor to use. See `qpu.process_results`.
-            repetitions: The number of shots to take for each sequence element.
+            repetitions: The number of shots to take for each pulse timeline.
             compilation: The compilation arguments, which are passed to
                 `self.compiler.compile`.
 
@@ -285,7 +297,7 @@ class QPU:
         """
 
         ## Update all frequencies before compilation
-        self.update_modulations()
+        self.update_frames()
         self.backend.update_parameters(self)
 
         match program:

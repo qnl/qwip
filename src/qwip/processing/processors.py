@@ -150,7 +150,7 @@ def dataframe_real_to_complex(
 class IQTraceResult(MeasurementResult):
     """Stores raw IQ data vs time step in a multi indexed DataFrame for a single target.
 
-    Time points are assumed to be the same across all elements, readouts, and shots.
+    Time points are assumed to be the same across all timelines, readouts, and shots.
     Thus there are N columns corresponding to the field values at the N time steps.
     """
 
@@ -159,14 +159,14 @@ class IQTraceResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "IQTraceResult",
-        labels: tuple[str, ...] = ("shot", "element", "readout", "time"),
+        labels: tuple[str, ...] = ("shot", "timeline", "readout", "time"),
         **kwargs: Any,
     ) -> Self:
         """Creates data frame from trajectory data obtained from QutipBackend.
 
         Args:
             arr: Complex field amplitudes from a single ADC channel. The default
-                indexing is assumed to be (shots, elements, readouts, timepoints), but
+                indexing is assumed to be (shots, timelines, readouts, timepoints), but
                 this can be specified by passing in a tuple of labels. The last index
                 must always be timepoints.
             name: The result name.
@@ -194,7 +194,7 @@ class IQResult(MeasurementResult):
     """Demodulated IQ results.
 
     Attributes:
-        data: Multi indexed dataframe indexed by (element, shot, readout).
+        data: Multi indexed dataframe indexed by (timeline, shot, readout).
     """
 
     @classmethod
@@ -202,14 +202,14 @@ class IQResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "IQResult",
-        labels: tuple[str, ...] = ("shot", "element", "readout"),
+        labels: tuple[str, ...] = ("shot", "timeline", "readout"),
         **kwargs: Any,
     ) -> Self:
         """Reorders the memory layout of the IQ data for each measurement key.
 
         Args:
             arr: A numpy array of complex IQ points. The default shape is assumed to be
-                (shot, element, readout).
+                (shot, timeline, readout).
             name: The result name.
             labels: Index labels for the array axes. These should specify labels for all
                 but the last axis.
@@ -238,7 +238,7 @@ class IQResult(MeasurementResult):
 
         Args:
             shape: The shape of the resulting array. The default axis are
-                `(shot, element, readout)`. If a different number of axes are passed, a
+                `(shot, timeline, readout)`. If a different number of axes are passed, a
                 set of labels should also be specified.
             num_states: The number of "blobs" to generate. The means and standard
                 deviations of the Gaussian "blobs" are chosen randomly.
@@ -311,7 +311,7 @@ class HeterodyneDemodulation(DataProcessor):
     ) -> list[IQResult]:
         """Demodulates the raw IQ traces at the specified frequencies.
 
-        The demodulated channels may not be the same across all elements/readouts, in
+        The demodulated channels may not be the same across all timelines/readouts, in
         which case the resulting IQ values at those index locations will be nan. The
         demodulation weights can also vary for each readout. See `HeterodyneProgram` for
         more details.
@@ -319,7 +319,7 @@ class HeterodyneDemodulation(DataProcessor):
         Args:
             result: An IQTraceResult. The index should have the same number timesteps
                 for every trace. It is assumed that the index levels are of the form
-                `(shot, element, readout, time)`.
+                `(shot, timeline, readout, time)`.
 
         Returns:
             A list of IQResult, one for each demodulation channel present.
@@ -405,14 +405,14 @@ class ClassifiedResult(MeasurementResult):
         cls,
         arr: np.ndarray,
         name: str = "ClassifiedResult",
-        labels: tuple[str, ...] = ("shot", "element", "readout"),
+        labels: tuple[str, ...] = ("shot", "timeline", "readout"),
         **kwargs: int,
     ) -> Self:
         """Creates a `ClassifiedResult` instance from a numpy array of states.
 
         Args:
             arr: A numpy array of complex IQ points. The default shape is assumed to be
-                (element, shot, readout).
+                (timeline, shot, readout).
             name: The result name.
             labels: Index labels for the array axes. These should specify labels for all
                 but the last axis.
@@ -726,7 +726,7 @@ class Averaged(GenericDataProcessor):
 class Labeled(GenericDataProcessor):
     """A data processor for labeling the results according to the sequence labels."""
 
-    level: str = "element"
+    level: str = "timeline"
 
     def run(self, result: M, exe: QuantumExecutable | None = None, **kwargs) -> M:
         if exe is None or exe.seq is None:
@@ -762,3 +762,23 @@ class Labeled(GenericDataProcessor):
         result.data.index = pd.MultiIndex.from_arrays(idx_vals, names=idx_names)
 
         return result
+
+
+__all__ = [
+    "array_complex_to_real",
+    "array_real_to_complex",
+    "dataframe_complex_to_real",
+    "dataframe_real_to_complex",
+    "Averaged",
+    "ClassifiedResult",
+    "GMMClassification",
+    "HeterodyneDemodulation",
+    "IQResult",
+    "IQRotation",
+    "IQTraceResult",
+    "Labeled",
+    "PopulationResult",
+    "ReadoutBitstring",
+    "ReadoutHistogram",
+    "StatePopulations",
+]

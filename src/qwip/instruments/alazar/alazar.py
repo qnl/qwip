@@ -21,8 +21,13 @@ import ctypes
 import time
 
 import numpy as np
+from loguru import logger
 
-from qwip.instruments.alazar import atsapi
+try:
+    from qwip.instruments.alazar import atsapi
+except OSError as e:
+    logger.error("Unable to import Alazar libraries. Check that these are installed!")
+    raise ImportError from e
 
 
 class ATS9870(atsapi.Board):

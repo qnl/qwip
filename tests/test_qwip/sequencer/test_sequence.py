@@ -4,13 +4,13 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
 
-from qwip.sequencer.elements import SequenceElement
 from qwip.sequencer.sequence import (
     Sequence,
     _is_advanced_index,
     broadcast_names_and_labels,
     stack,
 )
+from qwip.sequencer.timeline import Timeline
 
 
 class TestSequenceConstruction:
@@ -18,37 +18,37 @@ class TestSequenceConstruction:
         "elements,names,labels,shape,error",
         [
             ([], None, dict(), (0,), noerror()),
-            ([SequenceElement() for _ in range(10)], None, dict(), (10,), noerror()),
+            ([Timeline() for _ in range(10)], None, dict(), (10,), noerror()),
             (
-                [[SequenceElement() for _ in range(4)] for _ in range(3)],
+                [[Timeline() for _ in range(4)] for _ in range(3)],
                 (None, None),
                 dict(),
                 (3, 4),
                 noerror(),
             ),
             (
-                [[SequenceElement() for _ in range(4)] for _ in range(15)],
+                [[Timeline() for _ in range(4)] for _ in range(15)],
                 ("a", "b"),
                 dict(a=np.arange(15), b=np.arange(4)),
                 (15, 4),
                 noerror(),
             ),
             (
-                [SequenceElement() for _ in range(10)],
+                [Timeline() for _ in range(10)],
                 ("a", "b"),
                 dict(),
                 (10,),
                 pytest.raises(ValueError),
             ),
             (
-                [SequenceElement() for _ in range(5)],
+                [Timeline() for _ in range(5)],
                 ("a",),
                 dict(a=np.arange(10)),
                 (5),
                 pytest.raises(ValueError),
             ),
             (
-                [[SequenceElement() for _ in range(5)] for _ in range(4)],
+                [[Timeline() for _ in range(5)] for _ in range(4)],
                 ("a", "a"),
                 dict(),
                 (4, 5),
@@ -73,7 +73,7 @@ class TestSequenceConstruction:
                     assert l1 is l2
 
     def test_label_conversion(self):
-        s = Sequence([SequenceElement() for _ in range(3)], names=("a",), a=[1, 2, 3])
+        s = Sequence([Timeline() for _ in range(3)], names=("a",), a=[1, 2, 3])
 
         assert isinstance(s.labels["a"], np.ndarray)
         assert_array_equal(s.labels["a"], np.array([1, 2, 3]))
@@ -82,7 +82,7 @@ class TestSequenceConstruction:
         "arr",
         [
             np.array(
-                [[SequenceElement() for _ in range(3)] for _ in range(2)],
+                [[Timeline() for _ in range(3)] for _ in range(2)],
             ),
             Sequence.empty((2, 3), names=("a", "b"), a=np.arange(2)),
         ],

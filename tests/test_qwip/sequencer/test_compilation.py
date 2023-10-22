@@ -9,9 +9,9 @@ from qwip.sequencer.compilation import (
     QuantumExecutable,
     QWiPCompiler,
 )
-from qwip.sequencer.elements import SequenceElement
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
 from qwip.sequencer.sequence import Sequence
+from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
     CWWaveform,
@@ -131,14 +131,14 @@ class TestQWiPCompiler:
             name="readout",
         )
 
-        modulations = dict(
-            mod_Q0=ModulationFrequency(200e6),
-            mod_Q1=ModulationFrequency(150e6),
-            mod_R0=ModulationFrequency(-300e6),
-            mod_R1=ModulationFrequency(-400e6),
+        frames = dict(
+            mod_Q0=Frame(200e6),
+            mod_Q1=Frame(150e6),
+            mod_R0=Frame(-300e6),
+            mod_R1=Frame(-400e6),
         )
 
-        return QWiPCompiler.from_devices([dac, adc], modulations=modulations)
+        return QWiPCompiler.from_devices([dac, adc], frames=frames)
 
     @pytest.fixture
     def pulses(self):
@@ -154,8 +154,8 @@ class TestQWiPCompiler:
             modulation=CWWaveform(frequency="mod_Q1", channels=("Q1_I", "Q1_Q")),
         )
 
-        Q0_Z90 = VirtualZWaveform(name="Q0_Z", mod_key="mod_Q0", phase=90)
-        Q1_Z90 = VirtualZWaveform(name="Q0_Z", mod_key="mod_Q1", phase=90)
+        Q0_Z90 = VirtualZWaveform(name="Q0_Z", frame="mod_Q0", phase=90)
+        Q1_Z90 = VirtualZWaveform(name="Q0_Z", frame="mod_Q1", phase=90)
 
         R0 = ModulatedWaveform(
             name="R0",
@@ -185,18 +185,15 @@ class TestQWiPCompiler:
         assert compiler.get_channel_info(name) == expect
 
     def test_end_to_end(self, compiler, pulses, data_file):
-        import matplotlib.pyplot as plt
-        import numpy as np
-
-        ro_se = SequenceElement()
+        ro_se = Timeline()
         ro_se.add_waveform([pulses[f"R{r}"] for r in range(2)])
         readout = TriggeredWaveform(target=ro_se, width=50e-9, channels=("RO_marker",))
 
-        se_0 = SequenceElement()
+        se_0 = Timeline()
         se_0.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
         se_0.add_waveform(readout, 50e-9)
 
-        se_1 = SequenceElement()
+        se_1 = Timeline()
         se_1.add_waveform([pulses["Q0_Z90"], pulses["Q1_Z90"]])
         se_1.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
         se_1.add_waveform(readout, 50e-9)
@@ -204,3 +201,18 @@ class TestQWiPCompiler:
         seq = Sequence([se_0, se_1])
 
         exe = compiler.compile(seq)
+
+    def test_resolve_widths_with_constraints(self, compiler):
+        # Make sure constraints are used to resolve pulse values since pulse variables
+        # and location variables are currently treated separately.
+        tmln = Timeline().add_waveform(SquareWaveform(width="wait", channels=("Q0_I",)))
+
+        tmln.add_constraints(wait=50e-9)
+        seq = Sequence([tmln])
+
+        exe = compiler.compile(seq)
+
+        wave = exe.programs["seq"].waveforms[0][0]
+
+        assert wave[0] == 0
+        assert (wave[1:] == 1).all()

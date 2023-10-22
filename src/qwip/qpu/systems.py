@@ -1,12 +1,14 @@
 from collections.abc import Callable
 
 import numpy as np
+from attrs import field
+from loguru import logger
 from scipy.integrate import solve_ivp
 
 import qwip
-from qwip._cattr import make_attrs_unstructure_fn
+from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
 from qwip.attrs import qdefine
-from qwip.sequencer.phase_tracker import ModulationFrequency
+from qwip.sequencer.phase_tracker import Frame
 
 REGISTERED_QSYSTEMS: dict[str, "QuantumSystem"] = dict()
 
@@ -24,8 +26,20 @@ def register_qsystem(cls) -> type:
 class QuantumSystem:
     name: str
 
-    def get_modulations(self, **kwargs) -> dict[str, ModulationFrequency]:
+    def get_frames(self, **kwargs) -> dict[str, Frame]:
         return dict()
+
+
+def _rename_frame_key(key: str) -> str:
+    if "{mod_key}" in key:
+        logger.warning(
+            "'mod_key' has been deprecated in favor of 'subspace'. Please update all "
+            "frame keys accordingly."
+        )
+
+        return key.replace("mod_key", "subspace")
+
+    return key
 
 
 @register_qsystem
@@ -34,7 +48,7 @@ class Transmon(QuantumSystem):
     frequency: float
     anharmonicity: float | None = None
     local_oscillator: str | None = None
-    modulation_name: str = "{name}.mod_{mod_key}"
+    frame_key: str = field(converter=_rename_frame_key, default="{name}.mod_{subspace}")
 
     @property
     def frequency_EF(self) -> float:
@@ -42,19 +56,17 @@ class Transmon(QuantumSystem):
         return None if alpha is None else self.frequency + alpha
 
     @property
-    def mod_keys(self) -> tuple[str, ...]:
+    def subspaces(self) -> tuple[str, ...]:
         return ("GE", "EF")
 
-    def get_modulations(
-        self, LO_map: dict = {}, **kwargs
-    ) -> dict[str, ModulationFrequency]:
-        """Get the modulation dictionary associated with this system.
+    def get_frames(self, LO_map: dict = {}, **kwargs) -> dict[str, Frame]:
+        """Get the frame mapping associated with this system.
 
         Args:
             LO_map: A mapping of local oscillator names to their current frequencies.
 
         Returns:
-            A mapping of named modulation keys to frequencies.
+            A mapping of named frames to frequencies.
         """
         if self.local_oscillator is None:
             lo_freq = 0
@@ -67,22 +79,20 @@ class Transmon(QuantumSystem):
                     f"{LO_map}."
                 ) from e
 
-        modulations = dict()
-        mod_name = self.modulation_name.format(name=self.name, mod_key="GE")
-        modulations[mod_name] = self.frequency - lo_freq
+        frames = dict()
+        name = self.frame_key.format(name=self.name, subspace="GE")
+        frames[name] = self.frequency - lo_freq
 
         if self.frequency_EF is not None:
-            mod_name = self.modulation_name.format(name=self.name, mod_key="EF")
-            modulations[mod_name] = self.frequency_EF - lo_freq
+            name = self.frame_key.format(name=self.name, subspace="EF")
+            frames[name] = self.frequency_EF - lo_freq
 
-        return modulations
+        return frames
 
-    def mod_frequency(
-        self, mod_key: str = "GE", LO_map: dict = {}
-    ) -> ModulationFrequency:
-        """Returns the modulation frequency for a specific modulation_key"""
-        name = self.modulation_name.format(name=self.name, mod_key=mod_key)
-        return self.get_modulations(LO_map)[name]
+    def mod_frequency(self, subspace: str = "GE", LO_map: dict = {}) -> Frame:
+        """Returns the modulation frequency for a specific subspace frame."""
+        name = self.frame_key.format(name=self.name, subspace=subspace)
+        return self.get_franes(LO_map)[name]
 
 
 @register_qsystem
@@ -93,18 +103,16 @@ class ReadoutResonator(QuantumSystem):
     chi: tuple[float, ...] | None = None
     eta: float | None = None
     local_oscillator: str | None = None
-    modulation_name: str = "{name}.mod"
+    frame_key: str = "{name}.mod"
 
-    def get_modulations(
-        self, LO_map: dict = {}, **kwargs
-    ) -> dict[str, ModulationFrequency]:
-        """Get the modulation dictionary associated with this system.
+    def get_frames(self, LO_map: dict = {}, **kwargs) -> dict[str, Frame]:
+        """Get the frame dictionary associated with this system.
 
         Args:
             LO_map: A mapping of local oscillator names to their current frequencies.
 
         Returns:
-            A mapping of named modulation keys to frequencies.
+            A mapping of named frames to frequencies.
         """
         if self.local_oscillator is None:
             lo_freq = 0
@@ -117,17 +125,16 @@ class ReadoutResonator(QuantumSystem):
                     f"{LO_map}."
                 ) from e
 
-        modulations = dict()
-        mod_name = self.modulation_name.format(name=self.name, mod_key="GE")
-        modulations[mod_name] = self.frequency - lo_freq
-        return modulations
+        frames = dict()
+        name = self.frame_key.format(name=self.name, subspace="GE")
+        frames[name] = self.frequency - lo_freq
+        return frames
 
-    def mod_frequency(
-        self, mod_key: str = "GE", LO_map: dict = {}
-    ) -> ModulationFrequency:
-        """Returns the modulation frequency for a specific modulation_key"""
-        name = self.modulation_name.format(name=self.name, mod_key=mod_key)
-        return self.get_modulations(LO_map)[name]
+    def mod_frequency(self, subspace: str = "GE", LO_map: dict = {}) -> Frame:
+        """Returns the modulation frequency for a specific subspace frame"""
+
+        name = self.frame_key.format(name=self.name, subspace=subspace)
+        return self.get_frames(LO_map)[name]
 
     def get_cavity_field_equation(
         self,
@@ -206,6 +213,27 @@ class ReadoutResonator(QuantumSystem):
         return alphas
 
 
+def make_quantum_system_structure_fn(cls):
+    structure_attrs = make_attrs_structure_fn(cls)
+
+    def structure_fn(obj, cls):
+        if isinstance(obj, cls):
+            return obj
+
+        if "modulation_name" in obj:
+            logger.warning(
+                "The attribute `modulation_name` has been renamed to `frame_key` and is"
+                " now deprecated. Update all unstructured systems accordingly."
+            )
+
+            obj["frame_key"] = obj["modulation_name"]
+            del obj["modulation_name"]
+
+        return structure_attrs(obj, cls)
+
+    return structure_fn
+
+
 def make_quantum_system_unstructure_fn(cls):
     unstructure_attrs = make_attrs_unstructure_fn(cls)
 
@@ -214,6 +242,10 @@ def make_quantum_system_unstructure_fn(cls):
 
     return unstructure_fn
 
+
+qwip.converter.register_structure_hook_factory(
+    lambda cls: issubclass(cls, QuantumSystem), make_quantum_system_structure_fn
+)
 
 qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, QuantumSystem), make_quantum_system_unstructure_fn

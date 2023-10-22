@@ -129,7 +129,7 @@ def plot_IQ_histogram(
 
 
 @deprecated(
-    version="23.2.0", removed="23.3.0", message="Use `plot_IQ_histogram` instead."
+    version="23.10.0", removed="23.12.0", message="Use `plot_IQ_histogram` instead."
 )
 def plot_readout_IQ(
     data: "IQResult",
@@ -144,7 +144,7 @@ def plot_readout_IQ(
     """Plots an IQResult as a 2d histogram.
 
     !!! Warning
-        Deprecated since version 23.2.0. `plot_readout_IQ` will be removed in 23.3.0.
+        Deprecated since version 23.10.0. `plot_readout_IQ` will be removed in 23.12.0.
 
     Args:
         data: The IQResult.
@@ -219,3 +219,6 @@ def plot_GMM(
         ax.legend(**legend_kw)
 
     return fig
+
+
+__all__ = ["plot_IQ", "plot_IQ_histogram", "plot_GMM"]
