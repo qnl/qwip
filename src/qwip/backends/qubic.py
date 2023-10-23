@@ -8,11 +8,12 @@ from attrs import field
 from loguru import logger
 
 try:
-    import qubic.rpc_client as rc
+    import distproc.ir as ir
     import qubic.toolchain as tc
     from distproc.compiler import CompiledProgram
+    from distproc.compiler import Compiler as _QubicInternalCompiler
     from distproc.hwconfig import FPGAConfig
-    from distproc.ir_instructions import Barrier, DeclareFreq, Pulse, VirtualZ
+    from distproc.ir_instructions import Pulse, VirtualZ
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
 except ImportError:
@@ -40,6 +41,28 @@ from qwip.sequencer.waveform import (
 
 if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
+
+
+def get_compiler_passes(
+    fpga_config: FPGAConfig,
+    qchip: QChip,
+    qubit_grouping: tuple[str, ...] = ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"),
+    proc_grouping: list[tuple[str, ...]] = [
+        ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo")
+    ],
+):
+    return [
+        ir.FlattenProgram(),
+        ir.MakeBasicBlocks(),
+        ir.ScopeProgram(qubit_grouping),
+        ir.RegisterVarsAndFreqs(qchip),
+        ir.ResolveGates(qchip, qubit_grouping),
+        ir.GenerateCFG(),
+        ir.ResolveHWVirtualZ(),
+        ir.ResolveVirtualZ(),
+        ir.ResolveFreqs(),
+        ir.ResolveFPROCChannels(fpga_config),
+    ]
 
 
 # @qfrozen
@@ -180,15 +203,15 @@ class QubicExecutable(QuantumExecutable):
         eq=id, metadata=dict(auto_convert=False), repr=lambda asm: asm.keys()
     )
     repetition_delay: float
-    reads_per_element: tuple[int, ...] = tuple()
+    reads_per_timeline: tuple[int, ...] = tuple()
 
     @property
     def total_reads(self) -> int:
-        return sum(self.reads_per_element)
+        return sum(self.reads_per_timeline)
 
     @property
-    def num_elements(self) -> int:
-        return len(self.reads_per_element)
+    def num_timelines(self) -> int:
+        return len(self.reads_per_timeline)
 
 
 @register_compiler
@@ -354,7 +377,7 @@ class QubicCompiler(QWiPCompiler):
         waveform_cache: dict[tuple[Waveform, str], np.ndarray] = {},
         pulse_kwargs: dict = {},
     ) -> tuple[list, Counter[str]]:
-        """Compiles a single sequence element."""
+        """Compiles a single pulse timeline."""
         instructions = []
         reads = Counter()
 
@@ -386,10 +409,10 @@ class QubicCompiler(QWiPCompiler):
     ) -> list[dict]:
         """Constructs a Qubic instruction list from a sequence.
 
-        This method makes a pass through the sequence, compiling each sequence element
+        This method makes a pass through the sequence, compiling each pulse timeline
         to a list of qubic instructions. These instruction lists are then concatenated
         with a specified reset delay in between. The total repetition delay for the
-        circuit and the number of reads per element are also returned.
+        circuit and the number of reads per timeline are also returned.
 
         """
         markers = {}
@@ -399,14 +422,14 @@ class QubicCompiler(QWiPCompiler):
             for tmln in seq.flat
         ]
 
-        reads_per_element = []
+        reads_per_timeline = []
         circuit = []
         for i, (tmln_locs, tmln) in enumerate(zip(locations, seq.flat)):
-            t_end = markers["end"].width
+            t_end = markers["end"]
 
             if t_end > reset_delay:
                 raise ValueError(
-                    f"Sequence element length {t_end} is greater than reset delay "
+                    f"Timeline length {t_end} is greater than reset delay "
                     f"{reset_delay}."
                 )
 
@@ -414,20 +437,22 @@ class QubicCompiler(QWiPCompiler):
                 tmln_locs,
                 waveform_cache=waveform_cache,
                 pulse_kwargs=tmln.constraints | pulse_kwargs,
-                t0=i * reset_delay,
+                t0=np.round(i * reset_delay / self.fpga_config.fpga_clk_period).astype(
+                    int
+                ),
             )
 
             reads_per_channel = set(cts[1] for cts in reads.most_common())
             if len(reads_per_channel) > 1:
                 logger.warning(
-                    f"Sequence element {i} has an unequal number of reads accross"
-                    f"channels. {reads}"
+                    f"Timeline {i} has an unequal number of reads accross channels. "
+                    f"{reads}"
                 )
 
             circuit.extend(instructions)
-            reads_per_element.append(max(reads_per_channel))
+            reads_per_timeline.append(max(reads_per_channel))
 
-        return circuit, reads_per_element
+        return circuit, reads_per_timeline
 
     def compile(
         self,
@@ -442,24 +467,28 @@ class QubicCompiler(QWiPCompiler):
         Args:
             seq: The sequence to compile.
             location_kwargs: A mapping of location variables to concrete values. This is
-                passed to `SequenceElement.resolve_locations`.
+                passed to `Timeline.resolve_locations`.
 
         """
         reset_delay = reset_delay or self.reset_delay
-        circuit, reads_per_element = self.construct_circuit(
+        circuit, reads_per_timeline = self.construct_circuit(
             seq, reset_delay, location_kwargs, pulse_kwargs, **kwargs
         )
         qchip = self.get_qchip()
         channel_config = self.get_channel_config()
 
-        prog = tc.run_compile_stage(circuit, self.fpga_config, qchip)
+        passes = kwargs.get("passes", get_compiler_passes(self.fpga_config, qchip))
+        qubic_compiler = _QubicInternalCompiler(circuit)
+        qubic_compiler.run_ir_passes(passes)
+
+        prog = qubic_compiler.compile()
         asm = tc.run_assemble_stage(prog, channel_config)
         return QubicExecutable(
             sequence=seq,
             program=prog,
             assembly=asm,
             repetition_delay=len(seq.flat) * reset_delay,
-            reads_per_element=reads_per_element,
+            reads_per_timeline=reads_per_timeline,
         )
 
     def get_qchip(self) -> QChip:
@@ -528,24 +557,24 @@ class QubicBackend(QuantumBackend):
 
         exe = self.uploaded
 
-        delay_per_shot = exe.repetition_delay + self.delay_buffer * exe.num_elements
+        delay_per_shot = exe.repetition_delay + self.delay_buffer * exe.num_timelines
         result = self.runner.run_circuit(
             repetitions,
             reads_per_shot=exe.total_reads,
             delay_per_shot=delay_per_shot,
         )
 
-        num_se = exe.num_elements
+        num_tmlns = exe.num_timelines
 
         iq_results = {}
         for k, data in result.items():
             index = pd.MultiIndex.from_tuples(
                 (
-                    (se, ro)
-                    for se in range(num_se)
-                    for ro in range(exe.reads_per_element[se])
+                    (tmln, ro)
+                    for tmln in range(num_tmlns)
+                    for ro in range(exe.reads_per_timeline[tmln])
                 ),
-                names=["element", "readout"],
+                names=["timeline", "readout"],
             )
 
             columns = pd.RangeIndex(repetitions, name="shot")

@@ -131,17 +131,21 @@ class TestQubicCompiler:
             for i in range(8)
         ]
 
-        qubit = DeviceInfo.from_channels(qubit, sample_rate=8e9, name="qubit", dtype=np.complex64)
-        readout = DeviceInfo.from_channels(readout, sample_rate=0.5e9, name="readout", dtype=np.complex64)
-        adc = DeviceInfo.from_channels(adc, sample_rate=0.5e9, name="adc", dtype=np.complex64)
-
-        frames = {
-            f"Q{i}.freq_GE": Frame((5 + 0.1 * i) * 1e9) for i in range(8)
-        } | {f"Q{i}.readfreq": Frame((6.4 + 0.1 * i) * 1e9) for i in range(8)}
-
-        return QubicCompiler.from_devices(
-            [qubit, readout, adc], frames=frames
+        qubit = DeviceInfo.from_channels(
+            qubit, sample_rate=8e9, name="qubit", dtype=np.complex64
         )
+        readout = DeviceInfo.from_channels(
+            readout, sample_rate=0.5e9, name="readout", dtype=np.complex64
+        )
+        adc = DeviceInfo.from_channels(
+            adc, sample_rate=0.5e9, name="adc", dtype=np.complex64
+        )
+
+        frames = {f"Q{i}.freq_GE": Frame((5 + 0.1 * i) * 1e9) for i in range(8)} | {
+            f"Q{i}.readfreq": Frame((6.4 + 0.1 * i) * 1e9) for i in range(8)
+        }
+
+        return QubicCompiler.from_devices([qubit, readout, adc], frames=frames)
 
     @pytest.fixture
     def gates(self):
@@ -266,7 +270,9 @@ class TestQubicCompiler:
                         phase=0,
                         amp=0.5,
                         twidth=2e-6,
-                        env=np.array([0] + [np.exp(1j * np.pi)] * 999).astype(np.complex64),
+                        env=np.array([0] + [np.exp(1j * np.pi)] * 999).astype(
+                            np.complex64
+                        ),
                         dest="Q1.rdlo",
                         start_time=100,
                     )
@@ -350,3 +356,18 @@ class TestQubicCompiler:
 
         assert instructions == expected
         assert reads == Counter({"Q0.rdlo": 1})
+
+    def test_compile(self, compiler, gates):
+        pi = Timeline()
+        pi.add(gates["Q0_X90"])
+        pi.add(gates["Q0_X90"], gates["Q0_X90"].width)
+        pi.add(gates["Q0_RO"], 2 * gates["Q0_X90"].width)
+
+        nopi = Timeline()
+        nopi.add(gates["Q0_RO"])
+
+        seq = Sequence([nopi, pi])
+
+        exe = compiler.compile(seq)
+
+        print(exe)
