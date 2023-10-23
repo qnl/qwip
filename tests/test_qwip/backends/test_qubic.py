@@ -370,4 +370,6 @@ class TestQubicCompiler:
 
         exe = compiler.compile(seq)
 
-        print(exe)
+        for op in exe.program.program[("Q0.qdrv", "Q0.rdrv", "Q0.rdlo")]:
+            print(op.keys())
+            print(op["op"], op.get("start_time", ""), op.get("dest", ""))

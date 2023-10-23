@@ -221,6 +221,7 @@ class QubicCompiler(QWiPCompiler):
 
     fpga_config: FPGAConfig = field(factory=FPGAConfig)
     reset_delay: float = 500e-6
+    start_offset: int = 5
 
     def compile_instruction(
         self,
@@ -437,7 +438,8 @@ class QubicCompiler(QWiPCompiler):
                 tmln_locs,
                 waveform_cache=waveform_cache,
                 pulse_kwargs=tmln.constraints | pulse_kwargs,
-                t0=np.round(i * reset_delay / self.fpga_config.fpga_clk_period).astype(
+                t0=self.start_offset
+                + np.round(i * reset_delay / self.fpga_config.fpga_clk_period).astype(
                     int
                 ),
             )
@@ -530,17 +532,17 @@ class QubicBackend(QuantumBackend):
     """A hardware backend for interfacing with qubic."""
 
     runner: CircuitRunnerClient
-    delay_buffer: float = 50e-6
     result_map: dict = field(factory=dict)
 
     def upload(self, exe: QubicExecutable, **kwargs: Any) -> None:
-        """Loads a circuit onto the qubic board.
+        """Simulate a circuit upload onto the qubic board.
+
+        The actual upload happens with the acquire method call.
 
         Args:
             exe: A `QubicExecutable` which contains the assembly dict to load.
             kwargs: Additional keyword arguments are passed to `CircuitRunner.load_circuit`.
         """
-        self.runner.load_circuit(exe.assembly, **kwargs)
         self.uploaded = exe
 
     def acquire(self, repetitions: int = 512, **kwargs) -> dict[str, IQResult]:
@@ -557,29 +559,30 @@ class QubicBackend(QuantumBackend):
 
         exe = self.uploaded
 
-        delay_per_shot = exe.repetition_delay + self.delay_buffer * exe.num_timelines
-        result = self.runner.run_circuit(
+        result = self.runner.run_circuit_batch(
+            [exe.assembly],
             repetitions,
             reads_per_shot=exe.total_reads,
-            delay_per_shot=delay_per_shot,
         )
 
-        num_tmlns = exe.num_timelines
+        tmlns = np.r_[
+            tuple(np.repeat(i, n) for i, n in enumerate(exe.reads_per_timeline))
+        ]
+        reads = np.r_[tuple(np.arange(n) for n in exe.reads_per_timeline)]
+        shots = np.arange(repetitions)
+
+        index = pd.MultiIndex.from_arrays(
+            [
+                np.repeat(shots, exe.total_reads),
+                np.tile(tmlns, repetitions),
+                np.tile(reads, repetitions),
+            ],
+            names=["shot", "timeline", "readout"],
+        )
 
         iq_results = {}
         for k, data in result.items():
-            index = pd.MultiIndex.from_tuples(
-                (
-                    (tmln, ro)
-                    for tmln in range(num_tmlns)
-                    for ro in range(exe.reads_per_timeline[tmln])
-                ),
-                names=["timeline", "readout"],
-            )
-
-            columns = pd.RangeIndex(repetitions, name="shot")
-            df = pd.DataFrame(data.T, index=index, columns=columns)
-            df = df.stack().to_frame("IQ").swaplevel("readout", "shot")
+            df = pd.DataFrame(data[0].flatten(), index=index, columns=["IQ"])
 
             name = self.result_map.get(k, k)
             iq_results[name] = IQResult(name=name, data=df)
