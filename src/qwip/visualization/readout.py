@@ -21,7 +21,29 @@ def plot_IQ(
     ax: Axes | None = None,
     x_axis: str = "frequency",
     log_mag: bool = True,
+    electrical_delay: float = 0,
+    unwrap: bool = False,
 ) -> Figure:
+    """Plots an IQResult as a function of a specified index level.
+
+    This is intended for plotting averaged IQ values vs frequency. It will create three
+    panels, plotting the amplitude, phase, and a smith chart of the IQ data.
+
+    Args:
+        data: The IQResult.
+        ax: The `Axes` on which to plot the data.
+        x_axis: The index level to use as the x-axis.
+        log_mag: Whether or not to plot the amplitude in dB (power). This is passed
+            directly to `IQResult.amplitude`.
+        electrical_delay: If non-zero, applies an electrical delay to the data before
+            plotting. See `IQResult.electrical_delay`.
+        unwrap: Whether or not to unwrap the phase. This is passed directly to
+            `IQResult.phase`.
+
+    Returns:
+        The matplotlib `Figure` that the subplot belongs to.
+    """
+
     grid = [["amplitude", "IQ"], ["phase", "IQ"]]
 
     if ax is None:
@@ -33,12 +55,17 @@ def plot_IQ(
         subfig = fig.add_subfigure(gridspec)
         axes = subfig.subplot_mosaic(grid)
 
-    axes["amplitude"].get_shared_x_axes().join(axes["amplitude"], axes["phase"])
-    axes["amplitude"].set_xticklabels([])
+    axes["phase"].sharex(axes["amplitude"])
+    axes["amplitude"].tick_params(labelbottom=False, length=0)
     axes["IQ"].set_aspect("equal", adjustable="datalim")
 
+    data = data.electrical_delay(electrical_delay, frequency=x_axis)
     combined = pd.concat(
-        [data.amplitude(log=log_mag), data.phase(), data.data],
+        [
+            data.amplitude(log=log_mag),
+            data.phase(unwrap=unwrap),
+            data.data,
+        ],
         axis="columns",
         keys=["amplitude", "phase", "IQ"],
     )
@@ -59,7 +86,7 @@ def plot_IQ(
         axes["phase"].plot(combined["phase"])
         axes["IQ"].plot(np.real(combined["IQ"]), np.imag(combined["IQ"]))
 
-    axes["amplitude"].set_ylabel("Amplitude" + " (dB)" if log_mag else "")
+    axes["amplitude"].set_ylabel("Amplitude" + (" (dB)" if log_mag else ""))
     axes["phase"].set_ylabel("Phase")
     axes["IQ"].set_title("IQ")
     axes["IQ"].set_xlabel("I")
