@@ -281,14 +281,68 @@ class IQResult(MeasurementResult):
 
         return 20 * np.log10(amp) if log else amp
 
-    def phase(self) -> pd.DataFrame:
+    def phase(
+        self,
+        *,
+        unwrap: bool = False,
+        electrical_delay: float = 0,
+        frequency: str | int = "frequency",
+    ) -> pd.DataFrame:
         """Computes the phase of the IQ data.
+
+        Args:
+            unwrap: Whether or not to unwrap the phase.
+            electrical_delay: The electrical delay, in seconds, that should be removed
+                from the phase. If electrical delay is nonzero, the index level for
+                frequency must be supplied.
+            frequency: The name of the index level corresponding to a frequency. This is
+                necessary only if a non-zero electrical delay is being applied. An `int`
+                specifying the index level can also be given.
 
         Returns:
             A dataframe with the phase of the IQ data.
         """
+        if electrical_delay:
+            data = self.electrical_delay(electrical_delay, frequency=frequency).data
+        else:
+            data = self.data
+
+        phase = np.angle(data)
+        if unwrap:
+            phase = np.unwrap(phase, axis=0)
+
         cols = ["phase"] if len(self.data.columns) == 1 else self.data.columns
-        return pd.DataFrame(np.angle(self.data), columns=cols, index=self.data.index)
+        return pd.DataFrame(phase, columns=cols, index=self.data.index)
+
+    def electrical_delay(
+        self,
+        delay: float = 0,
+        frequency: str | int = "frequency",
+        inplace: bool = False,
+    ) -> Self:
+        """Applies an electrical delay to the IQ data.
+
+        Args:
+            delay: The electrical delay, in seconds to apply.
+            frequency: The name of the index level corresponding to a frequency. This is
+                necessary only if a non-zero electrical delay is being applied. An `int`
+                specifying the index level can also be given.
+            inplace: If `True`, the result data is modified inplace. Otherwise, a new
+                result is created and returned.
+
+        Returns:
+            A new result with delay applied to the result data, or the modified result
+            if `inplace=True`.
+        """
+        fs = self.data.index.get_level_values(frequency).to_numpy()
+        delay = np.exp(1j * 2 * np.pi * fs * delay).reshape(-1, 1)
+
+        if inplace:
+            self.data *= delay
+            return self
+        else:
+            data = self.data * delay
+            return attrs.evolve(self, data=data)
 
 
 @DATA_PROCESSORS.register

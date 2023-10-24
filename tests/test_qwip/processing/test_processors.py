@@ -274,6 +274,33 @@ class TestIQResult:
         assert_array_almost_equal(phase, np.angle(result.data))
         assert list(phase.columns) == ["phase"]
 
+    def test_phase_unwrap(self, seed):
+        rng = default_rng(seed=seed)
+        result = IQResult.random(shape=(100, 200, 2), num_states=1, rng=rng)
+
+        phase = result.phase(unwrap=True)
+
+        assert_array_almost_equal(phase, np.unwrap(np.angle(result.data), axis=0))
+        assert list(phase.columns) == ["phase"]
+
+    def test_electrical_delay(self, seed):
+        fs = np.linspace(6e9, 7e9, 101)
+        data = np.exp(-2 * np.pi * 1j * fs[:, np.newaxis] * np.ones(2))
+        result = IQResult.from_numpy(data, labels=("timeline", "readout"))
+
+        result.data.index = pd.MultiIndex.from_product(
+            [fs, (0, 1)], names=["freq", "readout"]
+        )
+
+        delayed = result.electrical_delay(1, frequency="freq")
+        assert delayed is not result
+        assert delayed.data is not result.data
+        assert (np.abs(delayed.data["IQ"] - 1) < 1e-12).all()
+
+        delayed = result.electrical_delay(1, frequency="freq", inplace=True)
+        assert delayed is result
+        assert (np.abs(result.data["IQ"] - 1) < 1e-12).all()
+
 
 class TestIQRotation:
     def test_rotate(self):
