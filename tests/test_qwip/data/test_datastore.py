@@ -69,3 +69,22 @@ class TestOfflineDatastore:
         assert dataset["raw"].load() == measurement_results
 
         datastore.storage.remove_directory(dataset.id.hex)
+
+    def test_add_asset(self, datastore, measurement_results, session):
+        simple_dict = dict(a=1, b=2, c=3)
+
+        dataset = datastore.save(sample_id="K230210", cooldown_id="SNB230929")
+
+        assert dataset.assets() == tuple()
+
+        asset = datastore.add_asset(dataset.id, simple_dict, "metadata")
+        assert asset.dataset_id == dataset.id
+        assert asset.load() == simple_dict
+        print(asset)
+
+        new_dict = dict(a=2, b=3, c=4)
+        new_asset = datastore.add_asset(
+            dataset.id, new_dict, "metadata", overwrite=True
+        )
+        assert new_asset is asset
+        assert asset.load() == new_dict

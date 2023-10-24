@@ -173,7 +173,7 @@ class OfflineDatastore(Database):
                 f"`overwrite=True` to update the asset."
             )
 
-        dataset.add(obj)
+        obj = dataset.update(obj)
         obj.save()
 
         return obj
