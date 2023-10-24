@@ -3,17 +3,17 @@ from collections import Counter
 import attrs
 import numpy as np
 import pytest
-from numpy.testing import assert_almost_equal, assert_array_equal
+from numpy.testing import assert_almost_equal
 
 try:
     from distproc.compiler import CompiledProgram
     from distproc.ir_instructions import Pulse, VirtualZ
+
+    from qwip.backends.qubic import QubicCompiler, QubicExecutable
 except ImportError:
     pytest.skip("Qubic dependencies not installed.", allow_module_level=True)
 
 
-import qwip
-from qwip.backends.qubic import QubicCompiler, QubicExecutable  # VirtualZInstruction,
 from qwip.sequencer import (
     CWWaveform,
     Frame,
@@ -36,64 +36,6 @@ def assert_instructions_almost_equal(ins1, ins2):
             assert_almost_equal(ins1.env, ins2.env)
         else:
             assert getattr(ins1, f.name) == getattr(ins2, f.name)
-
-
-# # class TestQubicInstruction:
-# #     @pytest.mark.parametrize(
-# #         "ins,expect",
-# #         [
-# #             (
-# #                 PulseInstruction(
-# #                     env=np.linspace(0, 200, 100),
-# #                     dest="Q0.drv",
-# #                     freq=5e9,
-# #                     twidth=12.5e-9,
-# #                 ),
-# #                 dict(
-# #                     name="pulse",
-# #                     env=np.linspace(0, 200, 100),
-# #                     dest="Q0.drv",
-# #                     freq=5e9,
-# #                     phase=0,
-# #                     amp=1,
-# #                     twidth=12.5e-9,
-# #                 ),
-# #             ),
-# #             (DelayInstruction(t=0.0005), dict(name="delay", t=0.0005)),
-# #         ],
-# #     )
-# #     def test_todict(self, ins, expect):
-# #         d = ins.todict()
-
-# #         assert set(d.keys()) == set(expect.keys())
-
-# #         for k in d.keys():
-# #             match k:
-# #                 case "env":
-# #                     assert_array_equal(d[k], expect[k])
-# #                 case _:
-# #                     assert d[k] == expect[k]
-
-
-# class TestPulseInstruction:
-#     @pytest.mark.parametrize(
-#         "p1,p2,expect",
-#         [
-#             (
-#                 PulseInstruction(env=np.zeros(10), dest="Q0.drv", freq=0),
-#                 PulseInstruction(env=np.zeros(10), dest="Q0.drv", freq=0),
-#                 False,
-#             ),
-#             (
-#                 p := PulseInstruction(env=np.ones(21), dest="Q0.drv", freq=1e9),
-#                 PulseInstruction(env=p.env, dest="Q0.drv", freq=1e9),
-#                 True,
-#             ),
-#         ],
-#     )
-#     def test_equality_and_hash(self, p1, p2, expect):
-#         assert (p1 == p2) is expect
-#         assert (hash(p1) == hash(p2)) is expect
 
 
 class TestQubicExecutable:
@@ -318,7 +260,7 @@ class TestQubicCompiler:
                 phase=0,
                 amp=1,
                 twidth=30e-9,
-                env=waveform_cache[GaussianWaveform(width=30e-9), "qubit"],
+                env=waveform_cache[GaussianWaveform(width=30e-9), int(8e9)],
                 dest="Q0.qdrv",
                 start_time=0,
             ),
@@ -329,7 +271,7 @@ class TestQubicCompiler:
                 phase=0,
                 amp=1,
                 twidth=30e-9,
-                env=waveform_cache[GaussianWaveform(width=30e-9), "qubit"],
+                env=waveform_cache[GaussianWaveform(width=30e-9), int(8e9)],
                 dest="Q0.qdrv",
                 start_time=15,
             ),
@@ -339,7 +281,7 @@ class TestQubicCompiler:
                 phase=0,
                 amp=1,
                 twidth=2e-6,
-                env=waveform_cache[SquareWaveform(width=2e-6), "readout"],
+                env=waveform_cache[SquareWaveform(width=2e-6), int(0.5e9)],
                 dest="Q0.rdrv",
                 start_time=30,
             ),
@@ -348,7 +290,7 @@ class TestQubicCompiler:
                 phase=0,
                 amp=1,
                 twidth=2e-6,
-                env=waveform_cache[SquareWaveform(width=2e-6), "adc"],
+                env=waveform_cache[SquareWaveform(width=2e-6), int(0.5e9)],
                 dest="Q0.rdlo",
                 start_time=280,
             ),
@@ -370,6 +312,26 @@ class TestQubicCompiler:
 
         exe = compiler.compile(seq)
 
-        for op in exe.program.program[("Q0.qdrv", "Q0.rdrv", "Q0.rdlo")]:
-            print(op.keys())
-            print(op["op"], op.get("start_time", ""), op.get("dest", ""))
+        ops = exe.program.program[("Q0.qdrv", "Q0.rdrv", "Q0.rdlo")]
+
+        assert ops[0] == dict(op="phase_reset")
+        assert ops[-1] == dict(op="done_stb")
+
+        start_times = [op["start_time"] for op in ops[1:-1]]
+        assert start_times == [250_005, 250_255, 500_005, 500_020, 500_035, 500_285]
+
+        dtypes = {op["env"].dtype for op in ops[1:-1]}
+        shapes = [len(op["env"]) for op in ops[1:-1]]
+
+        assert shapes == [1000, 1000, 240, 240, 1000, 1000]
+        assert dtypes == {np.dtype(np.complex64)}
+
+        dest = [op["dest"] for op in ops[1:-1]]
+        assert dest == [
+            "Q0.rdrv",
+            "Q0.rdlo",
+            "Q0.qdrv",
+            "Q0.qdrv",
+            "Q0.rdrv",
+            "Q0.rdlo",
+        ]
