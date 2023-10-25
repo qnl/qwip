@@ -2,6 +2,7 @@ import platform
 from collections.abc import Iterable
 from typing import Any
 
+import attrs
 import pendulum
 import sqlalchemy as sa
 from attrs import field
@@ -45,6 +46,34 @@ class StorageBackendType(types.TypeDecorator):
 
 @qdefine(slots=False)
 class Dataset(VersionControlled):
+    """A dataset record.
+
+    A dataset is a record that contains searchable metadata about a collection of data
+    assets or resources derived from some measurement data taken at a point in time.
+
+    Attributes:
+        id: A dataset ID. These are generated using uuid7 so that the identifiers can
+            be time-ordered with a lexicographic sort.
+        timestamp: A datetime instance specifying when the data was saved.
+        host: The hostname of the computer that the python client code is being run
+            on.
+        user: The user saving the data. This is determined by the database connection
+            user.
+        source: Information about the QWiP source code, if it is being run from an
+            editable install.
+        config_db: The name of the configuration database being used, or `None` if no
+            configuration database is specified.
+        commit: The commit hash of the configuration database, or `None` if no
+            configuration database is specified.
+        sample_id: A sample identifier specifying the sample that the data was taken on.
+        cooldown_id: A cooldown identifier specifying which fridge and cooldown the
+            sample was being measured in.
+        protocol: A QWiP protocol that was used to take the data, or `None`, if no
+            protocol was used.
+        comments: Additional comments to attach to the dataset. This is stored in the
+            database so that datasets are searchable by comment.
+    """
+
     id: UUID = field(factory=uuid7, repr=lambda uid: uid.hex if uid else str(uid))
     timestamp: pendulum.DateTime = field(
         repr=lambda dt: dt.in_tz("local").isoformat()
@@ -64,6 +93,13 @@ class Dataset(VersionControlled):
     comments: str | None = None
 
     def add(self, assets: "Asset | Iterable[Asset]"):
+        """Adds an asset or list of assets to the dataset.
+
+        Use `update` to update an existing asset attached to the dataset.
+
+        Args:
+            assets: An asset or an iterable of assets to add to the dataset.
+        """
         match assets:
             case Asset():
                 assets = [assets]
@@ -71,6 +107,29 @@ class Dataset(VersionControlled):
         for asset in assets:
             asset.dataset_id = self.id
             self._assets[asset.name] = asset
+
+    def update(self, asset: "Asset"):
+        """Update an existing asset in the database.
+
+        Note that this only updates the asset parameters and does not save the asset
+        data to the storage backend. Another call to `Asset.save` is needed to update
+        the storage backend. If an asset with the same name does not already exist,
+        a new one is created.
+
+        Args:
+            asset: The asset to update/add.
+        """
+        if asset.name not in self:
+            self.add(asset)
+            return asset
+
+        orig = self[asset.name]
+        for f in attrs.fields(Asset):
+            if f.name == "dataset_id":
+                continue
+            setattr(orig, f.name, getattr(asset, f.name))
+
+        return orig
 
     def __getitem__(self, key: str) -> "Asset":
         asset = self._assets[key]
@@ -84,11 +143,29 @@ class Dataset(VersionControlled):
         return key in self._assets
 
     def assets(self) -> tuple[str]:
+        """Returns the names of all assets attached to the dataset."""
         return tuple(asset.name for asset in self._assets.values())
 
 
 @qdefine(slots=False)
 class Asset(VersionControlled):
+    """A data asset record.
+
+    An asset is a specific piece of data that is attached to a dataset. Each asset has
+    some metadata specifying how to save and retrieve the data. The actual data itself
+    is serialized to some binary representation and saved using a storage backend.
+
+    Attributes:
+        name: The asset name. Two assets attached to the same dataset cannot share the
+            same name.
+        dataset_id: The id for the dataset that the asset is attached to.
+        storage: A `StorageBackend` used to persist the binary object data to save.
+        serializer: The `serializer` to use when saving the asset data.
+        params: Any parameters to pass to the storage backend when saving the asset
+            data.
+        obj: The object to persist. This is the actual data to be saved/reloaded.
+    """
+
     name: str
     dataset_id: UUID | None = field(
         repr=lambda uid: uid.hex if uid else str(uid), default=None
@@ -131,6 +208,15 @@ class Asset(VersionControlled):
         return cls(name=name, obj=obj, **kwargs)
 
     def save(self, **kwargs):
+        """Saves the asset data to the storage backend.
+
+        Data is serialized using the specified serializer to a binary representation
+        and then saved to the storage backend.
+
+        Args:
+            **kwargs: Keyword arguments are passed to `storage.save` and can be used to
+                override any default parameters attached to the asset.
+        """
         if not self.storage:
             raise ValueError("No storage backend specified, cannot save!")
 
@@ -142,6 +228,19 @@ class Asset(VersionControlled):
         self.storage.save(self.address, self.obj, **params)
 
     def load(self, **kwargs) -> Any:
+        """Loads the asset data from the storage backend.
+
+        Data is loaded in its binary form from the storage backend and then deserialized
+        with the speccified serializer. In some cases (e.g. matplotlib figures), the
+        reloaded data may not be in the same form as it was when it was initially saved.
+
+        Args:
+            **kwargs: Keyword arguments are passed to `storage.load` and can be used to
+                override any default parameters attached to the asset.
+
+        Returns:
+            The reloaded and deserialized object from the storage backend.
+        """
         if not self.storage:
             raise ValueError("No storage backend specified, cannot load!")
 

@@ -29,10 +29,7 @@ class TestDataset:
         assert results == [dataset]
 
     def test_dataset_add(self, dataset, storage):
-        plot = Asset(
-            name="plot",
-            storage=storage,
-        )
+        plot = Asset(name="plot", storage=storage)
 
         data = Asset(name="data", storage=storage, serializer="result")
 
@@ -50,6 +47,23 @@ class TestDataset:
         assert "metadata" in dataset._assets
 
         assert plot.dataset_id == data.dataset_id == metadata.dataset_id == dataset.id
+
+    def test_dataset_update(self, dataset, storage):
+        plot = Asset(name="plot", storage=storage)
+        dataset.add(plot)
+
+        new_plot = Asset(
+            name="plot",
+            storage=storage,
+            serializer="matplotlib",
+            params=dict(fmt="svg"),
+        )
+        orig_plot = dataset.update(new_plot)
+
+        assert id(dataset._assets["plot"]) == id(plot) == id(orig_plot)
+        assert dataset._assets["plot"] is not new_plot
+        assert dataset["plot"].serializer == "matplotlib"
+        assert dataset["plot"].params == dict(fmt="svg")
 
     def test_dataset_getitem(self, dataset, storage):
         plot = Asset(
