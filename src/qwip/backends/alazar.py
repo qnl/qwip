@@ -94,7 +94,7 @@ class AlazarBackend(ADCBackend):
                 np.tile(elems, num_shots),
                 np.tile(reads, num_shots),
             ],
-            names=["shot", "element", "readout"],
+            names=["shot", "timeline", "readout"],
         )
 
         data = (
