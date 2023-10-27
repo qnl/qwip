@@ -504,7 +504,7 @@ class TestStatePopulations:
 
         assert populations.data.index.equals(counts.data.index)
         assert populations.data.columns.equals(counts.data.columns)
-        assert np.all(populations.groupby(level=[0], axis="columns").sum() == 1)
+        assert np.all(populations.T.groupby(level=[0]).sum().T == 1)
 
 
 class TestAveraged:
