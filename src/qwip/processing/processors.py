@@ -714,7 +714,7 @@ class StatePopulations(DataProcessor):
         if result.data.columns.nlevels > 1:
             column_levels = result.data.columns.names
             groupby_levels = [i for i, n in enumerate(column_levels) if n != "state"]
-            shots = result.data.groupby(level=groupby_levels, axis="columns").sum()
+            shots = result.data.T.groupby(level=groupby_levels).sum().T
         else:
             shots = result.data.sum(axis="columns")
 
@@ -768,9 +768,10 @@ class Averaged(GenericDataProcessor):
         if level is ... or level not in all_levels:
             result.data = result.data.mean(axis=axis).to_frame(name=name)
         else:
-            result.data = result.data.groupby(
-                [n for n in all_levels if n != level], axis=axis
-            ).mean()
+            df = result.data.T if axis == 1 else result.data
+            averaged = df.groupby([n for n in all_levels if n != level]).mean()
+
+            result.data = averaged.data.T if axis == 1 else averaged
 
         return result
 
