@@ -521,7 +521,7 @@ class QubicBackend(QuantumBackend):
 
         iq_results = {}
         for k, data in result.items():
-            df = pd.DataFrame(data[0].flatten(), index=index, columns=["IQ"])
+            df = pd.DataFrame(data[0].flatten().conj(), index=index, columns=["IQ"])
 
             name = self.result_map.get(k, k)
             iq_results[name] = IQResult(name=name, data=df)
