@@ -206,3 +206,141 @@ class TriangularWaveModel(GuessModel):
             offset0 *= -1
 
         return self.make_params(period=period0, A=A0, B=B0, offset=offset0)
+
+
+class MobiusModel(GuessModel):
+    """A model for fitting a generalized resonator response.
+
+    $$ S(f;A,\\phi,f_0,f_p,\\tau) = Ae^{i\\phi} \\left(\\frac{f - f_0}{f - f_p}\\right) e^{2\\pi if\\tau}$$
+
+    """
+
+    def __init__(
+        self,
+        prefix="",
+        nan_policy="raise",
+        name="A*exp(1j*phi)*(f-f0)/(f-fp)*exp(2*pi*(f - Re(f0))*tau)",
+        **kwargs,
+    ):
+        super().__init__(
+            type(self).func,
+            independent_vars=["f"],
+            prefix=prefix,
+            nan_policy=nan_policy,
+            name=name,
+            **kwargs,
+        )
+
+        self.set_param_hint("phi", min=-np.pi - 1e-5, max=np.pi + 1e-5)
+
+    @classmethod
+    def func(cls, f, A, phi, f0_r, f0_i, fp_r, fp_i, tau=0):
+        """Mobius transform.
+
+        This maps a real-valued frequency to a circle in the complex plane. `f0` is the
+        point in the frequency domain mapping to zero in the complex plane. `fp` is the
+        point in the frequency domain mapping to infinity in the complex plane, aka a
+        pole.
+
+        Args:
+            f: A frequency.
+            A: An overall amplitude scaling factor.
+            phi: An overall phase factor.
+            f0_r: The real component of `f0`.
+            f0_i: The imaginary component of `f0`.
+            fp_r: The real component of `fp`.
+            fp_i: The complex component of `fp`.
+            tau: An electrical delay.
+
+        Returnss:
+            A point in the complex plane representing the scattering response of a
+            resonator.
+        """
+        f0 = f0_r + 1j * f0_i
+        fp = fp_r + 1j * fp_i
+
+        delay = np.exp(2 * np.pi * 1j * (f - f0_r) * tau)
+        S = A * np.exp(1j * phi) * (f - f0) / (f - fp) * delay
+
+        return S
+
+    def guess(self, data: np.ndarray, f: np.ndarray):
+        """Determines initial fit parameters.
+
+        Initial parameters are determined via a linear least squares fit assuming zero
+        electrical delay. Frequencies are normalized before performing the fit to
+        prevent singularities from large values.
+
+        Returns:
+            An initialized `Parameters` dictionary.
+        """
+        S = data
+
+        fmin = np.min(f)
+        fmax = np.max(f)
+        df = (fmax - fmin) / len(f)
+        f_normalized = (f - fmin) / df
+
+        ## Do a linear least squares fit to get initial guess
+        ## a@x = b
+        b = S * f_normalized
+        a = np.stack([f_normalized, S, np.ones_like(f_normalized)]).T
+
+        x = np.linalg.lstsq(a, b, rcond=None)[0]
+
+        A = np.abs(x[0])
+        phi = np.angle(x[0])
+        fp = x[1] * df + fmin
+        f0 = -x[2] / x[0] * df + fmin
+
+        return self.make_params(
+            A=A, phi=phi, f0_r=f0.real, f0_i=f0.imag, fp_r=fp.real, fp_i=fp.imag, tau=0
+        )
+
+
+class ReflectionResonatorModel(MobiusModel):
+    """A model for fitting a reflection resonator response."""
+
+    def __init__(
+        self,
+        prefix="",
+        nan_policy="raise",
+        **kwargs,
+    ):
+        super().__init__(
+            prefix=prefix,
+            nan_policy=nan_policy,
+            **kwargs,
+        )
+
+        self.set_param_hint("fr", expr="(f0_r + fp_r) / 2")
+        self.set_param_hint("kappa_i", min=1e-12, expr="fp_i + f0_i")
+        self.set_param_hint("kappa_e", min=1e-12, expr="fp_i - f0_i")
+        self.set_param_hint("kappa", min=1e-12, expr="kappa_i + kappa_e")
+        self.set_param_hint("Q_i", expr="fr / kappa_i")
+        self.set_param_hint("Q_e", expr="fr / kappa_e")
+        self.set_param_hint("Q", expr="fr / kappa")
+
+
+class HangerResonatorModel(MobiusModel):
+    """A model for fitting a two port hanger resonator response."""
+
+    def __init__(
+        self,
+        prefix="",
+        nan_policy="raise",
+        **kwargs,
+    ):
+        super().__init__(
+            prefix=prefix,
+            nan_policy=nan_policy,
+            **kwargs,
+        )
+
+        self.set_param_hint("fr", expr="(f0_r + fp_r) / 2")
+        self.set_param_hint("kappa_i", min=1e-12, expr="2*f0_i")
+        self.set_param_hint("kappa_e", min=1e-12, expr="2*(fp_i - f0_i)")
+        self.set_param_hint("kappa", min=1e-12, expr="kappa_i + kappa_e")
+        self.set_param_hint("Q_i", expr="fr / kappa_i")
+        self.set_param_hint("Q_e", expr="fr / kappa_e")
+        self.set_param_hint("Q", expr="fr / kappa")
