@@ -279,6 +279,7 @@ class QPU:
         compilation: dict = {},
         backend: dict = {},
         data: dict = {},
+        save: bool = True,
     ) -> dict[str, MeasurementResult]:
         """Uploads a sequence and acquires data from a backend.
 
@@ -291,6 +292,9 @@ class QPU:
             repetitions: The number of shots to take for each pulse timeline.
             compilation: The compilation arguments, which are passed to
                 `self.compiler.compile`.
+            backend: Any backend arguments which are passed to `self.backend.acquire`
+            data: Data saving arguments which are passed to `self.datastore.save`
+            save: Whether or not to save the data.
 
         Returns:
             A dictionary mapping measurement keys to the acquired and processed data.
@@ -319,7 +323,7 @@ class QPU:
         raw_data = self.backend.acquire(repetitions=repetitions, **backend)
         processed = self.process_results(raw_data, processor, exe=exe)
 
-        if self.datastore:
+        if self.datastore and save:
             data = dict(config_db=self.db) | data
             if exe and exe.sequence is None:
                 data["executable"] = exe
