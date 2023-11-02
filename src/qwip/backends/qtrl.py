@@ -292,7 +292,11 @@ def format_legacy_IQ(arr: np.ndarray) -> np.ndarray:
 @qdefine
 class QTRLCompiler(QWiPCompiler):
     def compile(
-        self, seq: Sequence, location_kwargs: dict = {}, pulse_kwargs: dict = {}
+        self,
+        seq: Sequence,
+        location_kwargs: dict = {},
+        pulse_kwargs: dict = {},
+        demod: str = "demod",
     ) -> QTRLExecutable:
         qwip_exe = super().compile(seq, location_kwargs, pulse_kwargs)
 
@@ -300,9 +304,13 @@ class QTRLCompiler(QWiPCompiler):
 
         waveforms = {}
         for dev_name, program in qwip_exe.programs.items():
-            readout_qubits.update(program.read_registers)
             if program.waveforms:
                 waveforms[dev_name] = self.compile_sequence_array(program)
+
+            if dev_name == demod:
+                for wmem in program.waveforms:
+                    for ch, subch in wmem.data.keys():
+                        readout_qubits.add(ch)
 
         trigger = self.channels["readout"].trigger
         marker = (trigger.index, trigger.subchannel)
@@ -325,6 +333,7 @@ class QTRLCompiler(QWiPCompiler):
 
         # Need to test marker based readout on ZI's. Ignoring markers for now.
         waveforms["seq"].array = waveforms["seq"].array[..., :1]
+        waveforms["readout"].array = waveforms["readout"].array[..., :1]
 
         return QTRLExecutable(sequence=seq, waveforms=waveforms)
 
@@ -334,6 +343,9 @@ class QTRLCompiler(QWiPCompiler):
         n_elements = len(program.waveforms)
         n_samples = max(wmem.samples for wmem in program.waveforms)
         n_subchannels = device.max_subchannel_index + 1
+
+        if issubclass(device.dtype, np.complexfloating):
+            n_subchannels *= 2
 
         seq_arr = SequenceArray(
             sample_rate=device.sample_rate,
@@ -346,7 +358,12 @@ class QTRLCompiler(QWiPCompiler):
 
         for el, wmem in enumerate(program.waveforms):
             for (ch, subch), wavedata in wmem.data.items():
-                seq_arr.array[ch, el, : len(wavedata), subch] = wavedata
+                if issubclass(device.dtype, np.complexfloating):
+                    seq_arr.array[
+                        ch, el, : len(wavedata), 2 * subch : 2 * subch + 2
+                    ] = wavedata.view(np.float32).reshape(-1, 2)
+                else:
+                    seq_arr.array[ch, el, : len(wavedata), subch] = wavedata
 
         return seq_arr
 
@@ -356,10 +373,12 @@ class QTRLBackend(QuantumBackend):
     """A hardware backend that interface with QTRL."""
 
     meta: "MetaManager"
+    demod_IQ_phase: float = np.pi / 2
 
     def upload(self, exe: QTRLExecutable, **kwargs) -> None:
         populate_unpaired(exe)
         self.uploaded = exe
+        self.write_demod_weights(exe, filename=kwargs.get("filename"))
         self.meta.write_sequence(exe)
 
     def acquire(self, repetitions: int = 512, **kwargs) -> dict:
@@ -428,6 +447,27 @@ class QTRLBackend(QuantumBackend):
 
     def exe_formats(self) -> set[type[QuantumExecutable]]:
         return {QTRLExecutable}
+
+    def write_demod_weights(self, exe: QTRLExecutable, filename: str | None):
+        filename = filename or self.meta.ADC.get("integration_weights", None)
+
+        self.meta.variables["readout/length"] = 4096 / 1.8e9
+
+        weight_arr = exe.waveforms["demod"].array.view(np.complex64)[:, 0, :, 0]
+        weights = {}
+
+        for ch in range(weight_arr.shape[0]):
+            real = weight_arr[ch].real.astype(float)
+            imag = (weight_arr[ch] * np.exp(1j * self.demod_IQ_phase)).imag.astype(
+                float
+            )
+
+            N = len(real)
+            w = np.zeros(4096, dtype=complex)
+            w[:N] = real + 1j * imag
+            weights[str(ch)] = w
+
+        np.savez(filename, **weights)
 
 
 __all__ = ["QTRLBackend", "QTRLCompiler", "QTRLExecutable"]
