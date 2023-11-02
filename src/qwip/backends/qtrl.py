@@ -388,7 +388,10 @@ class QTRLBackend(QuantumBackend):
         iqdata = {}
 
         for k in meas:
-            if not re.match(r"R(\d+)", k):
+            if not (m := re.match(r"R(\d+)", k)):
+                continue
+
+            if int(m.group(1)) not in self.uploaded._readout._readout.qubits:
                 continue
 
             IQ = format_legacy_IQ(meas[k]["Heterodyne"])
