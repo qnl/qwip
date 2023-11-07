@@ -1,8 +1,12 @@
+import itertools as it
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
 from qwip.visualization.utils import (
     find_closest_factors,
+    get_axes_by_position,
     get_grid_size,
     make_dict_grid,
     make_list_grid,
@@ -43,6 +47,20 @@ def test_get_grid_size(kwargs, expect):
 def test_grid_size_exception():
     with pytest.raises(ValueError):
         get_grid_size(N=11, nrows=3, ncols=3)
+
+
+def test_get_axes_by_position():
+    _, axes = make_dict_grid([f"R{r}C{c}" for r, c in it.product(range(3), repeat=2)])
+
+    left = [ax.get_label() for ax in get_axes_by_position(axes.values(), "x")]
+    right = [ax.get_label() for ax in get_axes_by_position(axes.values(), "x", max)]
+    bottom = [ax.get_label() for ax in get_axes_by_position(axes.values(), "y")]
+    top = [ax.get_label() for ax in get_axes_by_position(axes.values(), "y", max)]
+
+    assert left == ["R0C0", "R1C0", "R2C0"]
+    assert right == ["R0C2", "R1C2", "R2C2"]
+    assert bottom == ["R2C0", "R2C1", "R2C2"]
+    assert top == ["R0C0", "R0C1", "R0C2"]
 
 
 @pytest.mark.parametrize("keys", [({f"R{i}": None for i in range(7)}), ({"ax0": None})])
