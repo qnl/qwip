@@ -391,12 +391,15 @@ class QTRLBackend(QuantumBackend):
             if not (m := re.match(r"R(\d+)", k)):
                 continue
 
-            if int(m.group(1)) not in self.uploaded._readout._readout.qubits:
+            try:
+                idx = int(m.group(1))
+                ch = self.uploaded._readout._readout.qubits[idx]
+            except IndexError:
                 continue
 
             IQ = format_legacy_IQ(meas[k]["Heterodyne"])
 
-            iqdata[k] = IQResult.from_numpy(IQ, name=k)
+            iqdata[f"R{ch}"] = IQResult.from_numpy(IQ, name=f"R{ch}")
 
         return iqdata
 
