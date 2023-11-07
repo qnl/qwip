@@ -4,8 +4,9 @@ Useful helper functions for working with matplotlib.
 """
 
 import itertools as it
+from collections import defaultdict
 from collections.abc import Callable, Collection, Iterable
-from typing import Any
+from typing import Any, Literal
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -85,11 +86,45 @@ def get_grid_size(
     return nrows, ncols
 
 
+def get_axes_by_position(
+    axes: Iterable[Axes],
+    axis: Literal["x", "y"],
+    selection: Callable[[Iterable[float]], float] = min,
+) -> list[Axes]:
+    """Determines the subset of axes that meet the given selection criteria.
+
+    This function first groups all the axes by either `x0` or `y0` of the axes bounding
+    box. It will then use the selection function to determine which position should
+    be returned.
+
+    Args:
+        axes: An iterable of `Axes` to select from.
+        axis: Whether to select based on the x or y coordinate.
+        selection: A selection function used to determine which axes to return.
+
+    Returns:
+        A list of `Axes` that match the given selection criteria.
+    """
+
+    if (axis := axis.lower()) not in "xy":
+        raise ValueError(f"`axis` must be either 'x' or 'y', got '{axis}'.")
+
+    groups = defaultdict(list)
+
+    for ax in axes:
+        bbox = ax.get_position()
+        key = bbox.x0 if axis == "x" else bbox.y0
+        groups[key].append(ax)
+
+    return groups[selection(groups)]
+
+
 def make_dict_grid(
     keys: Collection[str] | dict[str, Any],
     nrows: int | None = None,
     ncols: int | None = None,
     ratio: float | None = 6.0,
+    layout: str = "constrained",
     **kwargs: Any,
 ) -> tuple[Figure, dict]:
     """Makes a figure subplot mosaic with subplots labeled by keys.
@@ -99,7 +134,10 @@ def make_dict_grid(
         nrows: If not `None`, specifies the total number of rows.
         ncols: If not `None`, specifies the total number of columns.
         ratio: The maximum allowed value for `ncols / nrows` when both are `None`.
-        **kwargs: Additional keyword arguments are passed to `plt.subplot_mosaic`.
+        layout: Specifies the figure layout. See `matplotlib.pyplot.subplot_mosaic` for
+            more details.
+        **kwargs: Additional keyword arguments are passed to
+            `matplotlib.pyplot.subplot_mosaic`.
 
     Returns:
         The created figure and subplot dictionary.
@@ -115,8 +153,7 @@ def make_dict_grid(
 
         grid[row].append(key)
 
-    fig, axes = plt.subplot_mosaic(grid, **kwargs)
-    fig.tight_layout()
+    fig, axes = plt.subplot_mosaic(grid, layout=layout, **kwargs)
 
     return fig, axes
 
@@ -127,6 +164,7 @@ def make_list_grid(
     ncols: int | None = None,
     ratio: float | None = 6.0,
     hide_unused: bool = True,
+    layout: str = "constrained",
     **kwargs: Any,
 ) -> tuple[Figure, np.ndarray]:
     """Makes a figure subplot grid with at least N subplots.
@@ -137,14 +175,17 @@ def make_list_grid(
         ncols: If not `None`, specifies the total number of columns.
         hide_unused: If `True`, will hide all extra subplots. The N "active" subplots
             start at the top left corner and go down the grid in row-major order.
-        **kwargs: Additional keyword arguments are passed to `plt.subplots`.
+        layout: Specifies the figure layout. See `matplotlib.pyplot.subplots` for more
+            details.
+        **kwargs: Additional keyword arguments are passed to
+            `matplotlib.pyplot.subplots`.
 
     Returns:
         A numpy array of empty Axes objects.
     """
     nrows, ncols = get_grid_size(N, nrows, ncols, ratio)
 
-    fig, axes = plt.subplots(nrows, ncols, **kwargs)
+    fig, axes = plt.subplots(nrows, ncols, layout=layout, **kwargs)
 
     if nrows == ncols == 1:
         axes = np.array([axes])
@@ -152,8 +193,6 @@ def make_list_grid(
     if N < nrows * ncols and hide_unused:
         for ax in axes.flat[N:]:
             ax.axis("off")
-
-    fig.tight_layout()
 
     return fig, axes
 

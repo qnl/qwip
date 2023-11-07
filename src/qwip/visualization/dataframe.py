@@ -6,7 +6,7 @@ from attrs import define
 from matplotlib.colors import Colormap
 from matplotlib.figure import Figure
 
-from qwip.visualization.utils import make_dict_grid
+from qwip.visualization.utils import get_axes_by_position, make_dict_grid
 
 
 @define
@@ -104,7 +104,10 @@ class DataFramePlotter:
                 cb = fig.colorbar(im)
 
             ax.set_title(col)
+
+        for ax in get_axes_by_position(axes.values(), "y"):
             ax.set_xlabel(xs.name)
+        for ax in get_axes_by_position(axes.values(), "x"):
             ax.set_ylabel(ys.name)
 
         return fig
