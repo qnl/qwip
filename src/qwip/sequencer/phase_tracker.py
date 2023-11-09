@@ -248,6 +248,7 @@ class PhaseTracker:
         frame: Frame,
         ts: np.ndarray,
         frames: dict[str, Frame] = {},
+        detuning: Frame = Frame(),
     ) -> np.ndarray:
         """Computes the phase on a reference frame due to time evolution.
 
@@ -266,12 +267,13 @@ class PhaseTracker:
             The time evolved phase at the specified timepoints. This phase is assumed
         """
         freq = frame.resolve(**frames).offset
+        df = detuning.resolve(**frames).offset
 
         t_resets = np.sort(np.unique(self.resets.get(frame, [])))
         diffs = np.diff(np.r_[0, t_resets])
         adjusted_ts = ts - sum(d * (ts >= t_r) for t_r, d in zip(t_resets, diffs))
 
-        return 2 * np.pi * freq * adjusted_ts
+        return 2 * np.pi * (freq * adjusted_ts + df * (ts - ts[0]))
 
 
 @runtime_checkable
