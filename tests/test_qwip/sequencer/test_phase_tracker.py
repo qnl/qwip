@@ -209,6 +209,43 @@ class TestPhaseTracker:
         assert_almost_equal(integrated_phase, np.zeros_like(expected))
 
     @pytest.mark.parametrize(
+        "ts,frame,pj1,pj2,expected",
+        [(
+            np.arange(10),
+            0.5*(Frame("Q0") - Frame("Q1")),
+            [PhaseJump(5, 90), PhaseJump(10, 90)],
+            [],
+            np.array([0, 0, 0, 0, 0, 45, 45, 45, 45, 45])
+        ),
+        (
+            np.arange(10),
+            0.5*(Frame("Q0") - Frame("Q1")),
+            [],
+            [PhaseJump(5, 90), PhaseJump(10, 90)],
+            np.array([0, 0, 0, 0, 0, -45, -45, -45, -45, -45])
+        ),
+        (
+            np.arange(10),
+            0.5*(Frame("Q0") - Frame("Q1")),
+            [PhaseJump(0, 180), PhaseJump(5, -90)],
+            [PhaseJump(3, 90), PhaseJump(9, 90)],
+            np.array([90, 90, 90, 45, 45, 0, 0, 0, 0, -45])
+        ),
+        ]
+    )
+    def test_compute_integrated_phase_dependent(self, ts, frame, pj1, pj2, expected):
+        phase_tracker = PhaseTracker.from_frames(["Q0", "Q1"])
+
+        for pj in pj1:
+            phase_tracker.append("Q0", pj)
+
+        for pj in pj2:
+            phase_tracker.append("Q1", pj)
+
+        integrated_phase = phase_tracker.compute_integrated_phase(frame, ts)
+        assert_almost_equal(integrated_phase, expected)
+
+    @pytest.mark.parametrize(
         "resets,ts,frequency,expected",
         [
             ([], np.r_[2:20] / 1e9, 100e6, 2 * np.pi * 100e6 * np.r_[2:20] / 1e9),
@@ -237,5 +274,30 @@ class TestPhaseTracker:
 
         frames = dict(Q0=Frame(frequency))
         phis = pt.compute_oscillator_phase(Frame("Q0"), ts, frames)
+
+        assert_almost_equal(phis, expected)
+
+    @pytest.mark.parametrize(
+        "ts,frame,detuning,expected",
+        [
+            (
+                ts := np.linspace(0, 10, 11),
+                0.5*(Frame("Q0") - Frame("Q1")),
+                Frame(0.2),
+                ts * -0.3
+            ),
+            (
+                ts := np.linspace(10, 20, 11),
+                0.5*(Frame("Q0") - Frame("Q1")),
+                Frame(0.2),
+                ts[0] * -0.5 + (ts - ts[0]) * -0.3
+            )
+        ]
+    )
+    def test_dependent_compute_oscillator_phase(self, ts, frame, detuning, expected):
+        pt = PhaseTracker()
+        frames = dict(Q0=Frame(1), Q1=Frame(2))
+
+        phis = pt.compute_oscillator_phase(frame, ts, frames, detuning) / (2*np.pi)
 
         assert_almost_equal(phis, expected)

@@ -403,13 +403,16 @@ class CWWaveform(InfiniteWaveform):
             times.
         """
         if phase_tracker:
-            phis = phase_tracker.compute_integrated_phase(
-                self.frame or self.frequency, ts
-            )
+            # phase tracking frame and drive frequency are different and neither is None
+            if len({self.frequency, self.frame, None}) == 3:
+                df = (self.frequency - self.frame).resolve(**frames)
+            else:
+                df = Frame()
+
+            frame = self.frame or self.frequency
+            phis = phase_tracker.compute_integrated_phase(frame, ts)
             software_oscillator = phase_tracker.compute_oscillator_phase(
-                self.frequency,
-                ts,
-                frames,
+                frame, ts, frames, df
             )
         else:
             phis = np.zeros_like(ts)
