@@ -503,7 +503,6 @@ class ModulatedWaveform(Waveform):
             phis = modulation.frame.distribute_phase(phi)
             
             for frame, phase in phis.items():
-                print(f"Adding phase {phase} to frame {frame} at {t0}")
                 phase_tracker.append(frame, PhaseJump(t0, phase))
 
 @register_waveform
