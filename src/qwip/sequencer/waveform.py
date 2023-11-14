@@ -405,7 +405,7 @@ class CWWaveform(InfiniteWaveform):
         if phase_tracker:
             # phase tracking frame and drive frequency are different and neither is None
             if len({self.frequency, self.frame, None}) == 3:
-                df = (self.frequency - self.frame)
+                df = self.frequency - self.frame
             else:
                 df = Frame()
 
@@ -501,9 +501,10 @@ class ModulatedWaveform(Waveform):
             phi = df * tau * 360
             t0 = time + tau
             phis = modulation.frame.distribute_phase(phi)
-            
+
             for frame, phase in phis.items():
                 phase_tracker.append(frame, PhaseJump(t0, phase))
+
 
 @register_waveform
 @qfrozen
@@ -526,10 +527,7 @@ class PhaseResetWaveform(Marker):
     frame: Frame
 
     def update_phase_tracker(
-        self,
-        time,
-        phase_tracker: PhaseTracker,
-        frames: dict[str, Frame] = {}
+        self, time, phase_tracker: PhaseTracker, frames: dict[str, Frame] = {}
     ) -> None:
         phase_tracker.reset(self.frame, time)
 

@@ -14,9 +14,7 @@ class TestFrame:
             (Frame("f0"), 90, {Frame("f0"): 90}),
             (Frame("f") + 5e9, 90, {Frame("f"): 90}),
             (-Frame("f"), 40, {Frame("f"): -40}),
-            (
-                Frame.from_string("Q0 + Q1"), 90, {Frame("Q0"): 45, Frame("Q1"): 45}
-            ),
+            (Frame.from_string("Q0 + Q1"), 90, {Frame("Q0"): 45, Frame("Q1"): 45}),
             (
                 Frame.from_string("0.5 * (Q0 - Q1)"),
                 -90,
