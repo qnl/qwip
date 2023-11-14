@@ -365,7 +365,7 @@ class HardwareCompiler:
 class QWiPCompiler:
     """
     Attributes:
-        channels: A mapping from device names to `DeviceInfo` instances that
+        devices: A mapping from device names to `DeviceInfo` instances that
             contain information about the channels.
         frames: A mapping from named frames for phase tracking to frames with a numeric
             frequency value.
@@ -373,17 +373,25 @@ class QWiPCompiler:
             to their hardware-specific representation.
     """
 
-    channels: dict[str, DeviceInfo] = field(factory=dict)
+    devices: dict[str, DeviceInfo] = field(factory=dict)
     frames: dict[str, Frame] = field(factory=dict)
     subcompilers: dict[str, HardwareCompiler] = field(factory=dict)
 
+    @property
     @deprecated(
         version="23.10.0",
-        removed="23.11.0",
+        removed="23.12.0",
         message="Use `compiler.frames` instead.",
     )
     def modulations(self) -> dict[str, Frame]:
         return self.frames
+
+    @property
+    @deprecated(
+        version="23.11.0", removed="23.12.0", message="Use `compiler.devices` instead."
+    )
+    def channels(self) -> dict[str, DeviceInfo]:
+        return self.devices
 
     @classmethod
     def from_devices(cls, devices: Iterable[DeviceInfo], **kwargs: Any) -> Self:
@@ -398,9 +406,9 @@ class QWiPCompiler:
         Returns:
             A new WaveformSequencer instance.
         """
-        channels = {dev.name: dev for dev in devices}
+        devices = {dev.name: dev for dev in devices}
 
-        return cls(channels=channels, **kwargs)
+        return cls(devices=devices, **kwargs)
 
     def get_channel_info(self, name: str) -> ChannelInfo | None:
         """Returns the `ChannelInfo` with the given name.
@@ -414,7 +422,7 @@ class QWiPCompiler:
         Returns:
             A `ChannelInfo` or `None`, if no channel matching the name exists.
         """
-        for device in self.channels.values():
+        for device in self.devices.values():
             try:
                 return device[name]
             except KeyError:
@@ -593,7 +601,7 @@ class QWiPCompiler:
         phase_tracker = self.compile_phases(locations)
         t_end = markers["end"].offset
 
-        for name, device in self.channels.items():
+        for name, device in self.devices.items():
             program = exe.programs[name]
             sample_rate = device.sample_rate
             num_timepoints = int(t_end * sample_rate)
@@ -659,7 +667,7 @@ class QWiPCompiler:
         Returns:
             A `QWiPExecutable` instance.
         """
-        exe = QWiPExecutable.from_devices(sequence=seq, devices=self.channels.values())
+        exe = QWiPExecutable.from_devices(sequence=seq, devices=self.devices.values())
 
         instruction_cache = dict()
 
@@ -672,7 +680,7 @@ class QWiPCompiler:
         for dev, program in exe.programs.items():
             if dev in self.subcompilers:
                 exe.programs[dev] = self.subcompilers[dev].compile(
-                    program, device=self.channels[dev]
+                    program, device=self.devices[dev]
                 )
 
         return exe
