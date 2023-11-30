@@ -451,7 +451,7 @@ class QWiPCompiler:
                 if not isinstance(w, PhaseUpdater):
                     continue
 
-                w.update_phase_tracker(loc, phase_tracker)
+                w.update_phase_tracker(loc, phase_tracker, self.frames)
 
         return phase_tracker
 

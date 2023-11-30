@@ -15,7 +15,41 @@ from qwip.utils import deprecated
 
 @qfrozen(kw_only=False, repr=False)
 class Frame(LinearExpression):
-    ...
+    def distribute_phase(
+        self, phase: float, precision: float = 1e-10
+    ) -> dict[Self, float]:
+        """Distributes a phase among the basis frames.
+
+        This method determines the phases to allocate to each basis frame that the
+        frame depends on such that the total combined phase on the given frame equals
+        the specified phase. Since this is an underconstrained problem, we choose the
+        solution that minimizes the sum of the absolute value of the phases on each
+        of the basis frames.
+
+        Args:
+            phase: The effective phase to apply to the given frame.
+            precision: The precision to which the phases should be rounded to.
+
+        Returns:
+            A dictionary mapping each basis frame to a phase.
+        """
+        basis = {f: i for i, f in enumerate(self.variables())}
+        N = len(basis)
+
+        if N == 0:
+            return {self: phase}
+        elif N == 1 and len(self.references) == 0:
+            return {self: phase}
+
+        A = np.zeros((1, N))
+        for f, coeff in self.references:
+            A[0, basis[f]] = coeff
+
+        ps = np.linalg.pinv(A).flatten() * phase
+        round_to = np.ceil(-np.log10(precision)).astype(int)
+        ps = np.round(ps, round_to)
+
+        return {f: ps[idx] for f, idx in basis.items()}
 
 
 @qfrozen(kw_only=False, repr=False)

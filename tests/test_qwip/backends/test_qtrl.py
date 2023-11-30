@@ -59,20 +59,20 @@ def compiler():
     readout = DeviceInfo.from_channels(
         channels=(
             ChannelInfo("RO_I", 0),
-            ChannelInfo("RO_Q", 0),
+            ChannelInfo("RO_Q", 1),
+            ChannelInfo("INT_marker", 0, read=True, subchannel=1),
         ),
         sample_rate=1.8e9,
         trigger=TriggerInfo(device="seq", index=0, subchannel=1),
         name="readout",
     )
 
-    readout_in = DeviceInfo.from_channels(
-        channels=tuple(
-            ChannelInfo(f"R{r}", r, read=True, output=False) for r in range(4)
-        ),
+    demod = DeviceInfo.from_channels(
+        channels=tuple(ChannelInfo(f"R{r}", r) for r in range(4)),
         sample_rate=1.8e9,
-        trigger=TriggerInfo(device="seq", index=0, subchannel=1),
-        name="readout_in",
+        dtype=np.complex64,
+        trigger=TriggerInfo(device="readout", index=0, subchannel=1),
+        name="demod",
     )
 
     frames = dict(
@@ -87,7 +87,7 @@ def compiler():
     )
 
     return QTRLCompiler.from_devices(
-        [seq, readout, readout_in],
+        [seq, readout, demod],
         frames=frames,
     )
 
@@ -119,7 +119,16 @@ def pulses():
         for r in range(4)
     }
 
-    return X | Z | readout
+    demod = {
+        f"D{r}": ModulatedWaveform(
+            name=f"D{r}",
+            envelope=SquareWaveform(width=1e-6, amplitude=1),
+            modulation=CWWaveform(channels=(f"R{r}",), frequency=f"mod_R{r}"),
+        )
+        for r in range(4)
+    }
+
+    return X | Z | readout | demod
 
 
 @pytest.fixture
@@ -130,7 +139,11 @@ def freq_sweep(pulses):
 
     ro = Timeline()
     ro.add(pulses["R0"])
-    ro.add(SquareWaveform(width=pulses["R0"].width, channels=("R0",)))
+
+    dm = Timeline()
+    dm.add(pulses["D0"])
+    demod = TriggeredWaveform(target=dm, width=50e-9, channels=("INT_marker",))
+    ro.add(demod)
     readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))
 
     tmln.add(readout, 2 * pulses["Q0_X90"].width)
@@ -149,7 +162,11 @@ def t1_sweep(pulses):
 
     ro = Timeline()
     ro.add(pulses["R0"])
-    ro.add(SquareWaveform(width=pulses["R0"].width, channels=("R0",)))
+
+    dm = Timeline()
+    dm.add(pulses["D0"])
+    demod = TriggeredWaveform(target=dm, width=50e-9, channels=("INT_marker",))
+    ro.add(demod)
     readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))
 
     tmln.add(readout, 2 * pulses["Q0_X90"].width + "delay")
@@ -159,14 +176,14 @@ def t1_sweep(pulses):
 
 
 class TestQTRLCompiler:
-    @pytest.mark.parametrize("seq", ["freq_sweep", "t1_sweep"])
-    def test_compile(self, compiler, seq, request):
+    @pytest.mark.parametrize("seq,readouts", [("freq_sweep", 9), ("t1_sweep", 1)])
+    def test_compile(self, compiler, seq, readouts, request):
         seq = request.getfixturevalue(seq)
         exe = compiler.compile(seq)
 
         assert isinstance(exe, QTRLExecutable)
         assert exe.sequence is seq
-        assert list(exe.waveforms.keys()) == ["seq", "readout"]
+        assert list(exe.waveforms.keys()) == ["seq", "readout", "demod"]
         assert len(exe.get_readout_locations()) == exe.n_elements
         assert exe._readout._readout.n_readouts == len(seq)
-        assert exe._readout.shape[1] == 1
+        assert exe._readout.shape[1] == readouts
