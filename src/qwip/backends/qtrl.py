@@ -312,7 +312,7 @@ class QTRLCompiler(QWiPCompiler):
                     for ch, subch in wmem.data.keys():
                         readout_qubits.add(ch)
 
-        trigger = self.channels["readout"].trigger
+        trigger = self.devices["readout"].trigger
         marker = (trigger.index, trigger.subchannel)
 
         for el, markers in enumerate(qwip_exe.programs["seq"].markers):
@@ -338,7 +338,7 @@ class QTRLCompiler(QWiPCompiler):
         return QTRLExecutable(sequence=seq, waveforms=waveforms)
 
     def compile_sequence_array(self, program: IntermediateProgram) -> SequenceArray:
-        device = self.channels[program.device]
+        device = self.devices[program.device]
         n_channels = device.max_channel_index + 1
         n_elements = len(program.waveforms)
         n_samples = max(wmem.samples for wmem in program.waveforms)

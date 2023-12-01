@@ -362,15 +362,15 @@ class TestTimeline:
         ],
     )
     def test_deep_copy(self, tmln):
-        secopy = tmln.copy()
+        tmlncopy = tmln.copy()
 
-        assert tmln == secopy
-        assert tmln.locations is not secopy.locations
-        assert tmln.constraints is not secopy.constraints
-        assert tmln.channels is not secopy.channels
+        assert tmln == tmlncopy
+        assert tmln.locations is not tmlncopy.locations
+        assert tmln.constraints is not tmlncopy.constraints
+        assert tmln.channels is not tmlncopy.channels
 
         for loc in tmln.locations:
-            assert tmln[loc] is not secopy[loc]
+            assert tmln[loc] is not tmlncopy[loc]
 
     @pytest.mark.parametrize(
         "waveforms,channels,channel_map",

@@ -310,7 +310,7 @@ class TektronixBackend(DACBackend):
         Args:
             qpu: A `QPU` instance.
         """
-        self.sample_rate = qpu.compiler.channels[self.device.name].sample_rate
+        self.sample_rate = qpu.compiler.devices[self.device.name].sample_rate
 
     def upload(self, exe: QWiPExecutable) -> None:
         """Uploads an executable to the AWG.

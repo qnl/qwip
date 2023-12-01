@@ -137,7 +137,7 @@ class TestQWiPCompiler:
         tmln.add(readout, 2 * pulses["Q0_X90"].width + 100e-9)
 
         exe = QWiPExecutable.from_devices(
-            sequence=None, devices=compiler.channels.values()
+            sequence=None, devices=compiler.devices.values()
         )
         exe.num_reads.append(0)
 

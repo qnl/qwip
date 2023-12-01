@@ -125,7 +125,7 @@ class AlazarBackend(ADCBackend):
         self.device.stop()
 
     def update_parameters(self, qpu: "QPU", **kwargs):
-        self.sample_rate = qpu.compiler.channels[self.device.name].sample_rate
+        self.sample_rate = qpu.compiler.devices[self.device.name].sample_rate
 
 
 __all__ = ["AlazarBackend", "AlazarCompiler", "AlazarProgram"]

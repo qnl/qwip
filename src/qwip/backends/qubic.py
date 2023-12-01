@@ -192,7 +192,7 @@ class QubicCompiler(QWiPCompiler):
             if ch_info.read:
                 reads[channel] += 1
 
-            dtype = self.channels[ch_info.device].dtype
+            dtype = self.devices[ch_info.device].dtype
         else:
             dtype = None
 
@@ -226,7 +226,7 @@ class QubicCompiler(QWiPCompiler):
                 )
 
             case ModulatedWaveform(envelope=env, modulation=mod):
-                sample_rate = self.channels[ch_info.device].sample_rate
+                sample_rate = self.devices[ch_info.device].sample_rate
                 # First check if we've evaluated this envelope already
                 if env in waveform_cache:
                     w_t = waveform_cache[env, int(sample_rate)]
@@ -269,7 +269,7 @@ class QubicCompiler(QWiPCompiler):
                 ...
 
             case BasicWaveform():
-                sample_rate = self.channels[ch_info.device].sample_rate
+                sample_rate = self.devices[ch_info.device].sample_rate
 
                 if wave in waveform_cache:
                     w_t = waveform_cache[wave, int(sample_rate)]
@@ -444,7 +444,7 @@ class QubicCompiler(QWiPCompiler):
         """Return a QubicChannelConfig with the channel information."""
         channel_config = dict(fpga_clk_freq=self.fpga_config.fpga_clk_freq)
 
-        for dev in self.channels.values():
+        for dev in self.devices.values():
             sample_rate = dev.sample_rate
 
             for ch in dev.channels:
@@ -534,7 +534,7 @@ class QubicBackend(QuantumBackend):
         This method updates the mapping from readout indices to readout channels.
         """
 
-        for devices in qpu.compiler.channels.values():
+        for devices in qpu.compiler.devices.values():
             for ch_info in devices.channels:
                 if not ch_info.read:
                     continue

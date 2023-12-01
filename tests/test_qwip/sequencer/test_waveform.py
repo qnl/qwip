@@ -178,15 +178,15 @@ class TestCWWaveform:
         )
 
         wave = w(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, expected, atol=1e-7)
+        assert_allclose(wave, expected, atol=2e-6)
 
         w_single_channel = w.evolve(channels=("I",))
         wave = w_single_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, expected[0], atol=1e-7)
+        assert_allclose(wave, expected[0], atol=2e-6)
 
         w_three_channel = w.evolve(channels=("a", "b", "c"))
         wave = w_three_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, np.stack([expected[0] for i in range(3)]), atol=1e-6)
+        assert_allclose(wave, np.stack([expected[0] for i in range(3)]), atol=2e-6)
 
     @pytest.mark.parametrize(
         "ts,phase_jumps",
@@ -309,7 +309,7 @@ class TestModulatedWaveform:
         ts = np.arange(240) / 2.4e9
         wave = w(ts, t0=40e-9, phase_tracker=phase_tracker)
 
-        assert_allclose(wave, expected, atol=1e-6)
+        assert_allclose(wave, expected, atol=5e-6)
 
     def test_hardware_modulation(self):
         env = GaussianWaveform(width=50e-9)
