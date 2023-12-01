@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractproperty
 from functools import lru_cache, singledispatch
 from io import BufferedReader, BytesIO
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import Any
 
 import numpy as np
@@ -28,6 +29,11 @@ from qwip.processing.processors import (
     dataframe_real_to_complex,
 )
 from qwip.typing import generic_to_string
+
+try:
+    import trueq as tq
+except Exception as e:
+    logger.exception("Unable to import True-Q", exception=e)
 
 SERIALIZERS: dict[str, "Serializer"] = dict()
 
@@ -396,6 +402,34 @@ class MatplotlibSerializer(Serializer):
         return stream.read()
 
 
+@qfrozen
+class TrueQSerializer(Serializer):
+    @property
+    def formats(self) -> tuple[str, ...]:
+        return ("tq",)
+
+    def to_stream_tq(
+        self,
+        circuits,
+        **kwargs,
+    ):
+        stream = BytesIO()
+        tq.utils.save(circuits, stream, **kwargs)
+        stream.seek(0)
+        return stream
+
+    def from_stream_tq(self, stream, **kwargs):
+        with NamedTemporaryFile(mode="w+b", delete=False) as f:
+            filename = f.name
+            f.write(stream.read())
+            f.seek(0)
+
+        circuits = tq.utils.load(filename)
+        Path(filename).unlink()
+
+        return circuits
+
+
 def register_serializer(serializer: Serializer) -> str:
     SERIALIZERS[serializer.key] = serializer
     return serializer.key
@@ -431,6 +465,17 @@ def detect_figure(obj: Figure):
     return SERIALIZERS["matplotlib"]
 
 
+try:
+
+    @detect_serializer.register(tq.Circuit)
+    @detect_serializer.register(tq.CircuitCollection)
+    def detect_trueq(obj: tq.Circuit | tq.CircuitCollection):
+        return SERIALIZERS["trueq"]
+
+except NameError:
+    ...
+
+
 def get_serializer(*, key: str | None = None, obj: Any = None) -> Serializer:
     if key is not None:
         normalized = key.lower()
@@ -453,6 +498,7 @@ register_serializer(DefaultSerializer())
 register_serializer(DataFrameSerializer())
 register_serializer(ResultSerializer())
 register_serializer(MatplotlibSerializer())
+register_serializer(TrueQSerializer())
 
 __all__ = [
     "DataFrameSerializer",
@@ -460,6 +506,7 @@ __all__ = [
     "MatplotlibSerializer",
     "ResultSerializer",
     "Serializer",
+    "TrueQSerializer",
     "get_serializer",
     "detect_serializer",
 ]

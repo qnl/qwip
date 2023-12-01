@@ -11,6 +11,7 @@ from qwip.data.serializers import (
     DefaultSerializer,
     MatplotlibSerializer,
     ResultSerializer,
+    TrueQSerializer,
     detect_serializer,
     from_arrow_table,
     to_arrow_table,
@@ -257,9 +258,30 @@ class TestMatplotlibSerializer:
         return fig
 
     @pytest.mark.parametrize("fmt", ["png", "svg", "pdf"])
-    def test_png(self, serializer, figure, fmt):
+    def test_round_trip(self, serializer, figure, fmt):
         stream = serializer.to_stream(figure, fmt=fmt)
         reloaded = serializer.from_stream(stream, fmt=fmt)
+
+
+class TestTrueQSerializer:
+    @pytest.fixture
+    def serializer(self):
+        return TrueQSerializer()
+
+    @pytest.fixture(scope="class")
+    def circuits(self):
+        tq = pytest.importorskip("trueq")
+        circuits = tq.make_srb(0, [4, 16, 64])
+        sim = tq.Simulator().add_overrotation(0.01).add_depolarizing(0.01)
+        sim.run(circuits)
+
+        return circuits
+
+    def test_circuits(self, serializer, circuits):
+        stream = serializer.to_stream(circuits, fmt="tq")
+        reloaded = serializer.from_stream(stream, fmt="tq")
+
+        assert circuits == reloaded
 
 
 DETECT_SERIALIZER_CASES = [
