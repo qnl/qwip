@@ -80,7 +80,6 @@ class TestOfflineDatastore:
         asset = datastore.add_asset(dataset.id, simple_dict, "metadata")
         assert asset.dataset_id == dataset.id
         assert asset.load() == simple_dict
-        print(asset)
 
         new_dict = dict(a=2, b=3, c=4)
         new_asset = datastore.add_asset(

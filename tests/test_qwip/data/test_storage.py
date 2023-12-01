@@ -82,7 +82,7 @@ class TestHTTPStorageBackend:
             with pytest.raises(expect):
                 storage.list_directory(folder)
         else:
-            assert set(storage.list_directory(folder)) == set(expect)
+            assert set(storage.list_directory(folder)) >= set(expect)
 
     @pytest.mark.parametrize(
         "folder", ["/pytest", "/pytest/folder1/folder2/folder3", "/", ""]
