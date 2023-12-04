@@ -404,6 +404,8 @@ class MatplotlibSerializer(Serializer):
 
 @qfrozen
 class TrueQSerializer(Serializer):
+    """A serializer for TrueQ circuits and circuit collections."""
+
     @property
     def formats(self) -> tuple[str, ...]:
         return ("tq",)
