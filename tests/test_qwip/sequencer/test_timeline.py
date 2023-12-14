@@ -63,6 +63,86 @@ class TestTimeline:
             assert tmln.constraints["start"] == start
 
     @pytest.mark.parametrize(
+        "layers,expect",
+        [
+            ([], Timeline()),
+            (
+                [
+                    SquareWaveform(width=5),
+                    [SquareWaveform(width=10), SquareWaveform(width=20)],
+                    SquareWaveform(width=10),
+                ],
+                Timeline.fromtuples(
+                    [
+                        (0, SquareWaveform(width=5)),
+                        (5, SquareWaveform(width=10)),
+                        (5, SquareWaveform(width=20)),
+                        (25, SquareWaveform(width=10)),
+                    ]
+                ),
+            ),
+            (
+                [
+                    [SquareWaveform(width=10), 20],
+                    SquareWaveform(width=10),
+                ],
+                Timeline.fromtuples(
+                    [
+                        (0, SquareWaveform(width=10)),
+                        (20, SquareWaveform(width=10)),
+                    ]
+                ),
+            ),
+            (
+                [
+                    Timeline.fromtuples(
+                        [
+                            (0, VirtualZWaveform(frame="Q0")),
+                            (0, SquareWaveform(width=25)),
+                            (25, VirtualZWaveform(frame="Q0")),
+                        ],
+                        width=25,
+                    ),
+                    "delay",
+                    [SquareWaveform(width=10)],
+                ],
+                Timeline.fromtuples(
+                    [
+                        (0, VirtualZWaveform(frame="Q0")),
+                        (0, SquareWaveform(width=25)),
+                        (25, VirtualZWaveform(frame="Q0")),
+                        (Location(25) + "delay", SquareWaveform(width=10)),
+                    ]
+                ),
+            ),
+            (
+                [
+                    (20, SquareWaveform(width=10)),
+                    "delay",
+                    SquareWaveform(width=5),
+                ],
+                Timeline.fromtuples(
+                    [
+                        (0, SquareWaveform(width=10)),
+                        (Location(20) + "delay", SquareWaveform(width=5)),
+                    ]
+                ),
+            ),
+        ],
+    )
+    def test_from_layers(self, layers, expect):
+        tmln = Timeline.from_layers(layers)
+
+        assert tmln == expect
+
+    def test_from_layers_start_time(self):
+        tmln = Timeline.from_layers([SquareWaveform(width=20)], t0="start_delay")
+
+        expect = Timeline.fromtuples([("start_delay", SquareWaveform(width=20))])
+
+        assert tmln == expect
+
+    @pytest.mark.parametrize(
         "all_locs,get_loc,expect",
         [
             (("a", "b", "c"), "b", "g2"),

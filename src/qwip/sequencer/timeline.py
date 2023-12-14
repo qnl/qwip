@@ -1,5 +1,5 @@
 import itertools as it
-from collections.abc import Callable, Collection
+from collections.abc import Callable, Collection, Iterable
 from copy import copy, deepcopy
 from functools import singledispatchmethod
 from numbers import Real
@@ -84,6 +84,73 @@ class Timeline:
         return cls(
             locations=locations, width=width, constraints=constraints, channels=channels
         )
+
+    @classmethod
+    def from_layers(cls, layers: list, t0: LocationLike = Location(), **kwargs) -> Self:
+        """Creates a timeline from a list of circuit/gate layers.
+
+        Each layer consists of one or more delay times or operations that are meant to
+        be played at the same start time. The start time of each subsequent layers is
+        determined by finding the maximum duration of all operations and adding it to
+        the start time of the previous layer.
+
+        All operations in the same layer are left justified to the start time of that
+        layer.
+
+        Args:
+            layers: A list of layers.
+            t0: The initial start time of the first layer.
+            **kwarsg: Remaining keyword arguments are passed to the `Timeline.__init__`
+                method.
+
+        Raises:
+            ValueError: if the duration of a given layer cannot be determined
+                unambigously. This can occur when there is only a single timeline with
+                no width in a given layer, or if there are two variable widths in the
+                same layer.
+        """
+        tmln = cls(**kwargs)
+
+        def get_layer_width(widths: set[Location | None]) -> Location:
+            widths.discard(None)
+
+            if len(widths) == 0:
+                raise ValueError(f"Layer with width {None} has ambiguous timing.")
+
+            elif len(widths) == 1:
+                return widths.pop()
+
+            try:
+                return max(widths)
+            except ValueError as e:
+                raise ValueError(f"Layer with widths {widths} has ambiguous timing.")
+
+        for layer in layers:
+            widths = set()
+
+            if isinstance(layer, str) or not isinstance(layer, Iterable):
+                layer = [layer]
+
+            for op in layer:
+                match op:
+                    case Timeline():
+                        tmln.add(op, t0)
+                        widths.add(op.width)
+                    case Waveform():
+                        tmln.add(op, t0)
+                        widths.add(op.width)
+                    case Real():
+                        widths.add(Location(op))
+                    case str():
+                        widths.add(Location(op))
+                    case Location():
+                        widths.add(op)
+                    case _:
+                        raise ValueError()
+
+            t0 += get_layer_width(widths)
+
+        return tmln
 
     def add(self, target, /, location: LocationLike = Location()) -> Self:
         """Adds a waveform or another pulse timeline to the specified location.
