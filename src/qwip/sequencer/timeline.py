@@ -146,7 +146,7 @@ class Timeline:
                     case Location():
                         widths.add(op)
                     case _:
-                        raise ValueError()
+                        raise ValueError(f"{op} is not a recognized operation.")
 
             t0 += get_layer_width(widths)
 
