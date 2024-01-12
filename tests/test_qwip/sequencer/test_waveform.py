@@ -356,14 +356,17 @@ class TestDRAGWaveform:
     def test_suppression(self):
         f0 = 500e6
         f1 = -100e6
-        env = DRAG(envelope=GaussianWaveform(width=20e-9), lmbda=1 / (2 * np.pi * f1))
+        sample_rate = 2.4e9
+        env = DRAG(
+            envelope=GaussianWaveform(width=20e-9), lmbda=sample_rate / (2 * np.pi * f1)
+        )
 
         freq = CWWaveform(frequency=Frame(f0), channels=("I", "Q"))
 
         wave_drag = ModulatedWaveform(envelope=env, modulation=freq)
         wave_nodrag = ModulatedWaveform(envelope=env.envelope, modulation=freq)
 
-        ts = np.arange(480) / 2.4e9
+        ts = np.arange(480) / sample_rate
 
         # Compute fft and check that drag waveform is suppressed in a 40 MHz
         # window around the target frequency.

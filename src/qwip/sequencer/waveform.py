@@ -688,9 +688,7 @@ class DRAG(Waveform):
         """
         envelope = self.envelope(ts, **kwargs)
 
-        delta_t = ts[1] - ts[0]
-
-        return envelope + 1j * lmbda / delta_t * np.gradient(envelope)
+        return envelope + 1j * lmbda * np.gradient(envelope)
 
 
 # ========== float | str converters ========== #
