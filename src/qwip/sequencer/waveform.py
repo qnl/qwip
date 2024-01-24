@@ -658,6 +658,7 @@ class CosineRampWaveform(BasicWaveform):
 class DRAG(Waveform):
     envelope: Waveform
     lmbda: float | str = 0
+    lmbda2: float | str = 0
 
     @property
     def width(self) -> float | str:
@@ -672,7 +673,7 @@ class DRAG(Waveform):
         self.envelope.amplitude
 
     def evaluate_timepoints(
-        self, ts: np.ndarray, lmbda: float, **kwargs: Any
+        self, ts: np.ndarray, lmbda: float, lmbda2: float, **kwargs: Any
     ) -> np.ndarray:
         """Numerical DRAG pulse.
 
@@ -688,7 +689,10 @@ class DRAG(Waveform):
         """
         envelope = self.envelope(ts, **kwargs)
 
-        return envelope + 1j * lmbda * np.gradient(envelope)
+        d1 = np.gradient(envelope)
+        d2 = np.gradient(d1)
+
+        return envelope + 1j * lmbda * d1 + lmbda2 * d2
 
 
 # ========== float | str converters ========== #
