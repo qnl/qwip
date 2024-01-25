@@ -152,6 +152,26 @@ class TestPhaseTracker:
         assert_array_equal(t_jump, np.unique(np.sort(t_expect)))
         assert_array_equal(accumulated_phase, expect)
 
+    def test_integrate_phase_cache(self):
+        pt = PhaseTracker()
+
+        phase_jumps = [PhaseJump(0, 90), PhaseJump(25e-9, 90), PhaseJump(100e-9, 180)]
+
+        for pj in phase_jumps:
+            pt.append("Q0.mod", pj)
+            pt.append("Q1.mod", pj)
+
+        pt.integrate_phase("Q0.mod")
+        assert pt.integrate_phase.cache_info().hits == 0
+        pt.integrate_phase("Q0.mod")
+        assert pt.integrate_phase.cache_info().hits == 1
+        pt.integrate_phase("Q1.mod")
+        assert pt.integrate_phase.cache_info().hits == 1
+
+        pt.append("Q0.mod", PhaseJump(0, 180))
+        pt.integrate_phase("Q0.mod")
+        assert pt.integrate_phase.cache_info().hits == 0
+
     @pytest.mark.parametrize(
         "ts,phase_jumps,expected",
         [
