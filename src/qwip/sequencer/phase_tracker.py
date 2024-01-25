@@ -2,6 +2,7 @@ import itertools as it
 from collections import defaultdict
 from collections.abc import Iterable
 from collections.abc import Sequence as TSequence
+from functools import cache
 from typing import Protocol, runtime_checkable
 
 import numpy as np
@@ -82,7 +83,7 @@ class PhaseJump:
         return evolve(self, phi=self.phi + other)
 
 
-@qdefine
+@qdefine(eq=False)
 class PhaseTracker:
     """A data structure for maintaining a set of phase jumps.
 
@@ -177,6 +178,7 @@ class PhaseTracker:
             )
 
         self[frame].append(phase)
+        self.integrate_phase.cache_clear()
 
     def reset(self, frame: Frame, time: float):
         """Adds a phase reset."""
@@ -203,11 +205,14 @@ class PhaseTracker:
             )
         )
 
+    @cache
     def integrate_phase(
         self,
         frame: Frame,
     ) -> tuple[np.ndarray, np.ndarray]:
         """Computes the total accumulated phase from phase jumps.
+
+        This method is cached until a new phase jump is appended to the phase tracker.
 
         Args:
             frame: The reference frame on which to compute the phase accumulation.
