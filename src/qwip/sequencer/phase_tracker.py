@@ -168,16 +168,21 @@ class PhaseTracker:
         return all(v in self.phases for v in deps)
 
     def append(self, frame: Frame | str, phase: PhaseJump):
-        """Adds a phase jump."""
+        """Adds a phase jump.
+
+        If a composite frame is given, the phase will be distributed among the basis
+        frames. See `Frame.distribute_phase` for details.
+        """
         if isinstance(frame, str):
             frame = Frame.from_string(frame)
 
         if frame.references:
-            raise ValueError(
-                f"Cannot add a virtual phase on a non-independent phase {frame}"
-            )
+            phis = frame.distribute_phase(phase.phi)
+            for frm, phi in phis.items():
+                self[frm].append(PhaseJump(t=phase.t, phi=phi))
+        else:
+            self[frame].append(phase)
 
-        self[frame].append(phase)
         self.integrate_phase.cache_clear()
 
     def reset(self, frame: Frame, time: float):

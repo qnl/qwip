@@ -114,6 +114,24 @@ class TestPhaseTracker:
         phi_tracker.reset("Q0.mod", 10e-9)
         assert phi_tracker.resets["Q0.mod"] == [0, 10e-9]
 
+    def test_append(self):
+        phi_tracker = PhaseTracker()
+
+        phi_tracker.append("Q0.mod", PhaseJump(t=0, phi=30))
+        phi_tracker.append("Q1.mod", PhaseJump(t=0, phi=20))
+        phi_tracker.append("Q0.mod - Q1.mod", PhaseJump(t=15, phi=10))
+
+        assert phi_tracker["Q0.mod"] == [
+            PhaseJump(0, 0),
+            PhaseJump(0, 30),
+            PhaseJump(15, 5),
+        ]
+        assert phi_tracker["Q1.mod"] == [
+            PhaseJump(0, 0),
+            PhaseJump(0, 20),
+            PhaseJump(15, -5),
+        ]
+
     @pytest.mark.parametrize(
         "phase_jumps,resets,expect",
         [
