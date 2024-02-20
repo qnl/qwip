@@ -112,6 +112,9 @@ class Timeline:
         tmln = cls(**kwargs)
 
         def get_layer_width(widths: set[Location | None]) -> Location:
+            if not widths:
+                return 0
+
             widths.discard(None)
 
             if len(widths) == 0:
@@ -145,6 +148,8 @@ class Timeline:
                         widths.add(Location(op))
                     case Location():
                         widths.add(op)
+                    case None:
+                        ...
                     case _:
                         raise ValueError(f"{op} is not a recognized operation.")
 
