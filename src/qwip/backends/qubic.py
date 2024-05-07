@@ -7,12 +7,12 @@ from attrs import field
 from loguru import logger
 
 try:
-    import distproc.ir as ir
     import qubic.toolchain as tc
     from distproc.compiler import CompiledProgram
     from distproc.compiler import Compiler as _QubicInternalCompiler
     from distproc.hwconfig import FPGAConfig
-    from distproc.ir_instructions import Pulse, VirtualZ
+    from distproc.ir import passes
+    from distproc.ir.instructions import Pulse, VirtualZ
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
 except ImportError as e:
@@ -66,16 +66,16 @@ def get_compiler_passes(
         A list of compiler of passes for Qubic's internal compiler.
     """
     return [
-        ir.FlattenProgram(),
-        ir.MakeBasicBlocks(),
-        ir.ScopeProgram(qubit_grouping),
-        ir.RegisterVarsAndFreqs(qchip),
-        ir.ResolveGates(qchip, qubit_grouping),
-        ir.GenerateCFG(),
-        ir.ResolveHWVirtualZ(),
-        ir.ResolveVirtualZ(),
-        ir.ResolveFreqs(),
-        ir.ResolveFPROCChannels(fpga_config),
+        passes.FlattenProgram(),
+        passes.MakeBasicBlocks(),
+        passes.ScopeProgram(qubit_grouping),
+        passes.RegisterVarsAndFreqs(qchip),
+        passes.ResolveGates(qchip, qubit_grouping),
+        passes.GenerateCFG(),
+        passes.ResolveHWVirtualZ(),
+        passes.ResolveVirtualZ(),
+        passes.ResolveFreqs(),
+        passes.ResolveFPROCChannels(fpga_config),
     ]
 
 

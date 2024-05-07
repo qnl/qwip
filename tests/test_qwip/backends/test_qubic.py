@@ -7,7 +7,7 @@ from numpy.testing import assert_almost_equal
 
 try:
     from distproc.compiler import CompiledProgram
-    from distproc.ir_instructions import Pulse, VirtualZ
+    from distproc.ir.instructions import Pulse, VirtualZ
 
     from qwip.backends.qubic import QubicCompiler, QubicExecutable
 except ImportError:
