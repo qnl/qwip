@@ -9,7 +9,11 @@ try:
     from distproc.compiler import CompiledProgram
     from distproc.ir.instructions import Pulse, VirtualZ
 
-    from qwip.backends.qubic import QubicCompiler, QubicExecutable
+    from qwip.backends.qubic import (
+        QubicCompiler,
+        QubicExecutable,
+        find_constant_segments,
+    )
 except ImportError:
     pytest.skip("Qubic dependencies not installed.", allow_module_level=True)
 
@@ -32,8 +36,15 @@ def assert_instructions_almost_equal(ins1, ins2):
     assert type(ins1) == type(ins2)
     for f in attrs.fields(type(ins1)):
         if f.name == "env":
-            assert ins1.env.dtype == ins2.env.dtype
-            assert_almost_equal(ins1.env, ins2.env)
+            if isinstance(ins1.env, str) and isinstance(ins2.env, str):
+                assert ins1.env == ins2.env
+            else:
+                assert ins1.env.dtype == ins2.env.dtype
+                assert_almost_equal(ins1.env, ins2.env)
+        elif f.name == "phase":
+            assert_almost_equal(
+                ins1.phase % (2 * np.pi), ins2.phase % (2 * np.pi), decimal=6
+            )
         else:
             assert getattr(ins1, f.name) == getattr(ins2, f.name)
 
@@ -61,6 +72,10 @@ class TestQubicExecutable:
 
         with pytest.raises(attrs.exceptions.FrozenInstanceError):
             exe1.seq = Sequence([])
+
+
+def test_find_constant_segments():
+    ...
 
 
 class TestQubicCompiler:
@@ -186,11 +201,29 @@ class TestQubicCompiler:
                         freq=0,
                         phase=0,
                         amp=1,
-                        twidth=50e-9,
-                        env=np.array([0] + [0.5] * 399).astype(np.complex64),
+                        twidth=6e-9,
+                        env=np.array([0] + [0.5] * 47).astype(np.complex64),
                         dest="Q0.qdrv",
                         start_time=525,
-                    )
+                    ),
+                    Pulse(
+                        freq=0,
+                        phase=0,
+                        amp=0.5,
+                        twidth=38e-9,
+                        env="cw",
+                        dest="Q0.qdrv",
+                        start_time=528,
+                    ),
+                    Pulse(
+                        freq=0,
+                        phase=0,
+                        amp=1,
+                        twidth=6e-9,
+                        env=np.array([0.5] * 48).astype(np.complex64),
+                        dest="Q0.qdrv",
+                        start_time=547,
+                    ),
                 ],
             ),
             (
@@ -211,13 +244,31 @@ class TestQubicCompiler:
                         freq="Q1.readfreq",
                         phase=0,
                         amp=0.5,
-                        twidth=2e-6,
-                        env=np.array([0] + [np.exp(1j * np.pi)] * 999).astype(
+                        twidth=6e-9,
+                        env=np.array([0] + [np.exp(1j * np.pi)] * 2).astype(
                             np.complex64
                         ),
                         dest="Q1.rdlo",
                         start_time=100,
-                    )
+                    ),
+                    Pulse(
+                        freq="Q1.readfreq",
+                        phase=np.pi,
+                        amp=0.5,
+                        twidth=1.988e-6,
+                        env="cw",
+                        dest="Q1.rdlo",
+                        start_time=103,
+                    ),
+                    Pulse(
+                        freq="Q1.readfreq",
+                        phase=0,
+                        amp=0.5,
+                        twidth=6e-9,
+                        env=np.array([np.exp(1j * np.pi)] * 3).astype(np.complex64),
+                        dest="Q1.rdlo",
+                        start_time=1097,
+                    ),
                 ],
             ),
         ],

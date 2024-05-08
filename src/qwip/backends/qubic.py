@@ -135,6 +135,19 @@ class QubicExecutable(QuantumExecutable):
         return len(self.reads_per_timeline)
 
 
+def find_constant_segments(
+    arr: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Finds locations of all constant segments"""
+    mask = np.r_[True, arr[1:] != arr[:-1], True]
+
+    locs = np.flatnonzero(mask)
+    vals = arr[locs[:-1]]
+    lengths = np.diff(locs)
+
+    return locs, vals, lengths
+
+
 @register_compiler
 @qdefine
 class QubicCompiler(QWiPCompiler):
@@ -143,6 +156,105 @@ class QubicCompiler(QWiPCompiler):
     fpga_config: FPGAConfig = field(factory=FPGAConfig)
     reset_delay: float = 500e-6
     start_offset: int = 5
+
+    def envelope_to_pulses(
+        self,
+        w_t,
+        channel,
+        frequency,
+        phase,
+        amplitude,
+        pulse_width,
+        start_cycle,
+        sample_rate,
+        cw_threshold: int = 16,
+    ):
+        clock_multiplier = int(sample_rate * self.fpga_config.fpga_clk_period)
+        locs, vals, lengths = find_constant_segments(w_t)
+
+        # Find starting index of all constant segments in w_t that are longer than
+        # a certain threshold. The clock_multiplier ensures that the start_times of
+        # all the pulses line up with a fpga clock cycle.
+        (cw_idx,) = np.where(lengths >= clock_multiplier * cw_threshold)
+
+        if len(cw_idx) == 0:
+            return [
+                Pulse(
+                    env=w_t,
+                    dest=channel,
+                    freq=frequency,
+                    phase=phase,
+                    amp=amplitude,
+                    twidth=pulse_width,
+                    start_time=start_cycle,
+                )
+            ]
+
+        # Find start and end points of all CW segments. These will get replaced by a
+        # pulse where env = "CW"
+        cw_segments = np.stack([locs[cw_idx], locs[cw_idx] + lengths[cw_idx]]).T
+        # Round to closest time that aligns with a clock cycle and ensure that no
+        # instructions will have start times within 3 clock cycles of each other
+        cw_segments[:, 0] = np.ceil(cw_segments[:, 0] / clock_multiplier).astype(int)
+        cw_segments[:, 1] = np.floor(cw_segments[:, 1] / clock_multiplier).astype(int)
+
+        num_clk_cycles = cw_segments[:, 0] - np.r_[0, cw_segments[:-1, 1]]
+        start_padding = 3 - num_clk_cycles
+        start_padding[start_padding < 0] = 0
+        cw_segments[:, 0] += start_padding
+
+        num_clk_cycles = (
+            np.r_[cw_segments[1:, 0], len(w_t) // clock_multiplier] - cw_segments[:, 1]
+        )
+        end_padding = 3 - num_clk_cycles
+        end_padding[end_padding < 0] = 0
+        cw_segments[:, 1] -= end_padding
+
+        cw_segments *= clock_multiplier
+        cw_amplitudes = vals[cw_idx]
+
+        instructions = []
+
+        prev_cw_e = 0
+        for (cw_s, cw_e), env_amp in zip(cw_segments, cw_amplitudes):
+            if cw_s > prev_cw_e:
+                ins = Pulse(
+                    env=w_t[prev_cw_e:cw_s],
+                    dest=channel,
+                    freq=frequency,
+                    phase=phase,
+                    amp=amplitude,
+                    twidth=(cw_s - prev_cw_e) / sample_rate,
+                    start_time=start_cycle + int(prev_cw_e / clock_multiplier),
+                )
+                instructions.append(ins)
+
+            ins = Pulse(
+                env="cw",
+                dest=channel,
+                freq=frequency,
+                phase=phase + np.angle(env_amp),
+                amp=amplitude * np.abs(env_amp),
+                twidth=(cw_e - cw_s) / sample_rate,
+                start_time=start_cycle + int(cw_s / clock_multiplier),
+            )
+            instructions.append(ins)
+
+            prev_cw_e = cw_e
+
+        if prev_cw_e < len(w_t):
+            ins = Pulse(
+                env=w_t[prev_cw_e:],
+                dest=channel,
+                freq=frequency,
+                phase=phase,
+                amp=amplitude,
+                twidth=(len(w_t) - prev_cw_e) / sample_rate,
+                start_time=start_cycle + int(prev_cw_e / clock_multiplier),
+            )
+            instructions.append(ins)
+
+        return instructions
 
     def compile_instruction(
         self,
@@ -254,16 +366,17 @@ class QubicCompiler(QWiPCompiler):
                     freq = 0
                     amplitude = 1
 
-                ins = Pulse(
-                    env=w_t,
-                    dest=channel,
-                    freq=freq,
+                ins = self.envelope_to_pulses(
+                    w_t,
+                    channel,
+                    frequency=freq,
                     phase=0,  # Easier to always build phase into envelope
-                    amp=amplitude,
-                    twidth=width.offset,
-                    start_time=start_cycle,
+                    amplitude=amplitude,
+                    pulse_width=width.offset,
+                    start_cycle=start_cycle,
+                    sample_rate=sample_rate,
                 )
-                instructions.append(ins)
+                instructions.extend(ins)
 
             case Marker():
                 ...
@@ -282,16 +395,17 @@ class QubicCompiler(QWiPCompiler):
 
                     waveform_cache[wave, int(sample_rate)] = w_t
 
-                ins = Pulse(
-                    freq=0,
+                ins = self.envelope_to_pulses(
+                    w_t.astype(dtype),
+                    channel,
+                    frequency=0,
                     phase=0,
-                    amp=1,
-                    twidth=width.offset,
-                    env=w_t.astype(dtype),
-                    dest=channel,
-                    start_time=start_cycle,
+                    amplitude=1,
+                    pulse_width=width.offset,
+                    start_cycle=start_cycle,
+                    sample_rate=sample_rate,
                 )
-                instructions.append(ins)
+                instructions.extend(ins)
 
         return instructions
 
@@ -326,16 +440,34 @@ class QubicCompiler(QWiPCompiler):
                 waves, key=lambda w: 0 if isinstance(w, VirtualZWaveform) else 1
             )
             for w in waves:
-                instructions.extend(
-                    self.compile_instruction(
-                        loc=loc,
-                        wave=w,
-                        waveform_cache=waveform_cache,
-                        reads=reads,
-                        pulse_kwargs=pulse_kwargs,
-                        t0=t0,
-                    )
+                new_instructions = self.compile_instruction(
+                    loc=loc,
+                    wave=w,
+                    waveform_cache=waveform_cache,
+                    reads=reads,
+                    pulse_kwargs=pulse_kwargs,
+                    t0=t0,
                 )
+
+                # Maintain start_time ordering when adding instructions.
+                for ins in new_instructions:
+                    N = len(instructions)
+
+                    if not hasattr(ins, "start_time"):
+                        instructions.append(ins)
+                        continue
+
+                    for i in range(N):
+                        old_ins = instructions[N - i - 1]
+                        if not hasattr(old_ins, "start_time"):
+                            continue
+                        elif instructions[N - i - 1].start_time > ins.start_time:
+                            continue
+
+                        instructions.insert(N - i, ins)
+                        break
+                    else:
+                        instructions.insert(0, ins)
 
         return instructions, reads
 
