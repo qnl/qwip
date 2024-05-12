@@ -93,7 +93,7 @@ class TestQubicExecutable:
 )
 def test_find_constant_segments(arr, locations, values, lengths):
     locs, vals, lens = find_constant_segments(arr)
-    print(locs, vals, lens)
+
     assert_equal(locs, locations)
     assert_equal(vals, values)
     assert_equal(lens, lengths)
