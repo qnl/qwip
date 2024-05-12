@@ -13,7 +13,8 @@ NDArray = Annotated[_NDArray, ""]
 
 
 def issubtype(tp, cls):
-    return isclass(tp) and issubclass(get_origin(tp) or tp, cls)
+    orig_tp = get_origin(tp)
+    return (isclass(tp) or isclass(orig_tp)) and issubclass(orig_tp or tp, cls)
 
 
 def is_annotated_type(tp):

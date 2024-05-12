@@ -172,7 +172,12 @@ class TestTypeDispatch:
 
 @pytest.mark.parametrize(
     "subtype,tp,expect",
-    [(dict, Mapping, True), (bool, int, True), (Annotated, Mapping, False)],
+    [
+        (dict, Mapping, True),
+        (bool, int, True),
+        (Annotated, Mapping, False),
+        (dict[str, int], Mapping, True),
+    ],
 )
 def test_issubtype(subtype, tp, expect):
     assert issubtype(subtype, tp) == expect
