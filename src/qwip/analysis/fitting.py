@@ -2,6 +2,7 @@
 
 All models should have guess functions implemented.
 """
+
 from collections.abc import Callable
 from typing import Any
 

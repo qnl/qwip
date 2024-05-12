@@ -319,7 +319,6 @@ TypeA = ForwardRef("A", module=__name__, is_class=True)
     ],
 )
 def test_replace_self_type(tp, expect):
-    class A:
-        ...
+    class A: ...
 
     assert replace_self_type(tp, A) == expect

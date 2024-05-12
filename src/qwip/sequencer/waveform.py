@@ -131,8 +131,7 @@ class Waveform:
             f"Method evaluate_timepoints not defined for {type(self)}!"
         )
 
-    def plot(self):
-        ...
+    def plot(self): ...
 
     def fft(self, ts, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         wave = self(ts, **kwargs)
@@ -346,8 +345,7 @@ class TriggeredWaveform(BasicWaveform):
 
 @register_waveform
 @qfrozen
-class ReadoutMarker(Marker):
-    ...
+class ReadoutMarker(Marker): ...
 
 
 @register_waveform

@@ -16,7 +16,6 @@
     http://www.alazartech.com/support/Download%20Files/ATS-SDK-Guide-7.1.4.pdf
 """
 
-
 import ctypes
 import time
 
@@ -881,17 +880,17 @@ class Alazar:
                     if self.save_only:
                         pass
                     elif not self.mean:
-                        self.data[0][
-                            current_buffer : (1 + current_buffer)
-                        ] = np.reshape(
-                            buffer.buffer[0::2],
-                            (1, self.expected_triggers, self.samples),
+                        self.data[0][current_buffer : (1 + current_buffer)] = (
+                            np.reshape(
+                                buffer.buffer[0::2],
+                                (1, self.expected_triggers, self.samples),
+                            )
                         )
-                        self.data[1][
-                            current_buffer : (1 + current_buffer)
-                        ] = np.reshape(
-                            buffer.buffer[1::2],
-                            (1, self.expected_triggers, self.samples),
+                        self.data[1][current_buffer : (1 + current_buffer)] = (
+                            np.reshape(
+                                buffer.buffer[1::2],
+                                (1, self.expected_triggers, self.samples),
+                            )
                         )
                     else:
                         np.add(

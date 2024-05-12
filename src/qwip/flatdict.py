@@ -1,4 +1,5 @@
 """A module for implementing a FlatDict object."""
+
 import html
 from collections.abc import ItemsView, KeysView, Mapping, MutableMapping, ValuesView
 from contextlib import contextmanager

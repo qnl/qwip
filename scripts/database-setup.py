@@ -193,8 +193,7 @@ def upgrade(
     username: str = typer.Argument(...),
     password: str = typer.Argument(...),
     database: str = typer.Argument(...),
-):
-    ...
+): ...
 
 
 if __name__ == "__main__":

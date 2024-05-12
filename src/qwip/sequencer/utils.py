@@ -549,8 +549,7 @@ qwip.converter.register_unstructure_hook_factory(
 
 
 @qfrozen(kw_only=False, repr=False)
-class Location(LinearExpression):
-    ...
+class Location(LinearExpression): ...
 
 
 __all__ = ["Location"]

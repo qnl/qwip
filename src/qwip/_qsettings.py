@@ -1,4 +1,5 @@
 """QWiP Settings."""
+
 from copy import deepcopy
 from enum import Enum
 from pathlib import Path
@@ -65,7 +66,9 @@ class SlackSettings(DefaultSettings):
     class SlackChannel(DefaultSettings):
         webhook_url: str
 
-    oauth_url: str = "https://slack.com/oauth/v2/authorize?client_id=48620956720.2735463917265&scope=incoming-webhook&user_scope="
+    oauth_url: str = (
+        "https://slack.com/oauth/v2/authorize?client_id=48620956720.2735463917265&scope=incoming-webhook&user_scope="
+    )
     channels: FlatDict[str, SlackChannel] = field(factory=FlatDict)
 
 

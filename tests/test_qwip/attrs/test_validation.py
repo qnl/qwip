@@ -241,8 +241,7 @@ class TestGetTypeValidators:
             A(attr=value)
 
     @staticmethod
-    def func1(x, y):
-        ...
+    def func1(x, y): ...
 
     @staticmethod
     def func2(x: int) -> str:

@@ -65,9 +65,11 @@ class _NumpyTypeValidator:
                     dtype=self.dtype,
                     actual=value.__class__,
                     value=value,
-                    optional_dtype=f" with dtype {value.dtype}"
-                    if isinstance(value, np.ndarray)
-                    else "",
+                    optional_dtype=(
+                        f" with dtype {value.dtype}"
+                        if isinstance(value, np.ndarray)
+                        else ""
+                    ),
                 ),
                 attr,
                 self.dtype,

@@ -31,8 +31,7 @@ class TestTektronixChannel:
     def test_connect(self, awg):
         assert awg.IDN()["vendor"] == "TEKTRONIX"
 
-    def test_amplitudes(self, awg):
-        ...
+    def test_amplitudes(self, awg): ...
 
 
 @pytest.mark.skip_instrument("tektronix")

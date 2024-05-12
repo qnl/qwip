@@ -75,8 +75,7 @@ class TestSpecialTyping:
     T = TypeVar("T")
     B = TypeVar("B", bound=str)
 
-    def test_forward_ref(self):
-        ...
+    def test_forward_ref(self): ...
 
     @pytest.mark.parametrize(
         "tp,obj,expected", [(T, [1, 2, 3], [1, 2, 3]), (B, 1, "1")]
@@ -87,8 +86,7 @@ class TestSpecialTyping:
 
 
 class TestFlatDict:
-    class SpecialFlatDict(FlatDict):
-        ...
+    class SpecialFlatDict(FlatDict): ...
 
     TYPE_HINTS = [
         (FlatDict, FlatDict, None, None),
@@ -305,8 +303,7 @@ class TestNumpy:
 class TestAttrs:
     def test_null(self):
         @define
-        class A:
-            ...
+        class A: ...
 
         struct = qwip.converter.structure(dict(), A)
         assert struct == A()
@@ -383,8 +380,7 @@ class TestAttrs:
 
         assert struct.a == "LOWERCASE"
 
-    def test_optional(self):
-        ...
+    def test_optional(self): ...
 
     def test_numpy_fields(self):
         from typing import Annotated

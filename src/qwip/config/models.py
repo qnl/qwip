@@ -34,9 +34,11 @@ class Parameter(VersionControlled):
         repr=lambda f: f.path() if f else repr(f), default=None
     )
     timestamp: pendulum.DateTime | None = field(
-        repr=lambda dt: dt.in_tz("local").isoformat()
-        if isinstance(dt, pendulum.DateTime)
-        else repr(dt),
+        repr=lambda dt: (
+            dt.in_tz("local").isoformat()
+            if isinstance(dt, pendulum.DateTime)
+            else repr(dt)
+        ),
         default=None,
     )
     value: JSONTypes | None = None

@@ -26,8 +26,7 @@ LocationLike = Location | str | Real
 TChannelMap = dict[str, tuple[Location, Waveform]]
 
 
-class UnderconstrainedSolveError(np.linalg.LinAlgError):
-    ...
+class UnderconstrainedSolveError(np.linalg.LinAlgError): ...
 
 
 @qdefine
@@ -821,9 +820,9 @@ class TimelinePlotter:
     axsize: tuple[float, float] = (8, 1)
     sort_channels: bool = True
     separate_none: bool = False
-    channel_grouper: Callable[
-        [Self, Collection[str]], list[tuple[str, ...]]
-    ] | None = None
+    channel_grouper: Callable[[Self, Collection[str]], list[tuple[str, ...]]] | None = (
+        None
+    )
 
     def make_axes(
         self,

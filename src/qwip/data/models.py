@@ -76,9 +76,11 @@ class Dataset(VersionControlled):
 
     id: UUID = field(factory=uuid7, repr=lambda uid: uid.hex if uid else str(uid))
     timestamp: pendulum.DateTime = field(
-        repr=lambda dt: dt.in_tz("local").isoformat()
-        if isinstance(dt, pendulum.DateTime)
-        else repr(dt),
+        repr=lambda dt: (
+            dt.in_tz("local").isoformat()
+            if isinstance(dt, pendulum.DateTime)
+            else repr(dt)
+        ),
         factory=pendulum.now,
     )
     host: str = field(factory=platform.node)

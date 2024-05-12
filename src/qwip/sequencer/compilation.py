@@ -219,8 +219,7 @@ class WaveformMemory:
 
 
 @qfrozen
-class Instruction:
-    ...
+class Instruction: ...
 
 
 @qdefine
@@ -253,8 +252,7 @@ class ReadInstruction(Instruction):
 
 
 @qfrozen
-class ResetInstruction(Instruction):
-    ...
+class ResetInstruction(Instruction): ...
 
 
 @qdefine
@@ -357,8 +355,7 @@ class QWiPExecutable(QuantumExecutable):
 
 
 @qdefine
-class HardwareCompiler:
-    ...
+class HardwareCompiler: ...
 
 
 @qdefine

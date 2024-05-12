@@ -54,8 +54,7 @@ class Frame(LinearExpression):
 
 
 @qfrozen(kw_only=False, repr=False)
-class ModulationFrequency(Frame):
-    ...
+class ModulationFrequency(Frame): ...
 
 
 ModulationFrequency.__init__ = deprecated(
@@ -326,8 +325,7 @@ class PhaseUpdater(Protocol):
         self,
         time: float,
         phase_tracker: dict[Frame, list[tuple[float, float]]],
-    ) -> None:
-        ...
+    ) -> None: ...
 
 
 __all__ = [
