@@ -79,8 +79,7 @@ class StorageBackend(metaclass=ABCMeta):
     @abstractmethod
     def save_buffer(
         self, address: str, stream: io.BufferedReader, folder: str = "/"
-    ) -> str:
-        ...
+    ) -> str: ...
 
     def save_buffers(
         self, streams: dict[str, io.BufferedReader], folder: str = "/"
@@ -89,8 +88,7 @@ class StorageBackend(metaclass=ABCMeta):
             self.save_stream(address, stream, folder=folder)
 
     @abstractmethod
-    def load_buffer(self, address: str) -> SpooledTemporaryFile:
-        ...
+    def load_buffer(self, address: str) -> SpooledTemporaryFile: ...
 
 
 @register_storage_backend
@@ -118,8 +116,8 @@ class HTTPStorageBackend(StorageBackend):
             the address instead.
         """
         # pathlib handles // differently when it is at the beginning of a path
-        # but strips extra / otherwise. Using /// to avoid this difference in behavior.
-        url = Path("///" + folder + "///" + address).resolve()
+        # but strips extra / otherwise. Using //// to avoid this difference in behavior.
+        url = Path("////" + folder + "////" + address).resolve()
         filename = Path(address)
 
         base, name = (url.parent, url.name) if filename.name else (url, "")
@@ -331,11 +329,9 @@ class LocalStorageBackend(StorageBackend):
 
     def save_buffer(
         self, address: str, stream: io.BufferedReader, folder: str = "/"
-    ) -> str:
-        ...
+    ) -> str: ...
 
-    def load_buffer(self, address: str, **kwargs) -> SpooledTemporaryFile:
-        ...
+    def load_buffer(self, address: str, **kwargs) -> SpooledTemporaryFile: ...
 
 
 # ========== httpx.Client converters ========== #
