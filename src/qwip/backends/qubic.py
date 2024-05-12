@@ -138,14 +138,24 @@ class QubicExecutable(QuantumExecutable):
 def find_constant_segments(
     arr: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Finds locations of all constant segments"""
+    """Finds locations of all constant segments in an array.
+
+    Args:
+        arr: The array to break into constant segments. It is assumed to be 1D.
+
+    Returns:
+        A tuple `(locations, values, lengths)` of arrays. The three arrays specify
+        the starting index (in the original array), value, and length of each constant
+        segment. The original array can be reconstructed from these arrays as
+        `np.repeat(values, lengths)`.
+    """
     mask = np.r_[True, arr[1:] != arr[:-1], True]
 
     locs = np.flatnonzero(mask)
     vals = arr[locs[:-1]]
     lengths = np.diff(locs)
 
-    return locs, vals, lengths
+    return locs[:-1], vals, lengths
 
 
 @register_compiler
@@ -167,10 +177,27 @@ class QubicCompiler(QWiPCompiler):
         pulse_width,
         start_cycle,
         sample_rate,
-        cw_threshold: int = 16,
+        cw_threshold: int | None = 16,
     ):
+        """Compiles a single envelope into a list of Qubic pulse instructions.
+
+        Args:
+            loc: The location of the waveform.
+            wave: The waveform to compile.
+            waveform_cache: A cache for reusing envelope timepoints. Envelopes are
+                cached by the waveform definition and sample rate.
+            reads: A counter for tracking the number of reads on each channel. This is
+                incremented if the waveform is on a read channel.
+            pulse_kwargs: Any additional constraints to pass to the waveform when
+                resolving timepoints.
+            t0: The start time, in clock cycles, of the pulse timeline. The default
+                clock cycle period is 2ns on Qubic.
+        """
         clock_multiplier = int(sample_rate * self.fpga_config.fpga_clk_period)
         locs, vals, lengths = find_constant_segments(w_t)
+
+        if cw_threshold is None:
+            cw_threshold = len(w_t)
 
         # Find starting index of all constant segments in w_t that are longer than
         # a certain threshold. The clock_multiplier ensures that the start_times of
@@ -193,23 +220,26 @@ class QubicCompiler(QWiPCompiler):
         # Find start and end points of all CW segments. These will get replaced by a
         # pulse where env = "CW"
         cw_segments = np.stack([locs[cw_idx], locs[cw_idx] + lengths[cw_idx]]).T
+
         # Round to closest time that aligns with a clock cycle and ensure that no
         # instructions will have start times within 3 clock cycles of each other
+        min_clk_cycles = 3
         cw_segments[:, 0] = np.ceil(cw_segments[:, 0] / clock_multiplier).astype(int)
         cw_segments[:, 1] = np.floor(cw_segments[:, 1] / clock_multiplier).astype(int)
 
         num_clk_cycles = cw_segments[:, 0] - np.r_[0, cw_segments[:-1, 1]]
-        start_padding = 3 - num_clk_cycles
+        start_padding = min_clk_cycles - num_clk_cycles
         start_padding[start_padding < 0] = 0
         cw_segments[:, 0] += start_padding
 
         num_clk_cycles = (
             np.r_[cw_segments[1:, 0], len(w_t) // clock_multiplier] - cw_segments[:, 1]
         )
-        end_padding = 3 - num_clk_cycles
+        end_padding = min_clk_cycles - num_clk_cycles
         end_padding[end_padding < 0] = 0
         cw_segments[:, 1] -= end_padding
 
+        # Convert back to samples
         cw_segments *= clock_multiplier
         cw_amplitudes = vals[cw_idx]
 
@@ -265,6 +295,7 @@ class QubicCompiler(QWiPCompiler):
         reads: Counter[str],
         pulse_kwargs: dict = {},
         t0: int = 0,
+        **kwargs,
     ) -> list:
         """Compiles a single waveform into a list of qubic instructions
 
@@ -279,6 +310,8 @@ class QubicCompiler(QWiPCompiler):
                 resolving timepoints.
             t0: The start time, in clock cycles, of the pulse timeline. The default
                 clock cycle period is 2ns on Qubic.
+            **kwargs: Additional keyword arguments are passed to the `envelope_to_pulse`
+                method.
         """
 
         instructions = []
@@ -375,6 +408,7 @@ class QubicCompiler(QWiPCompiler):
                     pulse_width=width.offset,
                     start_cycle=start_cycle,
                     sample_rate=sample_rate,
+                    **kwargs,
                 )
                 instructions.extend(ins)
 
@@ -404,6 +438,7 @@ class QubicCompiler(QWiPCompiler):
                     pulse_width=width.offset,
                     start_cycle=start_cycle,
                     sample_rate=sample_rate,
+                    **kwargs,
                 )
                 instructions.extend(ins)
 
@@ -416,6 +451,7 @@ class QubicCompiler(QWiPCompiler):
         waveform_cache: dict[tuple[Waveform, int], np.ndarray] = {},
         pulse_kwargs: dict = {},
         t0: int = 0,
+        **kwargs,
     ) -> tuple[list, Counter[str]]:
         """Compiles a single pulse timeline.
 
@@ -427,12 +463,15 @@ class QubicCompiler(QWiPCompiler):
                 into timepoints.
             t0: The start time, in clock cycles, of the pulse timeline. The default
                 clock cycle period is 2ns on Qubic.
+            **kwargs: Additional keyword arguments are passed to the
+                `compile_instruction` method.
 
         Returns:
             A list of instructions and a counter specifying the number of reads on each
             channel.
         """
         instructions = []
+        start_times = []
         reads = Counter()
 
         for loc, waves in locations.items():
@@ -447,6 +486,7 @@ class QubicCompiler(QWiPCompiler):
                     reads=reads,
                     pulse_kwargs=pulse_kwargs,
                     t0=t0,
+                    **kwargs,
                 )
 
                 # Maintain start_time ordering when adding instructions.
@@ -454,20 +494,38 @@ class QubicCompiler(QWiPCompiler):
                     N = len(instructions)
 
                     if not hasattr(ins, "start_time"):
+                        if start_times:
+                            st = start_times[-1] + getattr(
+                                instructions[-1], "twidth", 0
+                            )
+                        else:
+                            st = 0
+
                         instructions.append(ins)
+                        start_times.append(st)
                         continue
 
                     for i in range(N):
-                        old_ins = instructions[N - i - 1]
-                        if not hasattr(old_ins, "start_time"):
-                            continue
-                        elif instructions[N - i - 1].start_time > ins.start_time:
+                        # old_ins = instructions[N - i - 1]
+                        prev_start = start_times[N - i - 1]
+
+                        if prev_start > ins.start_time:
                             continue
 
                         instructions.insert(N - i, ins)
+                        start_times.insert(N - i, ins.start_time)
+
+                        # if not hasattr(old_ins, "start_time"):
+                        #     instructions.insert(N - i, ins)
+                        # elif instructions[N - i - 1].start_time > ins.start_time:
+                        #     continue
+                        # else:
+                        #     instructions.insert(N - i, ins)
+
                         break
                     else:
                         instructions.insert(0, ins)
+                        start_times.insert(0, ins.start_time)
 
         return instructions, reads
 
@@ -478,14 +536,28 @@ class QubicCompiler(QWiPCompiler):
         location_kwargs: dict = {},
         pulse_kwargs: dict = {},
         **kwargs,
-    ) -> list[dict]:
+    ) -> tuple[list, list[int]]:
         """Constructs a Qubic instruction list from a sequence.
 
         This method makes a pass through the sequence, compiling each pulse timeline
         to a list of qubic instructions. These instruction lists are then concatenated
-        with a specified reset delay in between. The total repetition delay for the
-        circuit and the number of reads per timeline are also returned.
+        with a specified reset delay in between. The number of reads per timeline is
+        also returned.
 
+        Args:
+            seq: The sequence to compile into a circuit.
+            reset_delay: The delay time in seconds between the start times of
+                consecutive timelines.
+            location_kwargs: Any extra constraints to pass to the location resolver.
+            pulse_kwargs: Any extra constraints to pass to waveforms when resolving them
+                into timepoints.
+            **kwargs: Additional keyword arguments are passed to the `compile_timeline`
+                method.
+
+        Returns:
+            A tuple of `(circuit, reads_per_timeline)`. `circuit` is a list of Qubic
+            instructions comprising the full circuit. `reads_per_timeline` is a list
+            specifying the number of read instructions in each circuit.
         """
         markers = {}
         waveform_cache = {}
@@ -513,6 +585,7 @@ class QubicCompiler(QWiPCompiler):
                 + int(
                     np.round((i + 1) * reset_delay / self.fpga_config.fpga_clk_period)
                 ),
+                **kwargs,
             )
 
             reads_per_channel = set(cts[1] for cts in reads.most_common())
@@ -542,6 +615,8 @@ class QubicCompiler(QWiPCompiler):
             location_kwargs: A mapping of location variables to concrete values. This is
                 passed to `Timeline.resolve_locations`.
 
+        Returns:
+            The resulting compiled `QubicExecutable` that can then be run on hardware.
         """
         reset_delay = reset_delay or self.reset_delay
         circuit, reads_per_timeline = self.construct_circuit(

@@ -3,7 +3,7 @@ from collections import Counter
 import attrs
 import numpy as np
 import pytest
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_equal
 
 try:
     from distproc.compiler import CompiledProgram
@@ -74,8 +74,29 @@ class TestQubicExecutable:
             exe1.seq = Sequence([])
 
 
-def test_find_constant_segments():
-    ...
+@pytest.mark.parametrize(
+    "arr,locations,values,lengths",
+    [
+        (
+            np.array([0, 1, 2, 2, 3, 3, 3]),
+            np.array([0, 1, 2, 4]),
+            np.array([0, 1, 2, 3]),
+            np.array([1, 1, 2, 3]),
+        ),
+        (
+            np.array([0.0, 1.0, 2.0, 3.0]),
+            np.array([0, 1, 2, 3]),
+            np.array([0, 1, 2, 3.0]),
+            np.array([1, 1, 1, 1]),
+        ),
+    ],
+)
+def test_find_constant_segments(arr, locations, values, lengths):
+    locs, vals, lens = find_constant_segments(arr)
+    print(locs, vals, lens)
+    assert_equal(locs, locations)
+    assert_equal(vals, values)
+    assert_equal(lens, lengths)
 
 
 class TestQubicCompiler:
@@ -201,29 +222,11 @@ class TestQubicCompiler:
                         freq=0,
                         phase=0,
                         amp=1,
-                        twidth=6e-9,
-                        env=np.array([0] + [0.5] * 47).astype(np.complex64),
+                        twidth=50e-9,
+                        env=np.array([0] + [0.5] * 399).astype(np.complex64),
                         dest="Q0.qdrv",
                         start_time=525,
-                    ),
-                    Pulse(
-                        freq=0,
-                        phase=0,
-                        amp=0.5,
-                        twidth=38e-9,
-                        env="cw",
-                        dest="Q0.qdrv",
-                        start_time=528,
-                    ),
-                    Pulse(
-                        freq=0,
-                        phase=0,
-                        amp=1,
-                        twidth=6e-9,
-                        env=np.array([0.5] * 48).astype(np.complex64),
-                        dest="Q0.qdrv",
-                        start_time=547,
-                    ),
+                    )
                 ],
             ),
             (
@@ -244,31 +247,13 @@ class TestQubicCompiler:
                         freq="Q1.readfreq",
                         phase=0,
                         amp=0.5,
-                        twidth=6e-9,
-                        env=np.array([0] + [np.exp(1j * np.pi)] * 2).astype(
+                        twidth=2e-6,
+                        env=np.array([0] + [np.exp(1j * np.pi)] * 999).astype(
                             np.complex64
                         ),
                         dest="Q1.rdlo",
                         start_time=100,
-                    ),
-                    Pulse(
-                        freq="Q1.readfreq",
-                        phase=np.pi,
-                        amp=0.5,
-                        twidth=1.988e-6,
-                        env="cw",
-                        dest="Q1.rdlo",
-                        start_time=103,
-                    ),
-                    Pulse(
-                        freq="Q1.readfreq",
-                        phase=0,
-                        amp=0.5,
-                        twidth=6e-9,
-                        env=np.array([np.exp(1j * np.pi)] * 3).astype(np.complex64),
-                        dest="Q1.rdlo",
-                        start_time=1097,
-                    ),
+                    )
                 ],
             ),
         ],
@@ -282,11 +267,75 @@ class TestQubicCompiler:
             reads=reads,
             pulse_kwargs={},
             t0=t0,
+            cw_threshold=None,
         )
 
         for c in wave.channels:
             if "rdlo" in c:
                 assert reads[c] == 1
+
+        assert len(instructions) == len(expected)
+
+        for i1, i2 in zip(instructions, expected):
+            assert_instructions_almost_equal(i1, i2)
+
+    @pytest.mark.parametrize(
+        "wave,threshold,expected",
+        [
+            (
+                ModulatedWaveform(
+                    envelope=SquareWaveform(amplitude=0.5, width=100e-9),
+                    modulation=CWWaveform(
+                        amplitude=0.5,
+                        frequency=100,
+                        phase=180,
+                        channels=("Q0.rdrv",),
+                        hardware_modulation=True,
+                    ),
+                ),
+                16,
+                [
+                    Pulse(
+                        freq=100,
+                        phase=0,
+                        amp=0.5,
+                        twidth=6e-9,
+                        env=np.array([0, -0.5, -0.5]).astype(np.complex64),
+                        dest="Q0.rdrv",
+                        start_time=0,
+                    ),
+                    Pulse(
+                        freq=100,
+                        phase=np.pi,
+                        amp=0.25,
+                        twidth=88e-9,
+                        env="cw",
+                        dest="Q0.rdrv",
+                        start_time=3,
+                    ),
+                    Pulse(
+                        freq=100,
+                        phase=0,
+                        amp=0.5,
+                        twidth=6e-9,
+                        env=np.array([-0.5, -0.5, -0.5]).astype(np.complex64),
+                        dest="Q0.rdrv",
+                        start_time=47,
+                    ),
+                ],
+            )
+        ],
+    )
+    def test_compile_instruction_cw(self, compiler, wave, threshold, expected):
+        instructions = compiler.compile_instruction(
+            Location(),
+            wave,
+            waveform_cache={},
+            reads=Counter(),
+            pulse_kwargs={},
+            t0=0,
+            cw_threshold=threshold,
+        )
 
         assert len(instructions) == len(expected)
 
@@ -301,7 +350,7 @@ class TestQubicCompiler:
 
         waveform_cache = {}
         instructions, reads = compiler.compile_timeline(
-            tmln.resolve_locations(), waveform_cache=waveform_cache
+            tmln.resolve_locations(), waveform_cache=waveform_cache, cw_threshold=None
         )
 
         expected = [
@@ -361,7 +410,7 @@ class TestQubicCompiler:
 
         seq = Sequence([nopi, pi])
 
-        exe = compiler.compile(seq)
+        exe = compiler.compile(seq, cw_threshold=None)
 
         ops = exe.program.program[("Q0.qdrv", "Q0.rdrv", "Q0.rdlo")]
 
