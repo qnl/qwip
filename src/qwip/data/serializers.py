@@ -33,7 +33,7 @@ from qwip.typing import generic_to_string
 try:
     import trueq as tq
 except Exception as e:
-    logger.exception("Unable to import True-Q", exception=e)
+    logger.warning("Unable to import True-Q")
 
 SERIALIZERS: dict[str, "Serializer"] = dict()
 
