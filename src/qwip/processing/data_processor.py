@@ -595,7 +595,7 @@ class ReadoutPipeline:
         if (key, type(processor)) in index_map:
             index = index_map[(key, type(processor))]
         else:
-            logger.debug(f"Adding node ({key}, {type(processor).__name__})")
+            logger.trace(f"Adding node ({key}, {type(processor).__name__})")
             index = graph.add_node(KeyProcessorNode(key=key, processor=processor))
             graph[index].index = index
             index_map[(key, type(processor))] = index
