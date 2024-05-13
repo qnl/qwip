@@ -120,10 +120,13 @@ nav:
           - qwip.attrs.validation: api/qwip/attrs/validation.md
       - qwip.backends:
           - qwip.backends: api/qwip/backends/index.md
+          - qwip.backends.alazar: api/qwip/backends/alazar.md
           - qwip.backends.backend: api/qwip/backends/backend.md
           - qwip.backends.qtrl: api/qwip/backends/qtrl.md
           - qwip.backends.qubic: api/qwip/backends/qubic.md
           - qwip.backends.qutip: api/qwip/backends/qutip.md
+          - qwip.backends.software: api/qwip/backends/software.md
+          - qwip.backends.tektronix: api/qwip/backends/tektronix.md
           - qwip.backends.vna: api/qwip/backends/vna.md
       - qwip.calibration:
           - qwip.calibration: api/qwip/calibration/index.md
@@ -140,6 +143,8 @@ nav:
           - qwip.data.datastore: api/qwip/data/datastore.md
           - qwip.data.filesystem: api/qwip/data/filesystem.md
           - qwip.data.models: api/qwip/data/models.md
+          - qwip.data.serializers: api/qwip/data/serializers.md
+          - qwip.data.storage: api/qwip/data/storage.md
       - qwip.database:
           - qwip.database: api/qwip/database/index.md
           - qwip.database.database: api/qwip/database/database.md
@@ -149,6 +154,11 @@ nav:
       - qwip.instruments:
           - qwip.instruments: api/qwip/instruments/index.md
           - qwip.instruments.instrument_server: api/qwip/instruments/instrument_server.md
+          - qwip.instruments.ltc2704: api/qwip/instruments/ltc2704.md
+      - qwip.instruments.alazar:
+          - qwip.instruments.alazar: api/qwip/instruments/alazar/index.md
+          - qwip.instruments.alazar.alazar: api/qwip/instruments/alazar/alazar.md
+          - qwip.instruments.alazar.atsapi: api/qwip/instruments/alazar/atsapi.md
       - qwip.processing:
           - qwip.processing: api/qwip/processing/index.md
           - qwip.processing.data_processor: api/qwip/processing/data_processor.md
@@ -163,9 +173,11 @@ nav:
       - qwip.sequencer:
           - qwip.sequencer: api/qwip/sequencer/index.md
           - qwip.sequencer.compilation: api/qwip/sequencer/compilation.md
-          - qwip.sequencer.timeline: api/qwip/sequencer/elements.md
+          - qwip.sequencer.elements: api/qwip/sequencer/elements.md
+          - qwip.sequencer.instructions: api/qwip/sequencer/instructions.md
           - qwip.sequencer.phase_tracker: api/qwip/sequencer/phase_tracker.md
           - qwip.sequencer.sequence: api/qwip/sequencer/sequence.md
+          - qwip.sequencer.timeline: api/qwip/sequencer/timeline.md
           - qwip.sequencer.utils: api/qwip/sequencer/utils.md
           - qwip.sequencer.waveform: api/qwip/sequencer/waveform.md
       - qwip.visualization:
@@ -173,4 +185,8 @@ nav:
           - qwip.visualization.dataframe: api/qwip/visualization/dataframe.md
           - qwip.visualization.readout: api/qwip/visualization/readout.md
           - qwip.visualization.utils: api/qwip/visualization/utils.md
+      - qwip_dataserver:
+          - qwip_dataserver: api/qwip_dataserver/index.md
+          - qwip_dataserver.server: api/qwip_dataserver/server.md
+          - qwip_dataserver.settings: api/qwip_dataserver/settings.md
   - Changelog: CHANGELOG.md

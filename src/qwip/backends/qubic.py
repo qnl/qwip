@@ -140,14 +140,15 @@ def find_constant_segments(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Finds locations of all constant segments in an array.
 
+    This function returns three arrays specifying the starting index (in the original
+    array), value, and length of each constant segment. The original array can be
+    reconstructed from these arrays as `np.repeat(values, lengths)`.
+
     Args:
         arr: The array to break into constant segments. It is assumed to be 1D.
 
     Returns:
-        A tuple `(locations, values, lengths)` of arrays. The three arrays specify
-        the starting index (in the original array), value, and length of each constant
-        segment. The original array can be reconstructed from these arrays as
-        `np.repeat(values, lengths)`.
+        A tuple `(locations, values, lengths)` of arrays.
     """
     mask = np.r_[True, arr[1:] != arr[:-1], True]
 
@@ -555,9 +556,7 @@ class QubicCompiler(QWiPCompiler):
                 method.
 
         Returns:
-            A tuple of `(circuit, reads_per_timeline)`. `circuit` is a list of Qubic
-            instructions comprising the full circuit. `reads_per_timeline` is a list
-            specifying the number of read instructions in each circuit.
+            A tuple `(circuit, reads_per_timeline)`.
         """
         markers = {}
         waveform_cache = {}
@@ -640,7 +639,11 @@ class QubicCompiler(QWiPCompiler):
         )
 
     def get_qchip(self) -> QChip:
-        """Returns a Qubic QChip object with the named modulation frequencies."""
+        """Returns a Qubic QChip object with the named modulation frequencies.
+
+        Returns:
+            A Qubic `QChip` instance.
+        """
         frames = FlatDict(
             {k.replace(".", "/"): f.offset for k, f in self.frames.items()}
         )
@@ -648,7 +651,11 @@ class QubicCompiler(QWiPCompiler):
         return QChip(dict(Qubits=frames, Gates=dict()))
 
     def get_channel_config(self) -> dict:
-        """Return a QubicChannelConfig with the channel information."""
+        """Return a QubicChannelConfig with the channel information.
+
+        Returns:
+            A Qubic `QubicChannelConfig` instance.
+        """
         channel_config = dict(fpga_clk_freq=self.fpga_config.fpga_clk_freq)
 
         for dev in self.devices.values():
@@ -687,7 +694,7 @@ class QubicBackend(QuantumBackend):
 
         Args:
             exe: A `QubicExecutable` which contains the assembly dict to load.
-            kwargs: Additional keyword arguments are passed to `CircuitRunner.load_circuit`.
+            **kwargs: Additional keyword arguments are passed to `CircuitRunner.load_circuit`.
         """
         self.uploaded = exe
 
@@ -739,6 +746,9 @@ class QubicBackend(QuantumBackend):
         """Updates parameters from the QPU.
 
         This method updates the mapping from readout indices to readout channels.
+
+        Args:
+            qpu: A QPU instance.
         """
 
         for devices in qpu.compiler.devices.values():
