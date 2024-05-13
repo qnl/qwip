@@ -45,8 +45,15 @@ class PendulumDateTime(types.TypeDecorator):
     cache_ok = True
 
     def process_bind_param(self, value, dialect):
-        # pendulum 3.0 default repr is no longer ISO8601 compatible.
-        return value.isoformat()
+        match dialect.name:
+            case "sqlite":
+                # sqlite requires datetime not string
+                return value
+            case "mysql":
+                # pendulum 3.0 default repr is no longer ISO8601 compatible.
+                return value.isoformat()
+            case _:
+                return value
 
     def process_result_value(self, value, dialect):
         return pendulum.instance(value).in_tz("local")
