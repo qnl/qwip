@@ -3,7 +3,7 @@ import itertools as it
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Callable, get_args
+from typing import Callable, Self, get_args
 
 import attrs
 import pandas as pd
@@ -12,7 +12,6 @@ import sqlalchemy as sa
 from attrs import field
 from loguru import logger
 from sqlalchemy.engine import URL, make_url
-from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine, qfrozen

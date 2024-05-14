@@ -1,4 +1,5 @@
 """Serializers for settings."""
+
 from attrs import frozen
 from loguru import logger
 
@@ -14,7 +15,7 @@ class _TypeConverter:
         try:
             return qwip.converter.structure(v, self.fieldtype)
         except Exception as e:
-            logger.debug(f"Conversion failed due to {type(e)}: {e}.")
+            logger.trace(f"Conversion failed due to {type(e)}: {e}.")
             return v
 
 

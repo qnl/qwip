@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from numbers import Number
 from pathlib import Path
 from pydoc import locate
-from typing import Any, ForwardRef, TypeVar, get_args, get_origin
+from typing import Any, ForwardRef, GenericAlias, TypeVar, get_args, get_origin
 
 import attrs
 import cattr
@@ -75,8 +75,10 @@ def locate_cls(cls_name):
 
 
 converter.register_unstructure_hook(type, lambda v: cls_to_string(v))
+converter.register_unstructure_hook(GenericAlias, lambda v: cls_to_string(v))
 
 converter.register_structure_hook(type, lambda v, cls: locate_cls(v))
+converter.register_structure_hook(GenericAlias, lambda v, cls: locate_cls(v))
 
 # ========== ForwardRef ========== #
 

@@ -1,6 +1,6 @@
 import platform
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Self
 
 import attrs
 import pendulum
@@ -9,7 +9,6 @@ from attrs import field
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, types
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from typing_extensions import Self
 from uuid6 import UUID, uuid7
 
 import qwip
@@ -76,9 +75,11 @@ class Dataset(VersionControlled):
 
     id: UUID = field(factory=uuid7, repr=lambda uid: uid.hex if uid else str(uid))
     timestamp: pendulum.DateTime = field(
-        repr=lambda dt: dt.in_tz("local").isoformat()
-        if isinstance(dt, pendulum.DateTime)
-        else repr(dt),
+        repr=lambda dt: (
+            dt.in_tz("local").isoformat()
+            if isinstance(dt, pendulum.DateTime)
+            else repr(dt)
+        ),
         factory=pendulum.now,
     )
     host: str = field(factory=platform.node)

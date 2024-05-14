@@ -4,11 +4,10 @@ import operator
 import re
 from functools import lru_cache
 from numbers import Real
-from typing import Any
+from typing import Any, Self
 
 import attrs
 from attrs import field
-from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn
@@ -549,8 +548,7 @@ qwip.converter.register_unstructure_hook_factory(
 
 
 @qfrozen(kw_only=False, repr=False)
-class Location(LinearExpression):
-    ...
+class Location(LinearExpression): ...
 
 
 __all__ = ["Location"]

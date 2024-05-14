@@ -2,18 +2,18 @@ from collections.abc import Callable, Iterable, Mapping
 from functools import singledispatch, update_wrapper
 from inspect import isclass
 from types import UnionType
-from typing import Annotated, ForwardRef, Union, get_args, get_origin
+from typing import Annotated, ForwardRef, Self, Union, get_args, get_origin
 
 import numpy as np
 from loguru import logger
 from numpy.typing import NDArray as _NDArray
-from typing_extensions import Self
 
 NDArray = Annotated[_NDArray, ""]
 
 
 def issubtype(tp, cls):
-    return isclass(tp) and issubclass(get_origin(tp) or tp, cls)
+    orig_tp = get_origin(tp)
+    return (isclass(tp) or isclass(orig_tp)) and issubclass(orig_tp or tp, cls)
 
 
 def is_annotated_type(tp):

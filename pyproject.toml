@@ -5,11 +5,73 @@ requires = [
 ]
 build-backend="setuptools.build_meta"
 
-[pytest]
-log_cli = true
-log_cli_level = "DEBUG"
+[project]
+name = "qwip"
+version = "24.05.0"
+authors = [
+    {name = "Larry Chen", email = "larrychen@berkeley.edu"},
+]
+description = "Quantum Workflows in Python"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "attrs",
+    "cattrs",
+    "httpx",
+    "loguru",
+    "lmfit",
+    "matplotlib",
+    "mysqlclient",
+    "notifiers",
+    "numpy",
+    "pandas",
+    "pendulum>=3.0",
+    "plotly",
+    "pyarrow",
+    "python-multipart",
+    "qutip",
+    "rich",
+    "rustworkx",
+    "scikit-learn",
+    "scipy",
+    "sqlalchemy",
+    "tomli",
+    "uuid6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    "isort",
+    "fastapi",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+    "mkdocs-git-revision-date-localized-plugin",
+    "mkdocs-git-authors-plugin",
+    "pydantic-settings",
+    "pytest",
+    "ruff",
+    "typer"
+]
+
+server = [
+    "fastapi",
+    "gunicorn",
+    "httpx",
+    "pydantic-settings",
+    "respx",
+    "uvicorn[standard]"
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["qwip*"]
+namespaces = false
 
 [tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "INFO"
+
 markers = [
     "skip_instrument: Skip instrument tests if they are not available.",
     "skip_dataserver: Skip dataserver tests on live datasever."
@@ -21,4 +83,4 @@ filterwarnings = [
 [tool.isort]
 profile = "black"
 skip_gitignore = true
-py_version = 310
+py_version = 312

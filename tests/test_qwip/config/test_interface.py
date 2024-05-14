@@ -155,7 +155,7 @@ class TestConfigSchema:
             targets=qubit_names + resonator_names,
         )
 
-        assert list(config.keys()) == [
+        assert set(config.keys()) == {
             "hardware",
             "readout",
             "subsystems",
@@ -167,4 +167,4 @@ class TestConfigSchema:
             "sample_id",
             "cooldown_id",
             "targets",
-        ]
+        }

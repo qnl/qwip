@@ -2,11 +2,10 @@ import io
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
-from typing import Any
+from typing import Any, Self
 
 import httpx
 from loguru import logger
-from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -79,8 +78,7 @@ class StorageBackend(metaclass=ABCMeta):
     @abstractmethod
     def save_buffer(
         self, address: str, stream: io.BufferedReader, folder: str = "/"
-    ) -> str:
-        ...
+    ) -> str: ...
 
     def save_buffers(
         self, streams: dict[str, io.BufferedReader], folder: str = "/"
@@ -89,8 +87,7 @@ class StorageBackend(metaclass=ABCMeta):
             self.save_stream(address, stream, folder=folder)
 
     @abstractmethod
-    def load_buffer(self, address: str) -> SpooledTemporaryFile:
-        ...
+    def load_buffer(self, address: str) -> SpooledTemporaryFile: ...
 
 
 @register_storage_backend
@@ -118,8 +115,8 @@ class HTTPStorageBackend(StorageBackend):
             the address instead.
         """
         # pathlib handles // differently when it is at the beginning of a path
-        # but strips extra / otherwise. Using /// to avoid this difference in behavior.
-        url = Path("///" + folder + "///" + address).resolve()
+        # but strips extra / otherwise. Using //// to avoid this difference in behavior.
+        url = Path("////" + folder + "////" + address).resolve()
         filename = Path(address)
 
         base, name = (url.parent, url.name) if filename.name else (url, "")
@@ -331,11 +328,9 @@ class LocalStorageBackend(StorageBackend):
 
     def save_buffer(
         self, address: str, stream: io.BufferedReader, folder: str = "/"
-    ) -> str:
-        ...
+    ) -> str: ...
 
-    def load_buffer(self, address: str, **kwargs) -> SpooledTemporaryFile:
-        ...
+    def load_buffer(self, address: str, **kwargs) -> SpooledTemporaryFile: ...
 
 
 # ========== httpx.Client converters ========== #

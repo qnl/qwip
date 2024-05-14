@@ -1,11 +1,10 @@
 import itertools as it
 from collections.abc import Sequence as TSequence
-from typing import Any
+from typing import Any, Self
 
 import numpy as np
 from loguru import logger
 from numpy.typing import NDArray
-from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn
@@ -158,7 +157,7 @@ class Sequence(np.ndarray):
             return obj
 
         expanded = self._expand_basic_index(key)
-        logger.debug(f"Expanded form of {key} is {expanded}")
+        logger.trace(f"Expanded form of {key} is {expanded}")
         obj.names = self._get_names_from_index(expanded)  # Set names
 
         slices = tuple(idx for idx in expanded if idx is not None)
@@ -167,7 +166,7 @@ class Sequence(np.ndarray):
             if n not in obj.names or n not in self.labels:
                 continue
 
-            logger.debug(
+            logger.trace(
                 f"Slicing {slices[level]} from label for {n} which was level {level}"
             )
             obj.labels[n] = self.labels[n][slices[level]]

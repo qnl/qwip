@@ -1,10 +1,9 @@
 import itertools as it
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 import numpy as np
 from attrs import field
 from qcodes.instrument_drivers.tektronix.AWG5014 import Tektronix_AWG5014
-from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine, qfrozen

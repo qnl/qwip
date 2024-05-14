@@ -108,7 +108,7 @@ def rng(seed):
 @pytest.fixture
 def fixed_time():
     now = pendulum.datetime(2015, 3, 14, 9, 26, 53, tz="America/Los_Angeles")
-    with pendulum.test(now):
+    with pendulum.travel_to(now, freeze=True):
         yield now
 
 

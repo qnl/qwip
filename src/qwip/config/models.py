@@ -1,10 +1,11 @@
+from typing import Self
+
 import pendulum
 import sqlalchemy as sa
 from attrs import field
 from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine
@@ -34,9 +35,11 @@ class Parameter(VersionControlled):
         repr=lambda f: f.path() if f else repr(f), default=None
     )
     timestamp: pendulum.DateTime | None = field(
-        repr=lambda dt: dt.in_tz("local").isoformat()
-        if isinstance(dt, pendulum.DateTime)
-        else repr(dt),
+        repr=lambda dt: (
+            dt.in_tz("local").isoformat()
+            if isinstance(dt, pendulum.DateTime)
+            else repr(dt)
+        ),
         default=None,
     )
     value: JSONTypes | None = None

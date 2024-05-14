@@ -51,8 +51,6 @@ def test_date_rule(fixed_time):
 
     assert date("prefix_{date}") == f"prefix_{ref_date}"
 
-    pendulum.set_test_now()
-
 
 def test_make_data_directory(tmp_path, fixed_time):
     base = str(tmp_path.resolve())

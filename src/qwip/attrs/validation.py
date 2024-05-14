@@ -5,6 +5,7 @@ from typing import (
     Annotated,
     Any,
     ForwardRef,
+    Self,
     Type,
     TypeVar,
     Union,
@@ -27,7 +28,6 @@ from attrs.validators import (
 )
 from loguru import logger
 from numpy.typing import NDArray
-from typing_extensions import Self
 
 from qwip.typing import replace_self_type, typedispatch
 
@@ -65,9 +65,11 @@ class _NumpyTypeValidator:
                     dtype=self.dtype,
                     actual=value.__class__,
                     value=value,
-                    optional_dtype=f" with dtype {value.dtype}"
-                    if isinstance(value, np.ndarray)
-                    else "",
+                    optional_dtype=(
+                        f" with dtype {value.dtype}"
+                        if isinstance(value, np.ndarray)
+                        else ""
+                    ),
                 ),
                 attr,
                 self.dtype,

@@ -41,8 +41,7 @@ SERIALIZERS: dict[str, "Serializer"] = dict()
 @qfrozen
 class Serializer(metaclass=ABCMeta):
     @abstractproperty
-    def formats(self) -> tuple[str, ...]:
-        ...
+    def formats(self) -> tuple[str, ...]: ...
 
     @property
     def default_format(self) -> str | None:

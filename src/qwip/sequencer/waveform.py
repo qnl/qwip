@@ -2,7 +2,7 @@ import itertools as it
 from collections import defaultdict
 from functools import lru_cache
 from numbers import Number
-from typing import TYPE_CHECKING, Any, get_args
+from typing import TYPE_CHECKING, Any, Self, get_args
 
 import attrs
 import numpy as np
@@ -10,7 +10,6 @@ from attrs import field, validators
 from cattr import Converter
 from loguru import logger
 from scipy.fft import fft, fftfreq, fftshift
-from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -131,8 +130,7 @@ class Waveform:
             f"Method evaluate_timepoints not defined for {type(self)}!"
         )
 
-    def plot(self):
-        ...
+    def plot(self): ...
 
     def fft(self, ts, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         wave = self(ts, **kwargs)
@@ -346,8 +344,7 @@ class TriggeredWaveform(BasicWaveform):
 
 @register_waveform
 @qfrozen
-class ReadoutMarker(Marker):
-    ...
+class ReadoutMarker(Marker): ...
 
 
 @register_waveform

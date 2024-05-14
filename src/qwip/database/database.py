@@ -1,5 +1,6 @@
 import functools
 import re
+from typing import Self
 
 import attrs
 import pendulum
@@ -9,7 +10,6 @@ from rich.prompt import Prompt
 from sqlalchemy import event
 from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.orm import Session
-from typing_extensions import Self
 
 from qwip.attrs import qdefine, qfrozen
 from qwip.database.dolt import (

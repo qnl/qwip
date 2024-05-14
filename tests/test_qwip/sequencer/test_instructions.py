@@ -145,4 +145,5 @@ class TestQWiPCompiler:
         compiler.compile_timeline(exe, tmln, instruction_cache=instruction_cache)
 
         for prog in exe.programs.values():
-            print(prog)
+            # print(prog)
+            ...
