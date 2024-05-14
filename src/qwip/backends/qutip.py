@@ -1,14 +1,13 @@
 import itertools as it
 from collections.abc import Callable
 from functools import reduce
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 import numpy as np
 import qutip as qt
 from attrs import cmp_using, field
 from numpy.random import Generator, default_rng
 from qutip import Qobj
-from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.backends.backend import QuantumBackend, random_data_sampler

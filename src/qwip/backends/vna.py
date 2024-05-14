@@ -1,11 +1,10 @@
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Protocol, Self, runtime_checkable
 
 import attrs
 import numpy as np
 import pandas as pd
 import pendulum
 from attrs import field
-from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine, qfrozen

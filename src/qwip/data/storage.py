@@ -2,11 +2,10 @@ import io
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
-from typing import Any
+from typing import Any, Self
 
 import httpx
 from loguru import logger
-from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn

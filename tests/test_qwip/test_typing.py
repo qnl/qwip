@@ -1,10 +1,9 @@
 from collections.abc import Callable, Mapping, Sequence
-from typing import Annotated, Any, ForwardRef, Optional, Union, get_args
+from typing import Annotated, Any, ForwardRef, Optional, Self, Union, get_args
 
 import numpy as np
 import pytest
 from numpy.typing import NDArray
-from typing_extensions import Self
 
 from qwip import FlatDict
 from qwip.processing.processors import Labeled, StatePopulations

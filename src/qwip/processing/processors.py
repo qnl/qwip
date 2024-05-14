@@ -1,6 +1,6 @@
 import itertools as it
 from collections.abc import Collection
-from typing import Any, TypeVar
+from typing import Any, Self, TypeVar
 
 import attrs
 import numpy as np
@@ -10,7 +10,6 @@ from loguru import logger
 from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
-from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.data_processor import (

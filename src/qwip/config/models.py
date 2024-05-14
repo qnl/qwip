@@ -1,10 +1,11 @@
+from typing import Self
+
 import pendulum
 import sqlalchemy as sa
 from attrs import field
 from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine

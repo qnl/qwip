@@ -3,13 +3,13 @@ from collections.abc import Callable, Collection, Iterable
 from copy import copy, deepcopy
 from functools import singledispatchmethod
 from numbers import Real
+from typing import Self
 
 import matplotlib.pyplot as plt
 import numpy as np
 from attrs import field
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
-from typing_extensions import Self
 
 from qwip.attrs import qdefine
 from qwip.sequencer.utils import Location

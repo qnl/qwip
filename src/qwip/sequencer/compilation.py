@@ -2,7 +2,7 @@ import itertools as it
 from abc import ABCMeta
 from collections import Counter, defaultdict, deque
 from collections.abc import Callable, Collection, Iterable
-from typing import Any
+from typing import Any, Self
 
 import cattr
 import matplotlib.pyplot as plt
@@ -14,7 +14,6 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from numpy.typing import NDArray
 from scipy.fft import fft, fftfreq, fftshift
-from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn

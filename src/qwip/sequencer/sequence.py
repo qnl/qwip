@@ -1,11 +1,10 @@
 import itertools as it
 from collections.abc import Sequence as TSequence
-from typing import Any
+from typing import Any, Self
 
 import numpy as np
 from loguru import logger
 from numpy.typing import NDArray
-from typing_extensions import Self
 
 import qwip
 from qwip._cattr import make_attrs_unstructure_fn

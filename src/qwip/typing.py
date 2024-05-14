@@ -2,12 +2,11 @@ from collections.abc import Callable, Iterable, Mapping
 from functools import singledispatch, update_wrapper
 from inspect import isclass
 from types import UnionType
-from typing import Annotated, ForwardRef, Union, get_args, get_origin
+from typing import Annotated, ForwardRef, Self, Union, get_args, get_origin
 
 import numpy as np
 from loguru import logger
 from numpy.typing import NDArray as _NDArray
-from typing_extensions import Self
 
 NDArray = Annotated[_NDArray, ""]
 

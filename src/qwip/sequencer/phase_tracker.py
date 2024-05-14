@@ -3,11 +3,10 @@ from collections import defaultdict
 from collections.abc import Iterable
 from collections.abc import Sequence as TSequence
 from functools import cache
-from typing import Protocol, runtime_checkable
+from typing import Protocol, Self, runtime_checkable
 
 import numpy as np
 from attrs import evolve, field
-from typing_extensions import Self
 
 from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.utils import LinearExpression

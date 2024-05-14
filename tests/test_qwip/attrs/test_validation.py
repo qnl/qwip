@@ -1,6 +1,6 @@
 from collections.abc import Callable, Iterable, Mapping
 from contextlib import nullcontext as does_not_raise
-from typing import Annotated, Any, Optional, Union
+from typing import Annotated, Any, Optional, Self, Union
 
 import attrs
 import numpy as np
@@ -8,7 +8,6 @@ import pytest
 from attr import define, field
 from attr.exceptions import NotCallableError
 from numpy.typing import NDArray
-from typing_extensions import Self
 
 from qwip.attrs import qdefine
 from qwip.attrs.validation import get_type_validator, resolve_types_with_validation
