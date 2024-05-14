@@ -516,13 +516,6 @@ class QubicCompiler(QWiPCompiler):
                         instructions.insert(N - i, ins)
                         start_times.insert(N - i, ins.start_time)
 
-                        # if not hasattr(old_ins, "start_time"):
-                        #     instructions.insert(N - i, ins)
-                        # elif instructions[N - i - 1].start_time > ins.start_time:
-                        #     continue
-                        # else:
-                        #     instructions.insert(N - i, ins)
-
                         break
                     else:
                         instructions.insert(0, ins)
