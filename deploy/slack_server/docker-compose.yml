@@ -3,14 +3,14 @@ version: "3.9"
 services:
   qwip:
     container_name: qwip
-    build: ./deploy/slack_server/
+    build: .
     image: qnl/qwip-api
     volumes:
-      - ./src/qwip_slack:/qwip_slack
+      - ../../src/qwip_slack:/qwip_slack
     command:
       - '--reload'
     env_file:
-      - ./deploy/slack_server/secrets.env
+      - ./secrets.env
     networks:
       - web
     labels:
