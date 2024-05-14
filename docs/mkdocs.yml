@@ -87,7 +87,7 @@ nav:
           - user-guide/configuration/first-steps.md
       - Sequencer:
           - user-guide/sequences/sequencer.md
-          - user-guide/sequences/sequence-elements.md
+          - user-guide/sequences/timelines.md
           - user-guide/sequences/sequences.md
       - user-guide/workflow.md
   - Developer Guide:
@@ -173,7 +173,6 @@ nav:
       - qwip.sequencer:
           - qwip.sequencer: api/qwip/sequencer/index.md
           - qwip.sequencer.compilation: api/qwip/sequencer/compilation.md
-          - qwip.sequencer.elements: api/qwip/sequencer/elements.md
           - qwip.sequencer.instructions: api/qwip/sequencer/instructions.md
           - qwip.sequencer.phase_tracker: api/qwip/sequencer/phase_tracker.md
           - qwip.sequencer.sequence: api/qwip/sequencer/sequence.md
