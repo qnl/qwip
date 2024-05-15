@@ -58,6 +58,16 @@ class TestDefaultSerializer:
     def test_get_name(self, serializer, obj, name):
         assert serializer.get_name(obj) == name
 
+    @pytest.mark.parametrize(
+        "obj,fmt,name",
+        [
+            (1, "{name}_01", "int_01"),
+            (plt.Figure(), "pre_{name}-post", "pre_figure-post"),
+        ],
+    )
+    def test_get_name_with_format(self, serializer, obj, fmt, name):
+        assert serializer.get_name(obj, fmt) == name
+
 
 PANDAS_ARROW_CASES = [
     (np.complex64, dict(date="2006-01-02"), b'{"date": "2006-01-02"}'),

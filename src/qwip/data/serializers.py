@@ -40,7 +40,7 @@ SERIALIZERS: dict[str, "Serializer"] = dict()
 
 @qfrozen
 class Serializer(metaclass=ABCMeta):
-    @abstractproperty
+    @property
     def formats(self) -> tuple[str, ...]: ...
 
     @property
@@ -84,9 +84,10 @@ class Serializer(metaclass=ABCMeta):
 
         return obj
 
-    def get_name(self, obj: Any) -> str:
+    def get_name(self, obj: Any, fmt="{name}") -> str:
         """Returns an auto-generated name for the object based on the type."""
-        return camel_to_kebab(type(obj).__name__)
+        name = camel_to_kebab(type(obj).__name__)
+        return fmt.format(name=name)
 
 
 @qfrozen
@@ -297,7 +298,9 @@ class ResultSerializer(DataFrameSerializer):
 
         return metadata, data
 
-    def get_name(self, result: MeasurementResult | dict[str, MeasurementResult]) -> str:
+    def get_name(
+        self, result: MeasurementResult | dict[str, MeasurementResult], fmt="{name}"
+    ) -> str:
         """Returns an auto-generated name from a result.
 
         Args:
@@ -306,7 +309,8 @@ class ResultSerializer(DataFrameSerializer):
         Returns:
             A kebab-case name based on the final processor for the result.
         """
-        return self.name_from_processor(type(self).get_result_processor(result))
+        name = self.name_from_processor(type(self).get_result_processor(result))
+        return fmt.format(name=name)
 
     def name_from_processor(
         self,
