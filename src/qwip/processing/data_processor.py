@@ -233,6 +233,41 @@ class DataProcessorGraph:
             self.index_map[edge.cls.__name__] = index
             edge.index = index
 
+    def _unroll_loop(
+        self,
+        cls: type[DataProcessor],
+        result_type: type[MeasurementResult],
+        before: type[DataProcessor] | None = None,
+        after: type[DataProcessor] = None,
+    ) -> tuple[int, int]:
+        name = result_type.__name__
+        if name in self.index_map:
+            print(self.index_map[name])
+            match self.index_map[name]:
+                case tuple(nodes):
+                    # We need a way to resolve the ambiguity here. Since it is
+                    # no longer possible to determine where the node should go
+                    raise NotImplementedError()
+                case prev_v:
+                    ...
+
+            self.index_map[name] = (
+                prev_v,
+                new_v := self.graph.add_node(result_type),
+            )
+
+            self.replace_input_node(prev_v, new_v)
+            v_in, v_out = prev_v, new_v
+
+        else:
+            self.registered[name] = result_type
+            v_in, v_out = self.index_map[name] = (
+                self.graph.add_node(result_type),
+                self.graph.add_node(result_type),
+            )
+
+        return v_in, v_out
+
     def register(
         self,
         maybe_cls: type[DataProcessor] | None = None,
@@ -258,30 +293,9 @@ class DataProcessorGraph:
             # We need to unroll the loop to preserve the DAG if the processor
             # outputs the same type as it takes in.
             if in_type == out_type:
-                name = in_type.__name__
-                if name in self.index_map:
-                    match self.index_map[name]:
-                        case tuple(nodes):
-                            # We need a way to resolve the ambiguity here. Since it is
-                            # no longer possible to determine where the node should go
-                            raise NotImplementedError()
-                        case prev_v:
-                            ...
-
-                    self.index_map[name] = (
-                        prev_v,
-                        new_v := self.graph.add_node(in_type),
-                    )
-
-                    self.replace_input_node(prev_v, new_v)
-                    v_in, v_out = prev_v, new_v
-
-                else:
-                    self.registered[name] = in_type
-                    v_in, v_out = self.index_map[name] = (
-                        self.graph.add_node(in_type),
-                        self.graph.add_node(out_type),
-                    )
+                v_in, v_out = self._unroll_loop(
+                    cls, in_type, before=before, after=after
+                )
 
             else:
                 # If processor connects two different result types
@@ -305,6 +319,7 @@ class DataProcessorGraph:
                     case v_out:
                         ...
 
+            print(before, after)
             self.registered[cls.__name__] = cls
             index = self.index_map[cls.__name__] = self.graph.add_edge(
                 v_in, v_out, DataProcessorMetadata(cls=cls, before=before, after=after)
