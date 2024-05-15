@@ -521,7 +521,7 @@ class TestAveraged:
 class TestLabeled:
     def test_copy(self):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
-        iqdata = IQResult.from_numpy(arr.reshape(4, 3, 5))
+        iqdata = IQResult.from_numpy(arr.reshape(3, 4, 5))
         orig_index = iqdata.index.names
 
         seq = Sequence.empty(
@@ -536,6 +536,26 @@ class TestLabeled:
     def test_label(self):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
         iqdata = IQResult.from_numpy(arr.reshape(5, 4, 3))
+
+        seq = Sequence.empty(
+            (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
+        )
+        labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
+
+        expected = pd.MultiIndex.from_tuples(
+            it.product(np.arange(5), np.arange(2), np.arange(2), np.arange(3)),
+            names=["shot", "prep", "measure", "readout"],
+        )
+
+        assert labeled.data.index.equals(expected)
+        assert_array_equal(labeled.data.values, iqdata.data.values)
+
+    def test_label_batched_timeline(self):
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
+        iqdata = IQResult.from_numpy(arr.reshape(5, 4, 3))
+        iqdata.d.index = iqdata.d.index.set_levels(
+            iqdata.d.index.levels[1] + 4, level=1
+        )
 
         seq = Sequence.empty(
             (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)

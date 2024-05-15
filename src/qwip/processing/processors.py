@@ -19,6 +19,7 @@ from qwip.processing.data_processor import (
     MeasurementResult,
 )
 from qwip.sequencer.compilation import QuantumExecutable
+from qwip.sequencer.sequence import Sequence
 
 M = TypeVar("M", bound=MeasurementResult)
 
@@ -782,30 +783,41 @@ class Labeled(GenericDataProcessor):
 
     level: str = "timeline"
 
-    def run(self, result: M, exe: QuantumExecutable | None = None, **kwargs) -> M:
-        if exe is None or exe.seq is None:
+    def run(
+        self,
+        result: M,
+        labels: pd.Index | None = None,
+        exe: QuantumExecutable | None = None,
+        **kwargs,
+    ) -> M:
+        if labels is None and (exe is None or exe.seq is None):
             return result
 
-        seq = exe.sequence
         result = attrs.evolve(result, data=result.data.copy())
-        old_idx = result.data.index
+        old_idx = result.d.index
 
-        new_idx = pd.DataFrame(
-            it.product(
-                *(
-                    seq.labels.get(n, np.arange(seq.shape[i]))
-                    for i, n in enumerate(seq.names)
-                )
-            ),
-            columns=[name or f"{self.level}{i}" for i, name in enumerate(seq.names)],
-        )
-        broadcasted = new_idx.loc[result.data.index.get_level_values(self.level)]
+        if labels is None:
+            seq = exe.sequence
+            labels = pd.DataFrame(
+                it.product(
+                    *(
+                        seq.labels.get(n, np.arange(seq.shape[i]))
+                        for i, n in enumerate(seq.names)
+                    )
+                ),
+                columns=[
+                    name or f"{self.level}{i}" for i, name in enumerate(seq.names)
+                ],
+                index=old_idx.levels[old_idx.names.index(self.level)],
+            )
+
+        broadcasted = labels.loc[old_idx.get_level_values(self.level)]
 
         idx_vals = []
         idx_names = []
         for name in old_idx.names:
             if name == self.level:
-                for c in new_idx.columns:
+                for c in labels.columns:
                     idx_vals.append(broadcasted[c].values)
                     idx_names.append(c)
             else:

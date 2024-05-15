@@ -109,7 +109,7 @@ class MeasurementResult:
         `result.data.attribute`.
         """
         return getattr(self.data, attr)
-    
+
     @property
     def d(self) -> pd.DataFrame:
         """Convenience function for getting the result data."""
