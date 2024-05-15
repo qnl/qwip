@@ -109,6 +109,11 @@ class MeasurementResult:
         `result.data.attribute`.
         """
         return getattr(self.data, attr)
+    
+    @property
+    def d(self) -> pd.DataFrame:
+        """Convenience function for getting the result data."""
+        return self.data
 
     def _repr_html_(self) -> str:
         description = f'<p style="font-family: monospace;">{repr(self)}</p>'

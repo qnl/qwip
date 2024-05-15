@@ -55,6 +55,12 @@ class TestMeasurementResult:
             name="NAME", data=y
         )
 
+    def test_d(self):
+        d = pd.DataFrame(np.zeros(20))
+        res = MeasurementResult(name="name", data=d)
+
+        assert res.d is res.data
+
     @pytest.mark.parametrize(
         "df,size",
         [
