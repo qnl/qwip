@@ -200,13 +200,15 @@ class Asset(VersionControlled):
         return f"/{dataset_id.hex}/{filename}"
 
     @classmethod
-    def create(cls, obj: Any, /, name: str | None = None, **kwargs) -> Self:
+    def create(
+        cls, obj: Any, /, name: str = "", name_fmt: str = "{name}", **kwargs
+    ) -> Self:
         serializer = get_serializer(key=kwargs.get("serializer"), obj=obj)
         name = name or serializer.get_name(obj)
 
         kwargs = dict(serializer=serializer.key) | kwargs
 
-        return cls(name=name, obj=obj, **kwargs)
+        return cls(name=name_fmt.format(name=name), obj=obj, **kwargs)
 
     def save(self, **kwargs):
         """Saves the asset data to the storage backend.
