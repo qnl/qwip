@@ -41,6 +41,7 @@ class OfflineDatastore(Database):
         cooldown_id: str | None = None,
         protocol: str | None = None,
         comments: str | None = None,
+        name_fmt: str = "{name}",
         **named: Any | Asset,
     ) -> Dataset:
         """Saves a set of assets to a new dataset.
@@ -55,6 +56,8 @@ class OfflineDatastore(Database):
                 the configuration database.
             protocol: A measurement protocol name.
             comments: A comment to attach to the dataset.
+            name_fmt: A format specifier that modifies the filename. The string must
+                contain `{name}`.
             **named: Any additional keyword arguments are taken to be assets to add to
                 the dataset. If these are not instances of `Asset`, an `Asset` will be
                 created, and the key will be passed in as the asset name.
@@ -89,7 +92,7 @@ class OfflineDatastore(Database):
             **config_data,
         )
 
-        assets = self._make_assets(*unnamed, **named)
+        assets = self._make_assets(unnamed, named, name_fmt=name_fmt)
         dataset.add(assets)
         for asset in assets:
             asset.save()
@@ -97,29 +100,35 @@ class OfflineDatastore(Database):
 
         return dataset
 
-    def _make_assets(self, *unnamed, **named):
+    def _make_assets(
+        self, unnamed: tuple[Any, ...], named: dict[str, Any], name_fmt: str = "{name}"
+    ):
         assets = []
         for obj in unnamed:
             match obj:
                 case Asset(storage=sb) if sb is None:
                     obj.storage = self.storage
                 case _:
-                    obj = Asset.create(obj, storage=self.storage)
+                    obj = Asset.create(obj, storage=self.storage, name_fmt=name_fmt)
 
             assets.append(obj)
 
         for name, obj in named.items():
             match obj:
                 case Asset(name=n, storage=sb):
-                    if n != name:
+                    if n != (new_name := name_fmt.format(name=name)):
                         logger.warning(
                             f"Keyword name '{name}' differs from asset name "
-                            f"'{n}'. Using '{n}'."
+                            f"'{n}'. Renaming asset to '{new_name}'."
                         )
+                        obj.name = new_name
+
                     if sb is None:
                         obj.storage = self.storage
                 case _:
-                    obj = Asset.create(obj, name, storage=self.storage)
+                    obj = Asset.create(
+                        obj, name, storage=self.storage, name_fmt=name_fmt
+                    )
 
             assets.append(obj)
 
@@ -131,6 +140,7 @@ class OfflineDatastore(Database):
         dataset_id: UUID | str,
         obj: Any,
         name: str | None = None,
+        name_fmt: str = "{name}",
         overwrite: bool = False,
     ) -> Asset:
         """Add an asset to an existing dataset.
@@ -141,31 +151,33 @@ class OfflineDatastore(Database):
             name: An optional name for the asset. If no name is provided and the object
                 is not already wrapped in an Asset, a generic name will be generated.
                 See `Asset.create` for the naming behavior.
+            name_fmt: A format specifier that modifies the filename. The string must
+                contain `{name}`.
             overwrite: If `False`, will raise an exception if an asset with the same
                 name already exists on the dataset.
 
         Returns:
             The created asset that was added to the dataset and saved.
         """
-        if isinstance(dataset_id, str):
-            dataset_id = UUID(dataset_id)
-
         dataset = self.load(dataset_id)
         if dataset is None:
-            raise KeyError(f"Could not find dataset '{dataset_id.hex}'")
+            raise KeyError(
+                f"Could not find dataset '{getattr(dataset_id, "hex", dataset_id)}'"
+            )
 
         match obj:
-            case Asset(storage=sb):
+            case Asset(name=n, storage=sb):
+                if n != (new_name := name_fmt.format(name=name)):
+                    logger.warning(
+                        f"Keyword name '{name}' differs from asset name "
+                        f"'{n}'. Renaming asset to '{new_name}'."
+                    )
+                    obj.name = new_name
+
                 if sb is None:
                     obj.storage = self.storage
-
-                if obj.name != name:
-                    logger.warning(
-                        f"Name '{name}' differs from asset name '{obj.name}'. Using "
-                        f"'{obj.name}'."
-                    )
             case _:
-                obj = Asset.create(obj, name, storage=self.storage)
+                obj = Asset.create(obj, name, name_fmt=name_fmt, storage=self.storage)
 
         if obj.name in dataset and not overwrite:
             raise FileExistsError(
