@@ -216,7 +216,8 @@ class ResultSerializer(DataFrameSerializer):
     ) -> dict[str, MeasurementResult]:
         data, metadata = super().from_stream_parquet(stream)
 
-        for k, df in data.groupby(level="key", axis="columns"):
+        for k, df in data.T.groupby(level="key"):
+            df = df.T
             metadata[k]["data"] = df.droplevel("key", axis="columns")
 
         return qwip.converter.structure(metadata, dict[str, MeasurementResult])
@@ -233,7 +234,8 @@ class ResultSerializer(DataFrameSerializer):
     ) -> dict[str, MeasurementResult]:
         data, metadata = super().from_stream_feather(stream)
 
-        for k, df in data.groupby(level="key", axis="columns"):
+        for k, df in data.T.groupby(level="key"):
+            df = df.T
             metadata[k]["data"] = df.droplevel("key", axis="columns")
 
         return qwip.converter.structure(metadata, dict[str, MeasurementResult])
