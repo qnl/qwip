@@ -20,6 +20,11 @@ class TestDatabase:
             "assets",
         }
 
+    def test_begin(self, database):
+        with database.begin() as s1:
+            with database.begin() as s2:
+                assert s1 is s2
+
 
 @pytest.mark.usefixtures("skip_dolt")
 class TestDoltDB:
