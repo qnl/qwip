@@ -5,7 +5,17 @@ Changes to QWiP will be documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to the [Calendar Versioning](https://calver.org/) convention.
 
-## [24.0.1] - 2024-05-13
+## [Unreleased]
+
+### Added
+
+- Automated batching by timeline or repetition in the QPU.
+
+### Fixed
+
+- Fixed restrictions on adding more than one loop in the data processor dependency graph.
+
+## [24.05.0] - 2024-05-13
 
 ### Added
 
