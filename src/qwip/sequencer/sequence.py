@@ -3,6 +3,7 @@ from collections.abc import Sequence as TSequence
 from typing import Any, Self
 
 import numpy as np
+import pandas as pd
 from loguru import logger
 from numpy.typing import NDArray
 
@@ -24,13 +25,13 @@ def sequence_implements(np_function):
 
 @qdefine(init=False, slots=False, repr=False, eq=False, order=False)
 class Sequence(np.ndarray):
-    names: tuple[str | None, ...]
-    labels: dict[str, np.ndarray]
+    labels = tuple[pd.Index | None, ...]
 
     def __new__(
         cls,
         array: NDArray[Timeline],
-        names: tuple[str, ...] | None = None,
+        /,
+        # names: tuple[str, ...] | None = None,
         **labels,
     ):
         # Turn array into ndarray and return view as Sequence
@@ -38,31 +39,53 @@ class Sequence(np.ndarray):
         # np.asanyarray unchanged.
         obj = np.asanyarray(array, dtype=object).view(cls)
 
-        if names is None and not labels:
-            return obj
+        if len(labels) > obj.ndim:
+            raise ValueError(
+                f"Number of labels exceeds number of sequence dimensions {obj.shape}."
+            )
 
-        # Validate names
-        if names is not None:
-            names = _expand_names(names, obj.shape)
+        validated = []
+        names = set()
+        for name, label in labels.items():
+            axis = len(validated)
+            match label:
+                case pd.Index(name=label_name):
+                    if name != label_name:
+                        logger.warning(
+                            f"Index name '{label_name}' does not match keyword argument "
+                            f"'{name}'. Using '{label_name}' for axis {axis}"
+                        )
+                    elif label_name is None:
+                        label.name = f"d{axis}"
+                case None:
+                    label = pd.RangeIndex(0, obj.shape[axis], name=name)
+                case _:
+                    label = pd.Index(label, name=name)
 
-            if len(names) != len(obj.shape):
+            if label.shape[0] != obj.shape[axis]:
                 raise ValueError(
-                    f"Length of axis names {names} does not match shape {obj.shape}."
+                    f"Label '{name}' has length {label.shape[0]} that does not match "
+                    f"sequence dimension {obj.shape[axis]} for axis {axis}."
                 )
 
-            unique_names = set()
-            for n in names:
-                if n in unique_names:
-                    raise ValueError(f"{names} contains a duplicate name!")
-                if n is not None:
-                    unique_names.add(n)
+            if name in names:
+                raise ValueError(
+                    f"Sequence axis names must be unique, got duplicate name '{name}' "
+                    f"for axis {axis}."
+                )
 
-            obj.names = names
+            names.add(label.name)
+            validated.append(label)
 
-        if labels:
-            obj.labels = dict()
-            _set_labels(obj, labels, should_raise=True)
+        for axis in range(len(validated), obj.ndim):
+            label = pd.RangeIndex(0, obj.shape[axis], name=f"d{axis}")
+            if label.name in names:
+                raise ValueError(
+                    f"Reserved axis name '{label.name}' is used on the wron axis."
+                )
+            validated.append(label)
 
+        obj.labels = tuple(validated)
         obj.__array_finalize__()
 
         return obj
@@ -72,19 +95,16 @@ class Sequence(np.ndarray):
         if obj is None:
             return
 
-        if not hasattr(self, "names"):
+        if not hasattr(self, "labels"):
             # We copy names from obj if it exists and obj matches the correct shape
-            if hasattr(obj, "names") and self.shape == obj.shape:
-                self.names = obj.names
+            if self.shape == obj.shape:
+                self.labels = obj.labels
             # otherwise set to default
             else:
-                self.names = (None,) * len(self.shape)
-
-        if not hasattr(self, "labels"):
-            self.labels = dict()
-
-            if hasattr(obj, "labels"):
-                _set_labels(self, obj.labels, should_raise=False)
+                self.labels = tuple(
+                    pd.RangeIndex(0, d, name=f"d{axis}")
+                    for axis, d in enumerate(self.shape)
+                )
 
     def __repr__(self) -> str:
         names = (
@@ -147,6 +167,13 @@ class Sequence(np.ndarray):
         return tuple(names)
 
     def __getitem__(self, key):
+        if isinstance(key, str):
+            for label in self.labels:
+                if label.name == key:
+                    return label
+            else:
+                raise KeyError(f"'{key}'")
+
         if _is_advanced_index(key):
             return NotImplemented
 
@@ -234,6 +261,10 @@ class Sequence(np.ndarray):
         return SEQUENCE_FUNCTIONS[func](*args, **kwargs)
 
     @property
+    def names(self) -> tuple[str]:
+        return tuple(lb.name for lb in self.labels)
+
+    @property
     def T(self) -> Self:
         """Returns the transpose of a sequence.
 
@@ -288,7 +319,13 @@ class Sequence(np.ndarray):
         for index in np.ndindex(*arr.shape):
             arr[index] = Timeline()
 
-        return cls(arr, names, **labels)
+        # if names:
+        #     labels = {n: labels.get(n) for n in names}
+        # else:
+        #     labels = {}
+        labels = {}
+
+        return cls(arr, **labels)
 
     @classmethod
     def sweep(cls, tmln: Timeline, /, name=None, label=None, **params) -> Self:
@@ -411,7 +448,7 @@ def _set_labels(
 ) -> Sequence:
     """Sets labels on a Sequence.
 
-    This function os used in both the explicit constructor and
+    This function is used in both the explicit constructor and
     `__array_finalize__` to copy labels from a source dict to the Sequence
     object being created. Label arrays are copied by reference when the
     Sequence object is a view of another ndarray or Sequence. Labels are

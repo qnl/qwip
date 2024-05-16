@@ -1,6 +1,7 @@
 from contextlib import nullcontext as noerror
 
 import numpy as np
+import pandas as pd
 import pytest
 from numpy.testing import assert_array_equal
 
@@ -15,68 +16,63 @@ from qwip.sequencer.timeline import Timeline
 
 class TestSequenceConstruction:
     @pytest.mark.parametrize(
-        "elements,names,labels,shape,error",
+        "elements,labels,names,shape,error",
         [
-            ([], None, dict(), (0,), noerror()),
-            ([Timeline() for _ in range(10)], None, dict(), (10,), noerror()),
+            ([], dict(), ("d0",), (0,), noerror()),
+            ([Timeline() for _ in range(10)], dict(), ("d0",), (10,), noerror()),
             (
                 [[Timeline() for _ in range(4)] for _ in range(3)],
-                (None, None),
-                dict(),
+                dict(d0=None, d1=None),
+                ("d0", "d1"),
                 (3, 4),
                 noerror(),
             ),
             (
                 [[Timeline() for _ in range(4)] for _ in range(15)],
-                ("a", "b"),
                 dict(a=np.arange(15), b=np.arange(4)),
+                ("a", "b"),
                 (15, 4),
                 noerror(),
             ),
             (
                 [Timeline() for _ in range(10)],
+                dict(a=None, b=None),
                 ("a", "b"),
-                dict(),
                 (10,),
                 pytest.raises(ValueError),
             ),
             (
                 [Timeline() for _ in range(5)],
-                ("a",),
                 dict(a=np.arange(10)),
+                ("a",),
                 (5),
                 pytest.raises(ValueError),
             ),
             (
                 [[Timeline() for _ in range(5)] for _ in range(4)],
-                ("a", "a"),
-                dict(),
+                dict(d1=None),
+                ("d0", "d1"),
                 (4, 5),
                 pytest.raises(ValueError),
             ),
         ],
     )
-    def test_explicit_constructor(self, elements, names, labels, shape, error):
+    def test_explicit_constructor(self, elements, labels, names, shape, error):
         with error:
-            s = Sequence(elements, names=names, **labels)
+            s = Sequence(elements, **labels)
 
             # Check shape matches
             assert s.shape == shape
+            assert tuple(lb.shape[0] for lb in s.labels) == s.shape
 
-            if names:
-                assert s.names == names
-
-            if labels:
-                assert s.labels.keys() == labels.keys()
-                # Labels are not copied
-                for l1, l2 in zip(s.labels.values(), labels.values()):
-                    assert l1 is l2
+            # Check names
+            assert s.names == names
 
     def test_label_conversion(self):
-        s = Sequence([Timeline() for _ in range(3)], names=("a",), a=[1, 2, 3])
+        s = Sequence([Timeline() for _ in range(3)], a=[1, 2, 3])
 
-        assert isinstance(s.labels["a"], np.ndarray)
-        assert_array_equal(s.labels["a"], np.array([1, 2, 3]))
+        assert isinstance(s["a"], pd.Index)
+        assert s["a"].equals(pd.Index([1, 2, 3], name="a"))
 
     @pytest.mark.parametrize(
         "arr",
