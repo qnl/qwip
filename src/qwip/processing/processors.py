@@ -1,6 +1,6 @@
 import itertools as it
 from collections.abc import Collection
-from typing import Any, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar
 
 import attrs
 import numpy as np
@@ -18,7 +18,7 @@ from qwip.processing.data_processor import (
     GenericDataProcessor,
     MeasurementResult,
 )
-from qwip.sequencer.compilation import QuantumExecutable
+from qwip.sequencer.compilation import BatchedExecutable, QuantumExecutable
 from qwip.sequencer.sequence import Sequence
 
 M = TypeVar("M", bound=MeasurementResult)
@@ -420,6 +420,49 @@ class HeterodyneDemodulation(DataProcessor):
     def output_keys(self) -> set[str]:
         """Returns the set of output keys returned by the processor."""
         return {...}
+
+
+@DATA_PROCESSORS.register
+@qdefine
+class BatchReindex(DataProcessor):
+    """A data processor for updating timeline/shot indices based on batch information.
+
+    Attributes:
+        angle (float): A phase angle (in radians) to rotate the IQ data by.
+    """
+
+    def run(
+        self, result: IQResult, batch: "BatchedExecutable | None" = None, **kwargs
+    ) -> IQResult:
+        """Updates the timeline/shot indices based on the batch information.
+
+        Args:
+            result: The `IQResult` to reindex.
+
+        Returns:
+            The resulting reindexed `IQResult`.
+        """
+
+        if batch is None or (batch.timeline_index == batch.repetition_index == 0):
+            return result
+
+        result = attrs.evolve(result, data=result.d.copy())
+
+        old_idx = result.d.index
+        if batch.timeline_index:
+            i = old_idx.names.index("timeline")
+            result.d.index = old_idx.set_levels(
+                old_idx.levels[i] + batch.timeline_index, level="timeline"
+            )
+
+        old_idx = result.d.index
+        if batch.repetition_index:
+            i = old_idx.names.index("shot")
+            result.d.index = old_idx.set_levels(
+                old_idx.levels[i] + batch.repetition_index, level="shot"
+            )
+
+        return result
 
 
 @DATA_PROCESSORS.register

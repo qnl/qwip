@@ -1,6 +1,5 @@
 import itertools as it
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,11 +7,11 @@ from numpy.random import default_rng
 from numpy.testing import assert_allclose, assert_array_almost_equal, assert_array_equal
 
 import qwip
-from qwip.backends.qutip import QutipBackend
 from qwip.backends.software import HeterodyneProgram
 from qwip.processing.data_processor import DataProcessor
 from qwip.processing.processors import (
     Averaged,
+    BatchReindex,
     ClassifiedResult,
     GMMClassification,
     HeterodyneDemodulation,
@@ -28,7 +27,11 @@ from qwip.processing.processors import (
     dataframe_real_to_complex,
 )
 from qwip.sequencer import Sequence
-from qwip.sequencer.compilation import QuantumExecutable, QWiPExecutable
+from qwip.sequencer.compilation import (
+    BatchedExecutable,
+    QuantumExecutable,
+    QWiPExecutable,
+)
 
 
 @pytest.mark.parametrize(
@@ -300,6 +303,50 @@ class TestIQResult:
         delayed = result.electrical_delay(1, frequency="freq", inplace=True)
         assert delayed is result
         assert (np.abs(result.data["IQ"] - 1) < 1e-12).all()
+
+
+class TestBatchReindex:
+    @pytest.fixture
+    def result(self):
+        result = IQResult.from_numpy(
+            np.zeros((1024, 20, 2)), labels=("shot", "timeline", "readout")
+        )
+        return result
+
+    def test_relabel_timeline(self, result):
+        batch_exe = BatchedExecutable(
+            exe=QuantumExecutable(), repetitions=1024, timeline_index=10
+        )
+        new_result = BatchReindex()(result, batch=batch_exe)
+
+        expected = pd.Index(10 + np.arange(20), name="timeline")
+        assert new_result.d.index.levels[1].equals(expected)
+
+    def test_relabel_shots(self, result):
+        batch_exe = BatchedExecutable(
+            exe=QuantumExecutable(),
+            repetitions=1024,
+            repetition_index=2048,
+        )
+        new_result = BatchReindex()(result, batch=batch_exe)
+
+        expected = pd.Index(2048 + np.arange(1024), name="shot")
+        assert new_result.d.index.levels[0].equals(expected)
+
+    def test_relabel_both(self, result):
+        batch_exe = BatchedExecutable(
+            exe=QuantumExecutable(),
+            repetitions=1024,
+            timeline_index=40,
+            repetition_index=2048,
+        )
+        new_result = BatchReindex()(result, batch=batch_exe)
+
+        expected = pd.Index(2048 + np.arange(1024), name="shot")
+        assert new_result.d.index.levels[0].equals(expected)
+
+        expected = pd.Index(40 + np.arange(20), name="timeline")
+        assert new_result.d.index.levels[1].equals(expected)
 
 
 class TestIQRotation:
