@@ -101,7 +101,10 @@ class OfflineDatastore(Database):
         return dataset
 
     def _make_assets(
-        self, unnamed: tuple[Any, ...], named: dict[str, Any], name_fmt: str = "{name}"
+        self,
+        unnamed: tuple[Any, ...] = tuple(),
+        named: dict[str, Any] = {},
+        name_fmt: str = "{name}",
     ):
         assets = []
         for obj in unnamed:
