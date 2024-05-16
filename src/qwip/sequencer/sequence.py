@@ -25,7 +25,7 @@ def sequence_implements(np_function):
 
 @qdefine(init=False, slots=False, repr=False, eq=False, order=False)
 class Sequence(np.ndarray):
-    labels = tuple[pd.Index | None, ...]
+    labels: tuple[pd.Index | None, ...]
 
     def __new__(
         cls,
@@ -78,7 +78,8 @@ class Sequence(np.ndarray):
             validated.append(label)
 
         for axis in range(len(validated), obj.ndim):
-            label = pd.RangeIndex(0, obj.shape[axis], name=f"d{axis}")
+            # Use existing or default label if not explicitly specified.
+            label = obj.labels[axis]
             if label.name in names:
                 raise ValueError(
                     f"Reserved axis name '{label.name}' is used on the wron axis."
@@ -97,7 +98,7 @@ class Sequence(np.ndarray):
 
         if not hasattr(self, "labels"):
             # We copy names from obj if it exists and obj matches the correct shape
-            if self.shape == obj.shape:
+            if self.shape == obj.shape and hasattr(obj, "labels"):
                 self.labels = obj.labels
             # otherwise set to default
             else:
@@ -319,11 +320,8 @@ class Sequence(np.ndarray):
         for index in np.ndindex(*arr.shape):
             arr[index] = Timeline()
 
-        # if names:
-        #     labels = {n: labels.get(n) for n in names}
-        # else:
-        #     labels = {}
-        labels = {}
+        if names is not None:
+            labels = {}
 
         return cls(arr, **labels)
 

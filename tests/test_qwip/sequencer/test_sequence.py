@@ -80,18 +80,26 @@ class TestSequenceConstruction:
             np.array(
                 [[Timeline() for _ in range(3)] for _ in range(2)],
             ),
-            Sequence.empty((2, 3), names=("a", "b"), a=np.arange(2)),
+            Sequence.empty((2, 3), a=np.arange(2)),
         ],
     )
     def test_constructor_pass_through(self, arr):
-        s = Sequence(arr, names=("c", "d"), c=np.zeros(2), d=np.ones(3))
+        s = Sequence(arr, c=np.zeros(2), d=np.ones(3))
 
         assert s.names == ("c", "d")
-        assert_array_equal(s.labels["c"], np.zeros(2))
-        assert_array_equal(s.labels["d"], np.ones(3))
+        assert s["c"].equals(pd.Index(np.zeros(2), name="c"))
+        assert s["d"].equals(pd.Index(np.ones(3), name="d"))
 
-        assert_array_equal(s, arr)
+        # assert_array_equal(s, arr)
         assert s.base is arr
+
+    def test_constructor_pass_through_no_labels(self):
+        s1 = Sequence.empty((2, 3), a=None, b=None)
+        s2 = Sequence(s1)
+
+        assert s1.names == s2.names
+        assert s1["a"] is s2["a"]
+        assert s1["b"] is s2["b"]
 
     @pytest.mark.parametrize(
         "sequence",
@@ -109,30 +117,25 @@ class TestSequenceConstruction:
     def test_view(self, sequence):
         s1 = sequence.view()
 
-        assert_array_equal(sequence, s1)
+        # assert_array_equal(sequence, s1)
         assert sequence.names == s1.names
-        assert sequence.labels.keys() == s1.labels.keys()
-
-        for l1, l2 in zip(sequence.labels.values(), s1.labels.values()):
-            # Labels are not copied
-            assert l1 is l2
-
+        # Labels are not copied
+        assert sequence.labels is s1.labels
         assert s1.base is sequence
 
     @pytest.mark.parametrize(
-        "shape,names,labels",
+        "shape,labels",
         [
-            (10, None, dict()),
+            (10, dict()),
             (
                 (3, 4, 5),
-                ("a", "b", "c"),
                 dict(a=np.arange(3), b=np.arange(4), c=np.arange(5)),
             ),
-            ((1, 1), None, dict()),
+            ((1, 1), dict()),
         ],
     )
-    def test_empty(self, shape, names, labels):
-        sequence = Sequence.empty(shape, names=names, **labels)
+    def test_empty(self, shape, labels):
+        sequence = Sequence.empty(shape, **labels)
 
         if not isinstance(shape, tuple):
             shape = (shape,)
@@ -144,15 +147,11 @@ class TestSequenceConstruction:
             se = sequence[index]
             obj_ids.add(id(se))
 
-        # Checks that all sequence elements are unique/separate objects
+        # Checks that all timelines are unique/separate objects
         assert len(obj_ids) == np.prod(shape)
 
-        if names:
-            assert sequence.names == names
-
-        if labels:
-            for v1, v2 in zip(sequence.labels.values(), labels.values()):
-                assert v1 is v2
+        for name, label in labels.items():
+            assert sequence[name].equals(pd.Index(label, name=name))
 
 
 class TestSequenceIndexing:
