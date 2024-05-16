@@ -879,6 +879,7 @@ __all__ = [
     "dataframe_complex_to_real",
     "dataframe_real_to_complex",
     "Averaged",
+    "BatchReindex",
     "ClassifiedResult",
     "GMMClassification",
     "HeterodyneDemodulation",

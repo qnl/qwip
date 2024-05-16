@@ -344,6 +344,14 @@ class TestPipeline:
 
         assert pipeline.resolve_dependencies(dict(R0=None)) == []
 
+    def test_resolve_dependencies_default(self, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+        pipeline.default_processor = HeterodyneDemodulation
+
+        assert pipeline.resolve_dependencies(dict(R0=None)) == [
+            ("ADC", pipeline.get_processor(HeterodyneDemodulation), ())
+        ]
+
     def test_resolve_dependencies_generic(self, single_qubit):
         pipeline = ReadoutPipeline(processors=single_qubit)
         pipeline.add_processor(Averaged())

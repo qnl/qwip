@@ -499,6 +499,7 @@ class ReadoutPipeline:
     dependency_cache: dict[
         tuple[str, type[DataProcessor] | None], MeasurementResult
     ] = field(factory=dict)
+    default_processor: type[DataProcessor] | None = None
 
     def result_types(self) -> set[type[MeasurementResult]]:
         """Returns the set of all MeasurementResult subclasses that could be output."""
@@ -729,6 +730,9 @@ class ReadoutPipeline:
                             f" got {processor_type}."
                         )
 
+            # If processor_type is not specified, use default processor.
+            processor_type = processor_type or self.default_processor
+
             if processor_type is None:
                 dependencies = [] + generics[::-1]
             else:
@@ -886,7 +890,12 @@ class ReadoutPipeline:
 
         return {
             key: self.dependency_cache[
-                (key, get_origin(processor_type) or processor_type)
+                (
+                    key,
+                    get_origin(processor_type)
+                    or processor_type
+                    or self.default_processor,
+                )
             ]
             for key, processor_type in output_types.items()
         }
