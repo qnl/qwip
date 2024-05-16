@@ -19,6 +19,7 @@ from qwip.processing.data_processor import (
 )
 from qwip.processing.processors import (
     Averaged,
+    BatchReindex,
     ClassifiedResult,
     GMMClassification,
     HeterodyneDemodulation,
@@ -156,6 +157,7 @@ class TestProcessingGraph:
         assert DATA_PROCESSORS.data_processors() == {
             HeterodyneDemodulation,
             IQRotation,
+            BatchReindex,
             GMMClassification,
             ReadoutBitstring,
             ReadoutHistogram,
@@ -202,6 +204,7 @@ class TestProcessingGraph:
         deps = DATA_PROCESSORS.get_dependencies(StatePopulations)
         assert deps == [
             HeterodyneDemodulation,
+            BatchReindex,
             IQRotation,
             GMMClassification,
             ReadoutBitstring,

@@ -235,29 +235,75 @@ class DataProcessorGraph:
 
     def _unroll_loop(
         self,
-        cls: type[DataProcessor],
         result_type: type[MeasurementResult],
         before: type[DataProcessor] | None = None,
-        after: type[DataProcessor] = None,
+        after: type[DataProcessor] | None = None,
     ) -> tuple[int, int]:
+        """Unrolls a loop in the processing graph.
+
+        When the input and output result types for a processor are the same, we will
+        have a loop/cycle in the processing graph. This also creates an ambiguous
+        ordering when we have multiple processors with the same input and output types.
+        When specifying the ordering, only one of `before` or `after` should be given.
+
+        Args:
+            result_type: The input/output result type for the processor.
+            before: The data processor to be added will be placed immediately before the
+                processor specified by `before`.
+            after: The data processor to be added will be placed immediately after the
+                processor specified by `after`.
+
+        Returns:
+            The new input and output node indices for the edge/data processor to add.
+        """
         name = result_type.__name__
+
         if name in self.index_map:
-            print(self.index_map[name])
             match self.index_map[name]:
                 case tuple(nodes):
-                    # We need a way to resolve the ambiguity here. Since it is
-                    # no longer possible to determine where the node should go
-                    raise NotImplementedError()
-                case prev_v:
                     ...
+                case v:
+                    nodes = (v,)
 
-            self.index_map[name] = (
-                prev_v,
-                new_v := self.graph.add_node(result_type),
-            )
+            if before and after:
+                raise ValueError("Only one of `before` or `after` should be specified.")
+            elif before:
+                prev_in, _ = self.graph.get_edge_endpoints_by_index(
+                    self.index_map[before.__name__]
+                )
 
-            self.replace_input_node(prev_v, new_v)
-            v_in, v_out = prev_v, new_v
+                idx = nodes.index(prev_in)
+                self.index_map[name] = (
+                    *nodes[:idx],
+                    new_v := self.graph.add_node(result_type),
+                    nodes[idx:],
+                )
+
+                self.replace_output_node(prev_in, new_v)
+                v_in, v_out = new_v, prev_in
+            elif after:
+                _, prev_out = self.graph.get_edge_endpoints_by_index(
+                    self.index_map[after.__name__]
+                )
+
+                idx = nodes.index(prev_out)
+                self.index_map[name] = (
+                    *nodes[: idx + 1],
+                    new_v := self.graph.add_node(result_type),
+                    *nodes[idx + 1 :],
+                )
+
+                self.replace_input_node(prev_out, new_v)
+                v_in, v_out = prev_out, new_v
+            else:
+                prev_out = nodes[-1]
+                self.index_map[name] = (
+                    prev_out,
+                    new_v := self.graph.add_node(result_type),
+                )
+
+                self.replace_input_node(prev_out, new_v)
+                v_in, v_out = prev_out, new_v
 
         else:
             self.registered[name] = result_type
@@ -290,12 +336,10 @@ class DataProcessorGraph:
                 cls, replace_generic=True
             )
 
-            # We need to unroll the loop to preserve the DAG if the processor
-            # outputs the same type as it takes in.
             if in_type == out_type:
-                v_in, v_out = self._unroll_loop(
-                    cls, in_type, before=before, after=after
-                )
+                # We need to unroll the loop to preserve the DAG if the processor
+                # outputs the same type as it takes in.
+                v_in, v_out = self._unroll_loop(in_type, before=before, after=after)
 
             else:
                 # If processor connects two different result types
@@ -319,7 +363,6 @@ class DataProcessorGraph:
                     case v_out:
                         ...
 
-            print(before, after)
             self.registered[cls.__name__] = cls
             index = self.index_map[cls.__name__] = self.graph.add_edge(
                 v_in, v_out, DataProcessorMetadata(cls=cls, before=before, after=after)
