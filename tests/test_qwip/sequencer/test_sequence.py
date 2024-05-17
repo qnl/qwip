@@ -7,8 +7,10 @@ from numpy.testing import assert_array_equal
 
 from qwip.sequencer.sequence import (
     Sequence,
+    _combine_indices,
     _is_advanced_index,
-    broadcast_names_and_labels,
+    _is_default_label,
+    broadcast_labels,
     stack,
 )
 from qwip.sequencer.timeline import Timeline
@@ -73,6 +75,14 @@ class TestSequenceConstruction:
 
         assert isinstance(s["a"], pd.Index)
         assert s["a"].equals(pd.Index([1, 2, 3], name="a"))
+
+    def test_multiindex_name(self):
+        s = Sequence(
+            [Timeline() for _ in range(2)],
+            d0=pd.MultiIndex.from_tuples([("a", 1), ("b", 2)], names=["l", "n"]),
+        )
+
+        assert s.names == ("l,n",)
 
     @pytest.mark.parametrize(
         "arr",
@@ -154,6 +164,142 @@ class TestSequenceConstruction:
             assert sequence[name].equals(pd.Index(label, name=name))
 
 
+class TestBroadcastLabels:
+    def test_is_default_label(self):
+        seq = Sequence.empty(
+            (1, 2, 3, 4, 5),
+            d0=None,
+            d1=np.ones(2),
+            d2c=None,
+            d03=None,
+            axis4=np.r_[:5] ** 2,
+        )
+
+        expected = [True, False, False, True, False]
+
+        for axis, expect in enumerate(expected):
+            assert _is_default_label(seq, axis) is expect
+
+    @pytest.mark.parametrize(
+        "indices,dim,expect",
+        [
+            (
+                (
+                    pd.Index(["a", "b", "c"], name="letters"),
+                    pd.RangeIndex(0, 3, name="numbers"),
+                ),
+                3,
+                pd.MultiIndex.from_tuples(
+                    [("a", 0), ("b", 1), ("c", 2)], names=["letters", "numbers"]
+                ),
+            ),
+            ((pd.RangeIndex(10, name="range"),), 10, pd.RangeIndex(10, name="range")),
+            (
+                (pd.Index(["a"], name="letters"), pd.RangeIndex(5, name="numbers")),
+                5,
+                pd.MultiIndex.from_product(
+                    [["a"], np.arange(5)], names=["letters", "numbers"]
+                ),
+            ),
+            (
+                (
+                    pd.RangeIndex(10, name="first"),
+                    pd.MultiIndex.from_product(
+                        [np.arange(2), np.arange(5)], names=["second", "third"]
+                    ),
+                    pd.Index(["fourth"], name="fourth"),
+                ),
+                10,
+                pd.MultiIndex.from_arrays(
+                    [
+                        np.arange(10),
+                        np.repeat(np.arange(2), 5),
+                        np.tile(np.arange(5), 2),
+                        ["fourth"] * 10,
+                    ],
+                    names=["first", "second", "third", "fourth"],
+                ),
+            ),
+            (
+                (pd.RangeIndex(10, name="first"), pd.RangeIndex(10, name="second")),
+                10,
+                pd.MultiIndex.from_tuples(
+                    [(i, i) for i in range(10)], names=["first", "second"]
+                ),
+            ),
+            (
+                (pd.RangeIndex(10, name="first"), pd.RangeIndex(10, name="first")),
+                10,
+                pd.RangeIndex(10, name="first"),
+            ),
+            (
+                (
+                    pd.RangeIndex(5, name="duplicate"),
+                    pd.RangeIndex(5, name="duplicate"),
+                    pd.Index(["a"], name="unique"),
+                ),
+                5,
+                pd.MultiIndex.from_product(
+                    [np.arange(5), ["a"]], names=["duplicate", "unique"]
+                ),
+            ),
+        ],
+    )
+    def test_combine_indices(self, indices, dim, expect):
+        combined = _combine_indices(*indices, dim=dim)
+        assert combined.equals(expect)
+
+        if isinstance(expect, pd.MultiIndex):
+            assert combined.names == expect.names
+            assert combined.levshape == expect.levshape
+        else:
+            assert combined.name == expect.name
+
+    def test_broadcast_labels_default(self):
+        s1 = Sequence.empty((4,))
+        s2 = Sequence.empty((5, 1))
+        s3 = Sequence.empty((2, 1, 1))
+
+        labels = broadcast_labels(s1, s2, s3)
+
+        dims = (2, 5, 4)
+        names = ("d0", "d1", "d2")
+        for label, name, dim in zip(labels, names, dims):
+            assert label.equals(pd.RangeIndex(dim))
+            assert label.name == name
+
+    def test_broadcast_labels_simple(self):
+        s1 = Sequence.empty((4,))
+        s2 = Sequence.empty((5, 1), first=np.arange(5), second=["a"])
+
+        labels = broadcast_labels(s1, s2)
+
+        assert [lb.name for lb in labels] == ["first", "second"]
+        assert labels[0].equals(pd.RangeIndex(5))
+        assert labels[1].equals(pd.Index(["a"] * 4))
+
+    def test_broadcast_labels_duplicate(self):
+        s1 = Sequence.empty((2, 2), d0=None, second=[2, 4])
+        s2 = Sequence.empty((2,), second=[2, 4])
+
+        labels = broadcast_labels(s1, s2)
+
+        assert [lb.name for lb in labels] == ["d0", "second"]
+        assert labels[0].equals(pd.RangeIndex(2))
+        assert labels[1].equals(pd.Index([2, 4]))
+
+    def test_broadcast_labels_multiindex(self):
+        prep = [0, 1, 2, 3]
+        post = ["I", "X", "Y", "Z"]
+        s1 = Sequence.empty(4, prep=prep)
+        s2 = Sequence.empty(4, post=post)
+
+        labels = broadcast_labels(s1, s2)
+        assert [lb.name for lb in labels] == ["prep,post"]
+        assert labels[0].names == ["prep", "post"]
+        assert labels[0].equals(pd.MultiIndex.from_arrays([prep, post]))
+
+
 class TestSequenceIndexing:
     @pytest.mark.parametrize(
         "index,is_advanced",
@@ -179,76 +325,155 @@ class TestSequenceIndexing:
     def test_basic_indexing(self, start_shape, index, expected_shape):
         s = Sequence.empty(start_shape)
 
-        assert s[index].shape == expected_shape
-        assert s.labels == dict()
+        view = s[index]
+        assert view.shape == expected_shape
+        assert len(view.labels) == view.ndim
+        assert view.names == tuple(f"d{i}" for i in range(view.ndim))
+
+        for axis, dim in enumerate(view.shape):
+            assert len(view.labels[axis]) == dim
 
     @pytest.mark.parametrize(
-        "shape,names,index,expected",
+        "shape,labels,index,expected",
         [
-            ((3, 4, 5), ("a", "b", "c"), np.s_[0, :, :], ("b", "c")),
-            ((3, 4), ("a", "b"), np.s_[:, np.newaxis, :], ("a", None, "b")),
             (
                 (3, 4, 5),
-                ("a", "b", "c"),
-                np.s_[np.newaxis, 0, ..., :],
-                (None, "b", "c"),
+                (
+                    pd.Index(["a", "b", "c"], name="letters"),
+                    pd.RangeIndex(4, name="numbers"),
+                    pd.Index([5, 4, 3, 2, 1], name="reversed"),
+                ),
+                np.s_[0, :2, 1::2],
+                (pd.RangeIndex(2, name="numbers"), pd.Index([4, 2], name="reversed")),
+            ),
+            (
+                (3, 4),
+                (pd.RangeIndex(3, name="a"), pd.RangeIndex(4, name="b")),
+                np.s_[:, np.newaxis, :],
+                (
+                    pd.RangeIndex(3, name="a"),
+                    pd.RangeIndex(1, name="d1"),
+                    pd.RangeIndex(4, name="b"),
+                ),
+            ),
+            (
+                (5,),
+                (pd.RangeIndex(5, name="a"),),
+                np.s_[::-1],
+                (pd.RangeIndex(4, -1, -1, name="a"),),
+            ),
+            (
+                (3, 4, 5),
+                (
+                    pd.RangeIndex(3, name="d0"),
+                    pd.RangeIndex(4, name="d1"),
+                    pd.RangeIndex(5, name="d2"),
+                ),
+                np.s_[np.newaxis, :, 0, np.newaxis, ...],
+                (
+                    pd.RangeIndex(1, name="d0"),
+                    pd.RangeIndex(3, name="d1"),
+                    pd.RangeIndex(1, name="d2"),
+                    pd.RangeIndex(5, name="d3"),
+                ),
+            ),
+            (
+                (2, 3, 4),
+                (
+                    pd.RangeIndex(2, name="a"),
+                    2 + pd.RangeIndex(3, name="d1"),
+                    pd.RangeIndex(4, name="c"),
+                ),
+                np.s_[0],
+                (
+                    2 + pd.RangeIndex(3, name="d0"),
+                    pd.RangeIndex(4, name="c"),
+                ),
             ),
         ],
     )
-    def test_names_from_index(self, shape, names, index, expected):
-        s = Sequence.empty(shape, names=names)
+    def test_labels_from_index(self, shape, labels, index, expected):
+        s = Sequence.empty(shape, **{lb.name: lb for lb in labels})
 
         expanded = s._expand_basic_index(index)
-        updated_names = s._get_names_from_index(expanded)
+        labels = s._get_labels_from_index(expanded)
 
-        assert updated_names == expected
+        assert len(labels) == len(expected)
+
+        for lb, expect in zip(labels, expected):
+            assert lb.name == expect.name
+            assert lb.equals(expect)
 
     @pytest.mark.parametrize(
-        "shape,names,index,expected",
+        "shape,labels,index,expected",
         [
-            ((5,), ("a",), np.s_[:2], dict(a=np.arange(5)[:2])),
             (
-                (1, 2, 10),
-                (None, None, "c"),
-                np.s_[:, :, 1::2],
-                dict(c=np.arange(10)[1::2]),
+                (2, 5, 4, 5),
+                (
+                    pd.RangeIndex(2, name="d0"),
+                    pd.Index([3, 1, 4, 1, 5], name="pi"),
+                    pd.Index(list("abcd"), name="letters"),
+                    -pd.RangeIndex(5, name="negative"),
+                ),
+                np.s_[np.newaxis, :-1, -4:3, np.newaxis, 1::2, ::-1],
+                (
+                    pd.RangeIndex(1, name="d0"),
+                    pd.RangeIndex(1, name="d1"),
+                    pd.Index([1, 4], name="pi"),
+                    pd.RangeIndex(1, name="d3"),
+                    pd.Index(["b", "d"], name="letters"),
+                    pd.Index([-4, -3, -2, -1, 0], name="negative"),
+                ),
             ),
-            ((5, 4, 3), ("a", "b", "c"), np.s_[-3:, 1, 1], dict(a=np.arange(5)[-3:])),
-            ((10, 10, 5), ("a", None, "c"), np.s_[0], dict(c=np.arange(5))),
             (
-                (10, 11, 12),
-                ("a", "b", "c"),
+                (10, 2),
+                (pd.RangeIndex(10, name="a"), pd.Index(["a", "b"], name="alphabet")),
+                np.s_[4],
+                (pd.Index(["a", "b"], name="alphabet"),),
+            ),
+            (
+                (2, 3, 4),
+                (
+                    pd.RangeIndex(2, name="d0"),
+                    pd.RangeIndex(3, name="d1"),
+                    pd.RangeIndex(4, name="d2"),
+                ),
                 np.s_[...],
-                dict(a=np.arange(10), b=np.arange(11), c=np.arange(12)),
-            ),
-            ((3, 4, 5), ("a", "b", "c"), np.s_[:, 2, ..., 3], dict(a=np.arange(3))),
-            (
-                (4, 8, 2),
-                ("a", "b", "c"),
-                np.s_[0, :, :],
-                dict(b=np.arange(8), c=np.arange(2)),
+                (
+                    pd.RangeIndex(2, name="d0"),
+                    pd.RangeIndex(3, name="d1"),
+                    pd.RangeIndex(4, name="d2"),
+                ),
             ),
             (
-                (4, 4),
-                ("a", "b"),
-                np.s_[np.newaxis, :, ::2],
-                dict(a=np.arange(4), b=np.arange(4)[::2]),
+                (10,),
+                (
+                    pd.MultiIndex.from_product(
+                        [["a", "b"], list(range(5))], names=["letters", "numbers"]
+                    ),
+                ),
+                np.s_[::5],
+                (
+                    pd.MultiIndex.from_tuples(
+                        [("a", 0), ("b", 0)], names=["letters", "numbers"]
+                    ),
+                ),
             ),
         ],
     )
-    def test_basic_indexing_with_names_and_labels(self, shape, names, index, expected):
-        labels = {n: np.arange(dim) for n, dim in zip(names, shape) if n}
+    def test_basic_indexing_with_labels(self, shape, labels, index, expected):
+        # labels = {n: np.arange(dim) for n, dim in zip(names, shape) if n}
 
-        s = Sequence.empty(shape, names=names, **labels)
+        s = Sequence.empty(
+            shape, **{lb.name or f"d{i}": lb for i, lb in enumerate(labels)}
+        )
         view = s[index]
 
-        assert view.labels.keys() == expected.keys()
-        for n in view.labels:
-            assert_array_equal(view.labels[n], expected[n])
+        assert view.names == tuple(lb.name or ",".join(lb.names) for lb in expected)
+        assert view.shape == tuple(len(lb) for lb in expected)
 
-        # Check that view labels are also views of the original labels
-        for n in view.labels:
-            assert s.labels[n] is view.labels[n].base
+        for lb, expect in zip(view.labels, expected):
+            assert lb.equals(expect)
 
 
 class TestSequenceShaping:
