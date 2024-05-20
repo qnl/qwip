@@ -82,7 +82,7 @@ class TestSequenceConstruction:
             d0=pd.MultiIndex.from_tuples([("a", 1), ("b", 2)], names=["l", "n"]),
         )
 
-        assert s.names == ("l,n",)
+        assert s.names == ("l_n",)
 
     @pytest.mark.parametrize(
         "arr",
@@ -100,7 +100,7 @@ class TestSequenceConstruction:
         assert s["c"].equals(pd.Index(np.zeros(2), name="c"))
         assert s["d"].equals(pd.Index(np.ones(3), name="d"))
 
-        # assert_array_equal(s, arr)
+        assert_array_equal(s, arr)
         assert s.base is arr
 
     def test_constructor_pass_through_no_labels(self):
@@ -295,7 +295,7 @@ class TestBroadcastLabels:
         s2 = Sequence.empty(4, post=post)
 
         labels = broadcast_labels(s1, s2)
-        assert [lb.name for lb in labels] == ["prep,post"]
+        assert [lb.name for lb in labels] == ["prep_post"]
         assert labels[0].names == ["prep", "post"]
         assert labels[0].equals(pd.MultiIndex.from_arrays([prep, post]))
 
@@ -462,14 +462,12 @@ class TestSequenceIndexing:
         ],
     )
     def test_basic_indexing_with_labels(self, shape, labels, index, expected):
-        # labels = {n: np.arange(dim) for n, dim in zip(names, shape) if n}
-
         s = Sequence.empty(
             shape, **{lb.name or f"d{i}": lb for i, lb in enumerate(labels)}
         )
         view = s[index]
 
-        assert view.names == tuple(lb.name or ",".join(lb.names) for lb in expected)
+        assert view.names == tuple(lb.name or "_".join(lb.names) for lb in expected)
         assert view.shape == tuple(len(lb) for lb in expected)
 
         for lb, expect in zip(view.labels, expected):
@@ -558,12 +556,12 @@ class TestSequenceJoins:
                     ),
                 ],
                 1,
-                {
-                    "letters,numbers": pd.MultiIndex.from_tuples(
+                dict(
+                    letters_numbers=pd.MultiIndex.from_tuples(
                         [("a", 0), ("b", 1)], names=["letters", "numbers"]
                     ),
-                    "d1": pd.Index([0, 1, 0, 1, 2], name="d0"),
-                },
+                    d1=pd.Index([0, 1, 0, 1, 2], name="d0"),
+                ),
             ),
             (
                 [
@@ -589,151 +587,158 @@ class TestSequenceJoins:
                 shape.append(seqs[0].shape[dim])
 
         assert c.shape == tuple(shape)
-        assert c.names == tuple(expected.keys())
+        assert c.names == tuple(expected)
 
         for i, (label, expect) in enumerate(zip(c.labels, expected.values())):
             assert label.equals(expect)
             assert len(label) == shape[i]
 
-        # assert c.labels.keys() == labels.keys()
-
-        # for v1, v2 in zip(c.labels.values(), labels.values()):
-        #     assert_array_equal(v1, v2)
-
     @pytest.mark.parametrize(
-        "seqs,axis,names,labels,error",
+        "seqs,axis,expected",
         [
             (
-                [Sequence.empty(10, names=("a",), a=np.arange(10)), Sequence.empty(10)],
+                [Sequence.empty(10, a=None), Sequence.empty(10), Sequence.empty(10)],
                 -1,
-                ("a", None),
-                dict(a=np.arange(10)),
-                noerror(),
+                dict(a=pd.RangeIndex(10, name="a"), d1=pd.RangeIndex(3, name="d1")),
+            ),
+            (
+                [Sequence.empty(5), Sequence.empty(5)],
+                0,
+                dict(d0=pd.RangeIndex(2, name="d0"), d1=pd.RangeIndex(5, name="d1")),
             ),
             (
                 [
-                    Sequence.empty((2, 4, 5), names=("a", ...), a=np.arange(2)),
-                    Sequence.empty((2, 4, 5), names=(..., "d"), d=np.arange(5)),
-                    Sequence.empty((2, 4, 5), names=(None, "c", None), c=np.arange(4)),
+                    Sequence.empty((4, 2), f1=pd.RangeIndex(4), I=[0, 2]),
+                    Sequence.empty((4, 2), f2=pd.RangeIndex(4, 8)),
                 ],
-                1,
-                ("a", None, "c", "d"),
-                dict(a=np.arange(2), c=np.arange(4), d=np.arange(5)),
-                noerror(),
+                0,
+                dict(
+                    d0=pd.RangeIndex(2, name="d0"),
+                    f1_f2=pd.MultiIndex.from_tuples(
+                        [(i, i + 4) for i in range(4)], names=["f1", "f2"]
+                    ),
+                    I=pd.Index([0, 2], name="I"),
+                ),
             ),
         ],
     )
-    def test_stack(self, seqs, axis, names, labels, error):
-        with error:
-            c = np.stack(seqs, axis=axis)
+    def test_stack(self, seqs, axis, expected):
+        c = np.stack(seqs, axis=axis)
 
-            shape = list(seqs[0].shape)
-            axis = len(shape) + 1 + axis if axis < 0 else axis
-            shape.insert(axis, len(seqs))
+        shape = list(seqs[0].shape)
+        axis = len(shape) + 1 + axis if axis < 0 else axis
+        shape.insert(axis, len(seqs))
 
-            assert c.shape == tuple(shape)
-            assert c.names == names
+        assert c.shape == tuple(shape)
+        assert c.names == tuple(expected)
 
-            # Ordering is not guaranteed
-            assert set(c.labels.keys()) == set(labels.keys())
+        for i, (label, expect) in enumerate(zip(c.labels, expected.values())):
+            assert label.equals(expect)
+            assert len(label) == shape[i]
 
-            for n, label in c.labels.items():
-                assert_array_equal(label, labels[n])
+    @pytest.mark.parametrize(
+        "label,expect",
+        [
+            ("seq", pd.RangeIndex(2, name="seq")),
+            (pd.Index([0.5, 0.6], name="seq"), pd.Index([0.5, 0.6], name="seq")),
+        ],
+    )
+    def test_stack_with_label(self, label, expect):
+        a = Sequence.empty((3, 4), d0=None, d1=list("abcd"))
+        b = Sequence.empty((3, 4), d0=[0, 2, 4])
 
-    def test_stack_with_sequence_data(self):
-        a = Sequence.empty((3, 4), names=("b", "c"), b=np.arange(3), c=np.arange(4))
-        b = Sequence.empty((3, 4), names=("b", "c"), c=np.arange(4))
-
-        c = stack((a, b), axis=-3, name="a", label=np.arange(2))
+        c = stack((a, b), axis=0, label=label)
 
         assert c.shape == (2, 3, 4)
-        assert c.names == ("a", "b", "c")
-        assert set(c.labels.keys()) == set("abc")
+        assert c.names == (expect.name, "d1", "d2")
+        assert c["d1"].equals(pd.Index([0, 2, 4]))
+        assert c["d2"].equals(pd.Index(["a", "b", "c", "d"]))
+        assert c[expect.name].equals(expect)
 
-        for i, n in enumerate("abc"):
-            assert_array_equal(c.labels[n], np.arange(i + 2))
+    def test_stack_label_error(self):
+        with pytest.raises(ValueError):
+            stack([Sequence.empty(2), Sequence.empty(2)], label=pd.RangeIndex(10))
 
 
 class TestSequenceUniversalFunctions:
     @pytest.mark.parametrize(
-        "a,b,shape,names,labels",
+        "a,b,shape,expected",
         [
             (
-                Sequence.empty((10,), names=("a",), a=np.arange(10)),
+                Sequence.empty((10,), a=np.arange(10)),
                 Sequence.empty((10,)),
                 (10,),
-                ("a",),
-                dict(a=np.arange(10)),
+                dict(a=pd.RangeIndex(10, name="a")),
             ),
             (
-                Sequence.empty((3, 2, 1), names=("a", ...), a=np.arange(3)),
-                Sequence.empty((1, 2, 3), names=(..., "b", "c"), c=np.arange(3)),
+                Sequence.empty((3, 2, 1), a=np.arange(3)),
+                Sequence.empty((1, 2, 3), d0=None, b=None, c=np.arange(3)),
                 (3, 2, 3),
-                ("a", "b", "c"),
-                dict(a=np.arange(3), c=np.arange(3)),
+                dict(
+                    a=pd.RangeIndex(3, name="a"),
+                    b=pd.RangeIndex(2, name="b"),
+                    c=pd.RangeIndex(3, name="c"),
+                ),
             ),
             (
-                Sequence.empty((2, 3, 1), names=(..., "b", "c"), c=np.ones(1)),
-                Sequence.empty((4,), names=("c",), c=np.ones(4)),
+                Sequence.empty((2, 3, 1), d0=None, d1=None, c=np.ones(1)),
+                Sequence.empty((4,), c=np.ones(4)),
                 (2, 3, 4),
-                (None, "b", "c"),
-                dict(c=np.ones(4)),
+                dict(
+                    d0=pd.RangeIndex(2, name="d0"),
+                    d1=pd.RangeIndex(3, name="d1"),
+                    c=pd.Index(np.ones(4), name="c"),
+                ),
             ),
             (
-                Sequence.empty(4, names=("a",), a=np.arange(4)),
-                Sequence.empty(4, names=("a",), a=np.ones(4)),
+                Sequence.empty(4, a=np.arange(4)),
+                Sequence.empty(4, b=np.ones(4)),
                 (4,),
-                ("a",),
-                dict(),
+                dict(
+                    a_b=pd.MultiIndex.from_tuples(
+                        list(enumerate([1] * 4)), names=["a", "b"]
+                    )
+                ),
             ),
         ],
     )
-    def test_ufunc_call(self, a, b, shape, names, labels):
+    def test_ufunc_call(self, a, b, shape, expected):
         c = a + b
 
         assert c.shape == shape
-        assert c.names == names
-        assert set(c.labels.keys()) == set(labels.keys())
+        assert c.names == tuple(expected)
 
-        for n, label in c.labels.items():
-            assert_array_equal(label, labels[n])
+        for label, expect in zip(c.labels, expected.values()):
+            assert label.equals(expect)
 
     @pytest.mark.parametrize(
-        "seq,kwargs,shape,names,labels",
+        "seq,kwargs,shape,expected",
         [
             (
-                Sequence.empty((10,), names=("a",), a=np.arange(10)),
+                Sequence.empty((10,), a=None),
                 {},
-                tuple(),
                 tuple(),
                 {},
             ),
             (
-                Sequence.empty(
-                    (3, 2, 1), names=("a", "b", "c"), a=np.arange(3), b=np.arange(2)
-                ),
+                Sequence.empty((3, 2, 1), a=None, b=None, c=None),
                 dict(axis=1),
                 (3, 1),
-                ("a", "c"),
-                dict(a=np.arange(3)),
+                dict(a=pd.RangeIndex(3, name="a"), c=pd.RangeIndex(1, name="c")),
             ),
             (
-                Sequence.empty(
-                    (3, 2), names=("a", "b"), a=np.arange(3), b=np.arange(2)
-                ),
+                Sequence.empty((3, 2), a=None, b=None),
                 dict(axis=1, keepdims=True),
                 (3, 1),
-                ("a", "b"),
-                dict(a=np.arange(3)),
+                dict(a=pd.RangeIndex(3, name="a"), b=pd.RangeIndex(1, name="d1")),
             ),
         ],
     )
-    def test_ufunc_reduce(self, seq, kwargs, shape, names, labels):
+    def test_ufunc_reduce(self, seq, kwargs, shape, expected):
         result = np.sum(seq, **kwargs)
 
         assert result.shape == shape
-        assert result.names == names
-        assert set(result.labels.keys()) == set(labels.keys())
+        assert result.names == tuple(expected)
 
-        for n, label in result.labels.items():
-            assert_array_equal(label, labels[n])
+        for label, expect in zip(result.labels, expected.values()):
+            assert label.equals(expect)

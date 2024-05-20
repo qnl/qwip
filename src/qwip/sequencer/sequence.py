@@ -34,7 +34,6 @@ class Sequence(np.ndarray):
         cls,
         array: NDArray[Timeline],
         /,
-        # names: tuple[str, ...] | None = None,
         **labels,
     ):
         # Turn array into ndarray and return view as Sequence
@@ -53,10 +52,10 @@ class Sequence(np.ndarray):
             axis = len(validated)
             match label:
                 case pd.MultiIndex():
-                    label.name = ",".join(label.names)
+                    label.name = "_".join(label.names)
                 case pd.Index(name=label_name):
                     if label_name is None:
-                        label.name = f"d{axis}"
+                        label.name = name
                     elif name != label_name:
                         logger.warning(
                             f"Index name '{label_name}' does not match keyword argument "
@@ -175,7 +174,7 @@ class Sequence(np.ndarray):
         for axis, label in enumerate(labels):
             default = f"d{axis}"
             if isinstance(label, pd.MultiIndex):
-                label.name = ",".join(label.names)
+                label.name = "_".join(label.names)
 
             if DIM_REGEX.fullmatch(label.name) and label.name != default:
                 label.name = default
@@ -236,7 +235,7 @@ class Sequence(np.ndarray):
         if len(results) == 1:
             results = results[0]
 
-            if method == "reduce" and not kwargs.get("keepdims", False):
+            if method == "reduce":
                 axis = kwargs.get("axis", 0)
 
                 if axis is None:
@@ -244,7 +243,16 @@ class Sequence(np.ndarray):
                 else:
                     axis = (axis,) if isinstance(axis, int) else axis
                     axis = tuple(d + inputs[0].ndim if d < 0 else d for d in axis)
-                    labels = tuple(lb for i, lb in enumerate(labels) if i not in axis)
+
+                    if kwargs.get("keepdims", False):
+                        labels = tuple(
+                            pd.RangeIndex(1, name=lb.name) if i in axis else lb
+                            for i, lb in enumerate(labels)
+                        )
+                    else:
+                        labels = tuple(
+                            lb for i, lb in enumerate(labels) if i not in axis
+                        )
 
             for axis, label in enumerate(results.labels):
                 if len(label) != results.shape[axis]:
@@ -332,7 +340,7 @@ class Sequence(np.ndarray):
         """Create a sequence from the sequence element."""
 
         shape = min(len(arr) for arr in params.values())
-        name = name or ",".join(params)
+        name = name or "_".join(params)
 
         values = list(zip(*params.values()))
 
@@ -555,7 +563,7 @@ def _combine_indices(*indices, dim: int) -> pd.Index:
         return pd.Index(combined[combined.columns[0]])
 
     label = pd.MultiIndex.from_frame(combined)
-    label.name = ",".join(label.names)
+    label.name = "_".join(label.names)
     return label
 
 
@@ -660,8 +668,7 @@ def concatenate(
 def stack(
     seqs: Sequence,
     axis: int = 0,
-    name: str | None = None,
-    label: np.ndarray | None = None,
+    label: pd.Index | str | None = None,
     **kwargs,
 ) -> Sequence:
     """Joins sequences along a new axis.
@@ -669,8 +676,8 @@ def stack(
     Args:
         seqs: An iterable of sequences to concatenate.
         axis: Specifies the new axis in the stacked sequences.
-        name: A name for the new axis.
-        label: Labels for the new axis. Must match the number of sequences.
+        label: Labels for the new axis. Must match the number of sequences. To specify
+            a label name but not label values, a string can be given.
 
     Returns:
         The joined sequences.
@@ -681,31 +688,41 @@ def stack(
     if axis < 0:
         axis = seq.ndim + axis
 
-    names, labels = broadcast_names_and_labels(*seqs, raise_on_conflict=True)
+    labels = broadcast_labels(*seqs)
+    names = [lb.name for lb in labels]
 
-    if name in names and name is not None:
-        raise ValueError(f"Axis name {name} is already in names. {names}")
-    else:
-        names.insert(axis, name)
+    N = len(seqs)
+    default_name = f"d{axis}"
+    match label:
+        case None:
+            label = pd.RangeIndex(N, name=default_name)
+        case str():
+            label = pd.RangeIndex(N, name=label)
+        case pd.Index():
+            label.name = label.name or default_name
+        case _:
+            raise ValueError(f"Label must be a pd.Index, str, or `None`, got {label}.")
 
-    if label is not None:
-        if name is None:
-            raise ValueError("Cannot add a label for an axis with no name.")
+    if name := label.name in names:
+        logger.warning(
+            f"Axis name {name} is already in names. Falling back to default name "
+            f"'d{axis}' for axis {axis}."
+        )
 
-        if label.shape[0] != seq.shape[axis]:
-            raise ValueError(
-                f"Label has shape {label.shape} that is not compatible with "
-                f"shape {seq.shape} on axis {axis}."
-            )
+        label.name = f"d{axis}"
 
-        labels[name] = label
+    if len(label) != N:
+        raise ValueError(
+            f"Label length ({len(label)}) does not match number of sequences ({N})."
+        )
 
-    seq.names = tuple(names)
+    labels.insert(axis, label)
 
-    for n in seq.names:
-        if (l := labels.get(n)) is not None:
-            seq.labels[n] = l
+    for a, label in enumerate(labels):
+        if DIM_REGEX.fullmatch(label.name):
+            label.name = f"d{a}"
 
+    seq.labels = tuple(labels)
     return seq
 
 
