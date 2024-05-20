@@ -178,7 +178,7 @@ class TestBroadcastLabels:
         expected = [True, False, False, True, False]
 
         for axis, expect in enumerate(expected):
-            assert _is_default_label(seq, axis) is expect
+            assert _is_default_label(seq.labels[axis], seq.shape[axis]) is expect
 
     @pytest.mark.parametrize(
         "indices,dim,expect",
@@ -477,26 +477,27 @@ class TestSequenceIndexing:
 
 
 class TestSequenceShaping:
-    def test_reshape(self, request):
+    def test_reshape(self):
         s = Sequence.empty((4, 5, 3), names=("a", "b", "c"), a=np.arange(4))
 
         r = s.reshape(2, -1)
         assert r.shape == (2, 30)
-        assert r.names == (None, None)
-        assert r.labels == {}
+        assert r.names == ("d0", "d1")
+        assert r["d0"].equals(pd.RangeIndex(2))
+        assert r["d1"].equals(pd.RangeIndex(30))
         assert r.base is s
 
     @pytest.mark.parametrize(
         "seq,axes,shape,names",
         [
             (
-                Sequence.empty((1, 2, 3, 4), ("a", "b", "c", "d")),
+                Sequence.empty((1, 2, 3, 4), a=None, b=None, c=None, d=None),
                 None,
                 (4, 3, 2, 1),
                 ("d", "c", "b", "a"),
             ),
             (
-                Sequence.empty((1, 2, 3, 4), ("a", "b", "c", "d")),
+                Sequence.empty((1, 2, 3, 4), a=None, b=None, c=None, d=None),
                 (2, 0, 1, 3),
                 (3, 1, 2, 4),
                 ("c", "a", "b", "d"),
@@ -512,104 +513,92 @@ class TestSequenceShaping:
         assert r1.names == names
         assert r1.shape == shape
 
+        for axis in range(r.ndim):
+            assert len(r.labels[axis]) == len(r1.labels[axis]) == r.shape[axis]
+
     @pytest.mark.parametrize(
         "shape,names", [((2,), ("a",)), ((1, 2, 3), ("a", "b", "c"))]
     )
     def test_T(self, shape, names):
-        s = Sequence.empty(shape, names=names)
+        s = Sequence.empty(shape, **{n: None for n in names})
 
         assert s.T.shape == tuple(reversed(shape))
         assert s.T.names == tuple(reversed(names))
 
-    def test_broadcast(self):
-        s = Sequence.empty((2, 4), names=("x", "a"), a=np.arange(4), x=np.arange(2))
-        r = Sequence.empty((4, 1, 1), names=("b", "x", ...), x=np.arange(1))
-
-        names, labels = broadcast_names_and_labels(s, r)
-        assert names == ["b", "x", "a"]
-
-        expected_labels = dict(a=np.arange(4))
-        assert labels.keys() == expected_labels.keys()
-
-        for k in labels:
-            assert_array_equal(labels[k], expected_labels[k])
-
 
 class TestSequenceJoins:
     @pytest.mark.parametrize(
-        "seqs,axis,names,labels,error",
+        "seqs,axis,expected",
         [
             (
                 [Sequence.empty(5), Sequence.empty(6), Sequence.empty(7)],
                 0,
-                (None,),
-                dict(),
-                noerror(),
+                dict(d0=pd.RangeIndex(18)),
             ),
             (
                 [
-                    Sequence.empty((5, 2), names=("d0", ...), d0=np.arange(5)),
-                    Sequence.empty((5, 3)),
+                    Sequence.empty((5, 2), d0=None, b=None),
+                    Sequence.empty((5, 3), d0=None, b=None),
                 ],
                 1,
-                ("d0", None),
-                dict(d0=np.arange(5)),
-                noerror(),
+                dict(
+                    d0=pd.RangeIndex(5, name="d0"),
+                    b=pd.Index([0, 1, 0, 1, 2], name="b"),
+                ),
             ),
             (
                 [
-                    Sequence.empty((5, 2), names=(..., "d1"), d1=np.arange(2)),
-                    Sequence.empty((5, 3), names=("d0", "d1"), d1=np.arange(2, 5)),
-                ],
-                1,
-                ("d0", "d1"),
-                dict(d1=np.arange(5)),
-                noerror(),
-            ),
-            (
-                [
-                    Sequence.empty((5, 1, 2), names=("d0", ..., "d2"), d0=np.arange(5)),
                     Sequence.empty(
-                        (5, 1, 3), names=("d0", "d1", "d2"), d0=np.arange(5)
+                        (2, 2),
+                        letters=pd.Index(["a", "b"], name="letters"),
+                        label0=None,
                     ),
-                    Sequence.empty((5, 1, 4), names=("d0", ...), d0=np.arange(5)),
+                    Sequence.empty(
+                        (2, 3), numbers=pd.Index([0, 1], name="numbers"), label1=None
+                    ),
                 ],
-                2,
-                ("d0", "d1", "d2"),
-                dict(d0=np.arange(5)),
-                noerror(),
+                1,
+                {
+                    "letters,numbers": pd.MultiIndex.from_tuples(
+                        [("a", 0), ("b", 1)], names=["letters", "numbers"]
+                    ),
+                    "d1": pd.Index([0, 1, 0, 1, 2], name="d0"),
+                },
             ),
             (
                 [
-                    Sequence.empty((5, 2), names=("d0", "d1"), d1=np.arange(2)),
-                    Sequence.empty((5, 3), names=("d0", "d1"), d1=np.arange(2, 5)),
+                    Sequence.empty((5, 2), d0=None, d1=None),
+                    Sequence.empty((5, 3), d0=None, d1=None),
                 ],
                 -1,
-                ("d0", "d1"),
-                dict(d1=np.arange(5)),
-                noerror(),
+                dict(d0=pd.RangeIndex(5), d1=pd.RangeIndex(5)),
             ),
         ],
     )
-    def test_concatenate(self, seqs, axis, names, labels, error):
-        with error:
-            c = np.concatenate(seqs, axis=axis)
+    def test_concatenate(self, seqs, axis, expected):
+        c = np.concatenate(seqs, axis=axis)
 
-            if axis < 0:
-                axis = len(seqs[0].shape) + axis
-            shape = []
-            for dim in range(len(seqs[0].shape)):
-                if dim == axis:
-                    shape.append(sum(s.shape[dim] for s in seqs))
-                else:
-                    shape.append(seqs[0].shape[dim])
+        if axis < 0:
+            axis = seqs[0].ndim + axis
 
-            assert c.shape == tuple(shape)
-            assert c.names == names
-            assert c.labels.keys() == labels.keys()
+        shape = []
+        for dim in range(len(seqs[0].shape)):
+            if dim == axis:
+                shape.append(sum(s.shape[dim] for s in seqs))
+            else:
+                shape.append(seqs[0].shape[dim])
 
-            for v1, v2 in zip(c.labels.values(), labels.values()):
-                assert_array_equal(v1, v2)
+        assert c.shape == tuple(shape)
+        assert c.names == tuple(expected.keys())
+
+        for i, (label, expect) in enumerate(zip(c.labels, expected.values())):
+            assert label.equals(expect)
+            assert len(label) == shape[i]
+
+        # assert c.labels.keys() == labels.keys()
+
+        # for v1, v2 in zip(c.labels.values(), labels.values()):
+        #     assert_array_equal(v1, v2)
 
     @pytest.mark.parametrize(
         "seqs,axis,names,labels,error",
