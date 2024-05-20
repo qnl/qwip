@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 from numpy.testing import assert_array_equal
 
+import qwip
 from qwip.sequencer.sequence import (
     Sequence,
     _combine_indices,
@@ -742,3 +743,40 @@ class TestSequenceUniversalFunctions:
 
         for label, expect in zip(result.labels, expected.values()):
             assert label.equals(expect)
+
+
+class TestSequenceSerialization:
+    def test_sequence_unstructure(self):
+        s = Sequence.empty((2, 2), a=None, b=None)
+
+        unstructured = qwip.converter.unstructure(s)
+
+        assert unstructured == dict(
+            names=("a", "b"),
+            labels=dict(a=[0, 1], b=[0, 1]),
+            shape=(2, 2),
+            data=[[{}, {}], [{}, {}]],
+        )
+
+    def test_sequence_structure(self):
+        unstructured = dict(
+            names=("iter", "time", "frequency"),
+            labels=dict(
+                iter=[0, 1, 2, 3], time=[10e-9, 20e-9, 30e-9], frequency=[5.4, 5.5]
+            ),
+            shape=(4, 3, 2),
+            data=[
+                [[{}, {}], [{}, {}], [{}, {}]],
+                [[{}, {}], [{}, {}], [{}, {}]],
+                [[{}, {}], [{}, {}], [{}, {}]],
+                [[{}, {}], [{}, {}], [{}, {}]],
+            ],
+        )
+
+        seq = qwip.converter.structure(unstructured, Sequence)
+        assert isinstance(seq, Sequence)
+        assert seq.names == unstructured["names"]
+        assert seq.shape == unstructured["shape"]
+
+        for n in seq.names:
+            assert seq[n].equals(pd.Index(unstructured["labels"][n]))

@@ -796,17 +796,19 @@ def make_sequence_structure_fn(cls):
 
         data = qwip.converter.structure(val["data"], tp)
 
-        return Sequence(data, names=val["names"], **val["labels"])
+        return Sequence(data, **val["labels"])
 
     return structure_fn
 
 
 def make_sequence_unstructure_fn(cls):
-    unstructure_attrs = make_attrs_unstructure_fn(cls)
-
     def unstructure_fn(obj):
         return {
-            **unstructure_attrs(obj),
+            "names": obj.names,
+            "labels": {
+                label.name: qwip.converter.unstructure(label.to_numpy())
+                for label in obj.labels
+            },
             "shape": obj.shape,
             "data": qwip.converter.unstructure(obj.tolist()),
         }
