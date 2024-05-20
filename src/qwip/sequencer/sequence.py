@@ -112,9 +112,7 @@ class Sequence(np.ndarray):
                 )
 
     def __repr__(self) -> str:
-        names = (
-            "" if all(n is None for n in self.names) else f"names={self.names}" + ", "
-        )
+        names = f"names={self.names}" + ", "
         prefix = "    "
         arr = prefix + np.array2string(self, prefix=prefix)
         return f"Sequence({names}shape={self.shape}\n{arr}\n)"
