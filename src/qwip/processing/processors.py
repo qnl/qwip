@@ -782,38 +782,53 @@ class Labeled(GenericDataProcessor):
 
     level: str = "timeline"
 
-    def run(self, result: M, exe: QuantumExecutable | None = None, **kwargs) -> M:
-        if exe is None or exe.seq is None:
+    def run(
+        self,
+        result: M,
+        label: pd.Index | None = None,
+        exe: QuantumExecutable | None = None,
+        **kwargs,
+    ) -> M:
+        if label is None and (exe is None or exe.seq is None):
             return result
+        elif label is None:
+            seq = exe.sequence
+            label = seq.flatten().labels[0]
+        elif not isinstance(label, pd.Index):
+            raise ValueError(
+                f"Explicit labels must be a pandas index, got {type(label)}."
+            )
 
-        seq = exe.sequence
-        result = attrs.evolve(result, data=result.data.copy())
         old_idx = result.data.index
+        level_to_relabel = old_idx.levels[old_idx.names.index(self.level)]
+        if len(label) != len(level_to_relabel):
+            raise ValueError(
+                f"Number of labels {len(label)} does not match length "
+                f"{len(level_to_relabel)} of level {self.level}."
+            )
 
-        new_idx = pd.DataFrame(
-            it.product(
-                *(
-                    seq.labels.get(n, np.arange(seq.shape[i]))
-                    for i, n in enumerate(seq.names)
-                )
-            ),
-            columns=[name or f"{self.level}{i}" for i, name in enumerate(seq.names)],
-        )
-        broadcasted = new_idx.loc[result.data.index.get_level_values(self.level)]
+        result = attrs.evolve(result, data=result.data.copy())
 
-        idx_vals = []
-        idx_names = []
-        for name in old_idx.names:
-            if name == self.level:
-                for c in new_idx.columns:
-                    idx_vals.append(broadcasted[c].values)
-                    idx_names.append(c)
+        names = []
+        levels = []
+        codes = []
+        for name, level, code in zip(old_idx.names, old_idx.levels, old_idx.codes):
+            if name != self.level:
+                names.append(name)
+                levels.append(level)
+                codes.append(code)
+            elif isinstance(label, pd.MultiIndex):
+                names.extend(label.names)
+                levels.extend(label.levels)
+
+                for label_code in label.codes:
+                    codes.append(label_code[code])
             else:
-                level = old_idx.get_level_values(name)
-                idx_vals.append(level.values)
-                idx_names.append(level.name)
+                names.append(label.name)
+                levels.append(label)
+                codes.append(code)
 
-        result.data.index = pd.MultiIndex.from_arrays(idx_vals, names=idx_names)
+        result.data.index = pd.MultiIndex(levels=levels, codes=codes, names=names)
 
         return result
 
