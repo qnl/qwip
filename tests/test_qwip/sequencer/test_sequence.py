@@ -524,17 +524,47 @@ class TestSequenceShaping:
         assert s.T.shape == tuple(reversed(shape))
         assert s.T.names == tuple(reversed(names))
 
-    def test_flatten(self):
-        b_c = pd.MultiIndex.from_product(
-            (["X", "Y"], ["X", "Y"]), names=["prep", "post"]
-        )
-        seq = Sequence.empty((2, 4), a=np.r_[:2], b_c=b_c)
-        for label in seq.labels:
-            print(label.name, label.names)
+    @pytest.mark.parametrize(
+        "shape,expect",
+        [
+            (
+                (2, 3),
+                pd.MultiIndex.from_product((np.r_[:2], np.r_[:3]), names=("d0", "d1")),
+            ),
+            (
+                (2, 4, 3),
+                pd.MultiIndex.from_product(
+                    (np.r_[:2], np.r_[:4], np.r_[:3]), names=("d0", "d1", "d2")
+                ),
+            ),
+        ],
+    )
+    def test_flatten(self, shape, expect):
+        seq = Sequence.empty(shape)
 
-        f = seq.flatten()
-        f.labels = seq.labels
-        print(type(f))
+        flattened = seq.flatten()
+        assert len(flattened.labels) == 1
+        assert flattened.names[0] == "_".join(expect.names)
+        assert flattened.labels[0].equals(expect)
+
+    def test_flatten_multiindex(self):
+        seq = Sequence.empty(
+            (2, 4),
+            sign=["pos", "neg"],
+            prep_post=pd.MultiIndex.from_product(
+                (["I", "X"], ["I", "X"]), names=("prep", "post")
+            ),
+        )
+        flattened = seq.flatten()
+
+        assert flattened.shape == (8,)
+        assert len(flattened.labels) == 1
+        assert flattened.names[0] == "sign_prep_post"
+        assert flattened["sign_prep_post"].equals(
+            pd.MultiIndex.from_product(
+                (["pos", "neg"], ["I", "X"], ["I", "X"]), names=("sign", "prep", "post")
+            )
+        )
 
 
 class TestSequenceJoins:
