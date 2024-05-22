@@ -801,7 +801,7 @@ class TestSequenceSerialization:
         unstructured = qwip.converter.unstructure(s)
 
         assert unstructured == dict(
-            names=("a", "b"),
+            names=["a", "b"],
             labels=dict(a=[0, 1], b=[0, 1]),
             shape=(2, 2),
             data=[[{}, {}], [{}, {}]],

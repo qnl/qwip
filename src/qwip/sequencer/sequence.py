@@ -846,7 +846,7 @@ def make_sequence_structure_fn(cls):
 def make_sequence_unstructure_fn(cls):
     def unstructure_fn(obj):
         return {
-            "names": obj.names,
+            "names": list(obj.names),
             "labels": {
                 label.name: qwip.converter.unstructure(label.to_numpy())
                 for label in obj.labels

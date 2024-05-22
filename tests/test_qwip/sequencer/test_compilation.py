@@ -45,8 +45,8 @@ class TestQuantumExecutable:
                 QuantumExecutable(sequence=Sequence.empty((10, 2))),
                 dict(
                     sequence=dict(
-                        names=[None, None],
-                        labels={},
+                        names=["d0", "d1"],
+                        labels=dict(d0=list(range(10)), d1=list(range(2))),
                         shape=(10, 2),
                         data=[[{} for _ in range(2)] for _ in range(10)],
                     ),
