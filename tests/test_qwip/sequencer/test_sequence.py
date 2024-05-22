@@ -547,6 +547,13 @@ class TestSequenceShaping:
         assert flattened.names[0] == "_".join(expect.names)
         assert flattened.labels[0].equals(expect)
 
+    def test_flatten_1D(self):
+        seq = Sequence.empty(10, a=pd.RangeIndex(10, 20))
+        flattened = seq.flatten()
+
+        assert seq.names == flattened.names
+        assert seq.labels[0].equals(flattened.labels[0])
+
     def test_flatten_multiindex(self):
         seq = Sequence.empty(
             (2, 4),

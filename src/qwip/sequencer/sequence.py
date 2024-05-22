@@ -324,6 +324,10 @@ class Sequence(np.ndarray):
         labels = self.labels
         seq = super().flatten()
 
+        if self.ndim == 1:
+            seq.labels = (labels[0].copy(),)
+            return seq
+
         grid = np.meshgrid(*(np.r_[:dim] for dim in self.shape), indexing="ij")
 
         levels = []
