@@ -524,6 +524,18 @@ class TestSequenceShaping:
         assert s.T.shape == tuple(reversed(shape))
         assert s.T.names == tuple(reversed(names))
 
+    def test_flatten(self):
+        b_c = pd.MultiIndex.from_product(
+            (["X", "Y"], ["X", "Y"]), names=["prep", "post"]
+        )
+        seq = Sequence.empty((2, 4), a=np.r_[:2], b_c=b_c)
+        for label in seq.labels:
+            print(label.name, label.names)
+
+        f = seq.flatten()
+        f.labels = seq.labels
+        print(type(f))
+
 
 class TestSequenceJoins:
     @pytest.mark.parametrize(

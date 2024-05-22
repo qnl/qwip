@@ -308,6 +308,46 @@ class Sequence(np.ndarray):
 
         return seq
 
+    def flatten(self, **kwargs) -> Self:
+        """Flattens a sequence into a 1-D sequence, while preserving labels.
+
+        Args:
+            **kwargs: Keyword arguments are passed to `numpy.ndarray.flatten`.
+        """
+        if kwargs.get("order", "C") != "C":
+            logger.warning(
+                "Sequence labels are only preserved when flattening in C-style"
+                "row-major order."
+            )
+            return super().flatten()
+
+        labels = self.labels
+        seq = super().flatten()
+
+        grid = np.meshgrid(*(np.r_[:dim] for dim in self.shape), indexing="ij")
+
+        levels = []
+        codes = []
+        names = []
+        for axis, coord in enumerate(grid):
+            coord = coord.flatten()
+            label = labels[axis]
+
+            if isinstance(label, pd.MultiIndex):
+                codes += [c[coord] for c in label.codes]
+                levels += label.levels
+                names += label.names
+            else:
+                codes.append(coord)
+                levels.append(label)
+                names.append(label.name)
+
+        name = "_".join(names)
+        seq.labels = (pd.MultiIndex(levels=levels, codes=codes, names=names),)
+        seq.labels[0].name = name
+
+        return seq
+
     @classmethod
     def empty(
         cls,
