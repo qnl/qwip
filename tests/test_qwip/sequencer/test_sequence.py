@@ -1,3 +1,4 @@
+import itertools as it
 from contextlib import nullcontext as noerror
 
 import numpy as np
@@ -202,6 +203,58 @@ class TestSequenceConstruction:
 
         for tmln in seq.flat:
             assert set(tmln.constraints) == set(params)
+
+    @pytest.mark.parametrize(
+        "params,shape,expected",
+        [
+            (
+                dict(tau=[0, 1], wait=[0, 1, 2]),
+                (2, 3),
+                dict(
+                    tau=pd.RangeIndex(2, name="tau"), wait=pd.RangeIndex(3, name="wait")
+                ),
+            ),
+            (dict(tau=[0, 1], wait=0), (2,), dict(tau=pd.RangeIndex(2, name="tau"))),
+            (
+                dict(
+                    tau=[0, 1],
+                    wait=[0, 1, 2],
+                    amp1_amp2=(
+                        idx := pd.MultiIndex.from_tuples(
+                            [(-1, 1), (-1.5, 1.5), (-2, 2)], names=("amp1", "amp2")
+                        )
+                    ),
+                ),
+                (2, 3, 3),
+                dict(
+                    tau=pd.RangeIndex(2, name="tau"),
+                    wait=pd.RangeIndex(3),
+                    amp1_amp2=idx,
+                ),
+            ),
+        ],
+    )
+    def test_product(self, params, shape, expected):
+        tmln = Timeline.from_layers(
+            [
+                SquareWaveform(width="tau", amplitude="amp1"),
+                "wait",
+                SquareWaveform(width="tau", amplitude="amp2"),
+            ]
+        )
+
+        seq = Sequence.product(tmln, **params)
+
+        assert seq.shape == shape
+        assert seq.names == tuple(expected)
+
+        for label, expect in zip(seq.labels, expected.values()):
+            assert label.equals(expect)
+
+        for tmln in seq.flat:
+            assert set(tmln.constraints) == set(
+                it.chain.from_iterable(n.split("_") for n in params)
+            )
 
 
 class TestBroadcastLabels:

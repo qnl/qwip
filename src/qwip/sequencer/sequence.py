@@ -379,13 +379,25 @@ class Sequence(np.ndarray):
 
     @classmethod
     def sweep(cls, tmln: Timeline, /, **params) -> Self:
-        """Create a sequence from a timeline."""
+        """Create a sequence from a timeline.
+
+        Args:
+            tmln: The timeline to sweep parameters from.
+            **params: Keyword arguments specify the parameters to sweep. If a single
+                value is passed for a given parameter, it will be resolved in all
+                timelines, but will not be added to the sequence label.
+
+        Returns:
+            The resulting sequence from sweeping over all the given parameters.
+        """
 
         lengths = set()
         excluded_params = {}
         labeled_params = {}
         for p in params:
-            if isinstance(params[p], str) or not isinstance(params[p], TSequence):
+            if isinstance(params[p], str) or not isinstance(
+                params[p], (pd.Index, TSequence)
+            ):
                 excluded_params[p] = params[p]
             else:
                 labeled_params[p] = params[p]
@@ -427,20 +439,53 @@ class Sequence(np.ndarray):
 
     @classmethod
     def product(cls, tmln: Timeline, /, **params) -> Self:
-        """Create a sequence from the sequence element."""
-        shape = tuple(len(arrs) for arrs in params.values())
-        names = tuple(params)
+        """Create a sequence from a timeline.
 
-        seq = Sequence.empty(shape, names=names, **params)
+        Args:
+            tmln: The timeline to sweep parameters from.
+            **params: Keyword arguments specify the parameters to sweep. If a single
+                value is passed for a given parameter, it will be resolved in all
+                timelines, but will not be added to the sequence label.
 
-        for i, vals in enumerate(it.product(*params.values())):
-            new = tmln.copy()
+        Returns:
+            The resulting sequence from sweeping over all the given parameters.
+        """
 
-            update = {n: v for n, v in zip(names, vals)}
-            new.add_constraints(**update)
-            new.resolve_waveforms(**update)
+        excluded_params = {}
+        labeled_params = {}
+        shape = []
+        for p in params:
+            if isinstance(params[p], str) or not isinstance(
+                params[p], (pd.Index, TSequence)
+            ):
+                excluded_params[p] = params[p]
+            else:
+                labeled_params[p] = params[p]
+                shape.append(len(params[p]))
 
-            seq.flat[i] = new
+        if not len(labeled_params):
+            raise ValueError("No parameter sweeps given.")
+
+        seq = Sequence.empty(shape, **labeled_params)
+
+        for idx in np.ndindex(*seq.shape):
+            new_tmln = tmln.copy()
+
+            update = {}
+            for level, i in enumerate(idx):
+                label = seq.labels[level]
+
+                if isinstance(label, pd.MultiIndex):
+                    values = label[i]
+                    update.update(zip(label.names, values))
+                else:
+                    update[label.name] = label[i]
+
+            update = excluded_params | update
+            new_tmln.add_constraints(**update)
+            new_tmln.resolve_waveforms(**update)
+
+            seq[idx] = new_tmln
 
         return seq
 
