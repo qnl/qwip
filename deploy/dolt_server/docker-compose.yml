@@ -1,0 +1,21 @@
+version: "3.9"
+
+services:
+  configdb:
+    container_name: configdb
+    image: dolthub/dolt-sql-server:latest
+    ports:
+      - 3306:3306
+    volumes:
+      - dolt-data:/var/lib/dolt/
+      - ./server-config.yaml:/etc/dolt/servercfg.d/config.yaml
+    restart: always
+    env_file:
+      - ./secrets.env
+
+volumes:
+  dolt-data:
+    driver_opts:
+      type: none
+      device: ${DOLT_DATA_DIRECTORY}
+      o: bind

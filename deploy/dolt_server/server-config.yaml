@@ -1,0 +1,10 @@
+# Development configuration
+
+log_level: debug
+
+listener:
+  host: 0.0.0.0
+
+user:
+  name: qwip_superuser
+  password: database # Change this password!
