@@ -378,36 +378,50 @@ class Sequence(np.ndarray):
         return cls(arr, **labels)
 
     @classmethod
-    def sweep(cls, tmln: Timeline, /, name=None, label=None, **params) -> Self:
-        """Create a sequence from the sequence element."""
+    def sweep(cls, tmln: Timeline, /, **params) -> Self:
+        """Create a sequence from a timeline."""
 
-        shape = min(len(arr) for arr in params.values())
-        name = name or "_".join(params)
-
-        values = list(zip(*params.values()))
-
-        if label is None:
-            if len(params) == 1:
-                label = params[name]
+        lengths = set()
+        excluded_params = {}
+        labeled_params = {}
+        for p in params:
+            if isinstance(params[p], str) or not isinstance(params[p], TSequence):
+                excluded_params[p] = params[p]
             else:
-                label = np.empty(shape, dtype=object)
-                label[:] = values
-        elif label.shape[0] != len(values):
+                labeled_params[p] = params[p]
+                lengths.add(len(params[p]))
+
+        if len(lengths - {1}) > 1:
             raise ValueError(
-                f"Provided label must have length {len(values)} that matches "
-                f"sequence shape."
+                "Parameter sweeps must all be the same length, or a single value."
             )
+        elif len(lengths) == 0:
+            raise ValueError("No parameter sweeps given.")
 
-        seq = Sequence.empty((shape,), names=(name,), **{name: label})
+        N = next(iter(lengths)) if len(lengths) == 1 else next(iter(lengths - {1}))
 
-        for i, vals in enumerate(values):
-            new = tmln.copy()
+        levels = list(labeled_params.values())
+        codes = [
+            np.r_[:N] if len(values) == N else np.zeros(N, dtype=int)
+            for values in labeled_params.values()
+        ]
+        names = list(labeled_params)
 
-            update = {n: v for n, v in zip(params, vals)}
-            new.add_constraints(**update)
-            new.resolve_waveforms(**update)
+        label = pd.MultiIndex(levels=levels, codes=codes, names=names)
+        label.name = "_".join(names)
 
-            seq[i] = new
+        seq = Sequence.empty((N,), **{label.name: label})
+
+        for i, values in enumerate(label):
+            new_tmln = tmln.copy()
+            update = excluded_params | {n: v for n, v in zip(names, values)}
+            new_tmln.add_constraints(**update)
+            new_tmln.resolve_waveforms(**update)
+            seq[i] = new_tmln
+
+        if label.nlevels == 1:
+            label = label.levels[0][label.codes[0]]
+            seq.labels = (label,)
 
         return seq
 

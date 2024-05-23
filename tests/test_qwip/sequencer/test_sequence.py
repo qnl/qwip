@@ -15,6 +15,7 @@ from qwip.sequencer.sequence import (
     stack,
 )
 from qwip.sequencer.timeline import Timeline
+from qwip.sequencer.waveform import SquareWaveform
 
 
 class TestSequenceConstruction:
@@ -163,6 +164,44 @@ class TestSequenceConstruction:
 
         for name, label in labels.items():
             assert sequence[name].equals(pd.Index(label, name=name))
+
+    @pytest.mark.parametrize(
+        "params,shape,expect",
+        [
+            (dict(tau=[0, 1, 2]), 3, pd.Index([0, 1, 2], name="tau")),
+            (dict(tau=[0, 1, 2], wait=1), 3, pd.Index([0, 1, 2], name="tau")),
+            (
+                dict(tau=[0, 1, 2], wait=[0]),
+                3,
+                pd.MultiIndex.from_tuples(
+                    [(0, 0), (1, 0), (2, 0)], names=("tau", "wait")
+                ),
+            ),
+            (
+                dict(tau=[0, 1], wait=[1, 2], amp1=[2, 3], amp2="amp3"),
+                2,
+                pd.MultiIndex.from_tuples(
+                    [(0, 1, 2), (1, 2, 3)], names=("tau", "wait", "amp1")
+                ),
+            ),
+        ],
+    )
+    def test_sweep(self, params, shape, expect):
+        tmln = Timeline.from_layers(
+            [
+                SquareWaveform(width="tau", amplitude="amp1"),
+                "wait",
+                SquareWaveform(width="tau", amplitude="amp2"),
+            ]
+        )
+
+        seq = Sequence.sweep(tmln, **params)
+        assert seq.shape[0] == shape
+        assert seq.labels[0].equals(expect)
+        assert seq.labels[0].name == (expect.name or "_".join(expect.names))
+
+        for tmln in seq.flat:
+            assert set(tmln.constraints) == set(params)
 
 
 class TestBroadcastLabels:
