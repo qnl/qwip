@@ -1,7 +1,7 @@
 import itertools as it
 import re
 from collections.abc import Sequence as TSequence
-from typing import Any, Self
+from typing import Any, Protocol, Self, runtime_checkable
 
 import numpy as np
 import pandas as pd
@@ -24,6 +24,12 @@ def sequence_implements(np_function):
         return func
 
     return decorator
+
+
+@runtime_checkable
+class Sweepable(Protocol):
+    def __iter__(self): ...
+    def __len__(self): ...
 
 
 @qdefine(init=False, slots=False, repr=False, eq=False, order=False)
@@ -395,9 +401,7 @@ class Sequence(np.ndarray):
         excluded_params = {}
         labeled_params = {}
         for p in params:
-            if isinstance(params[p], str) or not isinstance(
-                params[p], (pd.Index, TSequence)
-            ):
+            if isinstance(params[p], str) or not isinstance(params[p], Sweepable):
                 excluded_params[p] = params[p]
             else:
                 labeled_params[p] = params[p]
@@ -455,9 +459,7 @@ class Sequence(np.ndarray):
         labeled_params = {}
         shape = []
         for p in params:
-            if isinstance(params[p], str) or not isinstance(
-                params[p], (pd.Index, TSequence)
-            ):
+            if isinstance(params[p], str) or not isinstance(params[p], Sweepable):
                 excluded_params[p] = params[p]
             else:
                 labeled_params[p] = params[p]

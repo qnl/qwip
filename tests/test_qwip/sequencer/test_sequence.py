@@ -208,10 +208,11 @@ class TestSequenceConstruction:
         "params,shape,expected",
         [
             (
-                dict(tau=[0, 1], wait=[0, 1, 2]),
+                dict(tau=[0, 1], wait=np.linspace(1, 2, 3)),
                 (2, 3),
                 dict(
-                    tau=pd.RangeIndex(2, name="tau"), wait=pd.RangeIndex(3, name="wait")
+                    tau=pd.RangeIndex(2, name="tau"),
+                    wait=pd.Index(np.linspace(1, 2, 3), name="wait"),
                 ),
             ),
             (dict(tau=[0, 1], wait=0), (2,), dict(tau=pd.RangeIndex(2, name="tau"))),
