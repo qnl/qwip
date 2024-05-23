@@ -7,7 +7,7 @@ import pendulum
 import pytest
 from loguru import logger
 from numpy.random import default_rng
-from qcodes.tests.instrument_mocks import DummyInstrument
+from qcodes.instrument_drivers.mock_instruments import DummyInstrument
 from sqlalchemy.engine import make_url
 
 try:
