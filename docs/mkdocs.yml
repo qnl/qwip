@@ -13,7 +13,8 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: ../examples/docs
   - footnotes
   - pymdownx.arithmatex
   - pymdownx.caret
@@ -54,6 +55,7 @@ theme:
     - navigation.indexes
 watch:
   - ../src/qwip
+  - ../examples/docs
 plugins:
   - search
   - mkdocstrings:
@@ -86,7 +88,8 @@ nav:
           - user-guide/configuration/configuration.md
           - user-guide/configuration/first-steps.md
       - Sequencer:
-          - user-guide/sequences/sequencer.md
+          - user-guide/sequences/index.md
+          - user-guide/sequences/waveforms.md
           - user-guide/sequences/timelines.md
           - user-guide/sequences/sequences.md
       - user-guide/workflow.md
