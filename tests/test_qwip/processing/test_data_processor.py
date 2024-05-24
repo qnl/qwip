@@ -384,6 +384,17 @@ class TestPipeline:
         assert pipeline._get_inputs("R0", HeterodyneDemodulation, gmm) == res
         assert pipeline._get_inputs("R0", GMMClassification, bitstrings) is None
 
+    def test_get_inputs_already_processed(self, cache, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        batch_reindex = BatchReindex()
+
+        res = IQResult.from_numpy(np.zeros((4, 3, 2), dtype=complex))
+        pipeline.dependency_cache.update({("R0", None): res})
+        pipeline.dependency_cache.update({("R0", BatchReindex): batch_reindex(res)})
+
+        assert pipeline._get_inputs("R0", BatchReindex, batch_reindex) is None
+
     def test_process_results_none(self, single_qubit):
         pipeline = ReadoutPipeline(processors=single_qubit)
 
@@ -409,3 +420,15 @@ class TestPipeline:
             ptype = set(r.final_processor() for r in group.values())
 
             assert len(mtype) == len(ptype) == 1
+
+    def test_grouped_data_exclude(self, single_qubit, seed):
+        rng = default_rng(seed)
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        shape = (10, 1024, 2)
+        inputs = {k: IQResult.random(shape, rng=rng) for k in ("R0", "R1")}
+
+        pipeline.process_results(inputs, dict(R0=StatePopulations, R1=StatePopulations))
+        grouped = pipeline.grouped_data(exclude={None, GMMClassification})
+
+        assert len(grouped) == 3

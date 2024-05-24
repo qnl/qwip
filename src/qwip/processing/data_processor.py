@@ -817,6 +817,10 @@ class ReadoutPipeline:
 
         try:
             inputs = self.dependency_cache[(key, previous)]
+
+            if processor in inputs.processors:
+                return None
+
             # This is necessary for handling the case where previous is None
             if isinstance(expected_input, TypeVar) or isinstance(
                 inputs, expected_input
@@ -826,7 +830,9 @@ class ReadoutPipeline:
             pass
 
         inputs = self.dependency_cache.get((key, None))
-        if isinstance(expected_input, TypeVar) or isinstance(inputs, expected_input):
+        if inputs and processor in inputs.processors:
+            return None
+        elif isinstance(expected_input, TypeVar) or isinstance(inputs, expected_input):
             return inputs
 
         return None
@@ -932,7 +938,7 @@ class ReadoutPipeline:
         return results
 
     def grouped_data(
-        self, max_size: int | None = 1024**2
+        self, max_size: int | None = 1024**2, exclude: set[type[DataProcessor]] = set()
     ) -> list[dict[str, MeasurementResult]]:
         """Groups measurement results by their final processor.
 
@@ -940,6 +946,7 @@ class ReadoutPipeline:
             max_size: The maximum size in number of values of any single result object to
                 include. Any result with a total size greater than `max_size` is
                 discarded. To ignore the size limit, set `max_size=None`.
+            exclude: Processors to exclude from the returned results.
 
         Returns:
             A list of all results, grouped by final processor.
@@ -949,6 +956,8 @@ class ReadoutPipeline:
         for (key, proc), result in self.dependency_cache.items():
             # Could use result.num_bytes instead, but this is really slow for large data
             if max_size is not None and np.prod(result.shape) > max_size:
+                continue
+            elif proc in exclude:
                 continue
 
             results[proc][key] = result
