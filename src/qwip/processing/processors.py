@@ -832,6 +832,9 @@ class Labeled(GenericDataProcessor):
         exe: QuantumExecutable | None = None,
         **kwargs,
     ) -> M:
+        # Ensure a copy is made always.
+        result = attrs.evolve(result, data=result.data.copy())
+
         if label is None and (exe is None or exe.seq is None):
             return result
         elif label is None:
@@ -849,8 +852,6 @@ class Labeled(GenericDataProcessor):
                 f"Number of labels {len(label)} does not match length "
                 f"{len(level_to_relabel)} of level {self.level}."
             )
-
-        result = attrs.evolve(result, data=result.data.copy())
 
         names = []
         levels = []
