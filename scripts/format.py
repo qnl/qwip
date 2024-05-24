@@ -42,7 +42,7 @@ def format(
     Args:
         check: If `True`, calls both black and isort with their respective check flags.
     """
-    folders = ["src", "tests", "scripts"]
+    folders = ["src", "tests", "scripts", "examples/docs"]
 
     isort = ["--check-only", *folders] if check else folders
     black = ["--check", *folders] if check else folders

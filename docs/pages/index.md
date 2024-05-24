@@ -8,7 +8,7 @@ To install QWiP, first clone the GitHub [repository](https://github.com/qnl/QWiP
 
 <div class="termy">
 ```console
-$ conda create -n qwip-env python=3.10
+$ conda create -n qwip-env python=3.12
 ---> 100%
 $ conda activate qwip-env
 $ python -m pip install .

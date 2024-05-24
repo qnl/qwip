@@ -9,7 +9,7 @@ To get started, you'll want to get your development environment set up with the 
 
 <div class="termy">
 ```console
-$ conda create -n qwip-env python=3.10
+$ conda create -n qwip-env python=3.12
 ---> 100%
 $ conda activate qwip-env
 $ python -m pip install -e ".[dev]"

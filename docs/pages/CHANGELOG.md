@@ -11,6 +11,10 @@ and this project adheres to the [Calendar Versioning](https://calver.org/) conve
 
 - Automated batching by timeline or repetition in the QPU.
 
+### Changed
+
+- Change sequence labels from numpy arrays to pandas index to allow more flexible labeling.
+
 ### Fixed
 
 - Fixed restrictions on adding more than one loop in the data processor dependency graph.
