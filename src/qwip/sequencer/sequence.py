@@ -505,41 +505,6 @@ class Sequence(np.ndarray):
         return seq
 
 
-def _expand_names(names: tuple, shape: tuple[int]) -> tuple:
-    """Expands out ellipses in names to match shape.
-
-    This function expands out any tuples of names containing ... to match
-    the number of dimensions specified by shape. Replace ... with as many
-    None values as necessary. The name tuple is also validated to ensure
-    that the total length matches the number of dimensions (unless ...
-    is included) and that no duplicate names exist (except for None).
-
-    Args:
-        names: The tuple of names passed to the constructor.
-        shape: The shape of the array that the names will be attached to.
-
-    Returns:
-        An equivalent tuple of names with every dimension expanded out.
-
-    Raises:
-        IndexError: If names contains more than one ellipsis.
-    """
-
-    if ... not in names:
-        return names
-
-    if names.count(...) > 1:
-        raise IndexError("names can only contain a single ellipsis ('...')")
-
-    num_dims = len(shape)
-    num_to_expand = num_dims - len(names) + 1
-
-    def replace_ellipsis(n):
-        return (None for _ in range(num_to_expand)) if n is ... else (n,)
-
-    return tuple(it.chain(*(replace_ellipsis(n) for n in names)))
-
-
 def _is_advanced_index(index: TSequence) -> True:
     """Determines if an index triggers numpy advanced indexing.
 
@@ -565,51 +530,6 @@ def _is_advanced_index(index: TSequence) -> True:
     return (is_sequence_or_np_index(index) and not isinstance(index, tuple)) or (
         isinstance(index, tuple) and any(is_sequence_or_np_index(i) for i in index)
     )
-
-
-def _set_labels(
-    obj: Sequence, labels: dict[str, TSequence], should_raise: bool = False
-) -> Sequence:
-    """Sets labels on a Sequence.
-
-    This function is used in both the explicit constructor and
-    `__array_finalize__` to copy labels from a source dict to the Sequence
-    object being created. Label arrays are copied by reference when the
-    Sequence object is a view of another ndarray or Sequence. Labels are
-    automatically converted to ndarrays.
-
-    Args:
-        obj: The Sequence object to attach the labels to.
-        labels: The source dictionary from which labels should be copied.
-        should_raise: Whether or not to raise an exception or silently pass.
-
-    Returns:
-        The Sequence object.
-    """
-    for n, arr in labels.items():
-        try:
-            idx = obj.names.index(n)
-
-        except ValueError as e:
-            if should_raise:
-                raise ValueError(
-                    f"'{n}' is not an axis name. names = {obj.names}"
-                ) from e
-
-            continue
-
-        if len(arr) != obj.shape[idx]:
-            if should_raise:
-                raise ValueError(
-                    f"{arr} has shape {arr.shape} which does not match shape "
-                    f"{obj.shape} for dimension {idx}."
-                )
-
-            continue
-
-        obj.labels[n] = np.asarray(arr)
-
-    return obj
 
 
 def _is_default_label(label: pd.Index, dim: int) -> bool:
