@@ -7,7 +7,7 @@ import pendulum
 import pytest
 from loguru import logger
 from numpy.random import default_rng
-from qcodes.tests.instrument_mocks import DummyInstrument
+from qcodes.instrument_drivers.mock_instruments import DummyInstrument
 from sqlalchemy.engine import make_url
 
 try:
@@ -52,6 +52,14 @@ def pytest_addoption(parser):
     parser.addoption(
         "--dataserver", action="store", default=None, help="A dataserver host."
     )
+
+
+def pytest_exception_interact(node, call, report):
+    # https://stackoverflow.com/a/56813896
+    excinfo = call.excinfo
+    if "script" in getattr(node, "funcargs", []):
+        excinfo.traceback = excinfo.traceback.cut(path=node.funcargs["script"])
+    report.longrepr = node.repr_failure(excinfo)
 
 
 @pytest.fixture(scope="session")

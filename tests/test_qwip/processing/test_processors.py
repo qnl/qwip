@@ -521,25 +521,21 @@ class TestAveraged:
 class TestLabeled:
     def test_copy(self):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
-        iqdata = IQResult.from_numpy(arr.reshape(4, 3, 5))
+        iqdata = IQResult.from_numpy(arr.reshape(3, 4, 5))
         orig_index = iqdata.index.names
 
-        seq = Sequence.empty(
-            (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
-        )
+        seq = Sequence.empty((2, 2), prep=np.arange(2), measure=np.arange(2))
         labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
 
         assert labeled is not iqdata
         assert labeled.data is not iqdata.data
         assert iqdata.index.names == orig_index
 
-    def test_label(self):
+    def test_label_from_sequence(self):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
         iqdata = IQResult.from_numpy(arr.reshape(5, 4, 3))
 
-        seq = Sequence.empty(
-            (2, 2), names=("prep", "measure"), prep=np.arange(2), measure=np.arange(2)
-        )
+        seq = Sequence.empty((2, 2), prep=np.arange(2), measure=np.arange(2))
         labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
 
         expected = pd.MultiIndex.from_tuples(
@@ -548,4 +544,20 @@ class TestLabeled:
         )
 
         assert labeled.data.index.equals(expected)
+        assert_array_equal(labeled.data.values, iqdata.data.values)
+
+    def test_explicit_label(self):
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
+        iqdata = IQResult.from_numpy(arr.reshape(5, 4, 3))
+
+        label = pd.Index(["a", "b", "c", "d"], name="label")
+        labeled = Labeled()(iqdata, label=label)
+
+        expected = pd.MultiIndex.from_product(
+            (np.r_[:5], ["a", "b", "c", "d"], np.r_[:3]),
+            names=("shot", "label", "readout"),
+        )
+
+        assert labeled.data.index.equals(expected)
+        assert labeled.data.index.names == ("shot", "label", "readout")
         assert_array_equal(labeled.data.values, iqdata.data.values)
