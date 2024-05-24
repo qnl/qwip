@@ -231,14 +231,27 @@ class Sequence(np.ndarray):
         if ufunc.nout == 1:
             results = (results,)
 
+        def _view_cast_if_sequence(arr):
+            match arr:
+                case Timeline():
+                    return np.asanyarray(arr).view(type(self))
+                case np.ndarray():
+                    ...
+                case _:
+                    return np.asanyarray(arr)
+
+            match arr.dtype.char:
+                case "O":
+                    return np.asanyarray(arr).view(type(self))
+                case _:
+                    return arr
+
         results = tuple(
-            (np.asanyarray(result).view(type(self)) if output is None else output)
+            (_view_cast_if_sequence(result) if output is None else output)
             for result, output in zip(results, outputs)
         )
 
-        if len(results) == 1:
-            results = results[0]
-
+        if len(results) == 1 and isinstance(results := results[0], Sequence):
             if method == "reduce":
                 axis = kwargs.get("axis", 0)
 

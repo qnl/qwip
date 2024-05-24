@@ -854,6 +854,13 @@ class TestSequenceUniversalFunctions:
         for label, expect in zip(c.labels, expected.values()):
             assert label.equals(expect)
 
+    def test_ufunc_non_sequence(self):
+        seq = Sequence.empty((4, 2))
+        equals = seq == seq
+
+        assert not isinstance(equals, Sequence)
+        assert np.all(equals)
+
     @pytest.mark.parametrize(
         "seq,kwargs,shape,expected",
         [
