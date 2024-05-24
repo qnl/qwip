@@ -600,9 +600,7 @@ class TestLabeled:
             iqdata.d.index.levels[1] + 4, level=1
         )
 
-        seq = Sequence.empty(
-            (2, 2), prep=np.arange(2), measure=np.arange(2)
-        )
+        seq = Sequence.empty((2, 2), prep=np.arange(2), measure=np.arange(2))
         labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
 
         expected = pd.MultiIndex.from_tuples(

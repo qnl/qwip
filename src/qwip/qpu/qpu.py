@@ -291,12 +291,13 @@ class QPU:
         match program:
             case Sequence():
                 seq = program
-                N = len(seq.flat)
+                flattened = seq.flatten()
+                N = len(flattened)
                 timelines_per_batch = timelines_per_batch or N
 
                 exes = [
                     self.compiler.compile(
-                        seq.flat[tmln_idx : tmln_idx + timelines_per_batch],
+                        flattened[tmln_idx : tmln_idx + timelines_per_batch],
                         **compilation,
                     )
                     for tmln_idx in np.r_[:N:timelines_per_batch]
