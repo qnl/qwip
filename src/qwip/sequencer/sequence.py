@@ -34,7 +34,14 @@ class Sweepable(Protocol):
 
 @qdefine(init=False, slots=False, repr=False, eq=False, order=False)
 class Sequence(np.ndarray):
-    labels: tuple[pd.Index | None, ...]
+    """Sequences are arrays of timelines with corresponding axis labels.
+
+    Attributes:
+        labels: A tuple of pandas index objects that specify the labels for each axis.
+
+    """
+
+    labels: tuple[pd.Index, ...]
 
     def __new__(
         cls,
@@ -375,24 +382,23 @@ class Sequence(np.ndarray):
     def empty(
         cls,
         shape: tuple[int, ...],
-        names: tuple[str, ...] | None = None,
         **labels: np.ndarray,
     ) -> Self:
         """Creates a Sequence of the specified shape with empty Timelines.
 
         Args:
             shape: The desired shape of the output sequence.
-            names: Names to attach to the axis dimensions.
-            labels: Labels to attach to the axis dimensions.
+            **labels: Labels to attach to the axis dimensions. If the number of labels
+                provided is less than the number of dimensions, the remaining
+                unspecified axis will be set to default labels. To specify only the
+                name of the axis, pass in `None`, in which case default index values
+                will be used.
         """
 
         arr = np.empty(shape, dtype=object)
 
         for index in np.ndindex(*arr.shape):
             arr[index] = Timeline()
-
-        if names is not None:
-            labels = {}
 
         return cls(arr, **labels)
 

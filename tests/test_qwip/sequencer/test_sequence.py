@@ -118,13 +118,8 @@ class TestSequenceConstruction:
         "sequence",
         [
             Sequence.empty((1, 2, 3, 4)),
-            Sequence.empty(
-                (4, 5), names=("a", "b"), a=np.linspace(0, 1, 4), b=np.zeros(5)
-            ),
-            Sequence.empty(
-                10,
-                names=("d0",),
-            ),
+            Sequence.empty((4, 5), a=np.linspace(0, 1, 4), b=np.zeros(5)),
+            Sequence.empty(10),
         ],
     )
     def test_view(self, sequence):
@@ -570,7 +565,7 @@ class TestSequenceIndexing:
 
 class TestSequenceShaping:
     def test_reshape(self):
-        s = Sequence.empty((4, 5, 3), names=("a", "b", "c"), a=np.arange(4))
+        s = Sequence.empty((4, 5, 3), a=np.arange(4), b=None, c=None)
 
         r = s.reshape(2, -1)
         assert r.shape == (2, 30)
