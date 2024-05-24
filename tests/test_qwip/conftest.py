@@ -54,6 +54,14 @@ def pytest_addoption(parser):
     )
 
 
+def pytest_exception_interact(node, call, report):
+    # https://stackoverflow.com/a/56813896
+    excinfo = call.excinfo
+    if "script" in node.funcargs:
+        excinfo.traceback = excinfo.traceback.cut(path=node.funcargs["script"])
+    report.longrepr = node.repr_failure(excinfo)
+
+
 @pytest.fixture(scope="session")
 def db_url(request):
     return make_url(request.config.getoption("--db_url"))
