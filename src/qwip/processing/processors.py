@@ -442,11 +442,10 @@ class BatchReindex(DataProcessor):
         Returns:
             The resulting reindexed `IQResult`.
         """
+        result = attrs.evolve(result, data=result.d.copy())
 
         if batch is None or (batch.timeline_index == batch.repetition_index == 0):
             return result
-
-        result = attrs.evolve(result, data=result.d.copy())
 
         old_idx = result.d.index
         if batch.timeline_index:

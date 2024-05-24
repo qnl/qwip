@@ -313,6 +313,12 @@ class TestBatchReindex:
         )
         return result
 
+    def test_copy(self, result):
+        new_result = BatchReindex()(result)
+        assert new_result is not result
+        assert new_result.d is not result.d
+        assert new_result.d.equals(result.d)
+
     def test_relabel_timeline(self, result):
         batch_exe = BatchedExecutable(
             exe=QuantumExecutable(), repetitions=1024, timeline_index=10
