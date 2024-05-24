@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Protocol, Self, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, Self, runtime_checkable
 
 import attrs
 import numpy as np
@@ -168,7 +168,7 @@ class VNABackend(QuantumBackend):
         device: A VNA instrument for interfacing with a Vector Network Analyzer.
     """
 
-    device: VNA
+    device: Any
 
     @property
     def name(self) -> str:
