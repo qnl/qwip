@@ -2,437 +2,437 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/CHANGELOG/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/defaults/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/flatdict/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/settings/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/testing/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/typing/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/utils/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/analysis/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/analysis/fitting/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/analysis/frequency/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/attrs/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/attrs/schema/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/attrs/serialization/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/attrs/validation/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/alazar/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/backend/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/qtrl/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/qubic/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/qutip/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/software/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/tektronix/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/backends/vna/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/calibration/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/calibration/calibration/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/calibration/readout/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/interface/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/models/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/schema/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/config/static/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/datastore/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/filesystem/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/models/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/serializers/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/data/storage/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/database/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/database/database/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/database/dolt/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/database/metadata/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/database/utils/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/instruments/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/instruments/instrument_server/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/instruments/ltc2704/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/instruments/alazar/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/instruments/alazar/alazar/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/instruments/alazar/atsapi/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/processing/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/processing/data_processor/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/processing/processors/</loc>
-         <lastmod>2024-05-14</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/protocols/</loc>
-         <lastmod>2024-05-14</lastmod>
-         <changefreq>daily</changefreq>
-    </url>
-    <url>
-         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/protocols/protocol/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/qpu/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/qpu/qpu/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/qpu/systems/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/compilation/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/elements/</loc>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/instructions/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/phase_tracker/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/sequence/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/timeline/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/utils/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/sequencer/waveform/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/visualization/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/visualization/dataframe/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/visualization/readout/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip/visualization/utils/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip_dataserver/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip_dataserver/server/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/api/qwip_dataserver/settings/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/developer-guide/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/developer-guide/attrs/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/developer-guide/roadmap/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/developer-guide/guidelines/all-things-git/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/developer-guide/guidelines/coding-guidelines/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/developer-guide/guidelines/documentation/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/developer-guide/guidelines/testing/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/workflow/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/configuration/configuration/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/configuration/first-steps/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
-         <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/sequences/sequencer/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/sequences/</loc>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/sequences/sequences/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
     <url>
          <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/sequences/timelines/</loc>
-         <lastmod>2024-05-14</lastmod>
+         <lastmod>2024-05-24</lastmod>
+         <changefreq>daily</changefreq>
+    </url>
+    <url>
+         <loc>https://qnl-internal.berkeley.edu/QWiP/user-guide/sequences/waveforms/</loc>
+         <lastmod>2024-05-24</lastmod>
          <changefreq>daily</changefreq>
     </url>
 </urlset>
