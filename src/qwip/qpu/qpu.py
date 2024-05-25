@@ -361,6 +361,8 @@ class QPU:
                 the previously uploaded sequence is run.
             processor: The data processor to use. See `qpu.process_results`.
             repetitions: The number of shots to take for each pulse timeline.
+            batch: Batch parameters. Can specify `timelines_per_batch` and
+                `repetitions_per_batch` to control how sequences are batched.
             compilation: The compilation arguments, which are passed to
                 `self.compiler.compile`.
             backend: Any backend arguments which are passed to `self.backend.acquire`
