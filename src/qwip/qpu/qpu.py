@@ -379,19 +379,26 @@ class QPU:
             program, repetitions=repetitions, **batch, compilation=compilation
         )
 
+        label = program.flatten().labels[0] if isinstance(program, Sequence) else None
+
         if self.datastore and save:
             data = dict(config_db=self.db) | data
             dataset = self.datastore.save(**data)
 
         results = defaultdict(list)
-        for batch in batched_exes:
+        num_batches = len(batched_exes)
+        for batch_no, batch in enumerate(batched_exes):
+            logger.debug(f"Starting batch {batch_no} of {num_batches}.")
             exe = batch.exe
             if batch.upload:
                 self.backend.upload(exe)
 
             raw_data = self.backend.acquire(repetitions=batch.repetitions, **backend)
 
-            processed = self.process_results(raw_data, processor, exe=exe, batch=batch)
+            processed = self.process_results(
+                raw_data, BatchReindex, exe=exe, batch=batch
+            )
+
             for k, res in processed.items():
                 results[k].append(res)
 
@@ -414,20 +421,21 @@ class QPU:
                     for asset in assets:
                         asset.save()
 
-        if len(batched_exes) > 1:
-            result = {}
-            for k, rlist in results.items():
-                data = pd.concat([r.d for r in rlist])
-                result[k] = attrs.evolve(rlist[0], data=data)
+        result = {}
+        for k, rlist in results.items():
+            data = pd.concat([r.d for r in rlist])
+            result[k] = attrs.evolve(rlist[0], data=data)
 
-            if self.datastore and save:
-                with self.datastore.begin():
-                    assets = self.datastore._make_assets([result])
-                    dataset.add(assets)
-                    for asset in assets:
-                        asset.save()
-        else:
-            result = processed
+        result = self.process_results(result, processor, label=label)
+
+        if self.datastore and save:
+            with self.datastore.begin():
+                assets = self.datastore._make_assets(
+                    self.pipeline.grouped_data(exclude={None, BatchReindex})
+                )
+                dataset.add(assets)
+                for asset in assets:
+                    asset.save()
 
         return result
 
