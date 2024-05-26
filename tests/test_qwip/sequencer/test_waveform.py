@@ -4,32 +4,41 @@ import attrs
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+import sympy as sym
 from numpy.testing import assert_allclose, assert_almost_equal
 
 import qwip
 from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
 from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import Location
-from qwip.sequencer.waveform import (
+from qwip.sequencer.waveform import (  # update_fields,
     DRAG,
     BasicWaveform,
     CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
+    Operation,
     PhaseResetWaveform,
     SquareWaveform,
+    TimedWaveform,
     TriggeredWaveform,
     VirtualZWaveform,
     Waveform,
-    update_fields,
 )
 
 
-class TestWaveform:
-    @pytest.mark.parametrize("wave", [Waveform(), Waveform(name="wave")])
-    def test_copy(self, wave):
-        assert copy(wave) is wave
-        assert deepcopy(wave) is wave
+class TestOperation:
+    @pytest.mark.parametrize("op", [Operation(), Operation(name="op")])
+    def test_copy(self, op):
+        assert copy(op) is op
+        assert deepcopy(op) is op
+
+    def test_getattribute(self):
+        w = BasicWaveform(width="tau")
+
+        assert isinstance(w.name, str)
+        assert isinstance(w.amplitude, int | float)
+        assert isinstance(w.width, sym.Expr)
 
     @pytest.mark.parametrize(
         "wave,updates,expect",
@@ -84,6 +93,55 @@ class TestWaveform:
     def test_evolve(self, wave, updates, expect):
         assert wave.evolve(**updates) == expect
 
+    @pytest.mark.parametrize(
+        "op,variables",
+        [
+            (BasicWaveform(), set()),
+            (
+                BasicWaveform(amplitude="amplitude", width="width", t0="t0"),
+                {"amplitude", "width", "t0"},
+            ),
+            (BasicWaveform(amplitude="A"), {"A"}),
+        ],
+    )
+    def test_variables(self, op, variables):
+        assert op.variables() == variables
+
+    @pytest.mark.parametrize(
+        "op,expect",
+        [
+            (BasicWaveform(), True),
+            (BasicWaveform(amplitude=0.5), True),
+            (BasicWaveform(amplitude="amp"), False),
+        ],
+    )
+    def test_resolved(self, op, expect):
+        assert op.resolved is expect
+
+    @pytest.mark.parametrize(
+        "op,mapping,expect",
+        [
+            (
+                BasicWaveform(amplitude="amp"),
+                dict(amp=0.5),
+                BasicWaveform(amplitude=0.5),
+            ),
+            (
+                BasicWaveform(width="tau0"),
+                dict(tau0="tau1"),
+                BasicWaveform(width="tau1"),
+            ),
+        ],
+    )
+    def test_resolve_basic(self, op, mapping, expect):
+        assert op.resolve(**mapping) == expect
+
+    def test_resolve_no_update(self):
+        op = BasicWaveform(amplitude="amp")
+
+        assert op.resolve() is op
+        assert op.resolve(width="width") is op
+
 
 class TestBasicWaveform:
     @pytest.mark.parametrize("name,expect", [(None, "BasicWaveform"), ("name", "name")])
@@ -96,7 +154,7 @@ class TestBasicWaveform:
 
         assert w.name == "BasicWaveform"
         assert w.channels == tuple()
-        assert w.width == Location()
+        assert w.width == 0
         assert w.amplitude == 1
         assert w.t0 == 0
 
@@ -107,22 +165,27 @@ class TestBasicWaveform:
         w = BasicWaveform(channels=(0, "Q1"), width=1, amplitude="A")
 
         assert w.channels == ("0", "Q1")
-        assert w.width == Location(1)
-        assert w.amplitude == "A"
+        assert w.width == 1
+        assert w.amplitude == sym.Symbol("A")
 
     @pytest.mark.parametrize(
         "kwargs,expect",
         [
-            (dict(), dict(width="w", amplitude="amp", t0=0)),
-            (dict(w=10, amp=20), dict(width=10.0, amplitude=20, t0=0, w=10)),
-            (dict(width=10, amplitude=20, t0=1), dict(width=10.0, amplitude=20, t0=1)),
-            (dict(random=10), dict(width="w", amplitude="amp", t0=0, random=10)),
+            (dict(), dict(width=sym.Symbol("w"), amplitude=sym.Symbol("amp"), t0=0)),
+            (dict(w=10, amp=20), dict(width=10.0, amplitude=20, t0=0)),
+            (dict(width=10, amplitude=20, t0=1), dict(width=10, amplitude=20, t0=1)),
+            (
+                dict(random=10),
+                dict(
+                    width=sym.Symbol("w"), amplitude=sym.Symbol("amp"), t0=0, random=10
+                ),
+            ),
         ],
     )
     def test_update_fields(self, kwargs, expect):
         w = BasicWaveform(width="w", amplitude="amp")
 
-        assert update_fields(w, **kwargs) == expect
+        assert w._update_fields(**kwargs) == expect
 
     def test_variables(self):
         assert BasicWaveform().variables() == frozenset()
@@ -247,12 +310,12 @@ class TestModulatedWaveform:
             (
                 dict(t0=1, width=10),
                 dict(amplitude=2),
-                dict(t0=1, width=Location(10), amplitude=2),
+                dict(t0=1, width=10, amplitude=2),
             ),
             (
                 dict(width=20, amplitude=2),
                 dict(amplitude=0.5),
-                dict(t0=0, width=Location(20), amplitude=1),
+                dict(t0=0, width=20, amplitude=1),
             ),
         ],
     )
