@@ -708,7 +708,7 @@ class DRAG(Waveform):
 
 
 def structure_number_or_expression(v, cls):
-    if isinstance(v, str):
+    if isinstance(v, (str, LinearExpression)):
         return qwip.converter.structure(v, sym.Expr)
 
     return v

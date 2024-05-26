@@ -162,7 +162,7 @@ class TestBasicWaveform:
         assert w.name == "name"
 
     def test_convert(self):
-        w = BasicWaveform(channels=(0, "Q1"), width=1, amplitude="A")
+        w = BasicWaveform(channels=(0, "Q1"), width=Location(1), amplitude="A")
 
         assert w.channels == ("0", "Q1")
         assert w.width == 1
