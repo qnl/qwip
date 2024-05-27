@@ -335,7 +335,7 @@ class Marker(Waveform):
 
     @property
     def width(self):
-        return Location()
+        return 0
 
 
 @register_waveform
