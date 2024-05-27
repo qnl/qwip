@@ -2,6 +2,7 @@ from contextlib import nullcontext as noerror
 
 import numpy as np
 import pytest
+import sympy as sym
 
 import qwip
 from qwip.sequencer.phase_tracker import Frame
@@ -12,6 +13,7 @@ from qwip.sequencer.waveform import (
     CWWaveform,
     DCWaveform,
     GaussianWaveform,
+    Marker,
     ModulatedWaveform,
     SquareWaveform,
     VirtualZWaveform,
@@ -30,37 +32,44 @@ WAVEFORMS = dict(
 class TestTimeline:
     def test_create(self):
         tmln = Timeline()
-        assert tmln.locations == dict()
-        assert tmln.constraints == dict()
+        assert tmln.lw_pairs == []
+        assert tmln.constraints == []
         assert tmln.channels == set()
         assert tmln.width is None
 
         tmln = Timeline(
-            locations=dict(start=[WAVEFORMS["g1"]]),
-            constraints=dict(start=Location()),
+            lw_pairs=[("start", WAVEFORMS["g1"])],
+            constraints=["start"],
             width="width",
         )
 
-        assert tmln.locations == {Location("start"): [WAVEFORMS["g1"]]}
-        assert tmln.constraints == dict(start=Location())
+        assert tmln.lw_pairs == [(sym.Symbol("start"), WAVEFORMS["g1"])]
+        assert tmln.constraints == [sym.Symbol("start")]
         assert tmln.channels == set({"I"})
-        assert tmln.width == Location("width")
+        assert tmln.width == sym.Symbol("width")
 
     @pytest.mark.parametrize(
-        "locations,start",
-        [([0, 5, 10], None), (["start", "end"], None), ([10, 12], Location(-10))],
+        "locations,constraints",
+        [
+            ([0, 5, 5], ["start"]),
+            (["start", "end"], ["start + 5 - end"]),
+            ([10, 12], ["start - 10"]),
+        ],
     )
-    def test_fromtuples(self, locations, start):
-        s = SquareWaveform()
-        constraints = dict(start=start) if start else dict()
+    def test_fromtuples(self, locations, constraints):
+        wave = SquareWaveform(channels=("CH1",))
 
-        tmln = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
+        tmln = Timeline.fromtuples(
+            [(loc, wave) for loc in locations], constraints=constraints
+        )
 
-        variables = {v for v in locations if isinstance(v, str)} | set(constraints)
-        assert tmln.variables() == variables
+        assert tmln.channels == {"CH1"}
 
-        if start:
-            assert tmln.constraints["start"] == start
+        for loc in tmln.locations:
+            assert isinstance(loc, sym.Expr)
+
+        for constraint in tmln.constraints:
+            assert isinstance(constraint, sym.Expr)
 
     @pytest.mark.parametrize(
         "layers,expect",
@@ -68,28 +77,28 @@ class TestTimeline:
             ([], Timeline()),
             (
                 [
-                    SquareWaveform(width=5),
-                    [SquareWaveform(width=10), SquareWaveform(width=20)],
-                    SquareWaveform(width=10),
+                    SquareWaveform(width=5e-9),
+                    [SquareWaveform(width=10e-9), SquareWaveform(width=20e-9)],
+                    SquareWaveform(width=10e-9),
                 ],
                 Timeline.fromtuples(
                     [
-                        (0, SquareWaveform(width=5)),
-                        (5, SquareWaveform(width=10)),
-                        (5, SquareWaveform(width=20)),
-                        (25, SquareWaveform(width=10)),
+                        (0, SquareWaveform(width=5e-9)),
+                        (5e-9, SquareWaveform(width=10e-9)),
+                        (5e-9, SquareWaveform(width=20e-9)),
+                        (25e-9, SquareWaveform(width=10e-9)),
                     ]
                 ),
             ),
             (
                 [
-                    [SquareWaveform(width=10), 20],
-                    SquareWaveform(width=10),
+                    [SquareWaveform(width=10e-9), 20e-9],
+                    SquareWaveform(width=10e-9),
                 ],
                 Timeline.fromtuples(
                     [
-                        (0, SquareWaveform(width=10)),
-                        (20, SquareWaveform(width=10)),
+                        (0, SquareWaveform(width=10e-9)),
+                        (20e-9, SquareWaveform(width=10e-9)),
                     ]
                 ),
             ),
@@ -98,33 +107,33 @@ class TestTimeline:
                     Timeline.fromtuples(
                         [
                             (0, VirtualZWaveform(frame="Q0")),
-                            (0, SquareWaveform(width=25)),
-                            (25, VirtualZWaveform(frame="Q0")),
+                            (0, SquareWaveform(width=25e-9)),
+                            (25e-9, VirtualZWaveform(frame="Q0")),
                         ],
-                        width=25,
+                        width=25e-9,
                     ),
                     "delay",
-                    [SquareWaveform(width=10)],
+                    [SquareWaveform(width=10e-9)],
                 ],
                 Timeline.fromtuples(
                     [
                         (0, VirtualZWaveform(frame="Q0")),
-                        (0, SquareWaveform(width=25)),
-                        (25, VirtualZWaveform(frame="Q0")),
-                        (Location(25) + "delay", SquareWaveform(width=10)),
+                        (0, SquareWaveform(width=25e-9)),
+                        (25e-9, VirtualZWaveform(frame="Q0")),
+                        ("25e-9 + delay", SquareWaveform(width=10e-9)),
                     ]
                 ),
             ),
             (
                 [
-                    (20, SquareWaveform(width=10)),
+                    (20e-9, SquareWaveform(width=10e-9)),
                     "delay",
-                    SquareWaveform(width=5),
+                    SquareWaveform(width=5e-9),
                 ],
                 Timeline.fromtuples(
                     [
-                        (0, SquareWaveform(width=10)),
-                        (Location(20) + "delay", SquareWaveform(width=5)),
+                        (0, SquareWaveform(width=10e-9)),
+                        ("20e-9 + delay", SquareWaveform(width=5e-9)),
                     ]
                 ),
             ),
@@ -151,9 +160,7 @@ class TestTimeline:
         ],
     )
     def test_getitem(self, all_locs, get_loc, expect):
-        tmln = Timeline.fromtuples(
-            [(l, w) for l, w in zip(all_locs, WAVEFORMS.values())]
-        )
+        tmln = Timeline(lw_pairs=[(l, w) for l, w in zip(all_locs, WAVEFORMS.values())])
 
         context = noerror() if isinstance(expect, str) else expect
         with context:
@@ -167,16 +174,16 @@ class TestTimeline:
         ],
     )
     def test_contains(self, pairs, wave, expect):
-        tmln = Timeline.fromtuples(pairs)
+        tmln = Timeline(lw_pairs=pairs)
         assert (wave in tmln) == expect
 
     @pytest.mark.parametrize(
         "locations,constraints,expect",
         [
-            ([], {}, set()),
-            ([0, "a", "b"], {}, {"a", "b"}),
-            ([0, 1, 2], {}, set()),
-            ([], dict(x="y"), {"x", "y"}),
+            ([], [], set()),
+            ([0, "a", "b"], [], {"a", "b"}),
+            ([0, 1, 2], [], set()),
+            ([], ["x - y"], {"x", "y"}),
         ],
     )
     def test_variables(self, locations, constraints, expect):
@@ -189,45 +196,35 @@ class TestTimeline:
     @pytest.mark.parametrize(
         "locations,constraints,expect",
         [
-            (["start"], dict(start=0), dict(start=0)),
+            (["start"], ["start"], dict(start=0)),
             (
                 ["start", "a", "b", "c"],
-                dict(
-                    start=0,
-                    a=Location("start") + 10,
-                    b=Location("start") + 20,
-                    c=0.5 * (Location("a") + Location("b")),
-                ),
+                ["start", "start + 10 - a", "start + 20 - b", "(a + b) / 2 - c"],
                 dict(start=0, a=10, b=20, c=15),
             ),
             (
                 ["a", "b", "c"],
-                dict(
-                    a=0.5 * Location("b") - "c",
-                    b="a" + 2 * Location("c") + 1,
-                    c=3 * Location("a") + 2 * Location("b") - 1,
-                ),
+                ["b / 2 - c - a", "a + 2 * c + 1 - b", "3 * a + 2 * b - 1"],
                 dict(a=1, b=-2, c=-2),
             ),
             (
                 ["start", "underconstrained"],
-                dict(start=0),
+                ["start"],
                 pytest.raises(np.linalg.LinAlgError),
             ),
             (
                 ["start", "end"],
-                dict(start="end" + Location(1), end="start" - Location(1)),
+                ["end + 1 - start", "start - 1 - end"],
                 pytest.raises(np.linalg.LinAlgError),
             ),
-            (["a"], dict(a="b", b="c", c=1), dict(a=1, b=1, c=1)),
+            (["a"], ["a - b", "b - c", "c - 1"], dict(a=1, b=1, c=1)),
         ],
     )
     def test_solve_constraints(self, locations, constraints, expect):
-        tmln = Timeline()
-        for loc in locations:
-            tmln.add_waveform([], loc)
-
-        tmln.add_constraints(**constraints)
+        m = Marker(name="m1")
+        tmln = Timeline(
+            lw_pairs=[(loc, m) for loc in locations], constraints=constraints
+        )
 
         context = expect if hasattr(expect, "__enter__") else noerror()
         with context:
