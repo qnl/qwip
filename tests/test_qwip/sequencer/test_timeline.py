@@ -482,23 +482,49 @@ class TestTimeline:
         [
             (Timeline(), {}),
             (
-                Timeline.fromtuples(
-                    [(1 + Location("width"), WAVEFORMS["s1"])],
-                    constraints=dict(width=Location(5)),
+                Timeline(
+                    lw_pairs=[
+                        (
+                            0,
+                            SquareWaveform(
+                                amplitude="amp", width="tau/2", channels=("Q0",)
+                            ),
+                        ),
+                        ("tau / 2", SquareWaveform(amplitude="-amp", width="tau/2")),
+                        ("tau", VirtualZWaveform(frame="Q0", phase=90)),
+                    ],
                 ),
                 dict(
-                    locations={
-                        "1 + width": [
-                            {
-                                "channels": ignore_order(["I", "Q"]),
-                                "width": 3.2e-8,
-                                "__class__": "SquareWaveform",
-                            }
-                        ]
-                    },
-                    constraints=dict(width=5.0),
+                    lw_pairs=[
+                        [
+                            0.0,
+                            dict(
+                                channels=["Q0"],
+                                width="tau/2",
+                                amplitude="amp",
+                                __class__="SquareWaveform",
+                            ),
+                        ],
+                        [
+                            "tau/2",
+                            dict(
+                                width="tau/2",
+                                amplitude="-amp",
+                                __class__="SquareWaveform",
+                            ),
+                        ],
+                        [
+                            "tau",
+                            dict(frame="Q0", phase=90, __class__="VirtualZWaveform"),
+                        ],
+                    ]
                 ),
             ),
+            (
+                Timeline(constraints=["10e-9 - tau", "tau / 2 - mid"]),
+                dict(constraints=ignore_order(["1.0e-8 - tau", "-mid + tau/2"])),
+            ),
+            (Timeline(width=20e-9), dict(width=20e-9)),
         ],
     )
     def test_serialization(self, tmln, tmln_dict):
@@ -507,3 +533,30 @@ class TestTimeline:
 
         assert unstructured == tmln_dict
         assert tmln == restructured
+
+    @pytest.mark.parametrize(
+        "tmln_dict,tmln",
+        [
+            (
+                dict(
+                    locations={
+                        "1 + width": [
+                            {
+                                "channels": ["I", "Q"],
+                                "width": 3.2e-8,
+                                "__class__": "SquareWaveform",
+                            }
+                        ]
+                    },
+                    constraints=dict(width=5.0),
+                ),
+                Timeline(
+                    lw_pairs=[(1 + Location("width"), WAVEFORMS["s1"])],
+                    constraints={"5.0 - width"},
+                ),
+            ),
+        ],
+    )
+    def test_legacy_serialization(self, tmln_dict, tmln):
+        structured = qwip.converter.structure(tmln_dict, Timeline)
+        assert tmln == structured

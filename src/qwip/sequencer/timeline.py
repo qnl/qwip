@@ -14,6 +14,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 import qwip
+from qwip._cattr import make_attrs_structure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.utils import _variable_substitution
 from qwip.sequencer.waveform import (
@@ -845,6 +846,35 @@ class Timeline:
         tmln.constraints.update(self.constraints, other.constraints)
 
         return tmln
+
+
+structure_new_timeline = make_attrs_structure_fn(Timeline)
+
+
+def structure_timeline(obj, cls):
+    if (
+        isinstance(obj, dict)
+        and "locations" in obj
+        or isinstance(obj.get("constraints"), dict)
+    ):
+        lw_pairs = [
+            (loc, qwip.converter.structure(w, Waveform))
+            for loc, waves in obj.get("locations", {}).items()
+            for w in waves
+        ]
+
+        constraints = set()
+        for name, expr in obj.get("constraints", {}).items():
+            constraints.add(qwip.converter.structure(expr, sym.Expr) - sym.Symbol(name))
+
+        width = obj.get("width", None)
+
+        return Timeline(lw_pairs=lw_pairs, constraints=constraints, width=width)
+
+    return structure_new_timeline(obj, cls)
+
+
+qwip.converter.register_structure_hook(Timeline, structure_timeline)
 
 
 @qdefine
