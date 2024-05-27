@@ -7,11 +7,28 @@ from numbers import Real
 from typing import Any, Self
 
 import attrs
+import sympy as sym
 from attrs import field
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn
 from qwip.attrs import qfrozen
+
+NumberOrExpression = Real | sym.Expr
+
+
+def _variable_substitution(expr, subs):
+    return expr.subs(subs)
+
+
+def _to_python_number(x, /) -> Real:
+    match x:
+        case sym.Integer():
+            return int(x)
+        case sym.Float():
+            return float(x)
+
+    return x
 
 
 def _type_error_text(op1, op2, operand: str) -> str:
@@ -544,6 +561,37 @@ qwip.converter.register_structure_hook_factory(
 
 qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, LinearExpression), make_linear_expression_unstructure_fn
+)
+
+# ========== Sympy Expression converters ========== #
+
+
+def structure_sympy_expression(obj, cls):
+    match obj:
+        case sym.Expr():
+            return obj
+        case Real():
+            return sym.Float(obj)
+        case LinearExpression():
+            return sym.parse_expr(str(obj))
+        case str():
+            return sym.parse_expr(obj)
+
+    return obj
+
+
+qwip.converter.register_structure_hook(sym.Expr, structure_sympy_expression)
+
+
+def structure_number_or_expression(v, cls):
+    if isinstance(v, (str, LinearExpression)):
+        return qwip.converter.structure(v, sym.Expr)
+
+    return v
+
+
+qwip.converter.register_structure_hook(
+    NumberOrExpression, structure_number_or_expression
 )
 
 

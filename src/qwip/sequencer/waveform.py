@@ -18,7 +18,11 @@ from qwip.attrs import qfrozen
 from qwip.attrs.serialization import _TypeConverter
 from qwip.defaults import dynamic_default
 from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
-from qwip.sequencer.utils import LinearExpression, Location
+from qwip.sequencer.utils import (
+    NumberOrExpression,
+    _to_python_number,
+    _variable_substitution,
+)
 from qwip.typing import is_union_type
 
 if TYPE_CHECKING:
@@ -34,19 +38,6 @@ def register_waveform(cls) -> type:
     REGISTERED_WAVEFORMS[cls.__name__] = cls
 
     return cls
-
-
-def _to_python_number(x, /) -> Real:
-    match x:
-        case sym.Integer():
-            return int(x)
-        case sym.Float():
-            return float(x)
-
-    return x
-
-
-NumberOrExpression = Real | sym.Expr
 
 
 @qfrozen
@@ -110,10 +101,10 @@ class Operation:
                 case Operation():
                     to_update[f.name] = orig.resolve(**variable_map)
                 case sym.Expr():
-                    to_update[f.name] = orig.subs(variable_map)
+                    to_update[f.name] = _variable_substitution(orig, variable_map)
                 case Timeline() if set(variable_map) & orig.variables():
                     new = orig.copy()
-                    new.resolve(**variable_map)
+                    new.resolve(**variable_map, inplace=True)
                     to_update[f.name] = new
 
         return attrs.evolve(self, **to_update)
@@ -208,10 +199,16 @@ class Waveform(Operation):
                 continue
 
             value = getattr(self, f.name)
-
             match value:
                 case sym.Expr():
-                    fields[f.name] = value = _to_python_number(value.subs(kwargs))
+                    subs = {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, Real, sym.Expr))
+                    }
+                    fields[f.name] = value = _to_python_number(
+                        _variable_substitution(value, subs)
+                    )
                 case str():
                     fields[f.name] = kwargs.get(value, kwargs.get(f.name, value))
                 case _:
@@ -323,7 +320,7 @@ class BasicWaveform(TimedWaveform):
 @register_waveform
 @qfrozen
 class InfiniteWaveform(BasicWaveform):
-    width: Location = Location(np.inf)
+    width: NumberOrExpression = sym.oo
 
 
 @register_waveform
@@ -702,21 +699,6 @@ class DRAG(Waveform):
         d2 = np.gradient(d1)
 
         return envelope + 1j * lmbda * d1 + lmbda2 * d2
-
-
-# ========== float | str converters ========== #
-
-
-def structure_number_or_expression(v, cls):
-    if isinstance(v, (str, LinearExpression)):
-        return qwip.converter.structure(v, sym.Expr)
-
-    return v
-
-
-qwip.converter.register_structure_hook(
-    NumberOrExpression, structure_number_or_expression
-)
 
 
 # ========== Waveform converters ========== #

@@ -3,24 +3,26 @@ from collections.abc import Callable, Collection, Iterable
 from copy import copy, deepcopy
 from functools import singledispatchmethod
 from numbers import Real
-from typing import Self
+from typing import Literal, Self
 
 import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sym
 from attrs import field
+from loguru import logger
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 import qwip
 from qwip.attrs import qdefine
-
-# from qwip.sequencer.utils import Location
+from qwip.sequencer.utils import _variable_substitution
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
     InfiniteWaveform,
     Marker,
+    Operation,
     Waveform,
+    _to_python_number,
 )
 from qwip.utils import deprecated
 from qwip.visualization.utils import all_legend_handles_labels
@@ -37,7 +39,7 @@ class UnderconstrainedSolveError(np.linalg.LinAlgError): ...
 class Timeline:
     lw_pairs: list[tuple[Location, Waveform]] = field(factory=list)
     width: Location | None = None
-    constraints: list[sym.Expr] = field(factory=list)
+    constraints: set[sym.Expr] = field(factory=set)
     channels: set[str] = field(factory=set, metadata=dict(serialize=False))
 
     def __attrs_post_init__(self):
@@ -177,7 +179,7 @@ class Timeline:
 
         return tmln
 
-    def add(self, target, /, location: LocationLike = Location()) -> Self:
+    def add(self, target, /, location: LocationLike = 0.0) -> Self:
         """Adds a waveform or another pulse timeline to the specified location.
 
         Args:
@@ -210,9 +212,6 @@ class Timeline:
             location: The location at which to place the waveform
             waveform: The waveform to add
         """
-        # if not isinstance(location, Location):
-        #     location = qwip.converter.structure(location, sym.Expr)
-
         for wave in waveforms:
             self._add_location_waveform_pair(location, wave)
 
@@ -263,7 +262,7 @@ class Timeline:
             **kwargs: constraints are specified as name=location arguments
         """
 
-        self.constraints.extend(qwip.converter.structure(constraints, list[sym.Expr]))
+        self.constraints.update(qwip.converter.structure(constraints, list[sym.Expr]))
 
     def remove_constraint(self, constraint: int | str | sym.Expr) -> sym.Expr | None:
         """Removes a constraint from the constraint mapping.
@@ -276,14 +275,7 @@ class Timeline:
             not in the constraint mapping.
         """
 
-        match constraint:
-            case int():
-                try:
-                    return self.pop(constraint)
-                except IndexError:
-                    return None
-            case str():
-                constraint = qwip.converter.structure(constraint, sym.Expr)
+        constraint = qwip.converter.structure(constraint, sym.Expr)
 
         if constraint not in self.constraints:
             return None
@@ -365,16 +357,14 @@ class Timeline:
         dt = self_loc - other_loc
         if name is not None:
             name = sym.Symbol(name)
-            self.constraints.append(name - dt)
+            self.constraints.add(name - dt)
             dt = name
 
         for loc, wave in other.lw_pairs:
             loc += dt
             self.lw_pairs.append((loc, wave))
 
-        for constraint in other.constraints:
-            if constraint not in self.constraints:
-                self.constraints.append(constraint)
+        self.constraints.update(other.constraints)
 
         self.channels.update(other.channels)
 
@@ -388,7 +378,8 @@ class Timeline:
             location mapping or the constraint mapping.
         """
         symbols = set().union(
-            *(expr.free_symbols for expr in it.chain(self.locations, self.constraints))
+            *(expr.free_symbols for expr in it.chain(self.locations, self.constraints)),
+            set() if self.width is None else self.width.free_symbols,
         )
 
         tvars = {s.name for s in symbols}
@@ -396,7 +387,7 @@ class Timeline:
 
         return tvars | opvars
 
-    def rename_variables(self, rename_func: Callable[[str], str]) -> set[str]:
+    def rename_variables(self, rename_func: Callable[[str], str]) -> dict[str, str]:
         """Renames all variables.
 
         This function renames variables according to `rename_func`.
@@ -408,23 +399,26 @@ class Timeline:
             A set containing the new names of all variables referenced by the
             pulse timeline.
         """
-        varmap = {n: rename_func(n) for n in self.variables()}
+        var_map = {
+            old: new for old in self.variables() if old != (new := rename_func(old))
+        }
 
-        self.locations = {
-            loc.resolve(**varmap): waves for loc, waves in self.locations.items()
-        }
-        self.constraints = {
-            varmap.get(name, name): loc.resolve(**varmap)
-            for name, loc in self.constraints.items()
-        }
+        if not var_map:
+            return var_map
+
+        self.lw_pairs[:] = (
+            (_variable_substitution(loc, var_map), op.resolve(**var_map))
+            for loc, op in self.lw_pairs
+        )
+
+        constraints = [_variable_substitution(c, var_map) for c in self.constraints]
+        self.constraints.clear()
+        self.constraints.update(constraints)
 
         if self.width:
-            self.width = self.width.resolve(**varmap)
+            self.width = _variable_substitution(self.width, var_map)
 
-        for waves in self.locations.values():
-            waves[:] = [w.resolve(**varmap) for w in waves]
-
-        return set(varmap.items())
+        return var_map
 
     @staticmethod
     def _solve_constraint_matrix(
@@ -482,24 +476,91 @@ class Timeline:
         Returns:
             A dictionary mapping all location names to concrete locations.
         """
-        self.add_constraints(**kwargs)
+        constraints = list(self.constraints | set(constraints))
+        variables = self.variables()
 
-        all_vars = self.variables(subset="location")
+        if not variables:
+            return {}
 
-        basis_set = {Location(v): i for i, v in enumerate(all_vars)}
+        sym_result = sym.solve(constraints, *variables, dict=True)
 
-        try:
-            result = type(self)._solve_constraint_matrix(basis_set, self.constraints)
-        except np.linalg.LinAlgError as e:
-            if (num_vars := len(all_vars)) > (num_cons := len(self.constraints)):
-                raise UnderconstrainedSolveError(
-                    f"Found {num_vars} variables but only {num_cons} constraints. "
-                    f"(variables = {all_vars})"
-                ) from e
+        num_solutions = len(sym_result)
 
-            raise e
+        if num_solutions < 1:
+            logger.warning("No solutions found.")
+            return {}
+
+        elif num_solutions > 1:
+            raise ValueError(
+                f"Found {num_solutions} solutions. System is likely underconstrained"
+            )
+
+        result = {}
+        for symbol, value in sym_result[0].items():
+            result[symbol.name] = value
 
         return result
+
+    def resolve(
+        self,
+        *constraints,
+        inplace: bool = True,
+        sort: bool = True,
+        reset_zero: Literal["pos", "neg", "both"] = "neg",
+        **substitutions,
+    ) -> list[tuple[Location, Waveform]]:
+        lw_pairs = []
+
+        new_constraints = qwip.converter.structure(constraints, set[sym.Expr])
+
+        for symbol, value in substitutions.items():
+            value = qwip.converter.structure(value, sym.Expr)
+            symbol = qwip.converter.structure(value, sym.Expr)
+
+            new_constraints.add(value - symbol)
+
+        solved = self.solve_constraints(*new_constraints)
+        symbol_set = set(solved.keys())
+        var_set = {s.name for s in symbol_set}
+
+        tmin = tmax = None
+
+        for loc, wave in self.lw_pairs:
+            if symbol_set and loc.free_symbols and loc.free_symbols & symbol_set:
+                loc = loc.subs(solved)
+
+            if var_set and wave.variables() and wave.variables() & var_set:
+                wave = wave.resolve(**solved)
+
+            lw_pairs.append((loc, wave))
+
+            width = 0 if wave.width is sym.oo else wave.width
+            tmin = loc if tmin is None else min(tmin, loc)
+            tmax = loc + width if tmax is None else max(tmax, loc + width)
+
+        should_reset = (
+            (reset_zero == "neg" and tmin < 0)
+            or (reset_zero == "pos" and tmin > 0)
+            or (reset_zero == "both")
+        )
+
+        if should_reset:
+            shift = -tmin  # Need to do this bc generator is evaluated after tmin = 0
+            lw_pairs = ((loc + shift, op) for loc, op in lw_pairs)
+            tmax = tmax - tmin
+            tmin = tmin - tmin
+
+        if sort:
+            lw_pairs = sorted(lw_pairs, key=lambda lw: lw[0])
+
+        if inplace:
+            self.lw_pairs[:] = lw_pairs
+            self.width = tmax
+
+        if not isinstance(lw_pairs, list):
+            lw_pairs = list(lw_pairs)
+
+        return lw_pairs
 
     def resolve_waveforms(self, **pulse_vars: float | int) -> dict[Waveform, Waveform]:
         """Resolves all waveform variables into concrete values.
@@ -615,7 +676,7 @@ class Timeline:
             The pulse timeline.
         """
 
-        self.locations = {loc + dt: waves for loc, waves in self.locations.items()}
+        self.lw_pairs[:] = ((loc + dt, op) for loc, op in self.lw_pairs)
 
         return self
 
@@ -634,13 +695,12 @@ class Timeline:
 
         modified = 0
 
-        for loc, waves in self.locations.items():
-            for w_idx in range(len(waves)):
-                orig_wf = waves[w_idx]
-                new_wf = transformer(loc, orig_wf)
-                if new_wf != orig_wf:
-                    modified += 1
-                    waves[w_idx] = new_wf
+        for idx, (loc, op) in enumerate(self.lw_pairs):
+            new_op = transformer(loc, op)
+
+            if new_op != op:
+                self.lw_pairs[idx] = (loc, new_op)
+                modified += 1
 
         return modified
 
@@ -662,8 +722,8 @@ class Timeline:
 
     @staticmethod
     def locations_to_channel_map(
-        locations: dict[Location, list[Waveform]], *channels: str
-    ) -> dict[str, list[tuple[Location, Waveform]]]:
+        locations: list[sym.Expr, Operation], *channels: str
+    ) -> dict[str, list[tuple[sym.Expr, Waveform]]]:
         """Splits a location dict by channel.
 
         Makes a single pass through the location dict. This static method
@@ -678,12 +738,11 @@ class Timeline:
 
         channel_map = {c: [] for c in channels}
 
-        for loc, waves in locations.items():
-            for w in waves:
-                wave_channels = w.channels or (None,)
-                for ch in wave_channels:
-                    if ch in channel_map:
-                        channel_map[ch].append((loc, w))
+        for loc, wave in locations:
+            wave_channels = wave.channels or (None,)
+            for ch in wave_channels:
+                if ch in channel_map:
+                    channel_map[ch].append((loc, wave))
 
         return channel_map
 
@@ -703,7 +762,7 @@ class Timeline:
         if not channels:
             channels = self.channels
 
-        return type(self).locations_to_channel_map(self.locations, *channels)
+        return type(self).locations_to_channel_map(self.lw_pairs, *channels)
 
     def plot(
         self,
@@ -780,36 +839,12 @@ class Timeline:
             A new pulse timeline equal to s(t) + r(t).
         """
 
-        locations = dict()
-        channels = set()
-        constraints = dict()
+        tmln = Timeline()
+        tmln.lw_pairs[:] = self.lw_pairs + other.lw_pairs
+        tmln.channels.update(self.channels | other.channels)
+        tmln.constraints.update(self.constraints, other.constraints)
 
-        for loc, waves in self.locations.items():
-            locations[loc] = []
-            for w in waves:
-                locations[loc].append(w)
-
-        for loc, waves in other.locations.items():
-            locations[loc] = locations.get(loc, list())
-            for w in waves:
-                locations[loc].append(w)
-
-        channels.update(self.channels)
-        channels.update(other.channels)
-
-        for key, loc in self.constraints.items():
-            constraints[key] = loc
-
-        for key, loc in other.constraints.items():
-            if constraints.get(key, loc) != loc:
-                raise ValueError(
-                    f"Cannot add two sequences with conflicting constraints. "
-                    f"{key} = {loc} is incompatible with {key} = {constraints[key]}."
-                )
-
-            constraints[key] = loc
-
-        return Timeline(locations=locations, constraints=constraints, channels=channels)
+        return tmln
 
 
 @qdefine
@@ -984,26 +1019,6 @@ class TimelinePlotter:
     def _(self, wave: Waveform, loc: Location, ax: Axes, **props) -> None:
         start = loc.offset
         ax.axvline(start, **props)
-
-
-from qwip.sequencer.utils import LinearExpression
-
-
-def structure_sympy_expression(obj, cls):
-    match obj:
-        case sym.Expr():
-            return obj
-        case Real():
-            return sym.Float(obj)
-        case LinearExpression():
-            return sym.parse_expr(str(obj))
-        case str():
-            return sym.parse_expr(obj)
-
-    return obj
-
-
-qwip.converter.register_structure_hook(sym.Expr, structure_sympy_expression)
 
 
 __all__ = ["Timeline", "TimelinePlotter", "UnderconstrainedSolveError"]

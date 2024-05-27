@@ -33,7 +33,7 @@ class TestTimeline:
     def test_create(self):
         tmln = Timeline()
         assert tmln.lw_pairs == []
-        assert tmln.constraints == []
+        assert tmln.constraints == set()
         assert tmln.channels == set()
         assert tmln.width is None
 
@@ -44,7 +44,7 @@ class TestTimeline:
         )
 
         assert tmln.lw_pairs == [(sym.Symbol("start"), WAVEFORMS["g1"])]
-        assert tmln.constraints == [sym.Symbol("start")]
+        assert tmln.constraints == {sym.Symbol("start")}
         assert tmln.channels == set({"I"})
         assert tmln.width == sym.Symbol("width")
 
@@ -178,18 +178,27 @@ class TestTimeline:
         assert (wave in tmln) == expect
 
     @pytest.mark.parametrize(
-        "locations,constraints,expect",
+        "locations,op,constraints,width,expect",
         [
-            ([], [], set()),
-            ([0, "a", "b"], [], {"a", "b"}),
-            ([0, 1, 2], [], set()),
-            ([], ["x - y"], {"x", "y"}),
+            ([], SquareWaveform(), [], None, set()),
+            ([0, 1, 2], SquareWaveform(), [], None, set()),
+            ([0, "a", "b"], SquareWaveform(), [], None, {"a", "b"}),
+            ([], SquareWaveform(), ["x - y"], None, {"x", "y"}),
+            (
+                [0, 1, 2],
+                SquareWaveform(width="width", amplitude="amp"),
+                [],
+                None,
+                {"width", "amp"},
+            ),
         ],
     )
-    def test_variables(self, locations, constraints, expect):
-        s = SquareWaveform()
-
-        tmln = Timeline.fromtuples([(l, s) for l in locations], constraints=constraints)
+    def test_variables(self, locations, op, constraints, width, expect):
+        tmln = Timeline(
+            lw_pairs=[(loc, op) for loc in locations],
+            constraints=constraints,
+            width=width,
+        )
 
         assert tmln.variables() == expect
 
@@ -204,18 +213,18 @@ class TestTimeline:
             ),
             (
                 ["a", "b", "c"],
-                ["b / 2 - c - a", "a + 2 * c + 1 - b", "3 * a + 2 * b - 1"],
+                ["b / 2 - c - a", "a + 2 * c + 1 - b", "3 * a + 2 * b - 1 - c"],
                 dict(a=1, b=-2, c=-2),
             ),
             (
                 ["start", "underconstrained"],
                 ["start"],
-                pytest.raises(np.linalg.LinAlgError),
+                dict(start=0),
             ),
             (
                 ["start", "end"],
                 ["end + 1 - start", "start - 1 - end"],
-                pytest.raises(np.linalg.LinAlgError),
+                dict(end=sym.parse_expr("start - 1")),
             ),
             (["a"], ["a - b", "b - c", "c - 1"], dict(a=1, b=1, c=1)),
         ],
@@ -225,54 +234,58 @@ class TestTimeline:
         tmln = Timeline(
             lw_pairs=[(loc, m) for loc in locations], constraints=constraints
         )
+        result = tmln.solve_constraints()
 
-        context = expect if hasattr(expect, "__enter__") else noerror()
-        with context:
-            result = tmln.solve_constraints()
+        for k in result:
+            assert result[k] == expect.pop(k)
 
-            assert result.keys() == expect.keys()
-            assert all(np.allclose(result[k], expect[k]) for k in result.keys())
+        assert expect == {}
 
-    def test_resolve_locations_negative(self):
-        tmln = Timeline.fromtuples(
-            [(-20e-9, SquareWaveform(width=30e-9)), (0, GaussianWaveform(width=20e-9))]
+    def test_resolve_negative(self):
+        tmln = Timeline(
+            lw_pairs=[
+                (-20e-9, SquareWaveform(width=30e-9)),
+                (0, GaussianWaveform(width=20e-9)),
+            ]
         )
 
-        locations = tmln.resolve_locations()
+        lw_pairs = tmln.resolve()
 
-        assert list(locations.keys()) == [Location(0), Location(20e-9), Location(40e-9)]
+        assert lw_pairs == tmln.lw_pairs
+        assert tmln.locations == [0, 20e-9]
+        assert tmln.width == 40e-9
 
-    def test_resolve_locations_infinite(self):
-        tmln = Timeline.fromtuples(
-            [
+    def test_resolve_infinite_waveform(self):
+        tmln = Timeline(
+            lw_pairs=[
                 (-10e-9, DCWaveform()),
                 (0, GaussianWaveform(width=20e-9)),
                 (10e-9, GaussianWaveform(width=30e-9)),
             ]
         )
 
-        locations = tmln.resolve_locations()
+        tmln.resolve()
+        assert tmln.locations == [0, 10e-9, 20e-9]
+        assert tmln.width == 50e-9
 
-        assert list(locations.keys()) == [Location(t) for t in (0, 10e-9, 20e-9, 50e-9)]
+    # @pytest.mark.parametrize(
+    #     "locs,end",
+    #     [
+    #         ([(10e-9, GaussianWaveform(width=20e-9))], Location(30e-9)),
+    #         ([(-10e-9, GaussianWaveform(width=20e-9))], Location(20e-9)),
+    #     ],
+    # )
+    # def test_resolve_locations_marker(self, locs, end):
+    #     tmln = Timeline.fromtuples(locs)
 
-    @pytest.mark.parametrize(
-        "locs,end",
-        [
-            ([(10e-9, GaussianWaveform(width=20e-9))], Location(30e-9)),
-            ([(-10e-9, GaussianWaveform(width=20e-9))], Location(20e-9)),
-        ],
-    )
-    def test_resolve_locations_marker(self, locs, end):
-        tmln = Timeline.fromtuples(locs)
+    #     markers = {}
+    #     tmln.resolve_locations(markers=markers)
 
-        markers = {}
-        tmln.resolve_locations(markers=markers)
-
-        assert markers["end"].almost_equal(end)
+    #     assert markers["end"].almost_equal(end)
 
     def test_rename_variables(self):
-        tmln = Timeline().fromtuples(
-            [
+        tmln = Timeline(
+            lw_pairs=[
                 (0, SquareWaveform(amplitude="amp", width="t")),
                 ("t", GaussianWaveform(width="t")),
             ]
@@ -280,8 +293,8 @@ class TestTimeline:
 
         tmln.rename_variables(lambda n: "tgate" if n == "t" else n)
 
-        assert tmln == Timeline().fromtuples(
-            [
+        assert tmln == Timeline(
+            lw_pairs=[
                 (0, SquareWaveform(amplitude="amp", width="tgate")),
                 ("tgate", GaussianWaveform(width="tgate")),
             ]
@@ -290,8 +303,8 @@ class TestTimeline:
         tmln.width = "tgate + tbuffer"
         tmln.rename_variables(lambda n: n + "1" if n != "tgate" else n)
 
-        assert tmln == Timeline().fromtuples(
-            [
+        assert tmln == Timeline(
+            lw_pairs=[
                 (0, SquareWaveform(amplitude="amp1", width="tgate")),
                 ("tgate", GaussianWaveform(width="tgate")),
             ],
@@ -299,12 +312,13 @@ class TestTimeline:
         )
 
     def test_add_timeline(self):
-        tmln1 = Timeline.fromtuples([("a", None), ("b", None)])
-        tmln2 = Timeline.fromtuples([("c", None), ("d", None)])
+        m = Marker(name="m1")
+        tmln1 = Timeline(lw_pairs=[("a", m), ("b", m)])
+        tmln2 = Timeline.fromtuples([("c", m), ("d", m)])
 
         tmln1.add_timeline(tmln2)
 
-        assert tmln1.locations == {Location(l): [] for l in "abcd"}
+        assert tmln1.locations == [sym.Symbol(s) for s in "abcd"]
 
     @pytest.mark.parametrize(
         "vars1,vars2,name,expect",
@@ -313,23 +327,20 @@ class TestTimeline:
         ],
     )
     def test_add_timeline_shared_variables(self, vars1, vars2, name, expect):
-        tmln1 = Timeline.fromtuples([(v, None) for v in vars1])
-        tmln2 = Timeline.fromtuples([(v, None) for v in vars2])
+        m = Marker(name="m1")
+        tmln1 = Timeline(lw_pairs=[(v, m) for v in vars1])
+        tmln2 = Timeline(lw_pairs=[(v, m) for v in vars2])
 
-        if hasattr(expect, "__enter__"):
-            with expect:
-                tmln1.add_timeline(tmln2, name=name)
-        else:
-            tmln1.add_timeline(tmln2, name=name)
-            tmln1.variables() == expect
+        tmln1.add_timeline(tmln2, name=name)
+        assert tmln1.variables() == expect
 
     @pytest.mark.parametrize(
         "self_loc,other_loc,name",
         [
-            (Location(), Location(), "seq2/start"),
-            (Location(), Location(5), "seq2/start"),
-            (Location(5), Location(), "seq2/start"),
-            (Location(), Location(), None),
+            (0, 0, "t2_start"),
+            (0, 5, "t2_start"),
+            (5, 0, "t2_start"),
+            (0, 0, None),
         ],
     )
     def test_add_timeline_location_name(self, self_loc, other_loc, name):
@@ -339,9 +350,11 @@ class TestTimeline:
         tmln1.add_timeline(tmln2, self_loc, other_loc, name=name)
 
         if name:
-            assert tmln1.constraints[name] == self_loc - other_loc
+            assert tmln1.constraints.pop() == sym.parse_expr(
+                f"{name} - ({float(self_loc)} - {float(other_loc)})"
+            )
         else:
-            assert tmln1.constraints == dict()
+            assert tmln1.constraints == set()
 
     @pytest.mark.parametrize(
         "tmln,target,result",
@@ -350,9 +363,9 @@ class TestTimeline:
             (
                 Timeline(),
                 SquareWaveform(),
-                Timeline.fromtuples([(Location(), SquareWaveform())]),
+                Timeline(lw_pairs=[(0, SquareWaveform())]),
             ),
-            (Timeline(), t := Timeline.fromtuples([(Location(), SquareWaveform())]), t),
+            (Timeline(), t := Timeline(lw_pairs=[(0, SquareWaveform())]), t),
         ],
     )
     def test_add(self, tmln, target, result):
@@ -363,39 +376,32 @@ class TestTimeline:
         [
             (Timeline(), Timeline(), Timeline()),
             (
-                Timeline.fromtuples(
-                    [(Location("start"), SquareWaveform(channels=["a"]))],
+                Timeline(
+                    lw_pairs=[("start", SquareWaveform(channels=["a"]))],
                     constraints=dict(start=Location()),
                 ),
-                Timeline.fromtuples(
-                    [(Location("start"), SquareWaveform(channels=["b"]))],
-                    constraints=dict(start=Location(), width=Location(10)),
+                Timeline(
+                    lw_pairs=[("start", SquareWaveform(channels=["b"]))],
+                    constraints=["start", "width - 10.0"],
                 ),
-                Timeline.fromtuples(
-                    [
-                        (Location("start"), SquareWaveform(channels=["a"])),
-                        (Location("start"), SquareWaveform(channels=["b"])),
+                Timeline(
+                    lw_pairs=[
+                        ("start", SquareWaveform(channels=["a"])),
+                        ("start", SquareWaveform(channels=["b"])),
                     ],
-                    constraints=dict(start=Location(), width=Location(10)),
+                    constraints=["start", "width - 10.0"],
                 ),
-            ),
-            (
-                Timeline.fromtuples([], constraints=dict(start=Location())),
-                Timeline.fromtuples([], constraints=dict(start=Location(1))),
-                pytest.raises(ValueError),
             ),
         ],
     )
     def test_add_operator(self, tmln1, tmln2, result):
-        context = result if hasattr(result, "__enter__") else noerror()
-        with context:
-            assert tmln1 + tmln2 == result
+        assert tmln1 + tmln2 == result
 
     def test_transform_waveforms(self):
         lws = [
-            (Location(), VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
+            (0, VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
             (
-                Location(),
+                0,
                 ModulatedWaveform(
                     envelope=GaussianWaveform(amplitude="amplitude", width="width"),
                     modulation=CWWaveform(
@@ -403,9 +409,9 @@ class TestTimeline:
                     ),
                 ),
             ),
-            (Location("width"), VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
+            ("width", VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
         ]
-        tmln = Timeline.fromtuples(lws, width="width")
+        tmln = Timeline(lw_pairs=lws, width="width")
 
         def transformer(loc, wave):
             match wave:
@@ -420,7 +426,7 @@ class TestTimeline:
 
         assert tmln.transform_waveforms(transformer) == 3
 
-        for _, wave in tmln.get_location_pairs():
+        for _, wave in tmln.lw_pairs:
             match wave:
                 case VirtualZWaveform():
                     assert wave.frame == Frame("Q0.mod_GE")
@@ -431,10 +437,10 @@ class TestTimeline:
         "tmln",
         [
             Timeline(),
-            Timeline.fromtuples([("a", WAVEFORMS["c1"]), ("b", WAVEFORMS["g1"])]),
-            Timeline.fromtuples(
-                [("a", WAVEFORMS["c1"]), ("a", WAVEFORMS["g1"])],
-                constraints=dict(a=Location()),
+            Timeline(lw_pairs=[("a", WAVEFORMS["c1"]), ("b", WAVEFORMS["g1"])]),
+            Timeline(
+                lw_pairs=[("a", WAVEFORMS["c1"]), ("a", WAVEFORMS["g1"])],
+                constraints=["a"],
             ),
         ],
     )
@@ -442,12 +448,9 @@ class TestTimeline:
         tmlncopy = tmln.copy()
 
         assert tmln == tmlncopy
-        assert tmln.locations is not tmlncopy.locations
+        assert tmln.lw_pairs is not tmlncopy.lw_pairs
         assert tmln.constraints is not tmlncopy.constraints
         assert tmln.channels is not tmlncopy.channels
-
-        for loc in tmln.locations:
-            assert tmln[loc] is not tmlncopy[loc]
 
     @pytest.mark.parametrize(
         "waveforms,channels,channel_map",
@@ -456,22 +459,20 @@ class TestTimeline:
                 ["c1", "s1"],
                 [],
                 dict(
-                    I=[(Location(1), WAVEFORMS["s1"])],
-                    Q=[(Location(1), WAVEFORMS["s1"])],
-                    F1=[(Location(0), WAVEFORMS["c1"])],
+                    I=[(1, WAVEFORMS["s1"])],
+                    Q=[(1, WAVEFORMS["s1"])],
+                    F1=[(0, WAVEFORMS["c1"])],
                 ),
             ),
             (
                 ["c1", "g2", "s1"],
                 ["Q"],
-                dict(
-                    Q=[(Location(1), WAVEFORMS["g2"]), (Location(2), WAVEFORMS["s1"])]
-                ),
+                dict(Q=[(1.0, WAVEFORMS["g2"]), (2.0, WAVEFORMS["s1"])]),
             ),
         ],
     )
     def test_get_channel_map(self, waveforms, channels, channel_map):
-        tmln = Timeline.fromtuples([(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)])
+        tmln = Timeline(lw_pairs=[(i, WAVEFORMS[w]) for i, w in enumerate(waveforms)])
 
         channel_map = {c: waves for c, waves in channel_map.items()}
         assert tmln.get_channel_map(*channels) == channel_map
