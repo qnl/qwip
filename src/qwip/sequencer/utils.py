@@ -580,7 +580,18 @@ def structure_sympy_expression(obj, cls):
     return obj
 
 
+def unstructure_sympy_expression(obj):
+    match obj:
+        case sym.Integer():
+            return int(obj)
+        case sym.RealNumber():
+            return float(obj)
+
+    return str(obj)
+
+
 qwip.converter.register_structure_hook(sym.Expr, structure_sympy_expression)
+qwip.converter.register_unstructure_hook(sym.Expr, unstructure_sympy_expression)
 
 
 def structure_number_or_expression(v, cls):
