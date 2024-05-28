@@ -810,13 +810,15 @@ class Timeline:
             pulse_vars,
         )
 
+    @deprecated(
+        version="24.5.1",
+        removed="24.8.0",
+        message="Use the timeline as an interable directly instead.",
+    )
     def get_location_pairs(self) -> list[tuple[Location, Waveform]]:
         """Returns a list of all `(loc, wave)` pairs in the location mapping."""
-        chained = it.chain.from_iterable(
-            ((loc, w) for w in waves) for loc, waves in self.locations.items()
-        )
 
-        return list(chained)
+        return list(self)
 
     def __getitem__(self, key: LocationLike) -> list[Waveform]:
         key = qwip.converter.structure(key, sym.Expr)
