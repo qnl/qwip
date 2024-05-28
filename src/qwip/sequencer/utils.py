@@ -404,7 +404,7 @@ class LinearExpression:
         """Scalar multiplication of a location."""
         return self.__mul__(other)
 
-    def __div__(self, other) -> Self:
+    def __truediv__(self, other) -> Self:
         """Scalar division of a location."""
         return self.__mul__(1 / other)
 
