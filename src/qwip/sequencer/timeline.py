@@ -204,7 +204,7 @@ class Timeline:
 
     def add_waveform(
         self,
-        *waveforms: Waveform,
+        waveforms: Waveform | Iterable[Waveform],
         location: LocationLike = 0.0,
     ) -> Self:
         """Adds a waveform to the pulse timeline at the specified location.
@@ -213,10 +213,13 @@ class Timeline:
             location: The location at which to place the waveform
             waveform: The waveform to add
         """
+        if isinstance(waveforms, Operation):
+            waveforms = [waveforms]
+
         for wave in waveforms:
             self._add_location_waveform_pair(location, wave)
 
-        self.channels.update(*(w.channels for w in waveforms))
+        self.channels.update(*(wave.channels for wave in waveforms))
 
         return self
 
@@ -521,13 +524,12 @@ class Timeline:
             new_constraints.add(value - symbol)
 
         solved = self.solve_constraints(*new_constraints)
-        symbol_set = set(solved.keys())
-        var_set = {s.name for s in symbol_set}
+        var_set = set(solved.keys())
 
         tmin = tmax = None
 
         for loc, wave in self.lw_pairs:
-            if symbol_set and loc.free_symbols and loc.free_symbols & symbol_set:
+            if var_set and loc.free_symbols and loc.free_symbols & var_set:
                 loc = loc.subs(solved)
 
             if var_set and wave.variables() and wave.variables() & var_set:

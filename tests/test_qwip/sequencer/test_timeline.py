@@ -221,11 +221,6 @@ class TestTimeline:
                 ["start"],
                 dict(start=0),
             ),
-            (
-                ["start", "end"],
-                ["end + 1 - start", "start - 1 - end"],
-                dict(end=sym.parse_expr("start - 1")),
-            ),
             (["a"], ["a - b", "b - c", "c - 1"], dict(a=1, b=1, c=1)),
         ],
     )
@@ -240,6 +235,20 @@ class TestTimeline:
             assert result[k] == expect.pop(k)
 
         assert expect == {}
+
+    def test_solve_undersconstrained(self):
+        m = Marker(name="m1")
+        tmln = Timeline(
+            lw_pairs=[("start", m), ("end", m)],
+            constraints=["end + 1 - start", "start - 1 - end"],
+        )
+
+        result = tmln.solve_constraints()
+
+        if "start" in result:
+            assert result["start"] == sym.parse_expr("end + 1")
+        else:
+            assert result["end"] == sym.parse_expr("start - 1")
 
     def test_resolve_negative(self):
         tmln = Timeline(
@@ -364,6 +373,16 @@ class TestTimeline:
                 Timeline(),
                 SquareWaveform(),
                 Timeline(lw_pairs=[(0, SquareWaveform())]),
+            ),
+            (
+                Timeline(),
+                [SquareWaveform(width=10e-9), SquareWaveform(width=20e-9)],
+                Timeline(
+                    lw_pairs=[
+                        (0, SquareWaveform(width=10e-9)),
+                        (0, SquareWaveform(width=20e-9)),
+                    ]
+                ),
             ),
             (Timeline(), t := Timeline(lw_pairs=[(0, SquareWaveform())]), t),
         ],
