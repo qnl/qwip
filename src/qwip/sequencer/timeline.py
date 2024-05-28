@@ -33,9 +33,6 @@ LocationLike = Location | str | Real
 TChannelMap = dict[str, tuple[Location, Waveform]]
 
 
-class UnderconstrainedSolveError(np.linalg.LinAlgError): ...
-
-
 def _default_sort_key(loc_op: tuple[float, Operation]) -> float:
     return loc_op[0]
 
@@ -285,41 +282,6 @@ class Timeline:
         self.constraints.remove(constraint)
         return constraint
 
-    @deprecated(
-        version="23.10.0", removed="23.12.0", message="Use `add_timeline` instead."
-    )
-    def append(
-        self,
-        other: Self,
-        self_loc: LocationLike = Location(),
-        other_loc: LocationLike = Location(),
-        name: str | None = None,
-    ) -> Self:
-        """Adds another pulse timeline to the current timeline.
-
-        !!! Warning
-            Deprecated since version 23.10.0. `append` will be removed in 24.1.0.
-
-        Args:
-            other: The pulse timeline to append.
-            self_loc: The location in the current pulse timeline to line up with
-                the location in the `other` pulse timeline.
-            other_loc: The location in the `other` pulse timeline to line up with
-                the location in the current pulse timeline.
-            name: A variable name to define as the new location of the origin
-                for the `other` sequence. This makes it simpler to shift the origin
-                later.
-
-        Returns:
-            The current pulse timeline.
-
-        Raises:
-            ValueError: If any constraints that are declared in both sequence
-                elements and differ from each other.
-        """
-
-        return self.add_timeline(other, self_loc, other_loc, name)
-
     def add_timeline(
         self,
         other: Self,
@@ -422,53 +384,6 @@ class Timeline:
 
         return var_map
 
-    @staticmethod
-    def _solve_constraint_matrix(
-        basis_set: dict[Location, int], constraints: dict[str, Location]
-    ) -> dict[str, Location]:
-        """Solves a constraint matrix.
-
-        Args:
-            basis_set: A dictionary mapping variables to a basis index. This dictionary
-                should assign a unique integer in [0, N) to each variable, where
-                N is the number of variables in the basis set.
-            constraints: The set of constraints to solve. This specifies a linear system
-                of equations.
-
-        Returns:
-            A dict mapping variable names to concrete locations.
-
-        Raises:
-            numpy.linalg.LinalgError: If the constraint matrix is singular.
-        """
-        N = len(basis_set)
-
-        A = np.zeros((N, N))
-        b = np.zeros(N)
-
-        for y, xs in constraints.items():
-            y = Location(y)
-            y_idx = basis_set[y]
-
-            # Have to handle the case where xs is only a string variable
-            if isinstance(xs.offset, str):
-                b_y = 0
-                coeffients = {(xs, 1)}
-            else:
-                b_y = xs.offset
-                coeffients = xs.references
-
-            b[y_idx] = b_y
-            A[y_idx, y_idx] = 1
-
-            for x, coeff in coeffients:
-                x_idx = basis_set[x]
-                A[y_idx, x_idx] -= coeff
-
-        result = np.linalg.solve(A, b)
-
-        return {loc.offset: result[i] for loc, i in basis_set.items()}
-
     def solve_constraints(self, *constraints) -> dict[str, Location]:
         """Solves all timing constraints for the pulse timeline.
 
@@ -564,6 +479,9 @@ class Timeline:
 
         return lw_pairs
 
+    @deprecated(
+        version="24.5.1", removed="24.8.0", message="Use `Timeline.resolve` instead."
+    )
     def resolve_waveforms(self, **pulse_vars: float | int) -> dict[Waveform, Waveform]:
         """Resolves all waveform variables into concrete values.
 
@@ -593,6 +511,9 @@ class Timeline:
 
         return waveform_dict
 
+    @deprecated(
+        version="24.5.1", removed="24.8.0", message="Use `Timeline.resolve` instead."
+    )
     def resolve_locations(
         self,
         sort: bool = True,
@@ -813,7 +734,7 @@ class Timeline:
     @deprecated(
         version="24.5.1",
         removed="24.8.0",
-        message="Use the timeline as an interable directly instead.",
+        message="Use the timeline as an iterable directly instead.",
     )
     def get_location_pairs(self) -> list[tuple[Location, Waveform]]:
         """Returns a list of all `(loc, wave)` pairs in the location mapping."""
