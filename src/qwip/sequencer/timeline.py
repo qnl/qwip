@@ -261,7 +261,7 @@ class Timeline:
         self.constraints.update(qwip.converter.structure(constraints, list[sym.Expr]))
         self.constraints.update(
             {
-                qwip.converter.structure(value, sym.Expr) - sym.Symbol(symbol)
+                sym.Symbol(symbol) - qwip.converter.structure(value, sym.Expr)
                 for symbol, value in substitutions.items()
             }
         )
@@ -516,7 +516,7 @@ class Timeline:
         new_constraints = qwip.converter.structure(constraints, set[sym.Expr])
         new_constraints.update(
             {
-                qwip.converter.structure(value, sym.Expr) - sym.Symbol(symbol)
+                sym.Symbol(symbol) - qwip.converter.structure(value, sym.Expr)
                 for symbol, value in substitutions.items()
             }
         )
@@ -827,7 +827,7 @@ class Timeline:
         """Checks if the waveform exists in the pulse timeline."""
 
         return waveform in self.operations
-    
+
     def __iter__(self) -> Iterator[sym.Expr, Operation]:
         """Iterate over the location mapping."""
         yield from self.lw_pairs
@@ -870,7 +870,7 @@ def structure_timeline(obj, cls):
 
         constraints = set()
         for name, expr in obj.get("constraints", {}).items():
-            constraints.add(qwip.converter.structure(expr, sym.Expr) - sym.Symbol(name))
+            constraints.add(sym.Symbol(name) - qwip.converter.structure(expr, sym.Expr))
 
         width = obj.get("width", None)
 

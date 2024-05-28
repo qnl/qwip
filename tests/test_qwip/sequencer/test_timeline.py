@@ -213,10 +213,10 @@ class TestTimeline:
         "constraints,substitutions,expect",
         [
             (["a + b / 2"], dict(), {sym.parse_expr("a + b / 2")}),
-            ([], dict(a="-b/2"), {sym.parse_expr("-a - b / 2")}),
+            ([], dict(a="-b/2"), {sym.parse_expr("a + b / 2")}),
             (
                 ["a - b"],
-                dict(b="a", d="c"),
+                dict(a="b", c="d"),
                 {sym.parse_expr("a - b"), sym.parse_expr("c - d")},
             ),
         ],

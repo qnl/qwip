@@ -427,7 +427,9 @@ class QWiPCompiler:
 
         return None
 
-    def compile_phases(self, locations: Iterable[tuple[float, Waveform]], /) -> PhaseTracker:
+    def compile_phases(
+        self, locations: Iterable[tuple[float, Waveform]], /
+    ) -> PhaseTracker:
         """Returns a new phase tracker instance with all virtual phase updates.
 
         Every waveform that has an `update_phase_tracker` method will be called
