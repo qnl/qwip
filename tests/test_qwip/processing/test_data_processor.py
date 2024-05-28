@@ -19,6 +19,7 @@ from qwip.processing.data_processor import (
 )
 from qwip.processing.processors import (
     Averaged,
+    BatchReindex,
     ClassifiedResult,
     GMMClassification,
     HeterodyneDemodulation,
@@ -54,6 +55,12 @@ class TestMeasurementResult:
         assert MeasurementResult(name="name", data=x) != MeasurementResult(
             name="NAME", data=y
         )
+
+    def test_d(self):
+        d = pd.DataFrame(np.zeros(20))
+        res = MeasurementResult(name="name", data=d)
+
+        assert res.d is res.data
 
     @pytest.mark.parametrize(
         "df,size",
@@ -150,6 +157,7 @@ class TestProcessingGraph:
         assert DATA_PROCESSORS.data_processors() == {
             HeterodyneDemodulation,
             IQRotation,
+            BatchReindex,
             GMMClassification,
             ReadoutBitstring,
             ReadoutHistogram,
@@ -196,6 +204,7 @@ class TestProcessingGraph:
         deps = DATA_PROCESSORS.get_dependencies(StatePopulations)
         assert deps == [
             HeterodyneDemodulation,
+            BatchReindex,
             IQRotation,
             GMMClassification,
             ReadoutBitstring,
@@ -335,6 +344,14 @@ class TestPipeline:
 
         assert pipeline.resolve_dependencies(dict(R0=None)) == []
 
+    def test_resolve_dependencies_default(self, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+        pipeline.default_processor = HeterodyneDemodulation
+
+        assert pipeline.resolve_dependencies(dict(R0=None)) == [
+            ("ADC", pipeline.get_processor(HeterodyneDemodulation), ())
+        ]
+
     def test_resolve_dependencies_generic(self, single_qubit):
         pipeline = ReadoutPipeline(processors=single_qubit)
         pipeline.add_processor(Averaged())
@@ -367,6 +384,17 @@ class TestPipeline:
         assert pipeline._get_inputs("R0", HeterodyneDemodulation, gmm) == res
         assert pipeline._get_inputs("R0", GMMClassification, bitstrings) is None
 
+    def test_get_inputs_already_processed(self, cache, single_qubit):
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        batch_reindex = BatchReindex()
+
+        res = IQResult.from_numpy(np.zeros((4, 3, 2), dtype=complex))
+        pipeline.dependency_cache.update({("R0", None): res})
+        pipeline.dependency_cache.update({("R0", BatchReindex): batch_reindex(res)})
+
+        assert pipeline._get_inputs("R0", BatchReindex, batch_reindex) is None
+
     def test_process_results_none(self, single_qubit):
         pipeline = ReadoutPipeline(processors=single_qubit)
 
@@ -392,3 +420,15 @@ class TestPipeline:
             ptype = set(r.final_processor() for r in group.values())
 
             assert len(mtype) == len(ptype) == 1
+
+    def test_grouped_data_exclude(self, single_qubit, seed):
+        rng = default_rng(seed)
+        pipeline = ReadoutPipeline(processors=single_qubit)
+
+        shape = (10, 1024, 2)
+        inputs = {k: IQResult.random(shape, rng=rng) for k in ("R0", "R1")}
+
+        pipeline.process_results(inputs, dict(R0=StatePopulations, R1=StatePopulations))
+        grouped = pipeline.grouped_data(exclude={None, GMMClassification})
+
+        assert len(grouped) == 3

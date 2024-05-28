@@ -156,6 +156,9 @@ class TestAsset:
 
         assert asset.name == expect
 
+        asset = Asset.create(obj, name=name, name_fmt="{name}_suffix")
+        assert asset.name == f"{expect}_suffix"
+
     def test_save(self, storage, measurement_results, dataset_id):
         asset = Asset(
             name="raw",

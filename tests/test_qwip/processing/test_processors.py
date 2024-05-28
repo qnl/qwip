@@ -1,6 +1,5 @@
 import itertools as it
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
@@ -8,11 +7,11 @@ from numpy.random import default_rng
 from numpy.testing import assert_allclose, assert_array_almost_equal, assert_array_equal
 
 import qwip
-from qwip.backends.qutip import QutipBackend
 from qwip.backends.software import HeterodyneProgram
 from qwip.processing.data_processor import DataProcessor
 from qwip.processing.processors import (
     Averaged,
+    BatchReindex,
     ClassifiedResult,
     GMMClassification,
     HeterodyneDemodulation,
@@ -28,7 +27,11 @@ from qwip.processing.processors import (
     dataframe_real_to_complex,
 )
 from qwip.sequencer import Sequence
-from qwip.sequencer.compilation import QuantumExecutable, QWiPExecutable
+from qwip.sequencer.compilation import (
+    BatchedExecutable,
+    QuantumExecutable,
+    QWiPExecutable,
+)
 
 
 @pytest.mark.parametrize(
@@ -302,6 +305,56 @@ class TestIQResult:
         assert (np.abs(result.data["IQ"] - 1) < 1e-12).all()
 
 
+class TestBatchReindex:
+    @pytest.fixture
+    def result(self):
+        result = IQResult.from_numpy(
+            np.zeros((1024, 20, 2)), labels=("shot", "timeline", "readout")
+        )
+        return result
+
+    def test_copy(self, result):
+        new_result = BatchReindex()(result)
+        assert new_result is not result
+        assert new_result.d is not result.d
+        assert new_result.d.equals(result.d)
+
+    def test_relabel_timeline(self, result):
+        batch_exe = BatchedExecutable(
+            exe=QuantumExecutable(), repetitions=1024, timeline_index=10
+        )
+        new_result = BatchReindex()(result, batch=batch_exe)
+
+        expected = pd.Index(10 + np.arange(20), name="timeline")
+        assert new_result.d.index.levels[1].equals(expected)
+
+    def test_relabel_shots(self, result):
+        batch_exe = BatchedExecutable(
+            exe=QuantumExecutable(),
+            repetitions=1024,
+            repetition_index=2048,
+        )
+        new_result = BatchReindex()(result, batch=batch_exe)
+
+        expected = pd.Index(2048 + np.arange(1024), name="shot")
+        assert new_result.d.index.levels[0].equals(expected)
+
+    def test_relabel_both(self, result):
+        batch_exe = BatchedExecutable(
+            exe=QuantumExecutable(),
+            repetitions=1024,
+            timeline_index=40,
+            repetition_index=2048,
+        )
+        new_result = BatchReindex()(result, batch=batch_exe)
+
+        expected = pd.Index(2048 + np.arange(1024), name="shot")
+        assert new_result.d.index.levels[0].equals(expected)
+
+        expected = pd.Index(40 + np.arange(20), name="timeline")
+        assert new_result.d.index.levels[1].equals(expected)
+
+
 class TestIQRotation:
     def test_rotate(self):
         angles = np.exp(1j * np.arange(8) * np.pi / 4)
@@ -546,6 +599,23 @@ class TestLabeled:
         assert labeled.data.index.equals(expected)
         assert_array_equal(labeled.data.values, iqdata.data.values)
 
+    def test_label_batched_timeline(self):
+        arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
+        iqdata = IQResult.from_numpy(arr.reshape(5, 4, 3))
+        iqdata.d.index = iqdata.d.index.set_levels(
+            iqdata.d.index.levels[1] + 4, level=1
+        )
+
+        seq = Sequence.empty((2, 2), prep=np.arange(2), measure=np.arange(2))
+        labeled = Labeled()(iqdata, exe=QuantumExecutable(sequence=seq))
+
+        expected = pd.MultiIndex.from_tuples(
+            it.product(np.arange(5), np.arange(2), np.arange(2), np.arange(3)),
+            names=["shot", "prep", "measure", "readout"],
+        )
+
+        assert labeled.data.index.equals(expected)
+
     def test_explicit_label(self):
         arr = np.arange(2 * 3 * 4 * 5, dtype=np.float32).view(np.complex64)
         iqdata = IQResult.from_numpy(arr.reshape(5, 4, 3))
@@ -560,4 +630,5 @@ class TestLabeled:
 
         assert labeled.data.index.equals(expected)
         assert labeled.data.index.names == ("shot", "label", "readout")
+
         assert_array_equal(labeled.data.values, iqdata.data.values)
