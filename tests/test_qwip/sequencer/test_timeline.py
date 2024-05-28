@@ -177,6 +177,13 @@ class TestTimeline:
         tmln = Timeline(lw_pairs=pairs)
         assert (wave in tmln) == expect
 
+    def test_iter(self):
+        markers = [Marker(name=letter) for letter in "abcde"]
+        tmln = Timeline(lw_pairs=list(enumerate(markers)))
+
+        assert list(tmln) == tmln.lw_pairs
+        assert list(Timeline()) == []
+
     @pytest.mark.parametrize(
         "locations,op,constraints,width,expect",
         [
@@ -495,7 +502,7 @@ class TestTimeline:
 
         assert tmln.transform_waveforms(transformer) == 3
 
-        for _, wave in tmln.lw_pairs:
+        for wave in tmln.operations:
             match wave:
                 case VirtualZWaveform():
                     assert wave.frame == Frame("Q0.mod_GE")

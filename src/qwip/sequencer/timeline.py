@@ -1,5 +1,5 @@
 import itertools as it
-from collections.abc import Callable, Collection, Iterable
+from collections.abc import Callable, Collection, Iterable, Iterator
 from copy import copy, deepcopy
 from functools import singledispatchmethod
 from numbers import Real
@@ -55,11 +55,11 @@ class Timeline:
 
     @property
     def locations(self) -> list[Location]:
-        return [loc for loc, _ in self.lw_pairs]
+        return [loc for loc, _ in self]
 
     @property
     def operations(self) -> list[Waveform]:
-        return [op for _, op in self.lw_pairs]
+        return [op for _, op in self]
 
     @classmethod
     def fromtuples(
@@ -78,18 +78,6 @@ class Timeline:
         Returns:
             The resulting `Timeline` instance
         """
-        # locations = {}
-
-        # for loc, wave in pulse_locations:
-        #     loc = qwip.converter.structure(loc, sym.Expr)
-
-        #     locations[loc] = locations.get(loc, list())
-
-        #     if wave:
-        #         locations[loc].append(wave)
-
-        # # Structure will always return a new list instance
-        # constraints = qwip.converter.structure(constraints, list[sym.Expr])
 
         return cls(lw_pairs=locations, width=width, constraints=constraints)
 
@@ -156,7 +144,7 @@ class Timeline:
         for layer in layers:
             widths = set()
 
-            if isinstance(layer, str) or not isinstance(layer, Iterable):
+            if isinstance(layer, (str, Timeline)) or not isinstance(layer, Iterable):
                 layer = [layer]
 
             for op in layer:
@@ -374,9 +362,9 @@ class Timeline:
             self.constraints.add(name - dt)
             dt = name
 
-        for loc, wave in other.lw_pairs:
+        for loc, op in other:
             loc += dt
-            self.lw_pairs.append((loc, wave))
+            self.lw_pairs.append((loc, op))
 
         self.constraints.update(other.constraints)
 
@@ -422,7 +410,7 @@ class Timeline:
 
         self.lw_pairs[:] = (
             (_variable_substitution(loc, var_map), op.resolve(**var_map))
-            for loc, op in self.lw_pairs
+            for loc, op in self
         )
 
         constraints = [_variable_substitution(c, var_map) for c in self.constraints]
@@ -538,16 +526,16 @@ class Timeline:
 
         tmin = tmax = None
 
-        for loc, wave in self.lw_pairs:
+        for loc, op in self:
             if var_set and loc.free_symbols and loc.free_symbols & var_set:
                 loc = loc.subs(solved)
 
-            if var_set and wave.variables() and wave.variables() & var_set:
-                wave = wave.resolve(**solved)
+            if var_set and op.variables() and op.variables() & var_set:
+                op = op.resolve(**solved)
 
-            lw_pairs.append((loc, wave))
+            lw_pairs.append((loc, op))
 
-            width = 0 if wave.width is sym.oo else wave.width
+            width = 0 if op.width is sym.oo else op.width
             tmin = loc if tmin is None else min(tmin, loc)
             tmax = loc + width if tmax is None else max(tmax, loc + width)
 
@@ -690,7 +678,7 @@ class Timeline:
             The pulse timeline.
         """
 
-        self.lw_pairs[:] = ((loc + dt, op) for loc, op in self.lw_pairs)
+        self.lw_pairs[:] = ((loc + dt, op) for loc, op in self)
 
         return self
 
@@ -709,7 +697,7 @@ class Timeline:
 
         modified = 0
 
-        for idx, (loc, op) in enumerate(self.lw_pairs):
+        for idx, (loc, op) in enumerate(self):
             new_op = transformer(loc, op)
 
             if new_op != op:
@@ -833,12 +821,16 @@ class Timeline:
     def __getitem__(self, key: LocationLike) -> list[Waveform]:
         key = qwip.converter.structure(key, sym.Expr)
 
-        return [wave for loc, wave in self.lw_pairs if key == loc]
+        return [op for loc, op in self if key == loc]
 
     def __contains__(self, waveform: Waveform) -> bool:
         """Checks if the waveform exists in the pulse timeline."""
 
         return waveform in self.operations
+    
+    def __iter__(self) -> Iterator[sym.Expr, Operation]:
+        """Iterate over the location mapping."""
+        yield from self.lw_pairs
 
     def __add__(self, other: Self) -> Self:
         """Adds two pulse timelines.

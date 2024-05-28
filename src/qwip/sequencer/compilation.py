@@ -427,14 +427,14 @@ class QWiPCompiler:
 
         return None
 
-    def compile_phases(self, locations: list[float, Waveform], /) -> PhaseTracker:
+    def compile_phases(self, locations: Iterable[tuple[float, Waveform]], /) -> PhaseTracker:
         """Returns a new phase tracker instance with all virtual phase updates.
 
         Every waveform that has an `update_phase_tracker` method will be called
         on the `PhaseTracker`.
 
         Args:
-            locations: A dictionary mapping locations to waveforms.
+            locations: An iterable of `(location, waveform)` tuples.
 
         Returns:
             An updated phase tracker.
@@ -510,7 +510,7 @@ class QWiPCompiler:
             wf_index = program.add_waveform(wmem)
             instructions.append(PlayInstruction(waveform_index=wf_index))
 
-        for loc, w in tmln.lw_pairs:
+        for loc, w in tmln:
             loc = _to_python_number(loc)
             if not (set(w.channels) & device.channel_names()):
                 continue
@@ -582,7 +582,7 @@ class QWiPCompiler:
         tmln.resolve(inplace=True, **location_kwargs, **pulse_kwargs)
 
         # Compile phases
-        phase_tracker = self.compile_phases(tmln.lw_pairs)
+        phase_tracker = self.compile_phases(tmln)
         t_end = _to_python_number(tmln.width)
 
         for name, device in self.devices.items():

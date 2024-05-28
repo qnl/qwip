@@ -471,7 +471,7 @@ class QubicCompiler(QWiPCompiler):
         start_times = []
         reads = Counter()
 
-        for loc, w in tmln.lw_pairs:
+        for loc, w in tmln:
             new_instructions = self.compile_instruction(
                 loc=loc,
                 wave=w,
