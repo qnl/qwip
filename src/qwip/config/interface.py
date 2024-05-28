@@ -694,11 +694,11 @@ class PulsesFolder:
     session: sa.orm.Session
 
     def _get_timeline_model(self, name: str) -> TimelineModel:
-        se_model = self.session.scalar(
+        tmln_model = self.session.scalar(
             sa.select(TimelineModel).where(TimelineModel.name == name)
         )
 
-        return se_model
+        return tmln_model
 
     @session_context
     def keys(self) -> tuple[str]:
