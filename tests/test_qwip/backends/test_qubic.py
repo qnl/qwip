@@ -22,7 +22,6 @@ from qwip.sequencer import (
     CWWaveform,
     Frame,
     GaussianWaveform,
-    Location,
     ModulatedWaveform,
     Sequence,
     SquareWaveform,
@@ -208,13 +207,13 @@ class TestQubicCompiler:
         "location,wave,t0,expected",
         [
             (
-                Location(),
+                0,
                 VirtualZWaveform(phase=90, frame="Q0.freq_GE"),
                 0,
                 [VirtualZ(qubit="Q0", phase=np.pi / 2, freq="freq_GE")],
             ),
             (
-                Location(50e-9),
+                50e-9,
                 SquareWaveform(width=50e-9, amplitude=0.5, channels=("Q0.qdrv",)),
                 500,
                 [
@@ -230,7 +229,7 @@ class TestQubicCompiler:
                 ],
             ),
             (
-                Location(),
+                0,
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
                     modulation=CWWaveform(
@@ -265,7 +264,6 @@ class TestQubicCompiler:
             wave,
             waveform_cache={},
             reads=reads,
-            pulse_kwargs={},
             t0=t0,
             cw_threshold=None,
         )
@@ -328,11 +326,10 @@ class TestQubicCompiler:
     )
     def test_compile_instruction_cw(self, compiler, wave, threshold, expected):
         instructions = compiler.compile_instruction(
-            Location(),
+            0,
             wave,
             waveform_cache={},
             reads=Counter(),
-            pulse_kwargs={},
             t0=0,
             cw_threshold=threshold,
         )
@@ -347,10 +344,11 @@ class TestQubicCompiler:
         tmln.add(gates["Q0_X90"])
         tmln.add(gates["Q0_X90"], gates["Q0_X90"].width)
         tmln.add(gates["Q0_RO"], 2 * gates["Q0_X90"].width)
+        tmln.resolve()
 
         waveform_cache = {}
         instructions, reads = compiler.compile_timeline(
-            tmln.resolve_locations(), waveform_cache=waveform_cache, cw_threshold=None
+            tmln, waveform_cache=waveform_cache, cw_threshold=None
         )
 
         expected = [

@@ -29,11 +29,13 @@ from qwip.sequencer.compilation import (
     register_compiler,
 )
 from qwip.sequencer.sequence import Sequence
-from qwip.sequencer.utils import Location
+from qwip.sequencer.timeline import Timeline
+from qwip.sequencer.utils import _to_python_number
 from qwip.sequencer.waveform import (
     BasicWaveform,
     Marker,
     ModulatedWaveform,
+    Operation,
     VirtualZWaveform,
     Waveform,
 )
@@ -289,12 +291,11 @@ class QubicCompiler(QWiPCompiler):
 
     def compile_instruction(
         self,
-        loc: Location,
+        loc: float,
         wave: Waveform,
         *,
         waveform_cache: dict[tuple[Waveform, int], np.ndarray],
         reads: Counter[str],
-        pulse_kwargs: dict = {},
         t0: int = 0,
         **kwargs,
     ) -> list:
@@ -307,8 +308,6 @@ class QubicCompiler(QWiPCompiler):
                 cached by the waveform definition and sample rate.
             reads: A counter for tracking the number of reads on each channel. This is
                 incremented if the waveform is on a read channel.
-            pulse_kwargs: Any additional constraints to pass to the waveform when
-                resolving timepoints.
             t0: The start time, in clock cycles, of the pulse timeline. The default
                 clock cycle period is 2ns on Qubic.
             **kwargs: Additional keyword arguments are passed to the `envelope_to_pulse`
@@ -317,8 +316,11 @@ class QubicCompiler(QWiPCompiler):
 
         instructions = []
 
-        width = wave.width.resolve(**pulse_kwargs)
-        start, end = loc, loc + width
+        width = _to_python_number(wave.width)
+        start = _to_python_number(loc)
+        if not isinstance(start, int | float):
+            print(start, type(start))
+        end = start + width
 
         match wave.channels:
             case ():
@@ -343,9 +345,7 @@ class QubicCompiler(QWiPCompiler):
             dtype = None
 
         # np.round().astype() will return a np.int32 instead of an int
-        start_cycle = t0 + int(
-            np.round(start.offset / self.fpga_config.fpga_clk_period)
-        )
+        start_cycle = t0 + int(np.round(start / self.fpga_config.fpga_clk_period))
 
         match wave:
             case VirtualZWaveform(frame=frame, phase=phase):
@@ -377,13 +377,12 @@ class QubicCompiler(QWiPCompiler):
                 if env in waveform_cache:
                     w_t = waveform_cache[env, int(sample_rate)]
                 else:
-                    N = np.ceil(width.offset * sample_rate).astype(int)
+                    N = np.ceil(width * sample_rate).astype(int)
                     ts_wave = np.arange(N) / sample_rate
                     w_t = wave(
                         ts_wave,
                         frames=self.frames,
                         complex_out=issubclass(dtype, np.complexfloating),
-                        **pulse_kwargs,
                     )
 
                     waveform_cache[env, int(sample_rate)] = w_t
@@ -406,7 +405,7 @@ class QubicCompiler(QWiPCompiler):
                     frequency=freq,
                     phase=0,  # Easier to always build phase into envelope
                     amplitude=amplitude,
-                    pulse_width=width.offset,
+                    pulse_width=width,
                     start_cycle=start_cycle,
                     sample_rate=sample_rate,
                     **kwargs,
@@ -424,9 +423,9 @@ class QubicCompiler(QWiPCompiler):
                 else:
                     ch_info = self.get_channel_info(channel)
 
-                    N = np.ceil(width.offset * sample_rate).astype(int)
+                    N = np.ceil(width * sample_rate).astype(int)
                     ts_wave = np.arange(N) / sample_rate
-                    w_t = wave(ts_wave, frames=self.frames, **pulse_kwargs)
+                    w_t = wave(ts_wave, frames=self.frames)
 
                     waveform_cache[wave, int(sample_rate)] = w_t
 
@@ -436,7 +435,7 @@ class QubicCompiler(QWiPCompiler):
                     frequency=0,
                     phase=0,
                     amplitude=1,
-                    pulse_width=width.offset,
+                    pulse_width=width,
                     start_cycle=start_cycle,
                     sample_rate=sample_rate,
                     **kwargs,
@@ -447,10 +446,9 @@ class QubicCompiler(QWiPCompiler):
 
     def compile_timeline(
         self,
-        locations: dict[Location, list[Waveform]],
+        tmln: Timeline,
         *,
         waveform_cache: dict[tuple[Waveform, int], np.ndarray] = {},
-        pulse_kwargs: dict = {},
         t0: int = 0,
         **kwargs,
     ) -> tuple[list, Counter[str]]:
@@ -460,8 +458,6 @@ class QubicCompiler(QWiPCompiler):
             locations: A mapping from locations to a list of waveforms.
             waveform_cache: A cache for reusing envelope timepoints. Envelopes are
                 cached by the waveform definition and sample rate.
-            pulse_kwargs: Any extra constraints to pass to waveforms when resolving them
-                into timepoints.
             t0: The start time, in clock cycles, of the pulse timeline. The default
                 clock cycle period is 2ns on Qubic.
             **kwargs: Additional keyword arguments are passed to the
@@ -475,51 +471,44 @@ class QubicCompiler(QWiPCompiler):
         start_times = []
         reads = Counter()
 
-        for loc, waves in locations.items():
-            waves = sorted(
-                waves, key=lambda w: 0 if isinstance(w, VirtualZWaveform) else 1
+        for loc, w in tmln.lw_pairs:
+            new_instructions = self.compile_instruction(
+                loc=loc,
+                wave=w,
+                waveform_cache=waveform_cache,
+                reads=reads,
+                t0=t0,
+                **kwargs,
             )
-            for w in waves:
-                new_instructions = self.compile_instruction(
-                    loc=loc,
-                    wave=w,
-                    waveform_cache=waveform_cache,
-                    reads=reads,
-                    pulse_kwargs=pulse_kwargs,
-                    t0=t0,
-                    **kwargs,
-                )
 
-                # Maintain start_time ordering when adding instructions.
-                for ins in new_instructions:
-                    N = len(instructions)
+            # Maintain start_time ordering when adding instructions.
+            for ins in new_instructions:
+                N = len(instructions)
 
-                    if not hasattr(ins, "start_time"):
-                        if start_times:
-                            st = start_times[-1] + getattr(
-                                instructions[-1], "twidth", 0
-                            )
-                        else:
-                            st = 0
+                if not hasattr(ins, "start_time"):
+                    if start_times:
+                        st = start_times[-1] + getattr(instructions[-1], "twidth", 0)
+                    else:
+                        st = 0
 
-                        instructions.append(ins)
-                        start_times.append(st)
+                    instructions.append(ins)
+                    start_times.append(st)
+                    continue
+
+                for i in range(N):
+                    # old_ins = instructions[N - i - 1]
+                    prev_start = start_times[N - i - 1]
+
+                    if prev_start > ins.start_time:
                         continue
 
-                    for i in range(N):
-                        # old_ins = instructions[N - i - 1]
-                        prev_start = start_times[N - i - 1]
+                    instructions.insert(N - i, ins)
+                    start_times.insert(N - i, ins.start_time)
 
-                        if prev_start > ins.start_time:
-                            continue
-
-                        instructions.insert(N - i, ins)
-                        start_times.insert(N - i, ins.start_time)
-
-                        break
-                    else:
-                        instructions.insert(0, ins)
-                        start_times.insert(0, ins.start_time)
+                    break
+                else:
+                    instructions.insert(0, ins)
+                    start_times.insert(0, ins.start_time)
 
         return instructions, reads
 
@@ -551,17 +540,22 @@ class QubicCompiler(QWiPCompiler):
         Returns:
             A tuple `(circuit, reads_per_timeline)`.
         """
-        markers = {}
         waveform_cache = {}
-        locations = [
-            tmln.resolve_locations(end_marker="end", markers=markers, **location_kwargs)
-            for tmln in seq.flat
-        ]
+
+        def _sort_virtual_z(loc_op: tuple[float, Operation]) -> tuple[float, int]:
+            """Sort key function so that VirtualZWaveforms come first."""
+            loc, op = loc_op
+            return (loc, int(not isinstance(op, VirtualZWaveform)))
+
+        for tmln in seq.flat:
+            tmln.resolve(
+                inplace=True, sort=_sort_virtual_z, **location_kwargs, **pulse_kwargs
+            )
 
         reads_per_timeline = []
         circuit = []
-        for i, (tmln_locs, tmln) in enumerate(zip(locations, seq.flat)):
-            t_end = markers["end"]
+        for i, tmln in enumerate(seq.flat):
+            t_end = _to_python_number(tmln.width)
 
             if t_end > reset_delay:
                 raise ValueError(
@@ -570,9 +564,8 @@ class QubicCompiler(QWiPCompiler):
                 )
 
             instructions, reads = self.compile_timeline(
-                tmln_locs,
+                tmln,
                 waveform_cache=waveform_cache,
-                pulse_kwargs=tmln.constraints | pulse_kwargs,
                 t0=self.start_offset
                 + int(
                     np.round((i + 1) * reset_delay / self.fpga_config.fpga_clk_period)
