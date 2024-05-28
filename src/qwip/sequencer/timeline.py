@@ -259,7 +259,7 @@ class Timeline:
 
         return self
 
-    def add_constraints(self, *constraints) -> None:
+    def add_constraints(self, *constraints, **substitutions) -> None:
         """Adds constraints to the set of existing constraints.
 
         All constraints are of the form `'variable_name' = Location(...)`.
@@ -271,6 +271,12 @@ class Timeline:
         """
 
         self.constraints.update(qwip.converter.structure(constraints, list[sym.Expr]))
+        self.constraints.update(
+            {
+                qwip.converter.structure(value, sym.Expr) - sym.Symbol(symbol)
+                for symbol, value in substitutions.items()
+            }
+        )
 
     def remove_constraint(self, constraint: int | str | sym.Expr) -> sym.Expr | None:
         """Removes a constraint from the constraint mapping.
@@ -520,12 +526,12 @@ class Timeline:
         lw_pairs = []
 
         new_constraints = qwip.converter.structure(constraints, set[sym.Expr])
-
-        for symbol, value in substitutions.items():
-            value = qwip.converter.structure(value, sym.Expr)
-            symbol = qwip.converter.structure(value, sym.Expr)
-
-            new_constraints.add(value - symbol)
+        new_constraints.update(
+            {
+                qwip.converter.structure(value, sym.Expr) - sym.Symbol(symbol)
+                for symbol, value in substitutions.items()
+            }
+        )
 
         solved = self.solve_constraints(*new_constraints)
         var_set = set(solved.keys())

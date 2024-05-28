@@ -203,6 +203,24 @@ class TestTimeline:
         assert tmln.variables() == expect
 
     @pytest.mark.parametrize(
+        "constraints,substitutions,expect",
+        [
+            (["a + b / 2"], dict(), {sym.parse_expr("a + b / 2")}),
+            ([], dict(a="-b/2"), {sym.parse_expr("-a - b / 2")}),
+            (
+                ["a - b"],
+                dict(b="a", d="c"),
+                {sym.parse_expr("a - b"), sym.parse_expr("c - d")},
+            ),
+        ],
+    )
+    def test_add_constraints(self, constraints, substitutions, expect):
+        tmln = Timeline()
+        tmln.add_constraints(*constraints, **substitutions)
+
+        assert tmln.constraints == expect
+
+    @pytest.mark.parametrize(
         "locations,constraints,expect",
         [
             (["start"], ["start"], dict(start=0)),
