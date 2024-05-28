@@ -19,6 +19,7 @@ from qwip.attrs.serialization import _TypeConverter
 from qwip.defaults import dynamic_default
 from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
 from qwip.sequencer.utils import (
+    LinearExpression,
     NumberOrExpression,
     _to_python_number,
     _variable_substitution,
@@ -102,6 +103,15 @@ class Operation:
                     to_update[f.name] = orig.resolve(**variable_map)
                 case sym.Expr():
                     to_update[f.name] = _variable_substitution(orig, variable_map)
+                case LinearExpression():
+                    converted = {}
+                    for k, v in variable_map.items():
+                        v = qwip.converter.unstructure(v)
+                        if isinstance(v, str):
+                            converted[k] = type(orig).from_string(v)
+                        else:
+                            converted[k] = v
+                    to_update[f.name] = orig.resolve(**converted)
                 case Timeline() if set(variable_map) & orig.variables():
                     new = orig.copy()
                     new.resolve(**variable_map, inplace=True)
@@ -177,6 +187,8 @@ class Operation:
                     varset.update(var.variables())
                 case sym.Expr():
                     varset.update(s.name for s in var.free_symbols)
+                case LinearExpression():
+                    varset.update(var.variables(return_string=True))
                 case _:
                     ...
 

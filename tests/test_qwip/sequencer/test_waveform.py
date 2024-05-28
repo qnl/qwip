@@ -142,6 +142,24 @@ class TestOperation:
         assert op.resolve() is op
         assert op.resolve(width="width") is op
 
+    @pytest.mark.parametrize(
+        "frequency,var_map,expect",
+        [
+            ("frequency", dict(frequency=5e9), Frame(5e9)),
+            ("(f_a - f_b) / 2", dict(f_a=5e9), (Frame(5e9) - Frame("f_b")) / 2),
+            (
+                "frequency",
+                dict(frequency=sym.parse_expr("(f_a - f_b) / 2")),
+                Frame.from_string("0.5 * (f_a - f_b)"),
+            ),
+        ],
+    )
+    def test_resolve_frame(self, frequency, var_map, expect):
+        op = CWWaveform(frequency=frequency)
+        resolved = op.resolve(**var_map)
+
+        assert resolved.frequency == expect
+
 
 class TestBasicWaveform:
     @pytest.mark.parametrize("name,expect", [(None, "BasicWaveform"), ("name", "name")])
