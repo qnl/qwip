@@ -1,6 +1,6 @@
 import itertools as it
 from collections.abc import Collection
-from typing import Any, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar
 
 import attrs
 import numpy as np
@@ -18,7 +18,8 @@ from qwip.processing.data_processor import (
     GenericDataProcessor,
     MeasurementResult,
 )
-from qwip.sequencer.compilation import QuantumExecutable
+from qwip.sequencer.compilation import BatchedExecutable, QuantumExecutable
+from qwip.sequencer.sequence import Sequence
 
 M = TypeVar("M", bound=MeasurementResult)
 
@@ -423,6 +424,48 @@ class HeterodyneDemodulation(DataProcessor):
 
 @DATA_PROCESSORS.register
 @qdefine
+class BatchReindex(DataProcessor):
+    """A data processor for updating timeline/shot indices based on batch information.
+
+    Attributes:
+        angle (float): A phase angle (in radians) to rotate the IQ data by.
+    """
+
+    def run(
+        self, result: IQResult, batch: "BatchedExecutable | None" = None, **kwargs
+    ) -> IQResult:
+        """Updates the timeline/shot indices based on the batch information.
+
+        Args:
+            result: The `IQResult` to reindex.
+
+        Returns:
+            The resulting reindexed `IQResult`.
+        """
+        result = attrs.evolve(result, data=result.d.copy())
+
+        if batch is None or (batch.timeline_index == batch.repetition_index == 0):
+            return result
+
+        old_idx = result.d.index
+        if batch.timeline_index:
+            i = old_idx.names.index("timeline")
+            result.d.index = old_idx.set_levels(
+                old_idx.levels[i] + batch.timeline_index, level="timeline"
+            )
+
+        old_idx = result.d.index
+        if batch.repetition_index:
+            i = old_idx.names.index("shot")
+            result.d.index = old_idx.set_levels(
+                old_idx.levels[i] + batch.repetition_index, level="shot"
+            )
+
+        return result
+
+
+@DATA_PROCESSORS.register
+@qdefine
 class IQRotation(DataProcessor):
     """A data processor for rotating IQ data points.
 
@@ -789,6 +832,9 @@ class Labeled(GenericDataProcessor):
         exe: QuantumExecutable | None = None,
         **kwargs,
     ) -> M:
+        # Ensure a copy is made always.
+        result = attrs.evolve(result, data=result.data.copy())
+
         if label is None and (exe is None or exe.seq is None):
             return result
         elif label is None:
@@ -806,8 +852,6 @@ class Labeled(GenericDataProcessor):
                 f"Number of labels {len(label)} does not match length "
                 f"{len(level_to_relabel)} of level {self.level}."
             )
-
-        result = attrs.evolve(result, data=result.data.copy())
 
         names = []
         levels = []
@@ -839,6 +883,7 @@ __all__ = [
     "dataframe_complex_to_real",
     "dataframe_real_to_complex",
     "Averaged",
+    "BatchReindex",
     "ClassifiedResult",
     "GMMClassification",
     "HeterodyneDemodulation",

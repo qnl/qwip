@@ -7,11 +7,19 @@ and this project adheres to the [Calendar Versioning](https://calver.org/) conve
 
 ## [Unreleased]
 
+### Added
+
+- Automated batching by timeline or repetition in the QPU.
+
 ### Changed
 
 - Change sequence labels from numpy arrays to pandas index to allow more flexible labeling.
 
-## [24.5.0] - 2024-05-13
+### Fixed
+
+- Fixed restrictions on adding more than one loop in the data processor dependency graph.
+
+## [24.05.0] - 2024-05-13
 
 ### Added
 

@@ -315,6 +315,16 @@ qwip.converter.register_unstructure_hook_factory(
 )
 
 
+@qfrozen
+class BatchedExecutable:
+    exe: QuantumExecutable = field(eq=id)
+    repetitions: int
+    timeline_index: int = 0
+    repetition_index: int = 0
+    batch_index: tuple[int, int] = (0, 0)
+    upload: bool = True
+
+
 @qdefine
 class IntermediateProgram(Program):
     instructions: list[Instruction] = field(factory=list)

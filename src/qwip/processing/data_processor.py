@@ -110,6 +110,11 @@ class MeasurementResult:
         """
         return getattr(self.data, attr)
 
+    @property
+    def d(self) -> pd.DataFrame:
+        """Convenience function for getting the result data."""
+        return self.data
+
     def _repr_html_(self) -> str:
         description = f'<p style="font-family: monospace;">{repr(self)}</p>'
         dataframe = pd.DataFrame(self.data)._repr_html_()
@@ -228,6 +233,87 @@ class DataProcessorGraph:
             self.index_map[edge.cls.__name__] = index
             edge.index = index
 
+    def _unroll_loop(
+        self,
+        result_type: type[MeasurementResult],
+        before: type[DataProcessor] | None = None,
+        after: type[DataProcessor] | None = None,
+    ) -> tuple[int, int]:
+        """Unrolls a loop in the processing graph.
+
+        When the input and output result types for a processor are the same, we will
+        have a loop/cycle in the processing graph. This also creates an ambiguous
+        ordering when we have multiple processors with the same input and output types.
+        When specifying the ordering, only one of `before` or `after` should be given.
+
+        Args:
+            result_type: The input/output result type for the processor.
+            before: The data processor to be added will be placed immediately before the
+                processor specified by `before`.
+            after: The data processor to be added will be placed immediately after the
+                processor specified by `after`.
+
+        Returns:
+            The new input and output node indices for the edge/data processor to add.
+        """
+        name = result_type.__name__
+
+        if name in self.index_map:
+            match self.index_map[name]:
+                case tuple(nodes):
+                    ...
+                case v:
+                    nodes = (v,)
+
+            if before and after:
+                raise ValueError("Only one of `before` or `after` should be specified.")
+            elif before:
+                prev_in, _ = self.graph.get_edge_endpoints_by_index(
+                    self.index_map[before.__name__]
+                )
+
+                idx = nodes.index(prev_in)
+                self.index_map[name] = (
+                    *nodes[:idx],
+                    new_v := self.graph.add_node(result_type),
+                    nodes[idx:],
+                )
+
+                self.replace_output_node(prev_in, new_v)
+                v_in, v_out = new_v, prev_in
+            elif after:
+                _, prev_out = self.graph.get_edge_endpoints_by_index(
+                    self.index_map[after.__name__]
+                )
+
+                idx = nodes.index(prev_out)
+                self.index_map[name] = (
+                    *nodes[: idx + 1],
+                    new_v := self.graph.add_node(result_type),
+                    *nodes[idx + 1 :],
+                )
+
+                self.replace_input_node(prev_out, new_v)
+                v_in, v_out = prev_out, new_v
+            else:
+                prev_out = nodes[-1]
+                self.index_map[name] = (
+                    prev_out,
+                    new_v := self.graph.add_node(result_type),
+                )
+
+                self.replace_input_node(prev_out, new_v)
+                v_in, v_out = prev_out, new_v
+
+        else:
+            self.registered[name] = result_type
+            v_in, v_out = self.index_map[name] = (
+                self.graph.add_node(result_type),
+                self.graph.add_node(result_type),
+            )
+
+        return v_in, v_out
+
     def register(
         self,
         maybe_cls: type[DataProcessor] | None = None,
@@ -250,33 +336,10 @@ class DataProcessorGraph:
                 cls, replace_generic=True
             )
 
-            # We need to unroll the loop to preserve the DAG if the processor
-            # outputs the same type as it takes in.
             if in_type == out_type:
-                name = in_type.__name__
-                if name in self.index_map:
-                    match self.index_map[name]:
-                        case tuple(nodes):
-                            # We need a way to resolve the ambiguity here. Since it is
-                            # no longer possible to determine where the node should go
-                            raise NotImplementedError()
-                        case prev_v:
-                            ...
-
-                    self.index_map[name] = (
-                        prev_v,
-                        new_v := self.graph.add_node(in_type),
-                    )
-
-                    self.replace_input_node(prev_v, new_v)
-                    v_in, v_out = prev_v, new_v
-
-                else:
-                    self.registered[name] = in_type
-                    v_in, v_out = self.index_map[name] = (
-                        self.graph.add_node(in_type),
-                        self.graph.add_node(out_type),
-                    )
+                # We need to unroll the loop to preserve the DAG if the processor
+                # outputs the same type as it takes in.
+                v_in, v_out = self._unroll_loop(in_type, before=before, after=after)
 
             else:
                 # If processor connects two different result types
@@ -436,6 +499,7 @@ class ReadoutPipeline:
     dependency_cache: dict[
         tuple[str, type[DataProcessor] | None], MeasurementResult
     ] = field(factory=dict)
+    default_processor: type[DataProcessor] | None = None
 
     def result_types(self) -> set[type[MeasurementResult]]:
         """Returns the set of all MeasurementResult subclasses that could be output."""
@@ -666,6 +730,9 @@ class ReadoutPipeline:
                             f" got {processor_type}."
                         )
 
+            # If processor_type is not specified, use default processor.
+            processor_type = processor_type or self.default_processor
+
             if processor_type is None:
                 dependencies = [] + generics[::-1]
             else:
@@ -750,6 +817,10 @@ class ReadoutPipeline:
 
         try:
             inputs = self.dependency_cache[(key, previous)]
+
+            if processor in inputs.processors:
+                return None
+
             # This is necessary for handling the case where previous is None
             if isinstance(expected_input, TypeVar) or isinstance(
                 inputs, expected_input
@@ -759,7 +830,9 @@ class ReadoutPipeline:
             pass
 
         inputs = self.dependency_cache.get((key, None))
-        if isinstance(expected_input, TypeVar) or isinstance(inputs, expected_input):
+        if inputs and processor in inputs.processors:
+            return None
+        elif isinstance(expected_input, TypeVar) or isinstance(inputs, expected_input):
             return inputs
 
         return None
@@ -823,7 +896,12 @@ class ReadoutPipeline:
 
         return {
             key: self.dependency_cache[
-                (key, get_origin(processor_type) or processor_type)
+                (
+                    key,
+                    get_origin(processor_type)
+                    or processor_type
+                    or self.default_processor,
+                )
             ]
             for key, processor_type in output_types.items()
         }
@@ -860,7 +938,7 @@ class ReadoutPipeline:
         return results
 
     def grouped_data(
-        self, max_size: int | None = 1024**2
+        self, max_size: int | None = 1024**2, exclude: set[type[DataProcessor]] = set()
     ) -> list[dict[str, MeasurementResult]]:
         """Groups measurement results by their final processor.
 
@@ -868,6 +946,7 @@ class ReadoutPipeline:
             max_size: The maximum size in number of values of any single result object to
                 include. Any result with a total size greater than `max_size` is
                 discarded. To ignore the size limit, set `max_size=None`.
+            exclude: Processors to exclude from the returned results.
 
         Returns:
             A list of all results, grouped by final processor.
@@ -877,6 +956,8 @@ class ReadoutPipeline:
         for (key, proc), result in self.dependency_cache.items():
             # Could use result.num_bytes instead, but this is really slow for large data
             if max_size is not None and np.prod(result.shape) > max_size:
+                continue
+            elif proc in exclude:
                 continue
 
             results[proc][key] = result
