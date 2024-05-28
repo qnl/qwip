@@ -185,20 +185,22 @@ class TestQWiPCompiler:
         assert compiler.get_channel_info(name) == expect
 
     def test_end_to_end(self, compiler, pulses, data_file):
-        ro_se = Timeline()
-        ro_se.add_waveform([pulses[f"R{r}"] for r in range(2)])
-        readout = TriggeredWaveform(target=ro_se, width=50e-9, channels=("RO_marker",))
+        ro_tmln = Timeline()
+        ro_tmln.add([pulses[f"R{r}"] for r in range(2)])
+        readout = TriggeredWaveform(
+            target=ro_tmln, width=50e-9, channels=("RO_marker",)
+        )
 
-        se_0 = Timeline()
-        se_0.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
-        se_0.add_waveform(readout, 50e-9)
+        tmln0 = Timeline()
+        tmln0.add([pulses["Q0_X90"], pulses["Q1_X90"]])
+        tmln0.add(readout, 50e-9)
 
-        se_1 = Timeline()
-        se_1.add_waveform([pulses["Q0_Z90"], pulses["Q1_Z90"]])
-        se_1.add_waveform([pulses["Q0_X90"], pulses["Q1_X90"]])
-        se_1.add_waveform(readout, 50e-9)
+        tmln1 = Timeline()
+        tmln1.add([pulses["Q0_Z90"], pulses["Q1_Z90"]])
+        tmln1.add([pulses["Q0_X90"], pulses["Q1_X90"]])
+        tmln1.add(readout, 50e-9)
 
-        seq = Sequence([se_0, se_1])
+        seq = Sequence([tmln0, tmln1])
 
         exe = compiler.compile(seq)
 
@@ -207,7 +209,7 @@ class TestQWiPCompiler:
         # and location variables are currently treated separately.
         tmln = Timeline().add_waveform(SquareWaveform(width="wait", channels=("Q0_I",)))
 
-        tmln.add_constraints(wait=50e-9)
+        tmln.add_constraints("wait - 50e-9")
         seq = Sequence([tmln])
 
         exe = compiler.compile(seq)

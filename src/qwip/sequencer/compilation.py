@@ -8,6 +8,7 @@ import cattr
 import matplotlib.pyplot as plt
 import numpy as np
 import plotly.graph_objects as go
+import sympy as sym
 from attrs import evolve, field
 from loguru import logger
 from matplotlib.axes import Axes
@@ -21,7 +22,7 @@ from qwip.attrs import qdefine, qfrozen
 from qwip.sequencer.phase_tracker import Frame, PhaseTracker, PhaseUpdater
 from qwip.sequencer.sequence import Sequence
 from qwip.sequencer.timeline import Timeline
-from qwip.sequencer.utils import Location
+from qwip.sequencer.utils import _to_python_number
 from qwip.sequencer.waveform import Marker, ReadoutMarker, TriggeredWaveform, Waveform
 from qwip.utils import deprecated
 from qwip.visualization.utils import all_legend_handles_labels
@@ -38,12 +39,12 @@ def register_compiler(cls: type["QWiPCompiler"]) -> type["QWiPCompiler"]:
     return cls
 
 
-def find_end_marker(locations, name="end") -> Location | None:
-    for loc, waves in locations.items():
-        if Marker(name=name) in waves:
-            return loc
+# def find_end_marker(locations, name="end") -> "Location | None":
+#     for loc, waves in locations.items():
+#         if Marker(name=name) in waves:
+#             return loc
 
-    return None
+#     return None
 
 
 @qfrozen(kw_only=False)
@@ -426,7 +427,7 @@ class QWiPCompiler:
 
         return None
 
-    def compile_phases(self, locations: dict[Location, list[Waveform]]) -> PhaseTracker:
+    def compile_phases(self, locations: list[float, Waveform], /) -> PhaseTracker:
         """Returns a new phase tracker instance with all virtual phase updates.
 
         Every waveform that has an `update_phase_tracker` method will be called
@@ -440,14 +441,13 @@ class QWiPCompiler:
         """
         phase_tracker = PhaseTracker.from_frames(self.frames)
 
-        for loc, waves in locations.items():
-            loc = loc.offset
+        for loc, op in locations:
+            loc = _to_python_number(loc)
 
-            for w in waves:
-                if not isinstance(w, PhaseUpdater):
-                    continue
+            if not isinstance(op, PhaseUpdater):
+                continue
 
-                w.update_phase_tracker(loc, phase_tracker, self.frames)
+            op.update_phase_tracker(loc, phase_tracker, self.frames)
 
         return phase_tracker
 
@@ -459,8 +459,6 @@ class QWiPCompiler:
         end: int,
         wave: Waveform,
         device: DeviceInfo,
-        location_kwargs: dict = {},
-        pulse_kwargs: dict = {},
         instruction_cache: dict[tuple[int, str], list[Instruction]] = {},
     ) -> None:
         program = exe.programs[device.name]
@@ -483,9 +481,7 @@ class QWiPCompiler:
                 self.compile_timeline(
                     exe,
                     wave.target,
-                    location_kwargs,
-                    pulse_kwargs,
-                    instruction_cache,
+                    instruction_cache=instruction_cache,
                 )
 
                 for ch in channels:
@@ -496,12 +492,10 @@ class QWiPCompiler:
     def compile_waveforms(
         self,
         exe: QWiPExecutable,
-        locations: dict[Location, list[Waveform]],
+        tmln: Timeline,
         wmem: WaveformMemory,
         device: DeviceInfo,
         phase_tracker: PhaseTracker,
-        location_kwargs: dict = {},
-        pulse_kwargs: dict = {},
         instruction_cache: dict[tuple[int, str], list[Instruction]] = {},
     ) -> list[Instruction]:
         sample_rate = wmem.sample_rate
@@ -516,51 +510,48 @@ class QWiPCompiler:
             wf_index = program.add_waveform(wmem)
             instructions.append(PlayInstruction(waveform_index=wf_index))
 
-        for loc, waves in locations.items():
-            for w in waves:
-                if not (set(w.channels) & device.channel_names()):
-                    continue
+        for loc, w in tmln.lw_pairs:
+            loc = _to_python_number(loc)
+            if not (set(w.channels) & device.channel_names()):
+                continue
 
-                width = w.width.resolve(**pulse_kwargs)
-                start, end = loc.offset, loc.offset + width.offset
+            width = w.width
+            start, end = loc, loc + width
 
-                s_idx = int(start * sample_rate)
-                e_idx = samples if np.isinf(end) else int(end * sample_rate) + 1
-                # Zero width
-                if s_idx == e_idx - 1:
-                    continue
+            s_idx = int(start * sample_rate)
+            e_idx = samples if np.isinf(end) else int(end * sample_rate) + 1
+            # Zero width
+            if s_idx == e_idx - 1:
+                continue
 
-                ts_wave = ts[s_idx:e_idx]
+            ts_wave = ts[s_idx:e_idx]
 
-                w_t = w(
-                    ts_wave,
-                    t0=start + w.t0,
-                    phase_tracker=phase_tracker,
-                    frames=self.frames,
-                    complex_out=issubclass(device.dtype, np.complexfloating),
-                    **pulse_kwargs,
-                )
+            w_t = w(
+                ts_wave,
+                t0=start + w.t0,
+                phase_tracker=phase_tracker,
+                frames=self.frames,
+                complex_out=issubclass(device.dtype, np.complexfloating),
+            )
 
-                if len(w_t.shape) == 1:
-                    w_t = np.repeat(w_t[np.newaxis, :], len(w.channels), axis=0)
+            if len(w_t.shape) == 1:
+                w_t = np.repeat(w_t[np.newaxis, :], len(w.channels), axis=0)
 
-                for i, c in enumerate(w.channels):
-                    try:
-                        wmem[device[c]][s_idx:e_idx] += w_t[i]
-                    except KeyError:
-                        pass
+            for i, c in enumerate(w.channels):
+                try:
+                    wmem[device[c]][s_idx:e_idx] += w_t[i]
+                except KeyError:
+                    pass
 
-                self.compile_instruction(
-                    exe,
-                    instructions,
-                    s_idx,
-                    e_idx,
-                    w,
-                    device,
-                    location_kwargs,
-                    pulse_kwargs,
-                    instruction_cache,
-                )
+            self.compile_instruction(
+                exe,
+                instructions,
+                s_idx,
+                e_idx,
+                w,
+                device,
+                instruction_cache,
+            )
 
         return instructions
 
@@ -588,14 +579,11 @@ class QWiPCompiler:
                 all pulses.
 
         """
-        markers = {}
-        locations = tmln.resolve_locations(
-            end_marker="end", markers=markers, **location_kwargs
-        )
+        tmln.resolve(inplace=True, **location_kwargs, **pulse_kwargs)
 
         # Compile phases
-        phase_tracker = self.compile_phases(locations)
-        t_end = markers["end"].offset
+        phase_tracker = self.compile_phases(tmln.lw_pairs)
+        t_end = _to_python_number(tmln.width)
 
         for name, device in self.devices.items():
             program = exe.programs[name]
@@ -628,12 +616,10 @@ class QWiPCompiler:
                 )
                 instructions = self.compile_waveforms(
                     exe,
-                    locations,
+                    tmln,
                     wmem,
                     device,
                     phase_tracker,
-                    location_kwargs,
-                    tmln.constraints | pulse_kwargs,
                     instruction_cache,
                 )
                 instruction_cache[id(tmln), device.name] = instructions
