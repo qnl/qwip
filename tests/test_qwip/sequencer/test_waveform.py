@@ -547,9 +547,9 @@ class TestTriggeredWaveform:
     def test_resolve(self, wave):
         resolved = wave.resolve(amp=0.5)
 
-        se = wave.target.copy()
-        se.resolve_waveforms(amp=0.5)
-        assert resolved.target == se
+        tmln = wave.target.copy()
+        tmln.resolve(amp=0.5)
+        assert resolved.target == tmln
 
     def test_resolve_copy(self, wave):
         # No variables in target get resolved so no copy.
