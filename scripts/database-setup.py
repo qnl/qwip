@@ -5,11 +5,14 @@ from enum import Enum
 
 import sqlalchemy as sa
 import typer
+from packaging.version import Version
 from rich import print
 from rich.console import Text
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+import qwip
+from qwip.config import ConfigDB
 from qwip.config.models import config_tables
 from qwip.data.models import datastore_tables
 from qwip.database.database import DoltDB
@@ -186,14 +189,64 @@ def show(
     get_databases(db)
 
 
+def migrate(db: DoltDB, current: str, target: str = qwip.__version__):
+    if Version(current) > Version(target):
+        print("Downgrading database versions is currently unsupported!")
+        typer.Exit()
+
+    print(f"Upgrading databse version from {current} to {target}...")
+
+    for table in config_tables:
+        if table.name == "constraints":
+            break
+
+    with db.session.begin():
+        stmt = sa.text("SHOW COLUMNS FROM constraints")
+        col_names = [name for (name, *rest) in db.session.execute(stmt).all()]
+
+        stmt = sa.text("SELECT COUNT(*) FROM constraints")
+        nrows = db.session.execute(stmt).scalar_one()
+
+    if "expression" in col_names:
+        print("Database has already been upgraded!")
+        typer.Exit()
+
+    if nrows:
+        print("Modifying non-empty constraints table is not supported!")
+        typer.Exit()
+
+    with db.session.begin():
+        stmt = sa.text(
+            "ALTER TABLE `constraints` "
+            "DROP COLUMN `name`, "
+            "RENAME COLUMN `location` TO `expression`"
+        )
+        db.session.execute(stmt)
+
+    print(f"Upgraded database to version {target}!")
+
+
 @app.command()
 def upgrade(
     ctx: typer.Context,
-    host: str = typer.Argument(...),
-    username: str = typer.Argument(...),
-    password: str = typer.Argument(...),
-    database: str = typer.Argument(...),
-): ...
+    hostname: str = typer.Option(..., prompt=True),
+    username: str = typer.Option(..., prompt=True),
+    password: str = typer.Option(..., prompt=True, hide_input=True),
+    database: str = typer.Option(..., prompt=True),
+):
+    db = ConfigDB.from_parameters(
+        host=hostname, username=username, password=password, database=database
+    )
+
+    if not test_connection(db):
+        raise typer.Exit()
+
+    try:
+        current_version = db.config.version
+    except AttributeError:
+        current_version = qwip.__version__
+
+    migrate(db, current_version)
 
 
 if __name__ == "__main__":
