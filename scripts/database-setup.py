@@ -209,11 +209,11 @@ def migrate(db: DoltDB, current: str, target: str = qwip.__version__):
 
     if "expression" in col_names:
         print("Database has already been upgraded!")
-        typer.Exit()
+        return
 
     if nrows:
         print("Modifying non-empty constraints table is not supported!")
-        typer.Exit()
+        return
 
     with db.session.begin():
         stmt = sa.text(
