@@ -451,7 +451,6 @@ class Sequence(np.ndarray):
             new_tmln = tmln.copy()
             update = excluded_params | {n: v for n, v in zip(names, values)}
             new_tmln.add_constraints(**update)
-            new_tmln.resolve_waveforms(**update)
             seq[i] = new_tmln
 
         if label.nlevels == 1:
@@ -504,7 +503,6 @@ class Sequence(np.ndarray):
 
             update = excluded_params | update
             new_tmln.add_constraints(**update)
-            new_tmln.resolve_waveforms(**update)
 
             seq[idx] = new_tmln
 
