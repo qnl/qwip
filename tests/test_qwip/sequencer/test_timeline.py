@@ -250,6 +250,38 @@ class TestTimeline:
         else:
             assert result["end"] == sym.parse_expr("start - 1")
 
+    def test_resolve_sort(self):
+        def _sort_key(loc_op):
+            loc, op = loc_op
+            return (loc, op.name)
+
+        markers = {letter: Marker(name=letter) for letter in "abcdefg"}
+
+        tmln = Timeline(
+            lw_pairs=[
+                (2, markers["b"]),
+                (3, markers["a"]),
+                (0, markers["f"]),
+                (0, markers["e"]),
+            ]
+        )
+
+        lw_pairs = tmln.resolve(inplace=False, sort=True)
+        assert lw_pairs == [
+            (0, markers["f"]),
+            (0, markers["e"]),
+            (2, markers["b"]),
+            (3, markers["a"]),
+        ]
+
+        lw_pairs = tmln.resolve(inplace=False, sort=_sort_key)
+        assert lw_pairs == [
+            (0, markers["e"]),
+            (0, markers["f"]),
+            (2, markers["b"]),
+            (3, markers["a"]),
+        ]
+
     def test_resolve_negative(self):
         tmln = Timeline(
             lw_pairs=[

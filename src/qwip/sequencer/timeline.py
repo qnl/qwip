@@ -36,6 +36,10 @@ TChannelMap = dict[str, tuple[Location, Waveform]]
 class UnderconstrainedSolveError(np.linalg.LinAlgError): ...
 
 
+def _default_sort_key(loc_op: tuple[float, Operation]) -> float:
+    return loc_op[0]
+
+
 @qdefine
 class Timeline:
     lw_pairs: list[tuple[Location, Waveform]] = field(factory=list)
@@ -509,7 +513,7 @@ class Timeline:
         self,
         *constraints,
         inplace: bool = True,
-        sort: bool = True,
+        sort: bool | Callable = True,
         reset_zero: Literal["pos", "neg", "both"] = "neg",
         **substitutions,
     ) -> list[tuple[Location, Waveform]]:
@@ -554,7 +558,8 @@ class Timeline:
             tmin = tmin - tmin
 
         if sort:
-            lw_pairs = sorted(lw_pairs, key=lambda lw: lw[0])
+            sort_key = sort if isinstance(sort, Callable) else _default_sort_key
+            lw_pairs = sorted(lw_pairs, key=sort_key)
 
         if inplace:
             self.lw_pairs[:] = lw_pairs
