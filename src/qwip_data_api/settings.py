@@ -27,8 +27,8 @@ class Settings(BaseSettings):
 
     MYSQL_SERVER: str = "localhost"
     MYSQL_PORT: int = 3306
-    MYSQL_USER: str
-    MYSQL_PASSWORD: str
+    MYSQL_USER: str  = ""
+    MYSQL_PASSWORD: str = ""
     MYSQL_DB: str = ""
 
     @computed_field  # type: ignore[misc]

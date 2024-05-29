@@ -6,6 +6,8 @@ from fastapi import APIRouter, FastAPI, Path
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 from uuid6 import UUID
+from pydantic import BaseModel
+from pendulum import DateTime
 
 import qwip
 from qwip.data.models import Dataset
@@ -17,16 +19,53 @@ logger.add(sys.stderr)
 api_v1 = APIRouter(prefix="/api/v1")
 
 
-@api_v1.get("/datasets/")
-async def get_datasets(session: SessionDepends) -> list[dict]:
-    # Add query parameters to filter by database columns
-    # Implement pagination
-    ...
+def add_equals(stmt, **kwargs):
+    for col, value in kwargs.items():
+        stmt = stmt.where(getattr(Dataset, col) == value)
+    return stmt   
 
+def add_substring_search(stmt, **kwargs):
+    for col, value in kwargs.items():
+        search_value = f"%{value}%" if "%" not in value else value
+        stmt = stmt.where(getattr(Dataset, col).ilike(search_value))
+
+    return stmt
+
+        
+    
+
+@api_v1.get("/datasets/", response_model=None)
+async def get_datasets(
+    session: SessionDepends,
+    time_start: DateTime | None = None, #fastapi doesn't like this 
+    time_end: DateTime | None = None, 
+    user: str | None= None, 
+    sample_id: str | None = None, # should this be turned into a list? 
+    cooldown_id: str | None = None,
+    comments: str | None = None,
+    limit: int | None = None
+    ) -> dict:
+
+    stmt = sa.select(Dataset)
+
+    exact = dict(sample_id=sample_id, cooldown_id=cooldown_id)
+    substring = dict(user=user, comments=comments)
+
+    stmt = add_equals(stmt, **{c: v for c, v in exact.items() if v is not None})
+    stmt = add_substring_search(stmt, **{c: v for c, v in substring.items() if v is not None})
+    
+    if time_start:
+        stmt = stmt.where(Dataset.timestamp >= time_start)
+    if time_end:
+        stmt = stmt.where(Dataset.timestamp <= time_end)
+
+    datasets = session.scalars(stmt).all()
+    return qwip.converter.unstructure(datasets)
 
 @api_v1.get("/datasets/{dataset_id}")
 async def get_dataset_by_id(
-    dataset_id: Annotated[str, Path(title="Dataset UUID")], session: SessionDepends
+    dataset_id: Annotated[str, Path(title="Dataset UUID")], 
+    session: SessionDepends
 ) -> dict:
     dataset_id = UUID(dataset_id)
 
