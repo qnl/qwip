@@ -38,5 +38,29 @@ Successfully created tables!
 ## Connecting to the Database
 
 To connect to the database.
+If the measurement computer is outside Campbell, i.e. in main lab, we need to set up the ssh connection as shown below and you will see the welcome message. 
 
+<div class="termy">
+```console
+ssh qnl@ll109.qnl-internal.berkeley.edu -p 4200 -L 4002:localhost:4002 -L 3306:localhost:3306
+
+Welcome to Ubuntu 22.04.3 LTS (GNU/Linux 6.2.0-39-generic x86_64)
+
+ * Documentation:  https://help.ubuntu.com
+ * Management:     https://landscape.canonical.com
+ * Support:        https://ubuntu.com/advantage
+
+Expanded Security Maintenance for Applications is not enabled.
+
+198 updates can be applied immediately.
+102 of these updates are standard security updates.
+To see these additional updates run: apt list --upgradable
+
+Enable ESM Apps to receive additional future security updates.
+See https://ubuntu.com/esm or run: sudo pro status
+
+Last login: Fri May 24 13:36:26 2024 from 192.168.1.14
+
+```
+</div>
 
