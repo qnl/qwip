@@ -390,7 +390,7 @@ class QPU:
         results = defaultdict(list)
         num_batches = len(batched_exes)
         for batch_no, batch in enumerate(batched_exes):
-            logger.debug(f"Starting batch {batch_no} of {num_batches}.")
+            logger.debug(f"Starting batch {batch_no + 1} of {num_batches}.")
             exe = batch.exe
             if batch.upload:
                 self.backend.upload(exe)
