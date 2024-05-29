@@ -432,7 +432,8 @@ class Timeline:
             A dictionary mapping all location names to concrete locations.
         """
         constraints = list(self.constraints | set(constraints))
-        variables = self.variables()
+        # Needed to deal with variable names that include .
+        variables = {sym.Symbol(v) for v in self.variables()}
 
         if not variables:
             return {}
