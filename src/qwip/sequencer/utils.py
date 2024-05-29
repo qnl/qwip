@@ -2,19 +2,24 @@ import ast
 import itertools as it
 import operator
 import re
-from functools import lru_cache
+from functools import lru_cache, partial
 from numbers import Real
+from tokenize import NAME, OP
 from typing import Any, Self
 
 import attrs
 import sympy as sym
 from attrs import field
+from loguru import logger
+from sympy.parsing.sympy_parser import standard_transformations
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn
 from qwip.attrs import qfrozen
 
 NumberOrExpression = Real | sym.Expr
+
+# SYMPY Utilities
 
 
 def _variable_substitution(expr, subs):
@@ -29,6 +34,46 @@ def _to_python_number(x, /) -> Real:
             return float(x)
 
     return x
+
+
+def ignore_attribute_access(
+    tokens: list[tuple[int, str]],
+    local_dict: dict[str, Any],
+    global_dict: dict[str, Any],
+) -> list[tuple[int, str]]:
+    result = []
+
+    prev_token = null_token = (-1, "")
+    tokens.append(null_token)
+
+    gen = zip(tokens, tokens[1:])
+    for token, next_token in gen:
+        if token == (OP, "."):
+            if prev_token[0] == NAME:
+                prefix = result.pop()[1]
+            else:
+                prefix = ""
+
+            if next_token[0] == NAME:
+                suffix = next_token[1]
+                next(gen)
+            else:
+                suffix = ""
+
+            name = f"{prefix}.{suffix}"
+
+            token = (NAME, name)
+
+        result.append(token)
+        prev_token = token
+
+    return result
+
+
+QWIP_SYMPY_TRANSFORMATIONS = (ignore_attribute_access, *standard_transformations)
+parse_expr = partial(sym.parse_expr, transformations=QWIP_SYMPY_TRANSFORMATIONS)
+
+# LinearExpression
 
 
 def _type_error_text(op1, op2, operand: str) -> str:
@@ -573,9 +618,9 @@ def structure_sympy_expression(obj, cls):
         case Real():
             return sym.Float(obj)
         case LinearExpression():
-            return sym.parse_expr(str(obj))
+            return parse_expr(str(obj))
         case str():
-            return sym.parse_expr(obj)
+            return parse_expr(obj)
 
     return obj
 

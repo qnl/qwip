@@ -4,11 +4,28 @@ from copy import copy, deepcopy
 
 import attrs
 import pytest
+import sympy as sym
+from sympy.parsing.sympy_parser import standard_transformations
 
 import qwip
-from qwip.sequencer.utils import LinearExpression
+from qwip.sequencer.utils import LinearExpression, ignore_attribute_access
 
 LE = LinearExpression
+
+
+class TestSympyUtilities:
+    @pytest.mark.parametrize(
+        "expr,symbols",
+        [
+            ("Q0.read", {"Q0.read"}),
+            (".var", {".var"}),
+            ("a.+.b+a.b", {"a.", ".b", "a.b"}),
+        ],
+    )
+    def test_parsing(self, expr, symbols):
+        expr = qwip.converter.structure(expr, sym.Expr)
+
+        assert {s.name for s in expr.free_symbols} == symbols
 
 
 class TestLinearExpression:
