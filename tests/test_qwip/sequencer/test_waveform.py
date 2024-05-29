@@ -136,6 +136,19 @@ class TestOperation:
     def test_resolve_basic(self, op, mapping, expect):
         assert op.resolve(**mapping) == expect
 
+    def test_resolve_nonlinear(self):
+        op = VirtualZWaveform(frame="Q0.GE", phase="360*frequency*time")
+
+        assert op.resolve(frequency=5e9) == VirtualZWaveform(
+            frame="Q0.GE", phase="360 * 5e9 * time"
+        )
+        assert op.resolve(time=10e-9) == VirtualZWaveform(
+            frame="Q0.GE", phase="360 * frequency * 10e-9"
+        )
+        assert op.resolve(frequency=5e9, time=10e-9) == VirtualZWaveform(
+            frame="Q0.GE", phase=360 * 50
+        )
+
     def test_resolve_no_update(self):
         op = BasicWaveform(amplitude="amp")
 
