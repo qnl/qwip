@@ -203,12 +203,10 @@ class TestSequenceConstruction:
                 for k, v in params.items()
                 if not isinstance(v, (list, np.ndarray, pd.Index))
             }
-            expect_constraints = {
-                sym.Symbol(name) - qwip.converter.structure(value, sym.Expr)
-                for name, value in subs.items()
+            expect_variables = (tmln.variables() - set(subs)) | {
+                s for s in subs.values() if isinstance(s, str)
             }
-
-            assert seq[i].constraints == expect_constraints
+            assert seq.flat[i].variables() == expect_variables
 
     @pytest.mark.parametrize(
         "params,shape,expected",
@@ -265,12 +263,10 @@ class TestSequenceConstruction:
                 for k, v in params.items()
                 if not isinstance(v, (list, np.ndarray, pd.Index))
             }
-            expect_constraints = {
-                sym.Symbol(name) - qwip.converter.structure(value, sym.Expr)
-                for name, value in subs.items()
-            } | tmln.constraints
-
-            assert seq.flat[i].constraints == expect_constraints
+            expect_variables = (tmln.variables() - set(subs)) | {
+                s for s in subs.values() if isinstance(s, str)
+            }
+            assert seq.flat[i].variables() == expect_variables
 
 
 class TestBroadcastLabels:

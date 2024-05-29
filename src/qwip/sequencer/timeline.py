@@ -383,6 +383,33 @@ class Timeline:
             self.width = _variable_substitution(self.width, var_map)
 
         return var_map
+    
+    def substitute(self, **substitutions) -> Self:
+        var_set = set(substitutions)
+        
+        lw_pairs = []
+        for loc, op in self:
+            if {s.name for s in loc.free_symbols} & var_set:
+                loc = _variable_substitution(loc, substitutions)
+
+            if op.variables() & var_set:
+                op = op.resolve(**substitutions)
+
+            lw_pairs.append((loc, op))
+
+        if self.width and var_set & self.width.free_symbols:
+            self.width = _variable_substitution(self.width, substitutions)
+
+        if self.constraints:
+            new_constraints = {
+                _variable_substitution(cons, substitutions) for cons in self.constraints
+            }
+            self.constraints.clear()
+            self.constraints.update(new_constraints)
+
+        self.lw_pairs[:] = lw_pairs
+
+        return self
 
     def solve_constraints(self, *constraints) -> dict[str, Location]:
         """Solves all timing constraints for the pulse timeline.
@@ -442,10 +469,10 @@ class Timeline:
         tmin = tmax = None
 
         for loc, op in self:
-            if var_set and loc.free_symbols and loc.free_symbols & var_set:
+            if {s.name for s in loc.free_symbols} & var_set:
                 loc = loc.subs(solved)
 
-            if var_set and op.variables() and op.variables() & var_set:
+            if op.variables() & var_set:
                 op = op.resolve(**solved)
 
             lw_pairs.append((loc, op))
@@ -979,4 +1006,4 @@ class TimelinePlotter:
         ax.axvline(start, **props)
 
 
-__all__ = ["Timeline", "TimelinePlotter", "UnderconstrainedSolveError"]
+__all__ = ["Timeline", "TimelinePlotter"]
