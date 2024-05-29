@@ -352,9 +352,9 @@ class Timeline:
         return tvars | opvars
 
     def rename_variables(self, rename_func: Callable[[str], str]) -> dict[str, str]:
-        """Renames all variables.
+        """Renames all variables according to a renaming function.
 
-        This function renames variables according to `rename_func`.
+        Use `Timeline.substitute` to replace variables via a mapping of values.
 
         Args:
             rename_func: a function that, given a string, returns a new string.
@@ -383,10 +383,21 @@ class Timeline:
             self.width = _variable_substitution(self.width, var_map)
 
         return var_map
-    
+
     def substitute(self, **substitutions) -> Self:
+        """Substitutes new values for a set of variables.
+
+        This method modifies the timeline in place.
+
+        Args:
+            **substitutions: Should be a mapping from variable names to their values.
+                These values can be either an expression or a numerical value.
+
+        Returns:
+            The modified timeline.
+        """
         var_set = set(substitutions)
-        
+
         lw_pairs = []
         for loc, op in self:
             if {s.name for s in loc.free_symbols} & var_set:
@@ -397,7 +408,7 @@ class Timeline:
 
             lw_pairs.append((loc, op))
 
-        if self.width and var_set & self.width.free_symbols:
+        if self.width and var_set & {s.name for s in self.width.free_symbols}:
             self.width = _variable_substitution(self.width, substitutions)
 
         if self.constraints:

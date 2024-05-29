@@ -334,20 +334,55 @@ class TestTimeline:
         assert tmln.locations == [0, 10e-9, 20e-9]
         assert tmln.width == 50e-9
 
-    # @pytest.mark.parametrize(
-    #     "locs,end",
-    #     [
-    #         ([(10e-9, GaussianWaveform(width=20e-9))], Location(30e-9)),
-    #         ([(-10e-9, GaussianWaveform(width=20e-9))], Location(20e-9)),
-    #     ],
-    # )
-    # def test_resolve_locations_marker(self, locs, end):
-    #     tmln = Timeline.fromtuples(locs)
+    @pytest.mark.parametrize(
+        "substitutions,expect",
+        [
+            (
+                dict(amp=0.5),
+                Timeline.from_layers(
+                    [
+                        SquareWaveform(width="tau", amplitude=0.5),
+                        "wait",
+                        SquareWaveform(width="tau", amplitude=-0.5),
+                    ],
+                    width="wait + 2*tau",
+                ),
+            ),
+            (
+                dict(tau=30e-9),
+                Timeline.from_layers(
+                    [
+                        SquareWaveform(width=30e-9, amplitude="amp"),
+                        "wait",
+                        SquareWaveform(width=30e-9, amplitude="-amp"),
+                    ],
+                    width="wait + 60e-9",
+                ),
+            ),
+            (
+                dict(amp=0.1, wait=5e-9, tau=30e-9),
+                Timeline.from_layers(
+                    [
+                        SquareWaveform(width=30e-9, amplitude=0.1),
+                        5e-9,
+                        SquareWaveform(width=30e-9, amplitude=-0.1),
+                    ],
+                    width=65e-9,
+                ),
+            ),
+        ],
+    )
+    def test_substitute(self, substitutions, expect):
+        tmln = Timeline.from_layers(
+            [
+                SquareWaveform(width="tau", amplitude="amp"),
+                "wait",
+                SquareWaveform(width="tau", amplitude="-amp"),
+            ],
+            width="wait + 2*tau",
+        )
 
-    #     markers = {}
-    #     tmln.resolve_locations(markers=markers)
-
-    #     assert markers["end"].almost_equal(end)
+        assert tmln.substitute(**substitutions) == expect
 
     def test_rename_variables(self):
         tmln = Timeline(
