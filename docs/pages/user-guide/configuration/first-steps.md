@@ -38,8 +38,7 @@ Successfully created tables!
 ## Connecting to the Database
 
 1. **Choose the hostname and the database of the Database.**
-``` py title="connect to the database"
-def bubble_sort(items):
+``` py title="connect to the database" linenums="1"
 db = ConfigDB.from_parameters(
     host='[hostname]',
     database='[databasename]',
@@ -56,7 +55,7 @@ datastore.connect();
 ```
 
 2. **Login with your credentials.**
-```py
+```python linenums="1"
 Username: 
 ......
 Password: 
@@ -67,12 +66,12 @@ Password:
 After create and connect to the Database, we need to configure the new Database
 
 1. **All and readout**
-    ```python
+    ```python linenums="1"
     db.config.create_all()
     db.config.readout.create_all(default={})
     ```
 2. **Setup channels and construct compiler from devices**
-    ```python
+    ```python linenums="1"
     from qwip.sequencer.compilation import DeviceInfo, ChannelInfo
     from qwip.backends.qubic import QubicCompiler
     
@@ -83,17 +82,17 @@ After create and connect to the Database, we need to configure the new Database
     compiler = QubicCompiler.from_devices([qubit, readout, adc])
     ```
 3. **Pipeline**
-    ```python
+    ```python linenums="1"
     from qwip.processing import ReadoutPipeline
     pipeline = ReadoutPipeline()
     ```
 4. **Initialize the QPU**
-    ```python
+    ```python linenums="1"
     qpu = QPU(db=db, compiler=compiler, pipeline=pipeline, subsystems={}, datastore=datastore)
     qpu.save_compiler()
     ```
 5. **Commit all the configuration**
-    ```python
+    ```python linenums="1"
     db.config.update(sample_id="[sample_id]", cooldown_id="[cooldown_id]")
     db.commit("Initial setup", add="all")
     ```
