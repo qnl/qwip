@@ -35,6 +35,7 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "sqlalchemy",
+    "sympy==1.12",
     "tomli",
     "uuid6",
 ]
