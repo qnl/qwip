@@ -83,13 +83,11 @@ After create and connect to the Database, we need to configure the new Database
     compiler = QubicCompiler.from_devices([qubit, readout, adc])
     ```
 3. **Pipeline**
-
     ```python
     from qwip.processing import ReadoutPipeline
     pipeline = ReadoutPipeline()
     ```
 4. **Initialize the QPU**
-
     ```python
     qpu = QPU(db=db, compiler=compiler, pipeline=pipeline, subsystems={}, datastore=datastore)
     qpu.save_compiler()
