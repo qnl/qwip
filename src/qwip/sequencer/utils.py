@@ -2,16 +2,78 @@ import ast
 import itertools as it
 import operator
 import re
-from functools import lru_cache
+from functools import lru_cache, partial
 from numbers import Real
+from tokenize import NAME, OP
 from typing import Any, Self
 
 import attrs
+import sympy as sym
 from attrs import field
+from loguru import logger
+from sympy.parsing.sympy_parser import standard_transformations
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn
 from qwip.attrs import qfrozen
+
+NumberOrExpression = Real | sym.Expr
+
+# SYMPY Utilities
+
+
+def _variable_substitution(expr, subs):
+    return expr.subs(subs)
+
+
+def _to_python_number(x, /) -> Real:
+    match x:
+        case sym.Integer():
+            return int(x)
+        case sym.Float():
+            return float(x)
+
+    return x
+
+
+def ignore_attribute_access(
+    tokens: list[tuple[int, str]],
+    local_dict: dict[str, Any],
+    global_dict: dict[str, Any],
+) -> list[tuple[int, str]]:
+    result = []
+
+    prev_token = null_token = (-1, "")
+    tokens.append(null_token)
+
+    gen = zip(tokens, tokens[1:])
+    for token, next_token in gen:
+        if token == (OP, "."):
+            if prev_token[0] == NAME:
+                prefix = result.pop()[1]
+            else:
+                prefix = ""
+
+            if next_token[0] == NAME:
+                suffix = next_token[1]
+                next(gen)
+            else:
+                suffix = ""
+
+            name = f"{prefix}.{suffix}"
+
+            token = (NAME, name)
+
+        result.append(token)
+        prev_token = token
+
+    return result
+
+
+QWIP_SYMPY_TRANSFORMATIONS = (ignore_attribute_access, *standard_transformations)
+parse_expr = partial(sym.parse_expr, transformations=QWIP_SYMPY_TRANSFORMATIONS)
+
+# LinearExpression
 
 
 def _type_error_text(op1, op2, operand: str) -> str:
@@ -387,7 +449,7 @@ class LinearExpression:
         """Scalar multiplication of a location."""
         return self.__mul__(other)
 
-    def __div__(self, other) -> Self:
+    def __truediv__(self, other) -> Self:
         """Scalar division of a location."""
         return self.__mul__(1 / other)
 
@@ -544,6 +606,48 @@ qwip.converter.register_structure_hook_factory(
 
 qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, LinearExpression), make_linear_expression_unstructure_fn
+)
+
+# ========== Sympy Expression converters ========== #
+
+
+def structure_sympy_expression(obj, cls):
+    match obj:
+        case sym.Expr():
+            return obj
+        case Real():
+            return sym.Float(obj)
+        case LinearExpression():
+            return parse_expr(str(obj))
+        case str():
+            return parse_expr(obj)
+
+    return obj
+
+
+def unstructure_sympy_expression(obj):
+    match obj:
+        case sym.Integer():
+            return int(obj)
+        case sym.RealNumber():
+            return float(obj)
+
+    return str(obj)
+
+
+qwip.converter.register_structure_hook(sym.Expr, structure_sympy_expression)
+qwip.converter.register_unstructure_hook(sym.Expr, unstructure_sympy_expression)
+
+
+def structure_number_or_expression(v, cls):
+    if isinstance(v, (str, LinearExpression)):
+        return qwip.converter.structure(v, sym.Expr)
+
+    return v
+
+
+qwip.converter.register_structure_hook(
+    NumberOrExpression, structure_number_or_expression
 )
 
 

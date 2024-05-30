@@ -4,6 +4,7 @@ from contextlib import nullcontext as noerror
 import numpy as np
 import pandas as pd
 import pytest
+import sympy as sym
 from numpy.testing import assert_array_equal
 
 import qwip
@@ -196,8 +197,16 @@ class TestSequenceConstruction:
         assert seq.labels[0].equals(expect)
         assert seq.labels[0].name == (expect.name or "_".join(expect.names))
 
-        for tmln in seq.flat:
-            assert set(tmln.constraints) == set(params)
+        for i, row in seq.labels[0].to_frame(index=False).iterrows():
+            subs = row.to_dict() | {
+                k: v
+                for k, v in params.items()
+                if not isinstance(v, (list, np.ndarray, pd.Index))
+            }
+            expect_variables = (tmln.variables() - set(subs)) | {
+                s for s in subs.values() if isinstance(s, str)
+            }
+            assert seq.flat[i].variables() == expect_variables
 
     @pytest.mark.parametrize(
         "params,shape,expected",
@@ -247,10 +256,17 @@ class TestSequenceConstruction:
         for label, expect in zip(seq.labels, expected.values()):
             assert label.equals(expect)
 
-        for tmln in seq.flat:
-            assert set(tmln.constraints) == set(
-                it.chain.from_iterable(n.split("_") for n in params)
-            )
+        label = seq.flatten().labels[0].to_frame(index=False)
+        for i, lb in label.iterrows():
+            subs = lb.to_dict() | {
+                k: v
+                for k, v in params.items()
+                if not isinstance(v, (list, np.ndarray, pd.Index))
+            }
+            expect_variables = (tmln.variables() - set(subs)) | {
+                s for s in subs.values() if isinstance(s, str)
+            }
+            assert seq.flat[i].variables() == expect_variables
 
 
 class TestBroadcastLabels:

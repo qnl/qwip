@@ -1,5 +1,6 @@
 import pytest
 import sqlalchemy as sa
+import sympy as sym
 
 import qwip
 from qwip.config.models import (
@@ -17,6 +18,7 @@ from qwip.sequencer.waveform import (
     CWWaveform,
     GaussianWaveform,
     ModulatedWaveform,
+    TriggeredWaveform,
     VirtualZWaveform,
 )
 
@@ -79,6 +81,21 @@ class TestWaveformModel:
             modulation=CWWaveform(channels=("I", "Q"), frequency="mod_GE"),
         ),
         drag=DRAG(name="drag", lmbda=1, envelope=GaussianWaveform(width=20e-9)),
+        triggered=TriggeredWaveform(
+            width="width",
+            target=Timeline.from_layers(
+                [
+                    VirtualZWaveform(phase="zphase", frame="Q0"),
+                    ModulatedWaveform(
+                        envelope=GaussianWaveform(width="width", amplitude="amplitude"),
+                        modulation=CWWaveform(
+                            channels=("Q0",), frequency="frame", phase="phase"
+                        ),
+                    ),
+                    VirtualZWaveform(phase="zphase", frame="Q0"),
+                ]
+            ),
+        ),
     )
 
     def test_select_none(self, session, models):
@@ -99,7 +116,7 @@ class TestWaveformModel:
             sa.select(sa.func.count()).select_from(WaveformModel)
         )
 
-        assert num_total == 5
+        assert num_total == 6
 
         num_toplevel = session.scalar(
             sa.select(sa.func.count())
@@ -107,7 +124,7 @@ class TestWaveformModel:
             .where(WaveformModel.parent_id == None)
         )
 
-        assert num_toplevel == 2
+        assert num_toplevel == 3
 
         results = session.scalars(
             sa.select(WaveformModel)
@@ -125,40 +142,54 @@ class TestWaveformModel:
 
         assert [w.key for w in results] == ["envelope", "modulation", "envelope"]
 
+    def test_round_trip(self, session, models):
+        models = []
+        for wave in self.WAVEFORMS.values():
+            model = WaveformModel.from_waveform(wave)
+            session.add(model)
+            models.append(model)
+
+        session.flush()
+
+        results = session.scalars(
+            sa.select(WaveformModel)
+            .where(WaveformModel.parent_id == None)
+            .order_by(WaveformModel.waveform_id)
+        ).all()
+
+        reloaded = [w.to_waveform() for w in results]
+        original = list(self.WAVEFORMS.values())
+        assert reloaded[:-1] == original[:-1]
+        assert reloaded[-1].target == original[-1].target
+
 
 class TestTimelines:
     @pytest.fixture
-    def x90_se(self):
+    def x90_tmln(self):
         z_correction = VirtualZWaveform(frame="mod_GE", phase="z_phase")
         x90 = ModulatedWaveform(
             name="X90",
             envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),
             modulation=CWWaveform(channels=("I", "Q"), frequency="mod_GE"),
         )
-        se = Timeline.fromtuples(
-            [("t0", z_correction), ("t0", x90), ("t0" + x90.width, z_correction)],
+        tmln = Timeline.from_layers(
+            [z_correction, x90, z_correction],
+            t0="t0",
             width=x90.width,
-            constraints=dict(t0=0),
+            constraints={"t0"},
         )
-        return se
+
+        return tmln
 
     @pytest.fixture
-    def se_no_width(self):
-        z_correction = VirtualZWaveform(frame="mod_GE", phase="z_phase")
-        x90 = ModulatedWaveform(
-            name="X90",
-            envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),
-            modulation=CWWaveform(channels=("I", "Q"), frequency="mod_GE"),
-        )
-        se = Timeline.fromtuples(
-            [("t0", z_correction), ("t0", x90), ("t0" + x90.width, z_correction)],
-            constraints=dict(t0=0),
-        )
-        return se
+    def tmln_no_width(self, x90_tmln):
+        tmln = x90_tmln.copy()
+        tmln.width = None
+        return tmln
 
-    def test_insert_select(self, session, models, x90_se):
-        se_model = TimelineModel.from_timeline(x90_se, name="x90")
-        session.add(se_model)
+    def test_insert_select(self, session, models, x90_tmln):
+        tmln_model = TimelineModel.from_timeline(x90_tmln, name="x90")
+        session.add(tmln_model)
         session.flush()
 
         num_waves = session.scalar(
@@ -175,18 +206,18 @@ class TestTimelines:
 
         new_model = session.scalars(sa.select(TimelineModel)).one()
 
-        assert se_model == new_model
+        assert tmln_model == new_model
 
-    def test_delete(self, session, models, x90_se):
-        se_model = TimelineModel.from_timeline(x90_se, name="x90")
+    def test_delete(self, session, models, x90_tmln):
+        tmln_model = TimelineModel.from_timeline(x90_tmln, name="x90")
         extra_wave = WaveformModel.from_waveform(
             CosineRampWaveform(amplitude=0.5, width=20e-9)
         )
         session.add(extra_wave)
-        session.add(se_model)
+        session.add(tmln_model)
         session.flush()
 
-        session.delete(se_model)
+        session.delete(tmln_model)
         session.flush()
 
         num_waves = session.scalar(
@@ -201,13 +232,13 @@ class TestTimelines:
         assert num_waves == 1
         assert num_pairs == 0
 
-    def test_round_trip(self, session, models, se_no_width):
-        se_model = TimelineModel.from_timeline(se_no_width, name="x90")
+    def test_round_trip(self, session, models, tmln_no_width):
+        tmln_model = TimelineModel.from_timeline(tmln_no_width, name="x90")
 
-        session.add(se_model)
+        session.add(tmln_model)
         session.flush()
 
         new_model = session.scalars(sa.select(TimelineModel)).one()
-        new_se = new_model.to_timeline()
+        new_tmln = new_model.to_timeline()
 
-        assert new_se == se_no_width
+        assert new_tmln == tmln_no_width

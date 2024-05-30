@@ -2,6 +2,7 @@ from typing import Self
 
 import pendulum
 import sqlalchemy as sa
+import sympy as sym
 from attrs import field
 from sqlalchemy import Column, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
@@ -228,8 +229,7 @@ class WaveformLocationModel(VersionControlled):
 
 @qdefine(slots=False)
 class ConstraintModel(VersionControlled):
-    name: str
-    location: str
+    expression: str
     timeline: "TimelineModel" = field(repr=False)
 
 
@@ -238,35 +238,33 @@ class TimelineModel(VersionControlled):
     name: str
     width: str | None = None
     locations: list[WaveformLocationModel] = field(factory=list)
-    constraints: dict[str, ConstraintModel] = field(factory=dict)
+    constraints: list[ConstraintModel] = field(factory=dict)
 
     @classmethod
-    def from_timeline(cls, se, name):
-        se_model = cls(name=name, width=qwip.converter.unstructure(se.width))
+    def from_timeline(cls, tmln, name):
+        tmln_model = cls(name=name, width=qwip.converter.unstructure(tmln.width))
 
-        for loc, wave in se.get_location_pairs():
+        for loc, wave in tmln:
             wave_model = WaveformModel.from_waveform(wave)
             pair = WaveformLocationModel(
-                location=str(loc), waveform=wave_model, timeline=se_model
+                location=qwip.converter.unstructure(loc),
+                waveform=wave_model,
+                timeline=tmln_model,
             )
 
-        for name, expr in se.constraints.items():
+        for expr in tmln.constraints:
             constraint = ConstraintModel(
-                name=name, location=str(expr), timeline=se_model
+                expression=qwip.converter.unstructure(expr), timeline=tmln_model
             )
 
-        return se_model
+        return tmln_model
 
     def to_timeline(self):
         from qwip.sequencer.timeline import Timeline
-        from qwip.sequencer.utils import Location
 
-        constraints = {
-            n: Location.from_string(c.location) for n, c in self.constraints.items()
-        }
-
+        constraints = {c.expression for c in self.constraints}
         pairs = [
-            (Location.from_string(waveloc.location), waveloc.waveform.to_waveform())
+            (waveloc.location, waveloc.waveform.to_waveform())
             for waveloc in self.locations
         ]
 
@@ -305,8 +303,7 @@ constraint_table = DoltTable(
     "constraints",
     QWIP_DB_METADATA,
     Column("constraint_id", sa.Integer, primary_key=True, autoincrement=True),
-    Column("name", sa.String(255)),
-    Column("location", sa.String(255)),
+    Column("expression", sa.String(255)),
     Column(
         "timeline_id",
         sa.Integer,
@@ -362,7 +359,7 @@ QWIP_DB_REGISTRY.map_imperatively(
         constraints=relationship(
             ConstraintModel,
             back_populates="timeline",
-            collection_class=attribute_mapped_collection("name"),
+            collection_class=list,
             cascade="all, delete-orphan",
         ),
     ),
