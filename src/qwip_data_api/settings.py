@@ -1,7 +1,6 @@
-from pathlib import Path
-from typing import Annotated, Literal
+from typing import Literal
 
-from pydantic import MySQLDsn, ValidationInfo, computed_field, field_validator
+from pydantic import MySQLDsn, computed_field
 from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,7 +26,7 @@ class Settings(BaseSettings):
 
     MYSQL_SERVER: str = "localhost"
     MYSQL_PORT: int = 3306
-    MYSQL_USER: str  = ""
+    MYSQL_USER: str = ""
     MYSQL_PASSWORD: str = ""
     MYSQL_DB: str = ""
 
