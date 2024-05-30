@@ -2,6 +2,7 @@ import itertools as it
 
 import numpy as np
 import pytest
+import sympy as sym
 
 from qwip.backends.qtrl import (
     QTRLBackend,
@@ -169,7 +170,7 @@ def t1_sweep(pulses):
     ro.add(demod)
     readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))
 
-    tmln.add(readout, 2 * pulses["Q0_X90"].width + "delay")
+    tmln.add(readout, 2 * pulses["Q0_X90"].width + sym.Symbol("delay"))
 
     seq = Sequence.sweep(tmln, delay=np.linspace(0, 200e-6, 21))
     return seq
