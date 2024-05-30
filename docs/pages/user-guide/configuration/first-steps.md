@@ -72,7 +72,6 @@ After create and connect to the Database, we need to configure the new Database
     db.config.readout.create_all(default={})
     ```
 2. **Setup channels and construct compiler from devices**
-
     ```python
     from qwip.sequencer.compilation import DeviceInfo, ChannelInfo
     from qwip.backends.qubic import QubicCompiler
@@ -84,6 +83,7 @@ After create and connect to the Database, we need to configure the new Database
     compiler = QubicCompiler.from_devices([qubit, readout, adc])
     ```
 3. **Pipeline**
+
     ```python
     from qwip.processing import ReadoutPipeline
     pipeline = ReadoutPipeline()
