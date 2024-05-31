@@ -11,6 +11,7 @@ from attrs import field, validators
 from cattr import Converter
 from loguru import logger
 from scipy.fft import fft, fftfreq, fftshift
+from matplotlib.axes import Axes
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -257,7 +258,7 @@ class Waveform(Operation):
             f"Method evaluate_timepoints not defined for {type(self)}!"
         )
 
-    def plot(self): ...
+    def plot(self, ts: np.ndarray | None = None, variables: dict[str, float] = {}, ax: Axes | None = None): ...
 
     def fft(self, ts, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         wave = self(ts, **kwargs)
