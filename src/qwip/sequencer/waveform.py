@@ -2,16 +2,20 @@ import itertools as it
 from collections import defaultdict
 from functools import lru_cache
 from numbers import Number, Real
-from typing import TYPE_CHECKING, Any, Self, get_args
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 import attrs
+import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sym
 from attrs import field, validators
 from cattr import Converter
 from loguru import logger
-from scipy.fft import fft, fftfreq, fftshift
 from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.ticker import EngFormatter
+from matplotlib.transforms import ScaledTranslation
+from scipy.fft import fft, fftfreq, fftshift
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -202,6 +206,8 @@ class Operation:
 
 @qfrozen
 class Waveform(Operation):
+    t0: NumberOrExpression = 0
+
     def _update_fields(self, **kwargs) -> dict[str, Number]:
         fields = {}
 
@@ -258,7 +264,39 @@ class Waveform(Operation):
             f"Method evaluate_timepoints not defined for {type(self)}!"
         )
 
-    def plot(self, ts: np.ndarray | None = None, variables: dict[str, float] = {}, ax: Axes | None = None): ...
+    def plot(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        ax: Axes | None = None,
+        sample_rate: float | None = None,
+        label: str = "",
+        fig_kwargs: dict = {},
+    ) -> Figure:
+        wave = self.resolve(**variables)
+
+        if wvars := wave.variables():
+            raise ValueError(
+                f"Cannot plot wave without concrete values for: {", ".join(wvars)}"
+            )
+
+        if ts is None:
+            sample_rate = sample_rate or 101 / wave.width
+            N = int(sample_rate * wave.width)
+            ts = wave.t0 + np.r_[: N + 1] / sample_rate
+
+        if ax is None:
+            fig, ax = plt.subplots(**fig_kwargs)
+        else:
+            fig = ax.get_figure()
+
+        w_t = wave(ts)
+        ax.plot(ts, w_t.real)
+        ax.plot(ts, w_t.imag)
+        ax.xaxis.set_major_formatter(EngFormatter(unit="s"))
+
+        return fig
 
     def fft(self, ts, **kwargs) -> tuple[np.ndarray, np.ndarray]:
         wave = self(ts, **kwargs)
@@ -310,7 +348,6 @@ class TimedWaveform(Waveform):
         converter=_channels_converter,
     )
     width: NumberOrExpression = 0
-    t0: NumberOrExpression = 0
 
     def evaluate_timepoints(
         self, ts: np.ndarray, width: float, t0: float, **kwargs
@@ -347,6 +384,37 @@ class Marker(Waveform):
     def width(self):
         return 0
 
+    def plot(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        ax: Axes | None = None,
+        sample_rate: float | None = None,
+        label: str = "",
+        fig_kwargs: dict = {},
+    ) -> Figure:
+        wave = self.resolve(**variables)
+
+        if not isinstance(wave.t0, Real):
+            raise ValueError(f"Cannot plot Marker with t0 = {self.t0}")
+
+        if ax is None:
+            fig, ax = plt.subplots(**fig_kwargs)
+        else:
+            fig = ax.get_figure()
+
+        label = label or f"{wave.name}"
+        offset = ScaledTranslation(10 / 72, 0, fig.dpi_scale_trans)
+        text_transform = ax.get_xaxis_transform() + offset
+
+        ax.axvline(wave.t0)
+        ax.text(wave.t0, 0.9, label, transform=text_transform)
+        ax.autoscale_view()
+        ax.xaxis.set_major_formatter(EngFormatter(unit="s"))
+
+        return fig
+
 
 @register_waveform
 @qfrozen
@@ -376,6 +444,34 @@ class DCWaveform(InfiniteWaveform):
         self, ts: np.ndarray, amplitude: float, t0: float, **kwargs
     ) -> np.ndarray:
         return amplitude * np.ones_like(ts, dtype=np.float32)
+
+    def plot(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        ax: Axes | None = None,
+        sample_rate: float | None = None,
+        label: str = "",
+        fig_kwargs: dict = {},
+    ) -> Figure:
+        wave = self.resolve(**variables)
+
+        if isinstance(wave.amplitude, Real):
+            raise ValueError(
+                f"Cannot plot DCWaveform with amplitude = {self.ampllitude}"
+            )
+
+        if ax is None:
+            fig, ax = plt.subplots(**fig_kwargs)
+        else:
+            fig = ax.get_figure()
+
+        ax.axhline(wave.t0)
+        ax.autoscale_view()
+        ax.xaxis.set_major_formatter(EngFormatter(unit="s"))
+
+        return fig
 
 
 @register_waveform
@@ -538,6 +634,25 @@ class VirtualZWaveform(Marker):
         frames: dict[str, Frame] = {},
     ) -> None:
         phase_tracker.append(self.frame, PhaseJump(time, self.phase))
+
+    def plot(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        ax: Axes | None = None,
+        sample_rate: float | None = None,
+        label: str = "",
+        fig_kwargs: dict = {},
+    ) -> Figure:
+        return super().plot(
+            ts=ts,
+            variables=variables,
+            ax=ax,
+            sample_rate=sample_rate,
+            label=label or f"VZ[{self.frame}, {self.phase}]",
+            fig_kwargs=fig_kwargs,
+        )
 
 
 @register_waveform
