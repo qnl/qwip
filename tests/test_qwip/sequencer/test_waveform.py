@@ -15,6 +15,7 @@ from qwip.sequencer.waveform import (  # update_fields,
     DRAG,
     BasicWaveform,
     CWWaveform,
+    DCWaveform,
     GaussianWaveform,
     ModulatedWaveform,
     Operation,
@@ -47,6 +48,11 @@ class TestOperation:
                 SquareWaveform(),
                 dict(width=10),
                 SquareWaveform(width=10),
+            ),
+            (
+                DCWaveform(amplitude=1),
+                dict(width=10),
+                DCWaveform(amplitude=1),
             ),
             (
                 DRAG(envelope=SquareWaveform()),
@@ -184,7 +190,7 @@ class TestBasicWaveform:
         w = BasicWaveform()
 
         assert w.name == "BasicWaveform"
-        assert w.channels == tuple()
+        assert w.channel == ""
         assert w.width == 0
         assert w.amplitude == 1
         assert w.t0 == 0
@@ -193,22 +199,32 @@ class TestBasicWaveform:
         assert w.name == "name"
 
     def test_convert(self):
-        w = BasicWaveform(channels=(0, "Q1"), width=Location(1), amplitude="A")
+        w = BasicWaveform(channel=0, width=Location(1), amplitude="A")
 
-        assert w.channels == ("0", "Q1")
+        assert w.channel == "0"
         assert w.width == 1
         assert w.amplitude == sym.Symbol("A")
 
     @pytest.mark.parametrize(
         "kwargs,expect",
         [
-            (dict(), dict(width=sym.Symbol("w"), amplitude=sym.Symbol("amp"), t0=0)),
-            (dict(w=10, amp=20), dict(width=10.0, amplitude=20, t0=0)),
-            (dict(width=10, amplitude=20, t0=1), dict(width=10, amplitude=20, t0=1)),
+            (
+                dict(),
+                dict(width=sym.Symbol("w"), amplitude=sym.Symbol("amp"), phase=0, t0=0),
+            ),
+            (dict(w=10, amp=20), dict(width=10.0, amplitude=20, phase=0, t0=0)),
+            (
+                dict(width=10, amplitude=20, t0=1),
+                dict(width=10, amplitude=20, phase=0, t0=1),
+            ),
             (
                 dict(random=10),
                 dict(
-                    width=sym.Symbol("w"), amplitude=sym.Symbol("amp"), t0=0, random=10
+                    width=sym.Symbol("w"),
+                    amplitude=sym.Symbol("amp"),
+                    phase=0,
+                    t0=0,
+                    random=10,
                 ),
             ),
         ],
@@ -265,22 +281,22 @@ class TestCWWaveform:
     def test_modulation(self, ts, phase_jumps, data_file):
         expected = np.loadtxt(str(data_file))
 
-        w = CWWaveform(frequency=Frame(0.2), channels=("I", "Q"))
+        w = CWWaveform(frequency=Frame(0.2), channel="IQ")
 
         phase_tracker = PhaseTracker(
             phases={Frame(0.2): [PhaseJump(t, pj) for t, pj in phase_jumps]}
         )
 
         wave = w(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, expected, atol=2e-6)
+        assert_allclose(wave, expected[0] + 1j * expected[1], atol=2e-6)
 
-        w_single_channel = w.evolve(channels=("I",))
-        wave = w_single_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, expected[0], atol=2e-6)
+        # w_single_channel = w.evolve(channel=("IQ",))
+        # wave = w_single_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
+        # assert_allclose(wave, expected[0], atol=2e-6)
 
-        w_three_channel = w.evolve(channels=("a", "b", "c"))
-        wave = w_three_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        assert_allclose(wave, np.stack([expected[0] for i in range(3)]), atol=2e-6)
+        # w_three_channel = w.evolve(channels=("a", "b", "c"))
+        # wave = w_three_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
+        # assert_allclose(wave, np.stack([expected[0] for i in range(3)]), atol=2e-6)
 
     @pytest.mark.parametrize(
         "ts,phase_jumps",
@@ -293,7 +309,7 @@ class TestCWWaveform:
         expected = np.loadtxt(str(data_file), dtype=np.complex64)
         w = CWWaveform(
             frequency=Frame(5e9),
-            channels=("Q0.drv",),
+            channel="Q0.drv",
             hardware_modulation=True,
         )
 
@@ -326,7 +342,7 @@ class TestCWWaveform:
             phases={mod_freq: [PhaseJump(t, pj) for t, pj in pj_rad]}
         )
 
-        w = CWWaveform(frequency=mod_freq, channels=("I", "Q"))
+        w = CWWaveform(frequency=mod_freq, channel="IQ")
 
         wave_d = w(ts, phase_tracker=phase_tracker_deg, phase_unit="degrees")
         wave_r = w(ts, phase_tracker=phase_tracker_rad, phase_unit="radians")
@@ -392,7 +408,7 @@ class TestModulatedWaveform:
 
         freq = Frame(100e6)
         env = SquareWaveform(width=40e-9)
-        mod = CWWaveform(frequency=freq, channels=("I", "Q"))
+        mod = CWWaveform(frequency=freq, channel="IQ")
 
         phase_tracker = PhaseTracker(
             phases={freq: [PhaseJump(t, pj) for t, pj in phase_jumps]}
@@ -403,7 +419,7 @@ class TestModulatedWaveform:
         ts = np.arange(240) / 2.4e9
         wave = w(ts, t0=40e-9, phase_tracker=phase_tracker)
 
-        assert_allclose(wave, expected, atol=5e-6)
+        assert_allclose(wave, expected[0] + 1j * expected[1], atol=5e-6)
 
     def test_hardware_modulation(self):
         env = GaussianWaveform(width=50e-9)
@@ -421,7 +437,7 @@ class TestModulatedWaveform:
                 ModulatedWaveform(
                     name="X90",
                     envelope=GaussianWaveform(width=40e-9, amplitude=0.5),
-                    modulation=CWWaveform(frequency="f", channels=("I", "Q")),
+                    modulation=CWWaveform(frequency="f", channel="IQ"),
                 ),
                 dict(
                     name="X90",
@@ -429,7 +445,7 @@ class TestModulatedWaveform:
                         width=4e-8, amplitude=0.5, __class__="GaussianWaveform"
                     ),
                     modulation=dict(
-                        channels=["I", "Q"],
+                        channel="IQ",
                         frequency="f",
                         __class__="CWWaveform",
                     ),
@@ -455,7 +471,7 @@ class TestDRAGWaveform:
             envelope=GaussianWaveform(width=20e-9), lmbda=sample_rate / (2 * np.pi * f1)
         )
 
-        freq = CWWaveform(frequency=Frame(f0), channels=("I", "Q"))
+        freq = CWWaveform(frequency=Frame(f0), channel="IQ")
 
         wave_drag = ModulatedWaveform(envelope=env, modulation=freq)
         wave_nodrag = ModulatedWaveform(envelope=env.envelope, modulation=freq)
