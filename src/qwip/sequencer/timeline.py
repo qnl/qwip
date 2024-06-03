@@ -46,9 +46,11 @@ class Timeline:
 
     def __attrs_post_init__(self):
         # Update channels from waveforms
-        for op in self.operations:
-            if op:
-                self.channels.update(op.channels)
+        self.channels.update(
+            op.channel
+            for op in self.operations
+            if hasattr(op, "channel") and op.channel
+        )
 
     @property
     def locations(self) -> list[Location]:
@@ -208,7 +210,7 @@ class Timeline:
         for wave in waveforms:
             self._add_location_waveform_pair(location, wave)
 
-        self.channels.update(*(wave.channels for wave in waveforms))
+        self.channels.update(wave.channel for wave in waveforms)
 
         return self
 
@@ -684,7 +686,7 @@ class Timeline:
 
     @staticmethod
     def locations_to_channel_map(
-        locations: list[sym.Expr, Operation], *channels: str
+        locations: list[tuple[sym.Expr, Operation]], *channels: str
     ) -> dict[str, list[tuple[sym.Expr, Waveform]]]:
         """Splits a location dict by channel.
 
@@ -701,10 +703,8 @@ class Timeline:
         channel_map = {c: [] for c in channels}
 
         for loc, wave in locations:
-            wave_channels = wave.channels or (None,)
-            for ch in wave_channels:
-                if ch in channel_map:
-                    channel_map[ch].append((loc, wave))
+            if wave.channel in channel_map:
+                channel_map[wave.channel].append((loc, wave))
 
         return channel_map
 

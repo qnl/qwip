@@ -22,10 +22,10 @@ from qwip.sequencer.waveform import (
 from qwip.testing import ignore_order
 
 WAVEFORMS = dict(
-    g1=GaussianWaveform(width=32e-9, amplitude=1, channels={"I"}),
-    g2=GaussianWaveform(width=32e-9, amplitude=0.5, channels={"Q"}),
-    s1=SquareWaveform(width=32e-9, amplitude=1, channels={"I", "Q"}),
-    c1=CosineRampWaveform(width=32e-9, amplitude=1, channels={"F1"}),
+    g1=GaussianWaveform(width=32e-9, amplitude=1, channel="I"),
+    g2=GaussianWaveform(width=32e-9, amplitude=0.5, channel="Q"),
+    s1=SquareWaveform(width=32e-9, amplitude=1, channel="IQ"),
+    c1=CosineRampWaveform(width=32e-9, amplitude=1, channel="F1"),
 )
 
 
@@ -57,7 +57,7 @@ class TestTimeline:
         ],
     )
     def test_fromtuples(self, locations, constraints):
-        wave = SquareWaveform(channels=("CH1",))
+        wave = SquareWaveform(channel="CH1")
 
         tmln = Timeline.fromtuples(
             [(loc, wave) for loc in locations], constraints=constraints
@@ -488,17 +488,17 @@ class TestTimeline:
             (Timeline(), Timeline(), Timeline()),
             (
                 Timeline(
-                    lw_pairs=[("start", SquareWaveform(channels=["a"]))],
+                    lw_pairs=[("start", SquareWaveform(channel="a"))],
                     constraints=dict(start=Location()),
                 ),
                 Timeline(
-                    lw_pairs=[("start", SquareWaveform(channels=["b"]))],
+                    lw_pairs=[("start", SquareWaveform(channel="b"))],
                     constraints=["start", "width - 10.0"],
                 ),
                 Timeline(
                     lw_pairs=[
-                        ("start", SquareWaveform(channels=["a"])),
-                        ("start", SquareWaveform(channels=["b"])),
+                        ("start", SquareWaveform(channel="a")),
+                        ("start", SquareWaveform(channel="b")),
                     ],
                     constraints=["start", "width - 10.0"],
                 ),
@@ -515,9 +515,7 @@ class TestTimeline:
                 0,
                 ModulatedWaveform(
                     envelope=GaussianWaveform(amplitude="amplitude", width="width"),
-                    modulation=CWWaveform(
-                        frequency="mod_Q0_GE", channels=("Q0_I", "Q0_Q")
-                    ),
+                    modulation=CWWaveform(frequency="mod_Q0_GE", channel="Q0"),
                 ),
             ),
             ("width", VirtualZWaveform(frame="mod_Q0_GE", phase="zphase")),
@@ -570,15 +568,14 @@ class TestTimeline:
                 ["c1", "s1"],
                 [],
                 dict(
-                    I=[(1, WAVEFORMS["s1"])],
-                    Q=[(1, WAVEFORMS["s1"])],
-                    F1=[(0, WAVEFORMS["c1"])],
+                    IQ=[(1.0, WAVEFORMS["s1"])],
+                    F1=[(0.0, WAVEFORMS["c1"])],
                 ),
             ),
             (
                 ["c1", "g2", "s1"],
                 ["Q"],
-                dict(Q=[(1.0, WAVEFORMS["g2"]), (2.0, WAVEFORMS["s1"])]),
+                dict(Q=[(1.0, WAVEFORMS["g2"])]),
             ),
         ],
     )
@@ -598,7 +595,7 @@ class TestTimeline:
                         (
                             0,
                             SquareWaveform(
-                                amplitude="amp", width="tau/2", channels=("Q0",)
+                                amplitude="amp", width="tau/2", channel="Q0"
                             ),
                         ),
                         ("tau / 2", SquareWaveform(amplitude="-amp", width="tau/2")),
@@ -610,7 +607,7 @@ class TestTimeline:
                         [
                             0.0,
                             dict(
-                                channels=["Q0"],
+                                channel="Q0",
                                 width="tau/2",
                                 amplitude="amp",
                                 __class__="SquareWaveform",
@@ -663,7 +660,7 @@ class TestTimeline:
                 ),
                 Timeline(
                     lw_pairs=[(1 + Location("width"), WAVEFORMS["s1"])],
-                    constraints={"5.0 - width"},
+                    constraints={"width - 5.0"},
                 ),
             ),
         ],
