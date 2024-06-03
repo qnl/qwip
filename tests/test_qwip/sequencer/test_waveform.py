@@ -268,6 +268,16 @@ class TestBasicWaveform:
     def test_resolve(self, wave, vmap, new):
         assert wave.resolve(**vmap) == new
 
+    def test_legacy_serialization(self):
+        unstruct = dict(
+            width=4e-8, amplitude=0.5, channels=["I", "Q"], __class__="GaussianWaveform"
+        )
+        structured = qwip.converter.structure(unstruct, Waveform)
+
+        wave = GaussianWaveform(width=40e-9, amplitude=0.5, channel="IQ")
+
+        assert structured == wave
+
 
 class TestCWWaveform:
     @pytest.mark.parametrize(
@@ -289,14 +299,6 @@ class TestCWWaveform:
 
         wave = w(ts, phase_tracker=phase_tracker, phase_unit="degrees")
         assert_allclose(wave, expected[0] + 1j * expected[1], atol=2e-6)
-
-        # w_single_channel = w.evolve(channel=("IQ",))
-        # wave = w_single_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        # assert_allclose(wave, expected[0], atol=2e-6)
-
-        # w_three_channel = w.evolve(channels=("a", "b", "c"))
-        # wave = w_three_channel(ts, phase_tracker=phase_tracker, phase_unit="degrees")
-        # assert_allclose(wave, np.stack([expected[0] for i in range(3)]), atol=2e-6)
 
     @pytest.mark.parametrize(
         "ts,phase_jumps",

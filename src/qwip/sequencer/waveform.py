@@ -30,6 +30,7 @@ from qwip.sequencer.utils import (
     _variable_substitution,
 )
 from qwip.typing import is_union_type
+from qwip.utils import deprecated
 
 if TYPE_CHECKING:
     from qwip.sequencer.timeline import Timeline
@@ -252,7 +253,7 @@ class Waveform(Operation):
             for f in attrs.fields(type(self)):
                 v = getattr(self, f.name)
 
-                if not isinstance(v, Number) and f.name not in ("name", "channels"):
+                if not isinstance(v, Number) and f.name not in ("name", "channel"):
                     variables.add((f.name, v))
 
             text = (
@@ -317,34 +318,6 @@ class Waveform(Operation):
         return fftshift(ks), fftshift(fs)
 
 
-# Custom structuring of waveform channels to account for legacy serialization.
-def structure_channel(value, cls: type):
-    try:
-        return value["name"]
-    except (KeyError, TypeError):
-        ...
-
-    return qwip.converter.structure(value, str)
-
-
-channels_converter = Converter()
-channels_converter.register_structure_hook(str, structure_channel)
-
-
-def _channels_converter(value):
-    """Converter for Waveform channels.
-
-    This is needed for compatibility with legacy `Channel` classes, which were
-    unstructured as a dictionary with a `"name"` parameter.
-    """
-    try:
-        return channels_converter.structure(value, tuple[str, ...])
-    except Exception:
-        ...
-
-    return _TypeConverter(tuple[str, ...])(value)
-
-
 @register_waveform
 @qfrozen
 class TimedWaveform(Waveform):
@@ -356,6 +329,14 @@ class TimedWaveform(Waveform):
     )
 
     @property
+    @deprecated(
+        version="24.5.1",
+        removed="24.8.0",
+        message=(
+            "Waveforms are now restricted to a single channel. Use `Waveform.channel` "
+            "instead."
+        ),
+    )
     def channels(self) -> tuple[str]:
         return (self.channel,) if self.channel else tuple()
 
@@ -872,6 +853,14 @@ def make_waveform_structure_fn(cls):
             )
             val["frame"] = val["mod_key"]
             del val["mod_key"]
+
+        if "channels" in val:
+            logger.warning(
+                "Waveform 'channels' has been renamed to 'channel' and is now "
+                "deprecated. Waveforms can only have a single string channel now."
+            )
+            val["channel"] = "".join(sorted(val["channels"]))
+            del val["channels"]
 
         return qwip.converter.structure(val, subclass)
 
