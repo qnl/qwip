@@ -256,3 +256,12 @@ class TestConfigDB:
 
         assert q2_ro.variables() == set()
         assert q2_ro.channels == {"Q2.qdrv", "Q2.rdlo"}
+
+    def test_delete_pulse(self, populated_config_db, ro_tmln):
+        db = populated_config_db
+        db.pulses.add("new_pulse", ro_tmln)
+
+        assert db.pulses["new_pulse"] == ro_tmln
+
+        db.pulses.delete("new_pulse")
+        assert "new_pulse" not in ro_tmln
