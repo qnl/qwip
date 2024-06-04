@@ -794,7 +794,7 @@ class Timeline:
         """Iterate over the location mapping."""
         yield from self.lw_pairs
 
-    def __add__(self, other: Self) -> Self:
+    def __add__(self, other: Self | Operation) -> Self:
         """Adds two pulse timelines.
 
         The sum of two pulse timelines s(t) and r(t) is equivalent to the
@@ -808,11 +808,25 @@ class Timeline:
         """
 
         tmln = Timeline()
-        tmln.lw_pairs[:] = self.lw_pairs + other.lw_pairs
-        tmln.channels.update(self.channels | other.channels)
-        tmln.constraints.update(self.constraints, other.constraints)
+
+        match other:
+            case Timeline():
+                lw_pairs = other.lw_pairs
+                channels = other.channels
+                constraints = other.constraints
+            case Operation():
+                lw_pairs = [(0, other)]
+                channels = {other.channel} if other.channel else set()
+                constraints = []
+
+        tmln.lw_pairs[:] = self.lw_pairs + lw_pairs
+        tmln.channels.update(self.channels | channels)
+        tmln.constraints.update(self.constraints, constraints)
 
         return tmln
+
+    def __radd__(self, other: Self | Operation) -> Self:
+        return self.__add__(other)
 
 
 structure_new_timeline = make_attrs_structure_fn(Timeline)

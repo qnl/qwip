@@ -503,6 +503,8 @@ class TestTimeline:
                     constraints=["start", "width - 10.0"],
                 ),
             ),
+            (Timeline(), SquareWaveform(), Timeline(lw_pairs=[(0, SquareWaveform())])),
+            (SquareWaveform(), Timeline(), Timeline(lw_pairs=[(0, SquareWaveform())])),
         ],
     )
     def test_add_operator(self, tmln1, tmln2, result):
