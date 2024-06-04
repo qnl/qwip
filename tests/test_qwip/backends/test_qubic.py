@@ -268,9 +268,8 @@ class TestQubicCompiler:
             cw_threshold=None,
         )
 
-        for c in wave.channels:
-            if "rdlo" in c:
-                assert reads[c] == 1
+        if "rdlo" in wave.channel:
+            assert reads[wave.channel] == 1
 
         assert len(instructions) == len(expected)
 
