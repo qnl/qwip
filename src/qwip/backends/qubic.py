@@ -318,8 +318,6 @@ class QubicCompiler(QWiPCompiler):
 
         width = _to_python_number(wave.width)
         start = _to_python_number(loc)
-        if not isinstance(start, int | float):
-            print(start, type(start))
         end = start + width
 
         if wave.channel:
