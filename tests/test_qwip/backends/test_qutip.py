@@ -208,7 +208,7 @@ class TestQutipBackend:
         def make_exe(shape):
             seq = Sequence.empty(shape)
             readout = TriggeredWaveform(
-                target=Timeline(), width=50e-9, channels=("RO_marker",)
+                target=Timeline(), width=50e-9, channel="RO_marker"
             )
             return compiler.compile(seq + Timeline().add_waveform(readout))
 
@@ -242,9 +242,7 @@ class TestQutipBackend:
         db = qpu_01.db
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
 
-        readout = TriggeredWaveform(
-            target=Timeline(), width=50e-9, channels=("RO_marker",)
-        )
+        readout = TriggeredWaveform(target=Timeline(), width=50e-9, channel="RO_marker")
         rabi_se = Timeline()
         rabi_se.add(Q0_X)
         rabi_se.add_waveform(readout, location=Q0_X.width)
@@ -260,9 +258,7 @@ class TestQutipBackend:
         db = qpu_01.db
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
 
-        readout = TriggeredWaveform(
-            target=Timeline(), width=50e-9, channels=("RO_marker",)
-        )
+        readout = TriggeredWaveform(target=Timeline(), width=50e-9, channel="RO_marker")
         rabi_se = Timeline()
         rabi_se.add(Q0_X)
         rabi_se.add(Q0_X, self_loc=Q0_X.width)
@@ -281,9 +277,7 @@ class TestQutipBackend:
         Q0_X = db.load_pulse("Q0_X90", variables=dict(width="rabi_width"))
         Q1_X = db.load_pulse("Q1_X90", variables=dict(width="rabi_width"))
 
-        readout = TriggeredWaveform(
-            target=Timeline(), width=50e-9, channels=("RO_marker",)
-        )
+        readout = TriggeredWaveform(target=Timeline(), width=50e-9, channel="RO_marker")
         rabi_se = Timeline()
         rabi_se.add(Q0_X)
         rabi_se.add(Q1_X)
@@ -303,9 +297,7 @@ class TestQutipBackend:
         Q1_X = db.load_pulse("Q1_X90", variables=dict(width="rabi_width"))
         Q2_X = db.load_pulse("Q2_X90", variables=dict(width="rabi_width"))
 
-        readout = TriggeredWaveform(
-            target=Timeline(), width=50e-9, channels=("RO_marker",)
-        )
+        readout = TriggeredWaveform(target=Timeline(), width=50e-9, channel="RO_marker")
         rabi_se = Timeline()
         rabi_se.add(Q0_X)
         rabi_se.add(Q1_X)

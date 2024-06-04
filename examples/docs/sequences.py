@@ -21,7 +21,7 @@ assert seq2.shape == (2,)
 # --8<-- [end:indexing]
 
 # --8<-- [start:ufuncs]
-X90 = GaussianWaveform(width=20e-9, amplitude=0.25, channels=("CH0",))
+X90 = GaussianWaveform(width=20e-9, amplitude=0.25, channel="CH0")
 Z = VirtualZWaveform(frame="Q0", phase="zphase")
 
 Y90 = Timeline.from_layers([Z.evolve(phase=-90), X90, Z.evolve(phase=90)])
@@ -33,7 +33,7 @@ assert np.all(seq == Y90)
 Y90.width = X90.width
 
 # --8<-- [start:labels]
-readout = SquareWaveform(width=1e-6, amplitude=0.1, channels=("RO",))
+readout = SquareWaveform(width=1e-6, amplitude=0.1, channel="RO")
 
 labels = ["I", "X90", "Y90", "X180"]
 basis = ([], [X90], [Y90], [X90, X90])
@@ -102,7 +102,7 @@ MultiIndex([
 # --8<-- [start:product-sweep]
 drive = ModulatedWaveform(
     envelope=SquareWaveform(width="time", amplitude=0.5),
-    modulation=CWWaveform(frequency="frequency", channels=("Q0",)),
+    modulation=CWWaveform(frequency="frequency", channel="Q0"),
 )
 rabi_tmln = Timeline.from_layers([drive, readout])
 

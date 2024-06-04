@@ -145,13 +145,13 @@ class TestQWiPCompiler:
         Q0_X90 = ModulatedWaveform(
             name="Q0_X90",
             envelope=CosineRampWaveform(width=25e-9, amplitude=0.1),
-            modulation=CWWaveform(frequency="mod_Q0", channels=("Q0_I", "Q0_Q")),
+            modulation=CWWaveform(frequency="mod_Q0", channel="Q0_IQ"),
         )
 
         Q1_X90 = ModulatedWaveform(
             name="Q1_X90",
             envelope=CosineRampWaveform(width=25e-9, amplitude=0.1),
-            modulation=CWWaveform(frequency="mod_Q1", channels=("Q1_I", "Q1_Q")),
+            modulation=CWWaveform(frequency="mod_Q1", channel="Q1_IQ"),
         )
 
         Q0_Z90 = VirtualZWaveform(name="Q0_Z", frame="mod_Q0", phase=90)
@@ -160,13 +160,13 @@ class TestQWiPCompiler:
         R0 = ModulatedWaveform(
             name="R0",
             envelope=SquareWaveform(width=1e-6, amplitude=0.2),
-            modulation=CWWaveform(channels=("RO_I", "RO_Q"), frequency="mod_R0"),
+            modulation=CWWaveform(channel="RO_IQ", frequency="mod_R0"),
         )
 
         R1 = ModulatedWaveform(
             name="R1",
             envelope=SquareWaveform(width=1e-6, amplitude=0.25),
-            modulation=CWWaveform(channels=("RO_I", "RO_Q"), frequency="mod_R1"),
+            modulation=CWWaveform(channel="RO_IQ", frequency="mod_R1"),
         )
 
         return dict(
@@ -187,9 +187,7 @@ class TestQWiPCompiler:
     def test_end_to_end(self, compiler, pulses, data_file):
         ro_tmln = Timeline()
         ro_tmln.add([pulses[f"R{r}"] for r in range(2)])
-        readout = TriggeredWaveform(
-            target=ro_tmln, width=50e-9, channels=("RO_marker",)
-        )
+        readout = TriggeredWaveform(target=ro_tmln, width=50e-9, channel="RO_marker")
 
         tmln0 = Timeline()
         tmln0.add([pulses["Q0_X90"], pulses["Q1_X90"]])
@@ -207,7 +205,7 @@ class TestQWiPCompiler:
     def test_resolve_widths_with_constraints(self, compiler):
         # Make sure constraints are used to resolve pulse values since pulse variables
         # and location variables are currently treated separately.
-        tmln = Timeline().add_waveform(SquareWaveform(width="wait", channels=("Q0_I",)))
+        tmln = Timeline().add_waveform(SquareWaveform(width="wait", channel="Q0_I"))
 
         tmln.add_constraints("wait - 50e-9")
         seq = Sequence([tmln])
