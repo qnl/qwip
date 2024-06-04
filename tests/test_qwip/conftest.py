@@ -210,7 +210,7 @@ def config_db(database, models):
 def configdb_01():
     from qwip.config import ConfigSchema, OfflineConfigDB
 
-    db_file = Path(__file__).parent / "sample_configs/config_01.sqlite"
+    db_file = Path(__file__).parent / "sample_configs/qubic.sqlite"
     db = OfflineConfigDB(url=f"sqlite:///{db_file}", schema=ConfigSchema)
     db.connect()
 
