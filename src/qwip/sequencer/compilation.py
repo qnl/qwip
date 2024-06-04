@@ -482,10 +482,10 @@ class QWiPCompiler:
                 ReadInstruction(
                     samples=end - start,
                     sample_rate=device.sample_rate,
-                    channel=(reg := sorted(ch.index for ch in channels if ch.read)),
+                    channel=(ch_info.index,),
                 )
             )
-            program.read_registers.update(reg)
+            program.read_registers.add(ch_info.index)
 
         match wave:
             case TriggeredWaveform():
@@ -522,7 +522,7 @@ class QWiPCompiler:
 
         for loc, w in tmln:
             loc = _to_python_number(loc)
-            if w.channels not in device.channel_names():
+            if w.channel not in device.channel_names():
                 continue
 
             width = w.width
@@ -543,7 +543,7 @@ class QWiPCompiler:
                 frames=self.frames,
             )
 
-            if isinstance(wmem[device[w.channel]].dtype, np.floating):
+            if issubclass(wmem[device[w.channel]].dtype.type, np.floating):
                 w_t = w_t.real
 
             wmem[device[w.channel]][s_idx:e_idx] += w_t

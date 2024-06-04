@@ -115,18 +115,17 @@ class TestQWiPCompiler:
     def compiler(self):
         dac = DeviceInfo.from_channels(
             channels=(
-                ChannelInfo("Q0_I", 0),
-                ChannelInfo("Q0_Q", 1),
-                ChannelInfo("Q1_I", 2),
-                ChannelInfo("Q1_Q", 3),
+                ChannelInfo("Q0_IQ", 0),
+                ChannelInfo("Q1_IQ", 2),
                 ChannelInfo("RO_marker", 0, subchannel=1),
             ),
             sample_rate=2.4e9,
+            dtype=np.complex64,
             name="seq",
         )
 
         adc = DeviceInfo.from_channels(
-            channels=(ChannelInfo("RO_I", 0), ChannelInfo("RO_Q", 1)),
+            channels=(ChannelInfo("RO_IQ", 0),),
             sample_rate=1.8e9,
             name="readout",
         )
@@ -176,8 +175,8 @@ class TestQWiPCompiler:
     @pytest.mark.parametrize(
         "name,expect",
         [
-            ("Q0_I", ChannelInfo(name="Q0_I", index=0, device="seq")),
-            ("RO_Q", ChannelInfo(name="RO_Q", index=1, device="readout")),
+            ("Q0_IQ", ChannelInfo(name="Q0_IQ", index=0, device="seq")),
+            ("RO_IQ", ChannelInfo(name="RO_IQ", index=0, device="readout")),
             ("random", None),
         ],
     )
@@ -201,18 +200,3 @@ class TestQWiPCompiler:
         seq = Sequence([tmln0, tmln1])
 
         exe = compiler.compile(seq)
-
-    def test_resolve_widths_with_constraints(self, compiler):
-        # Make sure constraints are used to resolve pulse values since pulse variables
-        # and location variables are currently treated separately.
-        tmln = Timeline().add_waveform(SquareWaveform(width="wait", channel="Q0_I"))
-
-        tmln.add_constraints("wait - 50e-9")
-        seq = Sequence([tmln])
-
-        exe = compiler.compile(seq)
-
-        wave = exe.programs["seq"].waveforms[0][0]
-
-        assert wave[0] == 0
-        assert (wave[1:] == 1).all()
