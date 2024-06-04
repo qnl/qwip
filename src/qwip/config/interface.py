@@ -892,6 +892,11 @@ class OfflineConfigDB(Database):
         else:
             self.pulses.add(pulse_key, tmln)
 
+        if extra := set(channel_map) - tmln.channels:
+            raise ValueError(
+                f"Channels {extra} do not exist in the timeline prototype."
+            )
+
         parameters = {
             name: dict(
                 variables={v: v for v in tmln.variables() if include_var(v)},
