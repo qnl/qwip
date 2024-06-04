@@ -205,17 +205,17 @@ class QPU:
             else:
                 processors.append(processor_cls())
 
-        for k, classification in ro_config["classification"].items():
+        for k, register in ro_config["registers"].items():
             processors.append(
                 GMMClassification(
                     measurement_key=k,
-                    means=classification["means"].astype(float),
-                    covariances=classification["covariances"].astype(float),
-                    num_states=classification["num_states"],
+                    means=register["classification/means"].astype(float),
+                    covariances=register["classification/covariances"].astype(float),
+                    num_states=register["classification/num_states"],
                 )
             )
 
-            if angle := classification["rotation"]:
+            if angle := register["classification"]["rotation"]:
                 processors.append(IQRotation(measurement_key=k, angle=angle))
 
         return ReadoutPipeline(
