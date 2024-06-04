@@ -53,6 +53,10 @@ class Operation:
     name: str = field(metadata=dict(allow_override=False))
 
     @property
+    def channel(self) -> str:
+        return ""
+
+    @property
     def resolved(self) -> bool:
         """True if an Operation contains no variables.
 
@@ -132,7 +136,16 @@ class Operation:
                     new.resolve(**variable_map, inplace=True)
                     to_update[f.name] = new
 
+        if not to_update:
+            return self
+
         return attrs.evolve(self, **to_update)
+
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        raise NotImplementedError(
+            f"Cannot assign channel for object of type {type(self)}"
+        )
 
     def evolve(self, **updates):
         # Separate out fields that are also operations.
@@ -349,6 +362,10 @@ class TimedWaveform(Waveform):
     ) -> np.ndarray:
         return np.zeros((len(self.channels), len(ts)))
 
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(channel=new_channel)
+
 
 @register_waveform
 @qfrozen
@@ -458,6 +475,10 @@ class ConvolvedWaveform(Waveform):
         w_t = convolve(a_t, b_t, mode="full")
 
         return w_t[2 * (N - 1) : 3 * (N - 1) + 1]
+
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(a_channel=new_channel, b_channel=new_channel)
 
 
 @register_waveform
@@ -649,6 +670,10 @@ class ModulatedWaveform(Waveform):
 
             for frame, phase in phis.items():
                 phase_tracker.append(frame, PhaseJump(t0, phase))
+
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(modulation_channel=new_channel)
 
 
 @register_waveform
@@ -880,6 +905,10 @@ class DRAG(Waveform):
         d2 = np.gradient(d1)
 
         return envelope + 1j * lmbda * d1 + lmbda2 * d2
+
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(envelope_channel=new_channel)
 
 
 # ========== Waveform converters ========== #

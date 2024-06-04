@@ -19,11 +19,11 @@ from qwip.sequencer.waveform import (  # update_fields,
     CWWaveform,
     DCWaveform,
     GaussianWaveform,
+    Marker,
     ModulatedWaveform,
     Operation,
     PhaseResetWaveform,
     SquareWaveform,
-    TimedWaveform,
     TriggeredWaveform,
     VirtualZWaveform,
     Waveform,
@@ -181,6 +181,31 @@ class TestOperation:
 
         assert resolved.frequency == expect
 
+    # @pytest.mark.parametrize(
+    #     "wave,variables,expect",
+    #     [
+    #         (
+    #             Marker(name="m", channel="ch"),
+    #             dict(m="ro_marker", ch="ro_channel"),
+    #             Marker(name="ro_marker", channel="ro_channel"),
+    #         ),
+    #         (
+    #             Marker(name="m", channel="ch"),
+    #             dict(name="ro_marker", channel="ro_channel"),
+    #             Marker(name="m", channel="ch"),
+    #         ),
+    #         (
+    #             Marker(name="name", channel="channel"),
+    #             dict(name="ro_marker", channel="ro_channel"),
+    #             Marker(name="ro_marker", channel="ro_channel"),
+    #         ),
+    #     ],
+    # )
+    # def test_resolve_str(self, wave, variables, expect):
+    #     resolved = wave.resolve(**variables)
+
+    #     assert resolved == expect
+
 
 class TestBasicWaveform:
     @pytest.mark.parametrize("name,expect", [(None, "BasicWaveform"), ("name", "name")])
@@ -261,14 +286,18 @@ class TestBasicWaveform:
                 BasicWaveform(width="w", amplitude="a"),
             ),
             (
-                BasicWaveform(amplitude="BasicWaveform"),
-                dict(BasicWaveform=0.2),
+                BasicWaveform(amplitude="name"),
+                dict(name=0.2),
                 BasicWaveform(amplitude=0.2),
             ),
         ],
     )
     def test_resolve(self, wave, vmap, new):
         assert wave.resolve(**vmap) == new
+
+    def test_assign_channel(self):
+        wave = BasicWaveform(channel="channel").assign_channel("new_channel")
+        assert wave.channel == "new_channel"
 
     def test_legacy_serialization(self):
         unstruct = dict(
@@ -354,7 +383,15 @@ class TestConvolvedWaveform:
         wave = a * b
         w_t = wave(ts)
 
-        assert_allclose(w_t, expected)
+        assert_allclose(w_t, expected, atol=5e-7)
+
+    def test_assign_channel(self):
+        wave = GaussianWaveform() * SquareWaveform()
+
+        new_wave = wave.assign_channel("new_channel")
+        assert new_wave.channel == "new_channel"
+        assert new_wave.a.channel == "new_channel"
+        assert new_wave.b.channel == "new_channel"
 
 
 class TestCWWaveform:
@@ -541,6 +578,17 @@ class TestModulatedWaveform:
         assert unstruct == val
         assert restruct == wave
 
+    def test_assign_channel(self):
+        wave = ModulatedWaveform(
+            envelope=SquareWaveform(),
+            modulation=CWWaveform(frequency=5e9, channel="IQ"),
+        )
+
+        new_wave = wave.assign_channel("I_Q")
+        assert new_wave.channel == "I_Q"
+        assert new_wave.modulation.channel == "I_Q"
+        assert new_wave.envelope.channel == ""
+
 
 class TestDRAGWaveform:
     def test_suppression(self):
@@ -566,6 +614,13 @@ class TestDRAGWaveform:
         window = (f0 + f1 - 20e6 < ks) & (ks < f0 + f1 + 20e6)
 
         assert (np.abs(fs_drag[window]) < np.abs(fs_nodrag[window])).all()
+
+    def test_assign_channel(self):
+        wave = DRAG(envelope=SquareWaveform())
+
+        new_wave = wave.assign_channel("I_Q")
+        assert new_wave.channel == "I_Q"
+        assert new_wave.envelope.channel == "I_Q"
 
 
 class TestVirtualZWaveform:

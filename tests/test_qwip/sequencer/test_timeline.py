@@ -545,6 +545,30 @@ class TestTimeline:
                     assert wave.modulation.frequency == Frame("Q0.mod_GE")
 
     @pytest.mark.parametrize(
+        "old,channels,new",
+        [
+            (
+                Timeline().add(
+                    [SquareWaveform(channel="ch_A"), SquareWaveform(channel="ch_B")]
+                ),
+                dict(ch_A="CH0", ch_B="CH1"),
+                Timeline().add(
+                    [SquareWaveform(channel="CH0"), SquareWaveform(channel="CH1")]
+                ),
+            ),
+            (
+                Timeline().add(
+                    [SquareWaveform(channel="ch_A"), SquareWaveform(channel="ch_B")]
+                ),
+                dict(ch_A="", ch_B="CH1"),
+                Timeline().add([SquareWaveform(), SquareWaveform(channel="CH1")]),
+            ),
+        ],
+    )
+    def test_assign_channels(self, old, channels, new):
+        assert old.assign_channels(**channels) == new
+
+    @pytest.mark.parametrize(
         "tmln",
         [
             Timeline(),

@@ -668,6 +668,31 @@ class Timeline:
 
         return modified
 
+    def assign_channels(self, **channels) -> Self:
+        """Reassigns channels for all operations in the timeline.
+
+        This method modifies the timeline in place.
+
+        Args:
+            **channels: A mapping of old channel names to new channel names.
+
+        Returns:
+            The modified timeline.
+        """
+
+        if not set(channels) & self.channels:
+            return self
+
+        for idx, (loc, op) in enumerate(self):
+            if op.channel in channels:
+                self.lw_pairs[idx] = (loc, op.assign_channel(channels[op.channel]))
+
+        new_channels = [channels.get(ch, ch) for ch in self.channels]
+        self.channels.clear()
+        self.channels.update((ch for ch in new_channels if ch))
+
+        return self
+
     def copy(self, deep: bool = True) -> Self:
         """Copies a pulse timeline.
 
