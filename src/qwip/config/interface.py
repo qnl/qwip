@@ -856,6 +856,7 @@ class OfflineConfigDB(Database):
         targets: tuple[str],
         pulse_key: str = None,
         tmln: Timeline | None = None,
+        channel_map: dict[str, str] = {},
         include_var: Callable[[str], bool] = lambda v: True,
     ) -> ConfigFolder:
         """Adds a pulse to the config database.
@@ -872,6 +873,8 @@ class OfflineConfigDB(Database):
                 If `None`, the pulse key is assumed to be the same as `name`.
             tmln: The pulse prototype to add to the database. If `None`, the pulse key
                 must refer to an existing timeline in the database.
+            channel_map: A map from channel names in the pulse prototype to channel
+                names in the resolved pulse.
 
         Returns:
             The pulse configuration.
@@ -894,6 +897,7 @@ class OfflineConfigDB(Database):
                 variables={v: v for v in tmln.variables() if include_var(v)},
                 targets=targets,
                 pulse_key=pulse_key,
+                channels=channel_map,
             )
         }
         self.config["pulses"].create_all(**parameters)
@@ -952,6 +956,7 @@ class OfflineConfigDB(Database):
                 return to_replace[v]
 
         tmln.rename_variables(replace)
+        tmln.assign_channels(**pulse_metadata.get("channels", {}))
 
         return tmln
 

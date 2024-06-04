@@ -77,6 +77,7 @@ class PulsesSchema(ValidatedConfigFolder):
     targets: tuple[Target]
     pulse_key: str
     variables: ConfigFolder[str, str | float]
+    channels: ConfigFolder[str, str]
 
 
 @configschema
