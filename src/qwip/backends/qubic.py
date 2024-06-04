@@ -322,23 +322,12 @@ class QubicCompiler(QWiPCompiler):
             print(start, type(start))
         end = start + width
 
-        match wave.channels:
-            case ():
-                channel = None
-            case (channel,):
-                ...
-            case _:
-                raise ValueError(
-                    f"Waveforms on qubic should only address a single channel. Got "
-                    f"{wave} with channels {wave.channels}"
-                )
-
-        if channel:
-            if (ch_info := self.get_channel_info(channel)) is None:
-                raise ValueError(f"Channel {channel} is not a valid channel.")
+        if wave.channel:
+            if (ch_info := self.get_channel_info(wave.channel)) is None:
+                raise ValueError(f"Channel {wave.channel} is not a valid channel.")
 
             if ch_info.read:
-                reads[channel] += 1
+                reads[wave.channel] += 1
 
             dtype = self.devices[ch_info.device].dtype
         else:
@@ -379,11 +368,7 @@ class QubicCompiler(QWiPCompiler):
                 else:
                     N = np.ceil(width * sample_rate).astype(int)
                     ts_wave = np.arange(N) / sample_rate
-                    w_t = wave(
-                        ts_wave,
-                        frames=self.frames,
-                        complex_out=issubclass(dtype, np.complexfloating),
-                    )
+                    w_t = wave(ts_wave, frames=self.frames)
 
                     waveform_cache[env, int(sample_rate)] = w_t
 
@@ -401,7 +386,7 @@ class QubicCompiler(QWiPCompiler):
 
                 ins = self.envelope_to_pulses(
                     w_t,
-                    channel,
+                    wave.channel,
                     frequency=freq,
                     phase=0,  # Easier to always build phase into envelope
                     amplitude=amplitude,
@@ -421,7 +406,7 @@ class QubicCompiler(QWiPCompiler):
                 if wave in waveform_cache:
                     w_t = waveform_cache[wave, int(sample_rate)]
                 else:
-                    ch_info = self.get_channel_info(channel)
+                    ch_info = self.get_channel_info(wave.channel)
 
                     N = np.ceil(width * sample_rate).astype(int)
                     ts_wave = np.arange(N) / sample_rate
@@ -431,7 +416,7 @@ class QubicCompiler(QWiPCompiler):
 
                 ins = self.envelope_to_pulses(
                     w_t.astype(dtype),
-                    channel,
+                    wave.channel,
                     frequency=0,
                     phase=0,
                     amplitude=1,

@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from copy import copy, deepcopy
 
 import attrs
@@ -14,6 +15,7 @@ from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (  # update_fields,
     DRAG,
     BasicWaveform,
+    ConvolvedWaveform,
     CWWaveform,
     DCWaveform,
     GaussianWaveform,
@@ -277,6 +279,82 @@ class TestBasicWaveform:
         wave = GaussianWaveform(width=40e-9, amplitude=0.5, channel="IQ")
 
         assert structured == wave
+
+
+class TestConvolvedWaveform:
+    @pytest.mark.parametrize(
+        "a,b,should_raise",
+        [
+            (SquareWaveform(), SquareWaveform(), False),
+            (SquareWaveform(channel="Q0"), SquareWaveform(), False),
+            (SquareWaveform(), SquareWaveform(channel="Q1"), False),
+            (SquareWaveform(channel="Q0"), SquareWaveform(channel="Q1"), True),
+        ],
+    )
+    def test_init(self, a, b, should_raise):
+        maybe_raise = pytest.raises(ValueError) if should_raise else nullcontext()
+
+        with maybe_raise:
+            c = ConvolvedWaveform(a=a, b=b)
+
+            assert c.a == a
+            assert c.b == b
+
+    @pytest.mark.parametrize(
+        "a,b,expect",
+        [
+            (
+                SquareWaveform(width=20e-9, phase=15, t0=-20e-9),
+                SquareWaveform(width=10e-9, phase=30, t0=10e-9),
+                dict(width=10e-9 + 20e-9, phase=45, t0=-10e-9),
+            ),
+            (
+                ModulatedWaveform(
+                    envelope=SquareWaveform(width="width", phase="phase", t0="t0"),
+                    modulation=CWWaveform(frequency="frequency"),
+                ),
+                GaussianWaveform(width=10e-9, phase=0, t0=0),
+                dict(
+                    width=sym.Symbol("width") + 10e-9,
+                    phase=sym.Symbol("phase"),
+                    t0=sym.Symbol("t0"),
+                ),
+            ),
+        ],
+    )
+    def test_properties(self, a, b, expect):
+        c = a * b
+
+        for attribute, value in expect.items():
+            assert getattr(c, attribute) == value
+
+    @pytest.mark.parametrize(
+        "ts,a,b",
+        [
+            (
+                np.arange(200) / 1e9,
+                GaussianWaveform(width=20e-9, amplitude=1 / 8, phase=45),
+                SquareWaveform(width=100e-9, phase=45),
+            ),
+            (
+                np.arange(200) / 1e9 - 80e-9,
+                GaussianWaveform(width=20e-9, amplitude=1 / 8, phase=45),
+                SquareWaveform(width=100e-9, phase=45),
+            ),
+            (
+                np.arange(120) / 1e9,
+                GaussianWaveform(width=20e-9, amplitude=1 / 8, t0=50e-9),
+                SquareWaveform(width=100e-9, t0=-50e-9),
+            ),
+        ],
+    )
+    def test_evaluate(self, ts, a, b, data_file):
+        expected = np.loadtxt(str(data_file), dtype=np.complex64)
+
+        wave = a * b
+        w_t = wave(ts)
+
+        assert_allclose(w_t, expected)
 
 
 class TestCWWaveform:

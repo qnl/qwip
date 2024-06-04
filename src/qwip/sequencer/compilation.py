@@ -475,10 +475,9 @@ class QWiPCompiler:
     ) -> None:
         program = exe.programs[device.name]
 
-        channels = [device[c] for c in wave.channels if c in device.channel_names()]
-        read = np.any([ch.read for ch in channels])
+        ch_info = device[wave.channel]
 
-        if read:
+        if ch_info.read:
             instructions.append(
                 ReadInstruction(
                     samples=end - start,
@@ -496,10 +495,9 @@ class QWiPCompiler:
                     instruction_cache=instruction_cache,
                 )
 
-                for ch in channels:
-                    markers = program.markers[-1].append(
-                        ((ch.index, ch.subchannel), start / device.sample_rate)
-                    )
+                program.markers[-1].append(
+                    ((ch_info.index, ch_info.subchannel), start / device.sample_rate)
+                )
 
     def compile_waveforms(
         self,
@@ -524,7 +522,7 @@ class QWiPCompiler:
 
         for loc, w in tmln:
             loc = _to_python_number(loc)
-            if not (set(w.channels) & device.channel_names()):
+            if w.channels not in device.channel_names():
                 continue
 
             width = w.width
@@ -543,17 +541,12 @@ class QWiPCompiler:
                 t0=start + w.t0,
                 phase_tracker=phase_tracker,
                 frames=self.frames,
-                complex_out=issubclass(device.dtype, np.complexfloating),
             )
 
-            if len(w_t.shape) == 1:
-                w_t = np.repeat(w_t[np.newaxis, :], len(w.channels), axis=0)
+            if isinstance(wmem[device[w.channel]].dtype, np.floating):
+                w_t = w_t.real
 
-            for i, c in enumerate(w.channels):
-                try:
-                    wmem[device[c]][s_idx:e_idx] += w_t[i]
-                except KeyError:
-                    pass
+            wmem[device[w.channel]][s_idx:e_idx] += w_t
 
             self.compile_instruction(
                 exe,

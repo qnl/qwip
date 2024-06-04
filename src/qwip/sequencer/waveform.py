@@ -16,6 +16,7 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import EngFormatter
 from matplotlib.transforms import ScaledTranslation
 from scipy.fft import fft, fftfreq, fftshift
+from scipy.signal import convolve
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -266,6 +267,9 @@ class Waveform(Operation):
             else:
                 raise e
 
+    def __mul__(self, other) -> Self:
+        return ConvolvedWaveform(a=self, b=other)
+
     def evaluate_timepoints(self, ts: np.ndarray, **kwargs) -> np.ndarray:
         raise NotImplementedError(
             f"Method evaluate_timepoints not defined for {type(self)}!"
@@ -404,6 +408,56 @@ class Marker(TimedWaveform):
         ax.xaxis.set_major_formatter(EngFormatter(unit="s"))
 
         return fig
+
+
+@qfrozen
+class ConvolvedWaveform(Waveform):
+    a: Waveform
+    b: Waveform = field()
+
+    @b.validator
+    def _validate_operands(self, attribute, value):
+        a = self.a
+        b = value
+        if a.channel and b.channel and a.channel != b.channel:
+            raise ValueError(
+                f"Cannot convolve waveforms on different channels. Got channels "
+                f"'{a.channel}' != '{b.channel}'"
+            )
+
+    @property
+    def width(self) -> NumberOrExpression:
+        return self.a.width + self.b.width
+
+    @property
+    def t0(self) -> NumberOrExpression:
+        return self.a.t0 + self.b.t0
+
+    @property
+    def phase(self) -> NumberOrExpression:
+        return self.a.phase + self.b.phase
+
+    @property
+    def channel(self) -> str:
+        return self.a.channel or self.b.channel
+
+    def evaluate_timepoints(self, ts: np.ndarray, **kwargs) -> np.ndarray:
+        t0 = kwargs.get("t0", self.t0)
+
+        start = ts[0]
+        (N,) = ts.shape
+
+        t0 = ((t0 - start) / 2).astype(np.float32)
+
+        t_eval = ts - start
+        t_eval = np.r_[-t_eval[::-1], t_eval[1:]]
+
+        a_t = self.a(t_eval, **(kwargs | dict(t0=t0)))
+        b_t = self.b(t_eval, **(kwargs | dict(t0=t0)))
+
+        w_t = convolve(a_t, b_t, mode="full")
+
+        return w_t[2 * (N - 1) : 3 * (N - 1) + 1]
 
 
 @register_waveform
@@ -888,6 +942,7 @@ __all__ = [
     "register_waveform",
     "Waveform",
     "BasicWaveform",
+    "ConvolvedWaveform",
     "InfiniteWaveform",
     "Marker",
     "TriggeredWaveform",
