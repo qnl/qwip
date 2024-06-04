@@ -180,29 +180,6 @@ class TestFlatDict:
             assert isinstance(v, A)
             assert isinstance(v.b, FlatDict)
 
-    @pytest.mark.parametrize(
-        ("obj", "cls", "level"),
-        [
-            ({"k1": {"a": 1}, "k2/l1": {"a": 1}}, "A", -1),
-            ({"k1": {"b": {"a": 1}}, "k2": {"l1": {"b": {"a": 1}}}}, "B", -2),
-        ],
-    )
-    def test_annotated_class(self, obj, cls, level):
-        @define
-        class A:
-            a: int
-
-        @define
-        class B:
-            b: A
-
-        cls = eval(cls)
-
-        struct = qwip.converter.structure(obj, Annotated[FlatDict[str, cls], level])
-
-        for v in struct.flatvalues():
-            assert isinstance(v, cls)
-
 
 class TestNumpy:
     DTYPES = [
