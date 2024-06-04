@@ -210,7 +210,7 @@ class Timeline:
         for wave in waveforms:
             self._add_location_waveform_pair(location, wave)
 
-        self.channels.update(wave.channel for wave in waveforms)
+        self.channels.update(wave.channel for wave in waveforms if wave.channel)
 
         return self
 
