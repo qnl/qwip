@@ -163,9 +163,8 @@ class QPU:
                     )
 
     def update_frames(self):
-        frames = {}
-        local_oscillators = {
-            key: LO_info["frequency"]
+        frames = {
+            key: Frame(LO_info["frequency"])
             for key, LO_info in self.config["hardware/local_oscillators"].items()
         }
 
@@ -173,7 +172,7 @@ class QPU:
             match system:
                 case QuantumSystem(get_frames=_):
                     frames |= qwip.converter.structure(
-                        system.get_frames(local_oscillators),
+                        system.get_frames(),
                         dict[str, Frame],
                     )
                 case _:
