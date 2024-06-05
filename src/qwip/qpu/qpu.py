@@ -162,6 +162,10 @@ class QPU:
                         **qwip.converter.unstructure(ch)
                     )
 
+            self.config["compilation/compiler"] = dict(
+                __class__=type(self.compiler).__name__
+            )
+
     def update_frames(self):
         frames = {
             key: Frame(LO_info["frequency"])
