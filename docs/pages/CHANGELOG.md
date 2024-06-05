@@ -10,16 +10,27 @@ and this project adheres to the [Calendar Versioning](https://calver.org/) conve
 ### Added
 
 - Automated batching by timeline or repetition in the QPU.
+- Waveform convolutions using the multiplication operator.
+- Waveform channels can now be reassigned at the waveform or timeline level. This makes it possible to add a single pulse prototype for pulses on different channels/qubits.
+- Default plotting methood for visualization waveforms.
 
 ### Changed
 
 - Change sequence labels from numpy arrays to pandas index to allow more flexible labeling.
+- `Waveforms` can now only contain a single channel.
+- Timeline location variables and waveform variables are now sympy symbols/expressions. This allows for a shared set of variables as well as nonlinear expressions to be used.
+- Quantum systems no longer track local oscillator frames directly. Instead, local oscillator frequencies are added as separate frames to the compiler. When doing IQ mixing or some other form of upconversion, specify the waveform frequency as `freq - lo_freq`.
+- The readout configuration schema in `ConfigDB` has been modified.
 
 ### Fixed
 
 - Fixed restrictions on adding more than one loop in the data processor dependency graph.
+- Fixed bug in `QPU.save_compiler` where compiler class was not getting saved.
 
-## [24.05.0] - 2024-05-13
+### Deprecated
+- `Timeline.resolve_waveforms` and `Timeline.resolve_locations` are now deprecated because waveform variables and location variables are no longer treated separately, use `Timeline.resolve` instead.
+
+## [24.05.1] - 2024-05-13
 
 ### Added
 
