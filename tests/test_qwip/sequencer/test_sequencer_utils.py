@@ -2,13 +2,11 @@ import itertools as it
 from contextlib import nullcontext as noerror
 from copy import copy, deepcopy
 
-import attrs
 import pytest
 import sympy as sym
-from sympy.parsing.sympy_parser import standard_transformations
 
 import qwip
-from qwip.sequencer.utils import LinearExpression, ignore_attribute_access
+from qwip.sequencer.utils import LinearExpression, NumberOrExpression
 
 LE = LinearExpression
 
@@ -26,6 +24,19 @@ class TestSympyUtilities:
         expr = qwip.converter.structure(expr, sym.Expr)
 
         assert {s.name for s in expr.free_symbols} == symbols
+
+    @pytest.mark.parametrize(
+        "value,cls,expect",
+        [
+            ("x", NumberOrExpression, sym.Symbol("x")),
+            (LinearExpression("x"), NumberOrExpression, sym.Symbol("x")),
+            (1, NumberOrExpression, 1),
+            ("x", NumberOrExpression | None, sym.Symbol("x")),
+            (None, NumberOrExpression | None, None),
+        ],
+    )
+    def test_structure_number_or_expression(self, value, cls, expect):
+        assert qwip.converter.structure(value, cls) == expect
 
 
 class TestLinearExpression:

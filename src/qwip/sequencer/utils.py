@@ -650,6 +650,10 @@ qwip.converter.register_structure_hook(
     NumberOrExpression, structure_number_or_expression
 )
 
+qwip.converter.register_structure_hook(
+    NumberOrExpression | None, structure_number_or_expression
+)
+
 
 @qfrozen(kw_only=False, repr=False)
 class Location(LinearExpression): ...
