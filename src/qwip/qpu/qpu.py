@@ -231,11 +231,11 @@ class QPU:
                     case GMMClassification(
                         measurement_key=k, means=m, covariances=c, num_states=s
                     ):
-                        ro_config["classification"][k] = dict(
+                        ro_config[f"registers/{k}/classification"].update(
                             means=m, covariances=c, num_states=s
                         )
                     case IQRotation(angle) if angle:
-                        ro_config[f"classification/{k}/rotation"] = angle
+                        ro_config[f"registers/{k}/classification/rotation"] = angle
 
     @classmethod
     def load_subsystems(cls, config: ConfigFolder) -> dict[Target, QuantumSystem]:
