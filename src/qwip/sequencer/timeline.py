@@ -843,6 +843,13 @@ class Timeline:
                 lw_pairs = [(0, other)]
                 channels = {other.channel} if other.channel else set()
                 constraints = []
+            case np.ndarray():  # Send to Sequence __radd__
+                return NotImplemented
+            case _:
+                raise TypeError(
+                    f"Can only add Timeline and Operation to Timeline, not "
+                    f"'{type(other).__name__}'"
+                )
 
         tmln.lw_pairs[:] = self.lw_pairs + lw_pairs
         tmln.channels.update(self.channels | channels)
