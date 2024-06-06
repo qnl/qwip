@@ -1,6 +1,6 @@
 # QWiP
 
-Quantum Workflows in Python (QWiP) is a framework for running experiments with superconducting qubit devices. To get started using this library follow the installation instructions below, and then check out the [User Guide](./user-guide/).
+Quantum Workflows in Python (QWiP) is a framework for running experiments with superconducting qubit devices. To get started using this library follow the installation instructions below, and then check out the [User Guide](./user-guide/index.md).
 
 ## Installation
 
@@ -20,5 +20,5 @@ If you plan to do additional development with QWiP, see the developer guide for 
 
 ## Contributing
 
-There are many ways to contribute to making QWiP a better experience for all. This includes adding new features, fixing bugs, increasing test coverage, and improving documentation. To get started, check out the [Developer Guide](./developer-guide/).
+There are many ways to contribute to making QWiP a better experience for all. This includes adding new features, fixing bugs, increasing test coverage, and improving documentation. To get started, check out the [Developer Guide](./developer-guide/index.md).
 

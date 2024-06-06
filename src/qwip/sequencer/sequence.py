@@ -1,6 +1,7 @@
 import itertools as it
 import re
 from collections.abc import Sequence as TSequence
+from numbers import Real
 from typing import Any, Protocol, Self, runtime_checkable
 
 import numpy as np
@@ -9,7 +10,6 @@ from loguru import logger
 from numpy.typing import NDArray
 
 import qwip
-from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.timeline import Timeline
 
@@ -382,7 +382,7 @@ class Sequence(np.ndarray):
     def empty(
         cls,
         shape: tuple[int, ...],
-        **labels: np.ndarray,
+        **labels: pd.Index,
     ) -> Self:
         """Creates a Sequence of the specified shape with empty Timelines.
 
@@ -403,7 +403,7 @@ class Sequence(np.ndarray):
         return cls(arr, **labels)
 
     @classmethod
-    def sweep(cls, tmln: Timeline, /, **params) -> Self:
+    def sweep(cls, tmln: Timeline, /, **params: Sweepable | Real) -> Self:
         """Create a sequence from a timeline.
 
         Args:
@@ -459,7 +459,7 @@ class Sequence(np.ndarray):
         return seq
 
     @classmethod
-    def product(cls, tmln: Timeline, /, **params) -> Self:
+    def product(cls, tmln: Timeline, /, **params: Sweepable | Real) -> Self:
         """Create a sequence from a timeline.
 
         Args:
@@ -551,7 +551,7 @@ def _is_default_label(label: pd.Index, dim: int) -> bool:
     )
 
 
-def _combine_indices(*indices, dim: int) -> pd.Index:
+def _combine_indices(*indices: pd.Index, dim: int) -> pd.Index:
     """Combines a set of pandas indices into a single index.
 
     If only a single pandas index is given, it will be returned as is. Otherwise they
@@ -604,7 +604,7 @@ def _combine_indices(*indices, dim: int) -> pd.Index:
     return label
 
 
-def broadcast_labels(*seqs) -> list[pd.Index]:
+def broadcast_labels(*seqs: Sequence) -> list[pd.Index]:
     """Returns the resulting labels from broadcasting one or more sequences.
 
     Explicit sequence labels take precedence over default sequence labels. If multiple

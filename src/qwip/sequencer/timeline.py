@@ -70,9 +70,10 @@ class Timeline:
         """Constructs a sequence from a tuple of locations and waveforms.
 
         Args:
-            pulse_locations: A list of (location, pulse) pairs to add to the sequence
-            **constraints: remaining keyword arguments will be added to the mapping
-                of constraints.
+            locations: A list of (location, pulse) pairs to add to the sequence
+            width: The width of timeline.
+            constraints: A list of sympy expressions specifying constraints on the
+                variables.
 
         Returns:
             The resulting `Timeline` instance
@@ -110,7 +111,7 @@ class Timeline:
         Args:
             layers: A list of layers.
             t0: The initial start time of the first layer.
-            **kwarsg: Remaining keyword arguments are passed to the `Timeline.__init__`
+            **kwargs: Remaining keyword arguments are passed to the `Timeline.__init__`
                 method.
 
         Raises:
@@ -171,7 +172,7 @@ class Timeline:
 
         return tmln
 
-    def add(self, target, /, location: LocationLike = 0.0) -> Self:
+    def add(self, target: Self | Waveform, /, location: LocationLike = 0.0) -> Self:
         """Adds a waveform or another pulse timeline to the specified location.
 
         Args:
@@ -202,7 +203,7 @@ class Timeline:
 
         Args:
             location: The location at which to place the waveform
-            waveform: The waveform to add
+            waveforms: The waveform to add
         """
         if isinstance(waveforms, Operation):
             waveforms = [waveforms]
@@ -246,15 +247,22 @@ class Timeline:
 
         return self
 
-    def add_constraints(self, *constraints, **substitutions) -> None:
+    def add_constraints(
+        self,
+        *constraints: Real | str | sym.Expr,
+        **substitutions: Real | str | sym.Expr,
+    ) -> None:
         """Adds constraints to the set of existing constraints.
 
-        All constraints are of the form `'variable_name' = Location(...)`.
+        This function takes in a list of constraints that are converted to sympy
+        expressions or a keyword mapping `var_name = expr` that is converted to a
+        constraint of the form `var_name - expr = 0`.
 
         Args:
-            overwrite: Whether to overwrite existing constraints for the specified
-                variables. Defaults to True.
-            **kwargs: constraints are specified as name=location arguments
+            *constraints: Positional constraints are converted directly to sympy
+                expressions.
+            **substitutions: Keyword constraints are specified as variable substitutions
+                of the form `var_name = expr`.
         """
 
         self.constraints.update(qwip.converter.structure(constraints, list[sym.Expr]))
@@ -265,15 +273,14 @@ class Timeline:
             }
         )
 
-    def remove_constraint(self, constraint: int | str | sym.Expr) -> sym.Expr | None:
+    def remove_constraint(self, constraint: Real | str | sym.Expr) -> sym.Expr | None:
         """Removes a constraint from the constraint mapping.
 
         Args:
-            name: The variable to remove the constraint for.
+            constraint: The constraint to remove.
 
         Returns:
-            The Location specified in the constraint or None if `name` was
-            not in the constraint mapping.
+            The constraint that was removed or `None` if it was not found.
         """
 
         constraint = qwip.converter.structure(constraint, sym.Expr)
@@ -386,7 +393,7 @@ class Timeline:
 
         return var_map
 
-    def substitute(self, **substitutions) -> Self:
+    def substitute(self, **substitutions: Real | str | sym.Expr) -> Self:
         """Substitutes new values for a set of variables.
 
         This method modifies the timeline in place.
@@ -424,7 +431,9 @@ class Timeline:
 
         return self
 
-    def solve_constraints(self, *constraints) -> dict[str, Location]:
+    def solve_constraints(
+        self, *constraints: Real | str | sym.Expr
+    ) -> dict[str, Location]:
         """Solves all timing constraints for the pulse timeline.
 
         **kwargs: Keyword arguments can be used to add constraints and are passed
@@ -461,11 +470,11 @@ class Timeline:
 
     def resolve(
         self,
-        *constraints,
+        *constraints: Real | str | sym.Expr,
         inplace: bool = True,
         sort: bool | Callable = True,
         reset_zero: Literal["pos", "neg", "both"] = "neg",
-        **substitutions,
+        **substitutions: Real | str | sym.Expr,
     ) -> list[tuple[Location, Waveform]]:
         lw_pairs = []
 
@@ -668,7 +677,7 @@ class Timeline:
 
         return modified
 
-    def assign_channels(self, **channels) -> Self:
+    def assign_channels(self, **channels: str) -> Self:
         """Reassigns channels for all operations in the timeline.
 
         This method modifies the timeline in place.
