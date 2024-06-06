@@ -6,7 +6,7 @@ import pytest
 import sympy as sym
 
 import qwip
-from qwip.sequencer.utils import LinearExpression, NumberOrExpression
+from qwip.sequencer.utils import LinearExpression, NumberOrExpression, _variable_substitution
 
 LE = LinearExpression
 
@@ -38,6 +38,16 @@ class TestSympyUtilities:
     def test_structure_number_or_expression(self, value, cls, expect):
         assert qwip.converter.structure(value, cls) == expect
 
+    @pytest.mark.parametrize(
+        "expr,subs,expect",
+        [
+            (sym.Symbol("Q0.freq_01"), {"Q0.freq_01": 5}, 5),
+            (sym.Symbol("frequency"), {"frequency": "Q0.freq_01"}, sym.Symbol("Q0.freq_01"))
+        ]
+    )
+    def test_variable_substitution(self, expr, subs, expect):
+        result = _variable_substitution(expr, subs)
+        assert result == expect
 
 class TestLinearExpression:
     def test_create(self):

@@ -23,6 +23,10 @@ NumberOrExpression = Real | sym.Expr
 
 
 def _variable_substitution(expr, subs):
+    subs = {
+        qwip.converter.structure(k, sym.Expr): qwip.converter.structure(v, sym.Expr)
+        for k, v in subs.items()
+    }
     return expr.subs(subs)
 
 

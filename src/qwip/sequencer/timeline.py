@@ -23,7 +23,6 @@ from qwip.sequencer.waveform import (
     Marker,
     Operation,
     Waveform,
-    _to_python_number,
 )
 from qwip.utils import deprecated
 from qwip.visualization.utils import all_legend_handles_labels
@@ -454,7 +453,7 @@ class Timeline:
         num_solutions = len(sym_result)
 
         if num_solutions < 1:
-            logger.warning("No solutions found.")
+            logger.info("No solutions found.")
             return {}
 
         elif num_solutions > 1:
