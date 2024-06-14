@@ -619,7 +619,7 @@ def structure_sympy_expression(obj, cls):
     match obj:
         case sym.Expr():
             return obj
-        case Real():
+        case Real() if not isinstance(obj, bool):
             return sym.Float(obj)
         case LinearExpression():
             return parse_expr(str(obj))
