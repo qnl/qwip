@@ -79,6 +79,8 @@ extra_javascript:
   - assets/js/termynal.js
   - assets/js/setup.js
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML
+validation:
+  absolute_links: relative_to_docs
 nav:
   - QWiP:
       - index.md
