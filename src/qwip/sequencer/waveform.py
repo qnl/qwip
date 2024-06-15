@@ -322,8 +322,8 @@ class Waveform(Operation):
 
         return fig
 
-    def fft(self, ts, **kwargs) -> tuple[np.ndarray, np.ndarray]:
-        wave = self(ts, **kwargs)
+    def fft(self, ts: np.ndarray, variables: dict[str, float] = {}) -> tuple[np.ndarray, np.ndarray]:
+        wave = self(ts, **variables)
 
         if len(wave.shape) > 1 and wave.shape[0] == 2:
             wave = 1j * wave[1] + wave[0]
@@ -901,8 +901,8 @@ class DRAG(Waveform):
         """
         envelope = self.envelope(ts, **kwargs)
 
-        d1 = np.gradient(envelope)
-        d2 = np.gradient(d1)
+        d1 = np.gradient(envelope, ts)
+        d2 = np.gradient(d1, ts)
 
         return envelope + 1j * lmbda * d1 + lmbda2 * d2
 

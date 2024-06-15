@@ -596,7 +596,7 @@ class TestDRAGWaveform:
         f1 = -100e6
         sample_rate = 2.4e9
         env = DRAG(
-            envelope=GaussianWaveform(width=20e-9), lmbda=sample_rate / (2 * np.pi * f1)
+            envelope=GaussianWaveform(width=20e-9), lmbda=1 / (2 * np.pi * f1)
         )
 
         freq = CWWaveform(frequency=Frame(f0), channel="IQ")
@@ -608,8 +608,8 @@ class TestDRAGWaveform:
 
         # Compute fft and check that drag waveform is suppressed in a 40 MHz
         # window around the target frequency.
-        ks, fs_drag = wave_drag.fft(ts, t0=100e-9)
-        ks, fs_nodrag = wave_nodrag.fft(ts, t0=100e-9)
+        ks, fs_drag = wave_drag.fft(ts, variables=dict(t0=100e-9))
+        ks, fs_nodrag = wave_nodrag.fft(ts, variables=dict(t0=100e-9))
 
         window = (f0 + f1 - 20e6 < ks) & (ks < f0 + f1 + 20e6)
 
