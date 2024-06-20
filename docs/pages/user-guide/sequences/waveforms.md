@@ -75,11 +75,21 @@ The modulation itself contains a flag `hardware_modulation` that specifies wheth
 
     When using hardware modulation, you should typically put amplitudes and phases on the `CWWaveform` rather than the envelope. This is typically more memory-efficient, since the envelope can now be shared across two waveforms with a different amplitude/phase multiplier.
 
+### Virtual Z Waveforms
+
+[Virtual Z Waveforms][qwip.sequencer.waveform.VirtualZWaveform][^1] are used to implement software Z gates via phase updates and frame tracking. See [frame tracking](./frame-tracking.md) for more details on frame tracking.
+
+```python title="waveforms.py - Virtual-Z Gates" linenums="1"
+--8<-- "waveforms.py:virtual-z"
+```
+
+[^1]: D. C. McKay, *et. al.*, Efficient Z gates for quantum computing. (2017) [DOI: 10.1103/PhysRevA.96.022330](https://doi.org/10.1103/PhysRevA.96.022330)
+
 ### DRAG
 
-DRAG[^1] (derivative removal by adiabatic gate) is a commonly used waveform-shaping technique for minimizing unwanted transitions due to non-adiabatic effects. To modify an arbitrary envelope waveform using DRAG, we can nest it inside a DRAG waveform.
+DRAG[^2] (derivative removal by adiabatic gate) is a commonly used waveform-shaping technique for minimizing unwanted transitions due to non-adiabatic effects. To modify an arbitrary envelope waveform using DRAG, we can nest it inside a DRAG waveform.
 
-```python title="waveforms.py - Modulated Waveforms" linenums="1"
+```python title="waveforms.py - DRAG Correction" linenums="1"
 --8<-- "waveforms.py:drag"
 ```
 
@@ -88,7 +98,18 @@ We can see the effect of first order DRAG by looking at the FFT, where we see th
 ![DRAG Suppression](/assets/media/waveforms-4.png)
 
 
-[^1]: L. S. Theis, *et. al.*, Counteracting systems of diabaticities using DRAG controls: The status after 10 years. (2018) [DOI: 10.1209/0295-5075/123/60001](https://doi.org/10.1209/0295-5075/123/60001)
+[^2]: L. S. Theis, *et. al.*, Counteracting systems of diabaticities using DRAG controls: The status after 10 years. (2018) [DOI: 10.1209/0295-5075/123/60001](https://doi.org/10.1209/0295-5075/123/60001)
 
 ### Convolved Waveforms
+
+Waveforms can also be multiplied together, which results in a [convolution](https://en.wikipedia.org/wiki/Convolution) between two waveforms. This can be used to apply a smoothing filter on a pulse to reduce its bandwidth.
+
+```python title="waveforms.py - Waveform Convolutions" linenums="1"
+--8<-- "waveforms.py:convolution"
+```
+
+1. We compute the normalization constant for the filter by integrating
+2. We can ignore the imaginary component because the waveforms all have zero phase.
+
+![Waveform Convolution](/assets/media/waveforms-5.png)
 

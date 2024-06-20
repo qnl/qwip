@@ -1,5 +1,5 @@
-import sympy as sym
 import matplotlib.pyplot as plt
+import sympy as sym
 from matplotlib.ticker import EngFormatter
 
 plt.style.use("qwip.visualization.style")
@@ -49,11 +49,12 @@ assert wave1.variables() == {"frequency"}
 
 # --8<-- [start:evaluation]
 import numpy as np
+
 from qwip.sequencer import CosineRampWaveform
 
 ts = np.linspace(0, 100e-9, 501)
 wave = CosineRampWaveform(width="time", amplitude=0.5, ramp=10e-9)
-wave1 = wave.evolve(t0="time", phase=30) # (1)
+wave1 = wave.evolve(t0="time", phase=30)  # (1)
 
 w_t = wave(ts, time=20e-9)
 print(w_t)
@@ -86,14 +87,13 @@ from qwip.sequencer import CWWaveform, ModulatedWaveform
 
 wave = ModulatedWaveform(
     envelope=CosineRampWaveform(width="time", amplitude=0.5),
-    modulation=CWWaveform(
-        frequency="frequency", amplitude=0.5, channel="Q0")
+    modulation=CWWaveform(frequency="frequency", amplitude=0.5, channel="Q0"),
 )
 
 print(wave.width, wave.amplitude, wave.channel)
 # time 0.25 Q0 (1)
 
-wave1 = wave.evolve(modulation_hardware_modulation=True, envelope_t0=50e-9) # (2)
+wave1 = wave.evolve(modulation_hardware_modulation=True, envelope_t0=50e-9)  # (2)
 
 ts = np.linspace(0, 100e-9, 501)
 fig = wave.plot(ts=ts, variables=dict(time=50e-9, frequency=100e6))
@@ -107,12 +107,18 @@ assert wave.width == sym.Symbol("time")
 assert wave.channel == "Q0"
 assert wave.amplitude == 0.25
 
+# --8<-- [start:virtual-z]
+from qwip.sequencer import VirtualZWaveform
+
+Z = VirtualZWaveform(frame="Q0.freq_01", phase=90)
+# --8<-- [end:virtual-z]
+
 
 # --8<-- [start:drag]
 from qwip.sequencer import DRAG
 
 detuning = -70e6
-lmbda = 1 / (2*np.pi*detuning)
+lmbda = 1 / (2 * np.pi * detuning)
 
 wave = CosineRampWaveform(width=30e-9, ramp=10e-9)
 drag_wave = DRAG(envelope=wave, lmbda=lmbda)
@@ -132,7 +138,9 @@ axes["t"].set_ylabel("Original")
 axes["tdrag"].set_ylabel("DRAG")
 ax = axes["f"]
 ax.xaxis.set_major_formatter(EngFormatter(unit="Hz"))
-ax.axvline(detuning, color="k", linestyle="--", label=f"$\\Delta = {detuning / 1e6:.0f}$ MHz")
+ax.axvline(
+    detuning, color="k", linestyle="--", label=f"$\\Delta = {detuning / 1e6:.0f}$ MHz"
+)
 ax.set_xlim(-250e6, 250e6)
 ax.legend(loc="upper left")
 ax.set_ylim(*(np.abs(yfs_drag).max() * np.array([-0.1, 1.5])))
@@ -140,3 +148,37 @@ fig.suptitle("DRAG Suppression")
 fig.savefig(savedir / "waveforms-4.png")
 
 
+# --8<-- [start:convolution]
+from qwip.sequencer import GaussianWaveform
+
+ts = np.linspace(0, 200e-9, 501)
+
+wave = SquareWaveform(name="square", width=100e-9, amplitude=1)
+gaussian_filter = GaussianWaveform(name="filter", width=20e-9, amplitude=1)
+N = np.sum(gaussian_filter(ts)).real  # (1)
+
+filtered_wave = wave * gaussian_filter.evolve(amplitude=1 / N)
+filtered_wave = filtered_wave.evolve(name="filtered square")
+print(filtered_wave)
+# ConvolvedWaveform(
+#    name='filtered square',
+#    a=SquareWaveform(name='square', t0=0, width=1e-07, channel='', amplitude=1, phase=0),
+#    b=GaussianWaveform(name='filter', t0=0, width=2e-08, channel='', amplitude=0.047978619878922366, phase=0, cutoff=3)
+# )
+
+fig, axes = plt.subplot_mosaic([["t"], ["f"]])
+for w in [wave, gaussian_filter, filtered_wave]:
+    w_t = w(ts)
+    axes["t"].plot(ts, w_t.real)  # (2)
+    fs, yfs = w.fft(ts=np.linspace(0, 1e-6, 501))
+    axes["f"].plot(fs, np.abs(yfs) / np.abs(yfs).max(), label=w.name.capitalize())
+
+# --8<-- [end:convolution]
+axes["t"].set_xlim(-5e-9, 125e-9)
+axes["f"].set_xlim(-200e6, 200e6)
+axes["t"].xaxis.set_major_formatter(EngFormatter(unit="s"))
+axes["f"].xaxis.set_major_formatter(EngFormatter(unit="Hz"))
+axes["f"].set_xticks(np.linspace(-200e6, 200e6, 5))
+axes["f"].legend()
+fig.suptitle("Waveform Convolutions")
+fig.savefig(savedir / "waveforms-5.png")
