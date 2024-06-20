@@ -529,7 +529,7 @@ class Timeline:
         return lw_pairs
 
     @deprecated(
-        version="24.5.1", removed="24.8.0", message="Use `Timeline.resolve` instead."
+        version="24.6.0", removed="24.8.0", message="Use `Timeline.resolve` instead."
     )
     def resolve_waveforms(self, **pulse_vars: float | int) -> dict[Waveform, Waveform]:
         """Resolves all waveform variables into concrete values.
@@ -561,7 +561,7 @@ class Timeline:
         return waveform_dict
 
     @deprecated(
-        version="24.5.1", removed="24.8.0", message="Use `Timeline.resolve` instead."
+        version="24.6.0", removed="24.8.0", message="Use `Timeline.resolve` instead."
     )
     def resolve_locations(
         self,
@@ -804,7 +804,7 @@ class Timeline:
         )
 
     @deprecated(
-        version="24.5.1",
+        version="24.6.0",
         removed="24.8.0",
         message="Use the timeline as an iterable directly instead.",
     )

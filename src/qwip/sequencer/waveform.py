@@ -349,7 +349,7 @@ class TimedWaveform(Waveform):
 
     @property
     @deprecated(
-        version="24.5.1",
+        version="24.6.0",
         removed="24.8.0",
         message=(
             "Waveforms are now restricted to a single channel. Use `Waveform.channel` "
