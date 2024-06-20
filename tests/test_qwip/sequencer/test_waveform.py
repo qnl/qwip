@@ -595,9 +595,7 @@ class TestDRAGWaveform:
         f0 = 500e6
         f1 = -100e6
         sample_rate = 2.4e9
-        env = DRAG(
-            envelope=GaussianWaveform(width=20e-9), lmbda=1 / (2 * np.pi * f1)
-        )
+        env = DRAG(envelope=GaussianWaveform(width=20e-9), lmbda=1 / (2 * np.pi * f1))
 
         freq = CWWaveform(frequency=Frame(f0), channel="IQ")
 

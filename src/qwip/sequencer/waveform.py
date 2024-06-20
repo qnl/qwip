@@ -322,7 +322,9 @@ class Waveform(Operation):
 
         return fig
 
-    def fft(self, ts: np.ndarray, variables: dict[str, float] = {}) -> tuple[np.ndarray, np.ndarray]:
+    def fft(
+        self, ts: np.ndarray, variables: dict[str, float] = {}
+    ) -> tuple[np.ndarray, np.ndarray]:
         wave = self(ts, **variables)
 
         if len(wave.shape) > 1 and wave.shape[0] == 2:
@@ -679,6 +681,12 @@ class ModulatedWaveform(Waveform):
 @register_waveform
 @qfrozen
 class VirtualZWaveform(Marker):
+    """A Virtual-Z operation.
+
+    Virtual-Z gates are implemented by applying a phase update to a particular reference
+    frame that tracks the qubit phase evolution.
+    """
+
     frame: Frame
     phase: NumberOrExpression = 0
 
