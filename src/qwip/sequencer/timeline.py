@@ -23,7 +23,6 @@ from qwip.sequencer.waveform import (
     Marker,
     Operation,
     Waveform,
-    _to_python_number,
 )
 from qwip.utils import deprecated
 from qwip.visualization.utils import all_legend_handles_labels
@@ -46,9 +45,11 @@ class Timeline:
 
     def __attrs_post_init__(self):
         # Update channels from waveforms
-        for op in self.operations:
-            if op:
-                self.channels.update(op.channels)
+        self.channels.update(
+            op.channel
+            for op in self.operations
+            if hasattr(op, "channel") and op.channel
+        )
 
     @property
     def locations(self) -> list[Location]:
@@ -68,9 +69,10 @@ class Timeline:
         """Constructs a sequence from a tuple of locations and waveforms.
 
         Args:
-            pulse_locations: A list of (location, pulse) pairs to add to the sequence
-            **constraints: remaining keyword arguments will be added to the mapping
-                of constraints.
+            locations: A list of (location, pulse) pairs to add to the sequence
+            width: The width of timeline.
+            constraints: A list of sympy expressions specifying constraints on the
+                variables.
 
         Returns:
             The resulting `Timeline` instance
@@ -108,7 +110,7 @@ class Timeline:
         Args:
             layers: A list of layers.
             t0: The initial start time of the first layer.
-            **kwarsg: Remaining keyword arguments are passed to the `Timeline.__init__`
+            **kwargs: Remaining keyword arguments are passed to the `Timeline.__init__`
                 method.
 
         Raises:
@@ -169,7 +171,7 @@ class Timeline:
 
         return tmln
 
-    def add(self, target, /, location: LocationLike = 0.0) -> Self:
+    def add(self, target: Self | Waveform, /, location: LocationLike = 0.0) -> Self:
         """Adds a waveform or another pulse timeline to the specified location.
 
         Args:
@@ -200,7 +202,7 @@ class Timeline:
 
         Args:
             location: The location at which to place the waveform
-            waveform: The waveform to add
+            waveforms: The waveform to add
         """
         if isinstance(waveforms, Operation):
             waveforms = [waveforms]
@@ -208,7 +210,7 @@ class Timeline:
         for wave in waveforms:
             self._add_location_waveform_pair(location, wave)
 
-        self.channels.update(*(wave.channels for wave in waveforms))
+        self.channels.update(wave.channel for wave in waveforms if wave.channel)
 
         return self
 
@@ -244,15 +246,22 @@ class Timeline:
 
         return self
 
-    def add_constraints(self, *constraints, **substitutions) -> None:
+    def add_constraints(
+        self,
+        *constraints: Real | str | sym.Expr,
+        **substitutions: Real | str | sym.Expr,
+    ) -> None:
         """Adds constraints to the set of existing constraints.
 
-        All constraints are of the form `'variable_name' = Location(...)`.
+        This function takes in a list of constraints that are converted to sympy
+        expressions or a keyword mapping `var_name = expr` that is converted to a
+        constraint of the form `var_name - expr = 0`.
 
         Args:
-            overwrite: Whether to overwrite existing constraints for the specified
-                variables. Defaults to True.
-            **kwargs: constraints are specified as name=location arguments
+            *constraints: Positional constraints are converted directly to sympy
+                expressions.
+            **substitutions: Keyword constraints are specified as variable substitutions
+                of the form `var_name = expr`.
         """
 
         self.constraints.update(qwip.converter.structure(constraints, list[sym.Expr]))
@@ -263,15 +272,14 @@ class Timeline:
             }
         )
 
-    def remove_constraint(self, constraint: int | str | sym.Expr) -> sym.Expr | None:
+    def remove_constraint(self, constraint: Real | str | sym.Expr) -> sym.Expr | None:
         """Removes a constraint from the constraint mapping.
 
         Args:
-            name: The variable to remove the constraint for.
+            constraint: The constraint to remove.
 
         Returns:
-            The Location specified in the constraint or None if `name` was
-            not in the constraint mapping.
+            The constraint that was removed or `None` if it was not found.
         """
 
         constraint = qwip.converter.structure(constraint, sym.Expr)
@@ -384,7 +392,7 @@ class Timeline:
 
         return var_map
 
-    def substitute(self, **substitutions) -> Self:
+    def substitute(self, **substitutions: Real | str | sym.Expr) -> Self:
         """Substitutes new values for a set of variables.
 
         This method modifies the timeline in place.
@@ -422,7 +430,9 @@ class Timeline:
 
         return self
 
-    def solve_constraints(self, *constraints) -> dict[str, Location]:
+    def solve_constraints(
+        self, *constraints: Real | str | sym.Expr
+    ) -> dict[str, Location]:
         """Solves all timing constraints for the pulse timeline.
 
         **kwargs: Keyword arguments can be used to add constraints and are passed
@@ -443,7 +453,7 @@ class Timeline:
         num_solutions = len(sym_result)
 
         if num_solutions < 1:
-            logger.warning("No solutions found.")
+            logger.info("No solutions found.")
             return {}
 
         elif num_solutions > 1:
@@ -459,11 +469,11 @@ class Timeline:
 
     def resolve(
         self,
-        *constraints,
+        *constraints: Real | str | sym.Expr,
         inplace: bool = True,
         sort: bool | Callable = True,
         reset_zero: Literal["pos", "neg", "both"] = "neg",
-        **substitutions,
+        **substitutions: Real | str | sym.Expr,
     ) -> list[tuple[Location, Waveform]]:
         lw_pairs = []
 
@@ -519,7 +529,7 @@ class Timeline:
         return lw_pairs
 
     @deprecated(
-        version="24.5.1", removed="24.8.0", message="Use `Timeline.resolve` instead."
+        version="24.6.0", removed="24.8.0", message="Use `Timeline.resolve` instead."
     )
     def resolve_waveforms(self, **pulse_vars: float | int) -> dict[Waveform, Waveform]:
         """Resolves all waveform variables into concrete values.
@@ -551,7 +561,7 @@ class Timeline:
         return waveform_dict
 
     @deprecated(
-        version="24.5.1", removed="24.8.0", message="Use `Timeline.resolve` instead."
+        version="24.6.0", removed="24.8.0", message="Use `Timeline.resolve` instead."
     )
     def resolve_locations(
         self,
@@ -666,6 +676,31 @@ class Timeline:
 
         return modified
 
+    def assign_channels(self, **channels: str) -> Self:
+        """Reassigns channels for all operations in the timeline.
+
+        This method modifies the timeline in place.
+
+        Args:
+            **channels: A mapping of old channel names to new channel names.
+
+        Returns:
+            The modified timeline.
+        """
+
+        if not set(channels) & self.channels:
+            return self
+
+        for idx, (loc, op) in enumerate(self):
+            if op.channel in channels:
+                self.lw_pairs[idx] = (loc, op.assign_channel(channels[op.channel]))
+
+        new_channels = [channels.get(ch, ch) for ch in self.channels]
+        self.channels.clear()
+        self.channels.update((ch for ch in new_channels if ch))
+
+        return self
+
     def copy(self, deep: bool = True) -> Self:
         """Copies a pulse timeline.
 
@@ -684,7 +719,7 @@ class Timeline:
 
     @staticmethod
     def locations_to_channel_map(
-        locations: list[sym.Expr, Operation], *channels: str
+        locations: list[tuple[sym.Expr, Operation]], *channels: str
     ) -> dict[str, list[tuple[sym.Expr, Waveform]]]:
         """Splits a location dict by channel.
 
@@ -701,10 +736,8 @@ class Timeline:
         channel_map = {c: [] for c in channels}
 
         for loc, wave in locations:
-            wave_channels = wave.channels or (None,)
-            for ch in wave_channels:
-                if ch in channel_map:
-                    channel_map[ch].append((loc, wave))
+            if wave.channel in channel_map:
+                channel_map[wave.channel].append((loc, wave))
 
         return channel_map
 
@@ -771,7 +804,7 @@ class Timeline:
         )
 
     @deprecated(
-        version="24.5.1",
+        version="24.6.0",
         removed="24.8.0",
         message="Use the timeline as an iterable directly instead.",
     )
@@ -794,7 +827,7 @@ class Timeline:
         """Iterate over the location mapping."""
         yield from self.lw_pairs
 
-    def __add__(self, other: Self) -> Self:
+    def __add__(self, other: Self | Operation) -> Self:
         """Adds two pulse timelines.
 
         The sum of two pulse timelines s(t) and r(t) is equivalent to the
@@ -808,11 +841,32 @@ class Timeline:
         """
 
         tmln = Timeline()
-        tmln.lw_pairs[:] = self.lw_pairs + other.lw_pairs
-        tmln.channels.update(self.channels | other.channels)
-        tmln.constraints.update(self.constraints, other.constraints)
+
+        match other:
+            case Timeline():
+                lw_pairs = other.lw_pairs
+                channels = other.channels
+                constraints = other.constraints
+            case Operation():
+                lw_pairs = [(0, other)]
+                channels = {other.channel} if other.channel else set()
+                constraints = []
+            case np.ndarray():  # Send to Sequence __radd__
+                return NotImplemented
+            case _:
+                raise TypeError(
+                    f"Can only add Timeline and Operation to Timeline, not "
+                    f"'{type(other).__name__}'"
+                )
+
+        tmln.lw_pairs[:] = self.lw_pairs + lw_pairs
+        tmln.channels.update(self.channels | channels)
+        tmln.constraints.update(self.constraints, constraints)
 
         return tmln
+
+    def __radd__(self, other: Self | Operation) -> Self:
+        return self.__add__(other)
 
 
 structure_new_timeline = make_attrs_structure_fn(Timeline)
