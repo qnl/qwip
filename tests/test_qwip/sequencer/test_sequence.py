@@ -904,6 +904,12 @@ class TestSequenceUniversalFunctions:
         for label, expect in zip(result.labels, expected.values()):
             assert label.equals(expect)
 
+    def test_add_timeline(self):
+        seq = Sequence.empty((10,))
+
+        new_seq = Timeline() + seq
+        assert np.all(new_seq == seq)
+
 
 class TestSequenceSerialization:
     def test_sequence_unstructure(self):

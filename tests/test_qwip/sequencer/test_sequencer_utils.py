@@ -2,13 +2,15 @@ import itertools as it
 from contextlib import nullcontext as noerror
 from copy import copy, deepcopy
 
-import attrs
 import pytest
 import sympy as sym
-from sympy.parsing.sympy_parser import standard_transformations
 
 import qwip
-from qwip.sequencer.utils import LinearExpression, ignore_attribute_access
+from qwip.sequencer.utils import (
+    LinearExpression,
+    NumberOrExpression,
+    _variable_substitution,
+)
 
 LE = LinearExpression
 
@@ -26,6 +28,34 @@ class TestSympyUtilities:
         expr = qwip.converter.structure(expr, sym.Expr)
 
         assert {s.name for s in expr.free_symbols} == symbols
+
+    @pytest.mark.parametrize(
+        "value,cls,expect",
+        [
+            ("x", NumberOrExpression, sym.Symbol("x")),
+            (LinearExpression("x"), NumberOrExpression, sym.Symbol("x")),
+            (1, NumberOrExpression, 1),
+            ("x", NumberOrExpression | None, sym.Symbol("x")),
+            (None, NumberOrExpression | None, None),
+        ],
+    )
+    def test_structure_number_or_expression(self, value, cls, expect):
+        assert qwip.converter.structure(value, cls) == expect
+
+    @pytest.mark.parametrize(
+        "expr,subs,expect",
+        [
+            (sym.Symbol("Q0.freq_01"), {"Q0.freq_01": 5}, 5),
+            (
+                sym.Symbol("frequency"),
+                {"frequency": "Q0.freq_01"},
+                sym.Symbol("Q0.freq_01"),
+            ),
+        ],
+    )
+    def test_variable_substitution(self, expr, subs, expect):
+        result = _variable_substitution(expr, subs)
+        assert result == expect
 
 
 class TestLinearExpression:

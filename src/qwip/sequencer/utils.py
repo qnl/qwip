@@ -23,6 +23,10 @@ NumberOrExpression = Real | sym.Expr
 
 
 def _variable_substitution(expr, subs):
+    subs = {
+        qwip.converter.structure(k, sym.Expr): qwip.converter.structure(v, sym.Expr)
+        for k, v in subs.items()
+    }
     return expr.subs(subs)
 
 
@@ -615,7 +619,7 @@ def structure_sympy_expression(obj, cls):
     match obj:
         case sym.Expr():
             return obj
-        case Real():
+        case Real() if not isinstance(obj, bool):
             return sym.Float(obj)
         case LinearExpression():
             return parse_expr(str(obj))
@@ -648,6 +652,10 @@ def structure_number_or_expression(v, cls):
 
 qwip.converter.register_structure_hook(
     NumberOrExpression, structure_number_or_expression
+)
+
+qwip.converter.register_structure_hook(
+    NumberOrExpression | None, structure_number_or_expression
 )
 
 

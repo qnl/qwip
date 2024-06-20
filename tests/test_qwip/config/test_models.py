@@ -78,7 +78,7 @@ class TestWaveformModel:
         X90=ModulatedWaveform(
             name="X90",
             envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),
-            modulation=CWWaveform(channels=("I", "Q"), frequency="mod_GE"),
+            modulation=CWWaveform(channel="IQ", frequency="mod_GE"),
         ),
         drag=DRAG(name="drag", lmbda=1, envelope=GaussianWaveform(width=20e-9)),
         triggered=TriggeredWaveform(
@@ -89,7 +89,7 @@ class TestWaveformModel:
                     ModulatedWaveform(
                         envelope=GaussianWaveform(width="width", amplitude="amplitude"),
                         modulation=CWWaveform(
-                            channels=("Q0",), frequency="frame", phase="phase"
+                            channel="Q0", frequency="frame", phase="phase"
                         ),
                     ),
                     VirtualZWaveform(phase="zphase", frame="Q0"),
@@ -170,7 +170,7 @@ class TestTimelines:
         x90 = ModulatedWaveform(
             name="X90",
             envelope=CosineRampWaveform(width=20e-9, ramp=2.5e-9, amplitude=0.15),
-            modulation=CWWaveform(channels=("I", "Q"), frequency="mod_GE"),
+            modulation=CWWaveform(channel="IQ", frequency="mod_GE"),
         )
         tmln = Timeline.from_layers(
             [z_correction, x90, z_correction],

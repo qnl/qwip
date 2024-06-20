@@ -162,10 +162,13 @@ class QPU:
                         **qwip.converter.unstructure(ch)
                     )
 
+            self.config["compilation/compiler"] = dict(
+                __class__=type(self.compiler).__name__
+            )
+
     def update_frames(self):
-        frames = {}
-        local_oscillators = {
-            key: LO_info["frequency"]
+        frames = {
+            key: Frame(LO_info["frequency"])
             for key, LO_info in self.config["hardware/local_oscillators"].items()
         }
 
@@ -173,7 +176,7 @@ class QPU:
             match system:
                 case QuantumSystem(get_frames=_):
                     frames |= qwip.converter.structure(
-                        system.get_frames(local_oscillators),
+                        system.get_frames(),
                         dict[str, Frame],
                     )
                 case _:
@@ -205,17 +208,17 @@ class QPU:
             else:
                 processors.append(processor_cls())
 
-        for k, classification in ro_config["classification"].items():
+        for k, register in ro_config["registers"].items():
             processors.append(
                 GMMClassification(
                     measurement_key=k,
-                    means=classification["means"].astype(float),
-                    covariances=classification["covariances"].astype(float),
-                    num_states=classification["num_states"],
+                    means=register["classification/means"].astype(float),
+                    covariances=register["classification/covariances"].astype(float),
+                    num_states=register["classification/num_states"],
                 )
             )
 
-            if angle := classification["rotation"]:
+            if angle := register["classification"]["rotation"]:
                 processors.append(IQRotation(measurement_key=k, angle=angle))
 
         return ReadoutPipeline(
@@ -231,11 +234,11 @@ class QPU:
                     case GMMClassification(
                         measurement_key=k, means=m, covariances=c, num_states=s
                     ):
-                        ro_config["classification"][k] = dict(
+                        ro_config[f"registers/{k}/classification"].update(
                             means=m, covariances=c, num_states=s
                         )
                     case IQRotation(angle) if angle:
-                        ro_config[f"classification/{k}/rotation"] = angle
+                        ro_config[f"registers/{k}/classification/rotation"] = angle
 
     @classmethod
     def load_subsystems(cls, config: ConfigFolder) -> dict[Target, QuantumSystem]:

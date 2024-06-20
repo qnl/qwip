@@ -134,7 +134,7 @@ class TestQubicCompiler:
                 ModulatedWaveform(
                     envelope=GaussianWaveform(width=30e-9),
                     modulation=CWWaveform(
-                        channels=(f"Q{q}.qdrv",),
+                        channel=f"Q{q}.qdrv",
                         frequency=f"Q{q}.freq_GE",
                         hardware_modulation=True,
                     ),
@@ -148,7 +148,7 @@ class TestQubicCompiler:
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
                     modulation=CWWaveform(
-                        channels=(f"Q{q}.rdrv",),
+                        channel=f"Q{q}.rdrv",
                         frequency=f"Q{q}.readfreq",
                         hardware_modulation=True,
                     ),
@@ -158,7 +158,7 @@ class TestQubicCompiler:
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
                     modulation=CWWaveform(
-                        channels=(f"Q{q}.rdlo",),
+                        channel=f"Q{q}.rdlo",
                         frequency=f"Q{q}.readfreq",
                         hardware_modulation=True,
                     ),
@@ -213,8 +213,14 @@ class TestQubicCompiler:
                 [VirtualZ(qubit="Q0", phase=np.pi / 2, freq="freq_GE")],
             ),
             (
+                0,
+                VirtualZWaveform(phase=90, frame=5e9),
+                0,
+                [VirtualZ(phase=np.pi / 2, freq=5e9)],
+            ),
+            (
                 50e-9,
-                SquareWaveform(width=50e-9, amplitude=0.5, channels=("Q0.qdrv",)),
+                SquareWaveform(width=50e-9, amplitude=0.5, channel="Q0.qdrv"),
                 500,
                 [
                     Pulse(
@@ -235,7 +241,7 @@ class TestQubicCompiler:
                     modulation=CWWaveform(
                         amplitude=0.5,
                         phase=180,
-                        channels=("Q1.rdlo",),
+                        channel="Q1.rdlo",
                         frequency="Q1.readfreq",
                         hardware_modulation=True,
                     ),
@@ -268,9 +274,8 @@ class TestQubicCompiler:
             cw_threshold=None,
         )
 
-        for c in wave.channels:
-            if "rdlo" in c:
-                assert reads[c] == 1
+        if "rdlo" in wave.channel:
+            assert reads[wave.channel] == 1
 
         assert len(instructions) == len(expected)
 
@@ -287,7 +292,7 @@ class TestQubicCompiler:
                         amplitude=0.5,
                         frequency=100,
                         phase=180,
-                        channels=("Q0.rdrv",),
+                        channel="Q0.rdrv",
                         hardware_modulation=True,
                     ),
                 ),

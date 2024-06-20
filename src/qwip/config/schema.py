@@ -56,10 +56,14 @@ class ClassificationSchema(ValidatedConfigFolder):
 
 
 @configschema
+class ReadoutRegisterSchema(ValidatedConfigFolder):
+    drive: str
+    classification: ClassificationSchema
+
+
+@configschema
 class ReadoutSchema(ValidatedConfigFolder):
-    drives: ConfigFolder[Target, str]
-    classification: ConfigFolder[Target, ClassificationSchema]
-    length: float = 0
+    registers: ConfigFolder[str, ReadoutRegisterSchema]
 
 
 @configschema
@@ -73,6 +77,7 @@ class PulsesSchema(ValidatedConfigFolder):
     targets: tuple[Target]
     pulse_key: str
     variables: ConfigFolder[str, str | float]
+    channels: ConfigFolder[str, str]
 
 
 @configschema

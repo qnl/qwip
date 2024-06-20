@@ -18,6 +18,7 @@ markdown_extensions:
   - footnotes
   - pymdownx.arithmatex
   - pymdownx.caret
+  - pymdownx.details
   - pymdownx.magiclink
   - pymdownx.superfences
   - pymdownx.tabbed
@@ -79,6 +80,8 @@ extra_javascript:
   - assets/js/termynal.js
   - assets/js/setup.js
   - https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.0/MathJax.js?config=TeX-MML-AM_CHTML
+validation:
+  absolute_links: relative_to_docs
 nav:
   - QWiP:
       - index.md
@@ -92,6 +95,7 @@ nav:
           - user-guide/sequences/waveforms.md
           - user-guide/sequences/timelines.md
           - user-guide/sequences/sequences.md
+          - user-guide/sequences/frame-tracking.md
       - user-guide/workflow.md
   - Developer Guide:
       - developer-guide/index.md
