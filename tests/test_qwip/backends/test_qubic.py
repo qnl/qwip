@@ -213,6 +213,12 @@ class TestQubicCompiler:
                 [VirtualZ(qubit="Q0", phase=np.pi / 2, freq="freq_GE")],
             ),
             (
+                0,
+                VirtualZWaveform(phase=90, frame=5e9),
+                0,
+                [VirtualZ(phase=np.pi / 2, freq=5e9)],
+            ),
+            (
                 50e-9,
                 SquareWaveform(width=50e-9, amplitude=0.5, channel="Q0.qdrv"),
                 500,

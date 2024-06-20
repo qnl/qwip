@@ -341,18 +341,17 @@ class QubicCompiler(QWiPCompiler):
                         f"Qubic does not support vector mod keys, got {frame}."
                     )
 
-                if not isinstance(frame.offset, str):
-                    raise ValueError(
-                        f"Virtual Z frames must be named on Qubic, got {frame}"
-                    )
-
-                match frame.offset.split("."):
-                    case (qubit, *freqname):
-                        qubit = qubit
-                        freqname = ".".join(freqname)
-                    case qubit:
-                        qubit = qubit
-                        freqname = None
+                if isinstance(frame.offset, str):
+                    match frame.offset.split("."):
+                        case (qubit, *freqname):
+                            qubit = qubit
+                            freqname = ".".join(freqname)
+                        case qubit:
+                            qubit = qubit
+                            freqname = None
+                else:
+                    qubit = None
+                    freqname = frame.offset
 
                 instructions.append(
                     VirtualZ(qubit=qubit, phase=phase * np.pi / 180, freq=freqname)
