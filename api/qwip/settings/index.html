@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
@@ -591,6 +591,8 @@
       
         
       
+        
+      
     
     
       
@@ -686,6 +688,27 @@
   
   <span class="md-ellipsis">
     Sequences
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/sequences/frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
   </span>
   
 
@@ -3512,9 +3535,9 @@
 
 
 <a id="qwip.settings"></a>
-    <div class="doc doc-contents first">
+  <div class="doc doc-contents first">
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3530,22 +3553,22 @@
 
 
 <h2 id="qwip.settings.Settings" class="doc doc-heading">
-            <code>Settings</code>
+          <code>Settings</code>
 
 
 <a href="#qwip.settings.Settings" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatMapping" href="../flatdict/#qwip.flatdict.FlatMapping">FlatMapping</a></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatMapping" href="../flatdict/#qwip.flatdict.FlatMapping">FlatMapping</a></code></p>
 
-
+  
       <p>A validated dataclass object.</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/settings.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-13"> 13</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\settings.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-13"> 13</a></span>
 <span class="normal"><a href="#__codelineno-0-14"> 14</a></span>
 <span class="normal"><a href="#__codelineno-0-15"> 15</a></span>
 <span class="normal"><a href="#__codelineno-0-16"> 16</a></span>
@@ -3751,11 +3774,12 @@
 </span><span id="__span-0-114"><a id="__codelineno-0-114" name="__codelineno-0-114"></a>    <span class="k">def</span> <span class="nf">save</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file</span><span class="p">,</span> <span class="n">file_fmt</span><span class="o">=</span><span class="s2">&quot;yaml&quot;</span><span class="p">):</span>
 </span><span id="__span-0-115"><a id="__codelineno-0-115" name="__codelineno-0-115"></a>        <span class="k">pass</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -3768,64 +3792,66 @@
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.settings.Settings.context" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">validate</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#qwip.settings.Settings.context" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Context manager for temporarily changing parameters.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>settings</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A dictionary with a subset of keys to temporarily
-update the <code>Settings</code> object with.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>validate</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether or not to validate assignments within the
-context block.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/settings.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-55">55</a></span>
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>settings</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A dictionary with a subset of keys to temporarily
+update the <code>Settings</code> object with.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>validate</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Whether or not to validate assignments within the
+context block.</p>
+            </div>
+          </td>
+          <td>
+                <code>True</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\settings.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-55">55</a></span>
 <span class="normal"><a href="#__codelineno-0-56">56</a></span>
 <span class="normal"><a href="#__codelineno-0-57">57</a></span>
 <span class="normal"><a href="#__codelineno-0-58">58</a></span>
@@ -3865,17 +3891,19 @@ context block.</p>
 </span><span id="__span-0-73"><a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="n">attr</span><span class="o">.</span><span class="n">set_run_validators</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
 </span><span id="__span-0-74"><a id="__codelineno-0-74" name="__codelineno-0-74"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">orig</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
-<h3 id="qwip.settings.Settings.load" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">file_fmt</span><span class="o">=</span><span class="s1">&#39;toml&#39;</span><span class="p">)</span></code>
 
+<h3 id="qwip.settings.Settings.load" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">file</span><span class="p">,</span> <span class="n">file_fmt</span><span class="o">=</span><span class="s1">&#39;toml&#39;</span><span class="p">)</span></code>
+  
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
   </span>
@@ -3883,56 +3911,57 @@ context block.</p>
 <a href="#qwip.settings.Settings.load" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Creates a <code>Settings</code> object from either a JSON or TOML file.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>file</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A path to the settings file.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>file_fmt</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a>[&#39;json&#39;, &#39;toml&#39;]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A string specifying the file format of the settings file.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;toml&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/settings.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>file</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A path to the settings file.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>file_fmt</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a>[&#39;json&#39;, &#39;toml&#39;]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A string specifying the file format of the settings file.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;toml&#39;</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\settings.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
 <span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
 <span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
 <span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
@@ -3970,17 +3999,19 @@ context block.</p>
 </span><span id="__span-0-111"><a id="__codelineno-0-111" name="__codelineno-0-111"></a>
 </span><span id="__span-0-112"><a id="__codelineno-0-112" name="__codelineno-0-112"></a>    <span class="k">return</span> <span class="n">s</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
-<h3 id="qwip.settings.Settings.schema" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">schema</span><span class="p">()</span></code>
 
+<h3 id="qwip.settings.Settings.schema" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">schema</span><span class="p">()</span></code>
+  
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
   </span>
@@ -3988,13 +4019,13 @@ context block.</p>
 <a href="#qwip.settings.Settings.schema" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a JSON schema in dictionary format for the <code>Settings</code> class.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/settings.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-89">89</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\settings.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-89">89</a></span>
 <span class="normal"><a href="#__codelineno-0-90">90</a></span>
 <span class="normal"><a href="#__codelineno-0-91">91</a></span>
 <span class="normal"><a href="#__codelineno-0-92">92</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="nd">@classmethod</span>
@@ -4002,34 +4033,36 @@ context block.</p>
 </span><span id="__span-0-91"><a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns a JSON schema in dictionary format for the `Settings` class.&quot;&quot;&quot;</span>
 </span><span id="__span-0-92"><a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="k">return</span> <span class="n">schema</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.settings.Settings.validate" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">validate</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">validate</span><span class="p">()</span></code>
 
 <a href="#qwip.settings.Settings.validate" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Calls all validators attached to field attributes.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/settings.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-51">51</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\settings.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-51">51</a></span>
 <span class="normal"><a href="#__codelineno-0-52">52</a></span>
 <span class="normal"><a href="#__codelineno-0-53">53</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="k">def</span> <span class="nf">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 </span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Calls all validators attached to field attributes.&quot;&quot;&quot;</span>
 </span><span id="__span-0-53"><a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="n">attr</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -4037,7 +4070,8 @@ context block.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -4046,7 +4080,7 @@ context block.</p>
 
   </div>
 
-    </div>
+  </div>
 
 </div>
 
@@ -4142,7 +4176,7 @@ context block.</p>
     <script id="__config" type="application/json">{"base": "../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../assets/js/termynal.js"></script>
       

@@ -14,11 +14,11 @@
         <link rel="prev" href="../timelines/">
       
       
-        <link rel="next" href="../../workflow/">
+        <link rel="next" href="../frame-tracking/">
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
@@ -598,6 +598,8 @@
       
         
       
+        
+      
     
     
       
@@ -764,6 +766,27 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
+  </span>
+  
+
+      </a>
     </li>
   
 
@@ -3471,7 +3494,7 @@
 <span class="normal"><a href="#__codelineno-1-4">4</a></span>
 <span class="normal"><a href="#__codelineno-1-5">5</a></span>
 <span class="normal"><a href="#__codelineno-1-6">6</a></span>
-<span class="normal"><a href="#__codelineno-1-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="n">X90</span> <span class="o">=</span> <span class="n">GaussianWaveform</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mf">20e-9</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;CH0&quot;</span><span class="p">,))</span>
+<span class="normal"><a href="#__codelineno-1-7">7</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><span class="n">X90</span> <span class="o">=</span> <span class="n">GaussianWaveform</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mf">20e-9</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">0.25</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s2">&quot;CH0&quot;</span><span class="p">)</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a><span class="n">Z</span> <span class="o">=</span> <span class="n">VirtualZWaveform</span><span class="p">(</span><span class="n">frame</span><span class="o">=</span><span class="s2">&quot;Q0&quot;</span><span class="p">,</span> <span class="n">phase</span><span class="o">=</span><span class="s2">&quot;zphase&quot;</span><span class="p">)</span>
 </span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4"></a><span class="n">Y90</span> <span class="o">=</span> <span class="n">Timeline</span><span class="o">.</span><span class="n">from_layers</span><span class="p">([</span><span class="n">Z</span><span class="o">.</span><span class="n">evolve</span><span class="p">(</span><span class="n">phase</span><span class="o">=-</span><span class="mi">90</span><span class="p">),</span> <span class="n">X90</span><span class="p">,</span> <span class="n">Z</span><span class="o">.</span><span class="n">evolve</span><span class="p">(</span><span class="n">phase</span><span class="o">=</span><span class="mi">90</span><span class="p">)])</span>
@@ -3494,7 +3517,7 @@
 <span class="normal"><a href="#__codelineno-2-11">11</a></span>
 <span class="normal"><a href="#__codelineno-2-12">12</a></span>
 <span class="normal"><a href="#__codelineno-2-13">13</a></span>
-<span class="normal"><a href="#__codelineno-2-14">14</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="n">readout</span> <span class="o">=</span> <span class="n">SquareWaveform</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;RO&quot;</span><span class="p">,))</span>
+<span class="normal"><a href="#__codelineno-2-14">14</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><span class="n">readout</span> <span class="o">=</span> <span class="n">SquareWaveform</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s2">&quot;RO&quot;</span><span class="p">)</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><span class="n">labels</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;I&quot;</span><span class="p">,</span> <span class="s2">&quot;X90&quot;</span><span class="p">,</span> <span class="s2">&quot;Y90&quot;</span><span class="p">,</span> <span class="s2">&quot;X180&quot;</span><span class="p">]</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><span class="n">basis</span> <span class="o">=</span> <span class="p">([],</span> <span class="p">[</span><span class="n">X90</span><span class="p">],</span> <span class="p">[</span><span class="n">Y90</span><span class="p">],</span> <span class="p">[</span><span class="n">X90</span><span class="p">,</span> <span class="n">X90</span><span class="p">])</span>
@@ -3621,7 +3644,7 @@
 <span class="normal"><a href="#__codelineno-6-18">18</a></span>
 <span class="normal"><a href="#__codelineno-6-19">19</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><span class="n">drive</span> <span class="o">=</span> <span class="n">ModulatedWaveform</span><span class="p">(</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a>    <span class="n">envelope</span><span class="o">=</span><span class="n">SquareWaveform</span><span class="p">(</span><span class="n">width</span><span class="o">=</span><span class="s2">&quot;time&quot;</span><span class="p">,</span> <span class="n">amplitude</span><span class="o">=</span><span class="mf">0.5</span><span class="p">),</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a>    <span class="n">modulation</span><span class="o">=</span><span class="n">CWWaveform</span><span class="p">(</span><span class="n">frequency</span><span class="o">=</span><span class="s2">&quot;frequency&quot;</span><span class="p">,</span> <span class="n">channels</span><span class="o">=</span><span class="p">(</span><span class="s2">&quot;Q0&quot;</span><span class="p">,)),</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a>    <span class="n">modulation</span><span class="o">=</span><span class="n">CWWaveform</span><span class="p">(</span><span class="n">frequency</span><span class="o">=</span><span class="s2">&quot;frequency&quot;</span><span class="p">,</span> <span class="n">channel</span><span class="o">=</span><span class="s2">&quot;Q0&quot;</span><span class="p">),</span>
 </span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a><span class="p">)</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5"></a><span class="n">rabi_tmln</span> <span class="o">=</span> <span class="n">Timeline</span><span class="o">.</span><span class="n">from_layers</span><span class="p">([</span><span class="n">drive</span><span class="p">,</span> <span class="n">readout</span><span class="p">])</span>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6"></a>
@@ -3733,7 +3756,7 @@
     <script id="__config" type="application/json">{"base": "../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../assets/js/termynal.js"></script>
       

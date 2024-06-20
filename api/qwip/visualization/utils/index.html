@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../../assets/stylesheets/palette.06af60db.min.css">
@@ -591,6 +591,8 @@
       
         
       
+        
+      
     
     
       
@@ -686,6 +688,27 @@
   
   <span class="md-ellipsis">
     Sequences
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../user-guide/sequences/frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
   </span>
   
 
@@ -3608,14 +3631,15 @@
 
 
 <a id="qwip.visualization.utils"></a>
-    <div class="doc doc-contents first">
-
+  <div class="doc doc-contents first">
+  
       <p>Visualization utilities.</p>
 <p>Useful helper functions for working with matplotlib.</p>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -3628,71 +3652,74 @@
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.find_closest_factors" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">find_closest_factors</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">find_closest_factors</span><span class="p">(</span><span class="n">n</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.find_closest_factors" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Given an integer n, finds the factors of n that are closest to sqrt(n)</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>n</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The integer to factor.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>n</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The integer to factor.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p><code>a, b</code> such that <code>a &lt;= b</code> and <code>a * b == n</code>.</p>
+            </div>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>a, b</code> such that <code>a &lt;= b</code> and <code>a * b == n</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-30">30</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-30">30</a></span>
 <span class="normal"><a href="#__codelineno-0-31">31</a></span>
 <span class="normal"><a href="#__codelineno-0-32">32</a></span>
 <span class="normal"><a href="#__codelineno-0-33">33</a></span>
@@ -3732,112 +3759,116 @@
 </span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48"></a>
 </span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="k">return</span> <span class="n">As</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">Bs</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.get_alpha_colormap" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_alpha_colormap</span><span class="p">(</span><span class="n">color</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">get_alpha_colormap</span><span class="p">(</span><span class="n">color</span><span class="p">,</span> <span class="n">lower</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">upper</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.get_alpha_colormap" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Constructs a colormap from a color with varying transparency.</p>
 <p>The transparency will be interpolated between lower and upper. The resulting
 colormap can always be reversed with the <code>reversed(name)</code> method of the
 colormap.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>color</code></td>
-            <td>
-                  <code>color - like</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A str or a tuple of values specifying a color.
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>color</code></td>
+          <td>
+                <code>color - like</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A str or a tuple of values specifying a color.
 Anything that can be resolved with <code>matplotlib.colors.to_rgb</code> can
 be given.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>lower</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The lower bound for alpha.</p>
-              </div>
-            </td>
-            <td>
-                  <code>0.1</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>upper</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The upper bound for alpha.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1.0</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A Colormap</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td><code>lower</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The lower bound for alpha.</p>
+            </div>
+          </td>
+          <td>
+                <code>0.1</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>upper</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The upper bound for alpha.</p>
+            </div>
+          </td>
+          <td>
+                <code>1.0</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-358">358</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A Colormap</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-358">358</a></span>
 <span class="normal"><a href="#__codelineno-0-359">359</a></span>
 <span class="normal"><a href="#__codelineno-0-360">360</a></span>
 <span class="normal"><a href="#__codelineno-0-361">361</a></span>
@@ -3885,110 +3916,114 @@ be given.</p>
 </span><span id="__span-0-380"><a id="__codelineno-0-380" name="__codelineno-0-380"></a>        <span class="n">name</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;alpha_</span><span class="si">{</span><span class="n">to_hex</span><span class="p">(</span><span class="n">color</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;#&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span>
 </span><span id="__span-0-381"><a id="__codelineno-0-381" name="__codelineno-0-381"></a>    <span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.get_axes_by_position" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_axes_by_position</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="nb">min</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">get_axes_by_position</span><span class="p">(</span><span class="n">axes</span><span class="p">,</span> <span class="n">axis</span><span class="p">,</span> <span class="n">selection</span><span class="o">=</span><span class="nb">min</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.get_axes_by_position" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Determines the subset of axes that meet the given selection criteria.</p>
 <p>This function first groups all the axes by either <code>x0</code> or <code>y0</code> of the axes bounding
 box. It will then use the selection function to determine which position should
 be returned.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>axes</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="collections.abc.Iterable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a>[<span title="matplotlib.axes.Axes">Axes</span>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>An iterable of <code>Axes</code> to select from.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>axes</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="collections.abc.Iterable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a>[<span title="matplotlib.axes.Axes">Axes</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An iterable of <code>Axes</code> to select from.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>axis</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a>[&#39;x&#39;, &#39;y&#39;]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to select based on the x or y coordinate.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>selection</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[[<a class="autorefs autorefs-external" title="collections.abc.Iterable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]], <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A selection function used to determine which axes to return.</p>
-              </div>
-            </td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#min">min</a></code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+        <tr class="doc-section-item">
+          <td><code>axis</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="typing.Literal" href="https://docs.python.org/3/library/typing.html#typing.Literal">Literal</a>[&#39;x&#39;, &#39;y&#39;]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Whether to select based on the x or y coordinate.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<span title="matplotlib.axes.Axes">Axes</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A list of <code>Axes</code> that match the given selection criteria.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td><code>selection</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[[<a class="autorefs autorefs-external" title="collections.abc.Iterable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]], <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A selection function used to determine which axes to return.</p>
+            </div>
+          </td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#min">min</a></code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<span title="matplotlib.axes.Axes">Axes</span>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A list of <code>Axes</code> that match the given selection criteria.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
 <span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
 <span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
 <span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
@@ -4050,51 +4085,54 @@ be returned.</p>
 </span><span id="__span-0-118"><a id="__codelineno-0-118" name="__codelineno-0-118"></a>
 </span><span id="__span-0-119"><a id="__codelineno-0-119" name="__codelineno-0-119"></a>    <span class="k">return</span> <span class="n">groups</span><span class="p">[</span><span class="n">selection</span><span class="p">(</span><span class="n">groups</span><span class="p">)]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.get_berkeley_colormap" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_berkeley_colormap</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">get_berkeley_colormap</span><span class="p">()</span></code>
 
 <a href="#qwip.visualization.utils.get_berkeley_colormap" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a qualitative colormap with UC Berkeley colors.</p>
 <p>Colors are specified here: <a href="https://brand.berkeley.edu/colors/">https://brand.berkeley.edu/colors/</a>.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A colormap.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-384">384</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A colormap.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-384">384</a></span>
 <span class="normal"><a href="#__codelineno-0-385">385</a></span>
 <span class="normal"><a href="#__codelineno-0-386">386</a></span>
 <span class="normal"><a href="#__codelineno-0-387">387</a></span>
@@ -4138,22 +4176,24 @@ be returned.</p>
 </span><span id="__span-0-404"><a id="__codelineno-0-404" name="__codelineno-0-404"></a>
 </span><span id="__span-0-405"><a id="__codelineno-0-405" name="__codelineno-0-405"></a>    <span class="k">return</span> <span class="n">ListedColormap</span><span class="p">(</span><span class="n">colors</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;berkeley&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">colors</span><span class="p">))</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.get_colormap" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_colormap</span><span class="p">(</span><span class="n">cmap_or_color</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">get_colormap</span><span class="p">(</span><span class="n">cmap_or_color</span><span class="p">,</span> <span class="n">dropout</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.get_colormap" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a colormap.</p>
 <p>This helper function allows for easy construction of a colormap. If a colormap is
 given it will be returned with no modifications. Otherwise if a string is given, the
@@ -4161,78 +4201,80 @@ function will first try to resolve it to a colormap and then fallback to resolvi
 it as a color.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>cmap_or_color</code></td>
-            <td>
-                  <code><span title="matplotlib.colors.Colormap">Colormap</span> | <span title="qwip.visualization.utils.TColor">TColor</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Can be anything that resolves to either a registered colormap or
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>cmap_or_color</code></td>
+          <td>
+                <code><span title="matplotlib.colors.Colormap">Colormap</span> | <span title="qwip.visualization.utils.TColor">TColor</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Can be anything that resolves to either a registered colormap or
 color.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>dropout</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If <code>None</code>, no dropout is applied. Otherwise, a dropout is applied with
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>dropout</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If <code>None</code>, no dropout is applied. Otherwise, a dropout is applied with
 <code>get_colormap_with_dropout</code> using the supplied parameters. Pass in an empty
 dictionary for default parameters. This is only applied when a color is
 given.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The resulting colormap.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-273">273</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The resulting colormap.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-273">273</a></span>
 <span class="normal"><a href="#__codelineno-0-274">274</a></span>
 <span class="normal"><a href="#__codelineno-0-275">275</a></span>
 <span class="normal"><a href="#__codelineno-0-276">276</a></span>
@@ -4310,127 +4352,131 @@ given.</p>
 </span><span id="__span-0-310"><a id="__codelineno-0-310" name="__codelineno-0-310"></a>
 </span><span id="__span-0-311"><a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="k">return</span> <span class="n">cmap</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.get_colormap_with_dropout" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_colormap_with_dropout</span><span class="p">(</span><span class="n">cmap</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">smoothing</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">get_colormap_with_dropout</span><span class="p">(</span><span class="n">cmap</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">smoothing</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.get_colormap_with_dropout" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Constructs a colormap with transparent dropout for low values.</p>
 <p>This is useful for plotting multiple 2D histograms with on the same axis.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>cmap</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | <span title="matplotlib.colors.Colormap">Colormap</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A colormap or reference to a registered colormap.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>cmap</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | <span title="matplotlib.colors.Colormap">Colormap</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A colormap or reference to a registered colormap.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>threshold</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The value below which the colormap will dropout to
+        <tr class="doc-section-item">
+          <td><code>threshold</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The value below which the colormap will dropout to
 a transparent value. Should be in [0.0, 1.0]</p>
-              </div>
-            </td>
-            <td>
-                  <code>0.2</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>smoothing</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A window around the threshold where the colormap will
+            </div>
+          </td>
+          <td>
+                <code>0.2</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>smoothing</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A window around the threshold where the colormap will
 linearly interpolate between the original colormap value and the
 dropout.</p>
-              </div>
-            </td>
-            <td>
-                  <code>0.1</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>alpha</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The transparency to apply to the original colormap. This
+            </div>
+          </td>
+          <td>
+                <code>0.1</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>alpha</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The transparency to apply to the original colormap. This
 is necessary because setting alpha outside this function will
 override the dropout.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The new colormap.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-314">314</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The new colormap.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-314">314</a></span>
 <span class="normal"><a href="#__codelineno-0-315">315</a></span>
 <span class="normal"><a href="#__codelineno-0-316">316</a></span>
 <span class="normal"><a href="#__codelineno-0-317">317</a></span>
@@ -4514,123 +4560,127 @@ override the dropout.</p>
 </span><span id="__span-0-354"><a id="__codelineno-0-354" name="__codelineno-0-354"></a>
 </span><span id="__span-0-355"><a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="k">return</span> <span class="n">new_cmap</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.get_grid_size" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_grid_size</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="mf">6.0</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">get_grid_size</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="mf">6.0</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.get_grid_size" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Determines a grid size for N subplots.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>N</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The number of subplots requested.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>N</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The number of subplots requested.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>nrows</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If not <code>None</code>, specifies the total number of rows.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>ncols</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If not <code>None</code>, specifies the total number of columns.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>ratio</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The maximum allowed value for <code>ncols / nrows</code> when both are <code>None</code>. This
+        <tr class="doc-section-item">
+          <td><code>nrows</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If not <code>None</code>, specifies the total number of rows.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>ncols</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If not <code>None</code>, specifies the total number of columns.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>ratio</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The maximum allowed value for <code>ncols / nrows</code> when both are <code>None</code>. This
 is used so that large prime values of <code>N</code> still yield reasonable grid
 configurations.</p>
-              </div>
-            </td>
-            <td>
-                  <code>6.0</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+                <code>6.0</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A tuple <code>(nrows, ncols)</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-52">52</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A tuple <code>(nrows, ncols)</code>.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-52">52</a></span>
 <span class="normal"><a href="#__codelineno-0-53">53</a></span>
 <span class="normal"><a href="#__codelineno-0-54">54</a></span>
 <span class="normal"><a href="#__codelineno-0-55">55</a></span>
@@ -4700,51 +4750,54 @@ configurations.</p>
 </span><span id="__span-0-85"><a id="__codelineno-0-85" name="__codelineno-0-85"></a>
 </span><span id="__span-0-86"><a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="k">return</span> <span class="n">nrows</span><span class="p">,</span> <span class="n">ncols</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.get_lbnl_colormap" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_lbnl_colormap</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">get_lbnl_colormap</span><span class="p">()</span></code>
 
 <a href="#qwip.visualization.utils.get_lbnl_colormap" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a qualitative colormap with LBNL colors.</p>
 <p>Colors are specified here: <a href="https://creative.lbl.gov/visual-identity/">https://creative.lbl.gov/visual-identity/</a></p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A colormap.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-408">408</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="matplotlib.colors.Colormap">Colormap</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A colormap.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-408">408</a></span>
 <span class="normal"><a href="#__codelineno-0-409">409</a></span>
 <span class="normal"><a href="#__codelineno-0-410">410</a></span>
 <span class="normal"><a href="#__codelineno-0-411">411</a></span>
@@ -4790,139 +4843,143 @@ configurations.</p>
 </span><span id="__span-0-429"><a id="__codelineno-0-429" name="__codelineno-0-429"></a>
 </span><span id="__span-0-430"><a id="__codelineno-0-430" name="__codelineno-0-430"></a>    <span class="k">return</span> <span class="n">ListedColormap</span><span class="p">(</span><span class="n">colors</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;lbnl&quot;</span><span class="p">,</span> <span class="n">N</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">colors</span><span class="p">))</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.grid_plotter" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">grid_plotter</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">axes_plotter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">subplot_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">grid_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">sort</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">grid_plotter</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">axes_plotter</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">subplot_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">grid_kwargs</span><span class="o">=</span><span class="p">{},</span> <span class="n">sort</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.grid_plotter" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Plots a dataset on a grid.</p>
 <p>Given a dataset mapping of keys to data, plots the data on a figure subplot using
 the specified plotting function.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>dataset</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A dictionary mapping keys to data. The values can be MeasurementResult
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>dataset</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A dictionary mapping keys to data. The values can be MeasurementResult
 instances, pandas dataframes, or numpy arrays, as long as the axes plotter
 can handle the data type.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>axes_plotter</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A plotting function that plots the data on a given <code>Axes</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>subplot_kwargs</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A dictionary of parameters that are passed to <code>axes_plotter</code></p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>grid_kwargs</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A dictionary of parameters that are passed to <code>make_dict_grid</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>sort</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If <code>True</code>, the dataset keys will be sorted first.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="matplotlib.figure.Figure">Figure</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A matplotlib <code>Figure</code> with the resulting subplots.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td><code>axes_plotter</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A plotting function that plots the data on a given <code>Axes</code>.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>subplot_kwargs</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A dictionary of parameters that are passed to <code>axes_plotter</code></p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>grid_kwargs</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A dictionary of parameters that are passed to <code>make_dict_grid</code>.</p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>sort</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If <code>True</code>, the dataset keys will be sorted first.</p>
+            </div>
+          </td>
+          <td>
+                <code>True</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-200">200</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="matplotlib.figure.Figure">Figure</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A matplotlib <code>Figure</code> with the resulting subplots.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-200">200</a></span>
 <span class="normal"><a href="#__codelineno-0-201">201</a></span>
 <span class="normal"><a href="#__codelineno-0-202">202</a></span>
 <span class="normal"><a href="#__codelineno-0-203">203</a></span>
@@ -4998,151 +5055,155 @@ can handle the data type.</p>
 </span><span id="__span-0-236"><a id="__codelineno-0-236" name="__codelineno-0-236"></a>
 </span><span id="__span-0-237"><a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="k">return</span> <span class="n">fig</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.make_dict_grid" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">make_dict_grid</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">layout</span><span class="o">=</span><span class="s1">&#39;constrained&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">make_dict_grid</span><span class="p">(</span><span class="n">keys</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">layout</span><span class="o">=</span><span class="s1">&#39;constrained&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.make_dict_grid" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Makes a figure subplot mosaic with subplots labeled by keys.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>keys</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="collections.abc.Collection" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Collection">Collection</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The labels for the figure subplots.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>keys</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="collections.abc.Collection" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Collection">Collection</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The labels for the figure subplots.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>nrows</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If not <code>None</code>, specifies the total number of rows.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>ncols</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If not <code>None</code>, specifies the total number of columns.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>ratio</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The maximum allowed value for <code>ncols / nrows</code> when both are <code>None</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>6.0</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>layout</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Specifies the figure layout. See <code>matplotlib.pyplot.subplot_mosaic</code> for
+        <tr class="doc-section-item">
+          <td><code>nrows</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If not <code>None</code>, specifies the total number of rows.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>ncols</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If not <code>None</code>, specifies the total number of columns.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>ratio</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The maximum allowed value for <code>ncols / nrows</code> when both are <code>None</code>.</p>
+            </div>
+          </td>
+          <td>
+                <code>6.0</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>layout</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Specifies the figure layout. See <code>matplotlib.pyplot.subplot_mosaic</code> for
 more details.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;constrained&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>**kwargs</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Additional keyword arguments are passed to
-<code>matplotlib.pyplot.subplot_mosaic</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+                <code>&#39;constrained&#39;</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<span title="matplotlib.figure.Figure">Figure</span>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The created figure and subplot dictionary.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td><code>**kwargs</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Additional keyword arguments are passed to
+<code>matplotlib.pyplot.subplot_mosaic</code>.</p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-122">122</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<span title="matplotlib.figure.Figure">Figure</span>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The created figure and subplot dictionary.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-122">122</a></span>
 <span class="normal"><a href="#__codelineno-0-123">123</a></span>
 <span class="normal"><a href="#__codelineno-0-124">124</a></span>
 <span class="normal"><a href="#__codelineno-0-125">125</a></span>
@@ -5216,152 +5277,156 @@ more details.</p>
 </span><span id="__span-0-157"><a id="__codelineno-0-157" name="__codelineno-0-157"></a>
 </span><span id="__span-0-158"><a id="__codelineno-0-158" name="__codelineno-0-158"></a>    <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h2 id="qwip.visualization.utils.make_list_grid" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">make_list_grid</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">hide_unused</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">layout</span><span class="o">=</span><span class="s1">&#39;constrained&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">make_list_grid</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">nrows</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ncols</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ratio</span><span class="o">=</span><span class="mf">6.0</span><span class="p">,</span> <span class="n">hide_unused</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">layout</span><span class="o">=</span><span class="s1">&#39;constrained&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#qwip.visualization.utils.make_list_grid" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Makes a figure subplot grid with at least N subplots.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>N</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The number of subplots requested.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>N</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The number of subplots requested.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>nrows</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If not <code>None</code>, specifies the total number of rows.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>ncols</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If not <code>None</code>, specifies the total number of columns.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>hide_unused</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If <code>True</code>, will hide all extra subplots. The N "active" subplots
+        <tr class="doc-section-item">
+          <td><code>nrows</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If not <code>None</code>, specifies the total number of rows.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>ncols</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If not <code>None</code>, specifies the total number of columns.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>hide_unused</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If <code>True</code>, will hide all extra subplots. The N "active" subplots
 start at the top left corner and go down the grid in row-major order.</p>
-              </div>
-            </td>
-            <td>
-                  <code>True</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>layout</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Specifies the figure layout. See <code>matplotlib.pyplot.subplots</code> for more
-details.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;constrained&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>**kwargs</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Additional keyword arguments are passed to
-<code>matplotlib.pyplot.subplots</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+                <code>True</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<span title="matplotlib.figure.Figure">Figure</span>, <span title="numpy.ndarray">ndarray</span>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A numpy array of empty Axes objects.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td><code>layout</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Specifies the figure layout. See <code>matplotlib.pyplot.subplots</code> for more
+details.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;constrained&#39;</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>**kwargs</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Additional keyword arguments are passed to
+<code>matplotlib.pyplot.subplots</code>.</p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/visualization/utils.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-161">161</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<span title="matplotlib.figure.Figure">Figure</span>, <span title="numpy.ndarray">ndarray</span>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A numpy array of empty Axes objects.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\visualization\utils.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-161">161</a></span>
 <span class="normal"><a href="#__codelineno-0-162">162</a></span>
 <span class="normal"><a href="#__codelineno-0-163">163</a></span>
 <span class="normal"><a href="#__codelineno-0-164">164</a></span>
@@ -5435,8 +5500,8 @@ details.</p>
 </span><span id="__span-0-196"><a id="__codelineno-0-196" name="__codelineno-0-196"></a>
 </span><span id="__span-0-197"><a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="k">return</span> <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -5444,7 +5509,7 @@ details.</p>
 
   </div>
 
-    </div>
+  </div>
 
 </div>
 
@@ -5540,7 +5605,7 @@ details.</p>
     <script id="__config" type="application/json">{"base": "../../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../../assets/js/termynal.js"></script>
       

@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
@@ -591,6 +591,8 @@
       
         
       
+        
+      
     
     
       
@@ -686,6 +688,27 @@
   
   <span class="md-ellipsis">
     Sequences
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/sequences/frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
   </span>
   
 
@@ -3446,11 +3469,11 @@
 
 
 <a id="qwip.defaults"></a>
-    <div class="doc doc-contents first">
-
+  <div class="doc doc-contents first">
+  
       <p>Dynamic defaults.</p>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3466,22 +3489,22 @@
 
 
 <h2 id="qwip.defaults.QWiPDefault" class="doc doc-heading">
-            <code>QWiPDefault</code>
+          <code>QWiPDefault</code>
 
 
 <a href="#qwip.defaults.QWiPDefault" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
+  <div class="doc doc-contents ">
 
-
+  
       <p>A class for representing dynamic default parameters.</p>
 <p>This enables <code>help(some_function)</code> to print both the <code>qsettings</code> key
 referenced by the function and the current value stored in <code>qsettings</code>.</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/defaults.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-14">14</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\defaults.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-14">14</a></span>
 <span class="normal"><a href="#__codelineno-0-15">15</a></span>
 <span class="normal"><a href="#__codelineno-0-16">16</a></span>
 <span class="normal"><a href="#__codelineno-0-17">17</a></span>
@@ -3507,9 +3530,9 @@ referenced by the function and the current value stored in <code>qsettings</code
 </span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 </span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;QWiPDefault(</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">settings_</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">])</span><span class="si">}</span><span class="s2">)&quot;</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3525,7 +3548,8 @@ referenced by the function and the current value stored in <code>qsettings</code
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -3534,56 +3558,58 @@ referenced by the function and the current value stored in <code>qsettings</code
 
 
 <h2 id="qwip.defaults.dynamic_default" class="doc doc-heading">
-            <code>dynamic_default</code>
+          <code>dynamic_default</code>
 
 
 <a href="#qwip.defaults.dynamic_default" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
+  <div class="doc doc-contents ">
 
-
+  
       <p>A function decorator for setting configurable function defaults.</p>
 <p>This decorator takes a variable number of keyword arguments.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>**kwargs</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Keyword arguments specifying the argument to add a dynamic
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>**kwargs</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Keyword arguments specifying the argument to add a dynamic
 default to and the <code>qsettings</code> path from which the default should
 be taken from.</p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
 
 
 <p><span class="doc-section-title">Examples:</span></p>
     <p>TODO</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/defaults.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-29"> 29</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\defaults.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-29"> 29</a></span>
 <span class="normal"><a href="#__codelineno-0-30"> 30</a></span>
 <span class="normal"><a href="#__codelineno-0-31"> 31</a></span>
 <span class="normal"><a href="#__codelineno-0-32"> 32</a></span>
@@ -3741,9 +3767,9 @@ be taken from.</p>
 </span><span id="__span-0-106"><a id="__codelineno-0-106" name="__codelineno-0-106"></a>
 </span><span id="__span-0-107"><a id="__codelineno-0-107" name="__codelineno-0-107"></a>        <span class="k">return</span> <span class="n">wrapper</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3759,7 +3785,8 @@ be taken from.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -3768,7 +3795,7 @@ be taken from.</p>
 
   </div>
 
-    </div>
+  </div>
 
 </div>
 
@@ -3864,7 +3891,7 @@ be taken from.</p>
     <script id="__config" type="application/json">{"base": "../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../assets/js/termynal.js"></script>
       

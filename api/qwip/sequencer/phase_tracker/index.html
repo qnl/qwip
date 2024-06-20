@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../../assets/stylesheets/palette.06af60db.min.css">
@@ -591,6 +591,8 @@
       
         
       
+        
+      
     
     
       
@@ -686,6 +688,27 @@
   
   <span class="md-ellipsis">
     Sequences
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../user-guide/sequences/frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
   </span>
   
 
@@ -3668,9 +3691,9 @@
 
 
 <a id="qwip.sequencer.phase_tracker"></a>
-    <div class="doc doc-contents first">
+  <div class="doc doc-contents first">
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3686,20 +3709,20 @@
 
 
 <h2 id="qwip.sequencer.phase_tracker.Frame" class="doc doc-heading">
-            <code>Frame</code>
+          <code>Frame</code>
 
 
 <a href="#qwip.sequencer.phase_tracker.Frame" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="qwip.sequencer.utils.LinearExpression" href="../utils/#qwip.sequencer.utils.LinearExpression">LinearExpression</a></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="qwip.sequencer.utils.LinearExpression" href="../utils/#qwip.sequencer.utils.LinearExpression">LinearExpression</a></code></p>
 
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-16">16</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-16">16</a></span>
 <span class="normal"><a href="#__codelineno-0-17">17</a></span>
 <span class="normal"><a href="#__codelineno-0-18">18</a></span>
 <span class="normal"><a href="#__codelineno-0-19">19</a></span>
@@ -3773,11 +3796,12 @@
 </span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a>
 </span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">f</span><span class="p">:</span> <span class="n">ps</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">basis</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -3790,14 +3814,15 @@
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.sequencer.phase_tracker.Frame.distribute_phase" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">distribute_phase</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">distribute_phase</span><span class="p">(</span><span class="n">phase</span><span class="p">,</span> <span class="n">precision</span><span class="o">=</span><span class="mf">1e-10</span><span class="p">)</span></code>
 
 <a href="#qwip.sequencer.phase_tracker.Frame.distribute_phase" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Distributes a phase among the basis frames.</p>
 <p>This method determines the phases to allocate to each basis frame that the
 frame depends on such that the total combined phase on the given frame equals
@@ -3806,74 +3831,76 @@ solution that minimizes the sum of the absolute value of the phases on each
 of the basis frames.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>phase</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The effective phase to apply to the given frame.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>phase</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The effective phase to apply to the given frame.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>precision</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The precision to which the phases should be rounded to.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1e-10</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+        <tr class="doc-section-item">
+          <td><code>precision</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The precision to which the phases should be rounded to.</p>
+            </div>
+          </td>
+          <td>
+                <code>1e-10</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" title="typing.Self" href="https://docs.python.org/3/library/typing.html#typing.Self">Self</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A dictionary mapping each basis frame to a phase.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-18">18</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" title="typing.Self" href="https://docs.python.org/3/library/typing.html#typing.Self">Self</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A dictionary mapping each basis frame to a phase.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-18">18</a></span>
 <span class="normal"><a href="#__codelineno-0-19">19</a></span>
 <span class="normal"><a href="#__codelineno-0-20">20</a></span>
 <span class="normal"><a href="#__codelineno-0-21">21</a></span>
@@ -3943,8 +3970,8 @@ of the basis frames.</p>
 </span><span id="__span-0-51"><a id="__codelineno-0-51" name="__codelineno-0-51"></a>
 </span><span id="__span-0-52"><a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="k">return</span> <span class="p">{</span><span class="n">f</span><span class="p">:</span> <span class="n">ps</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">basis</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -3952,7 +3979,8 @@ of the basis frames.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -3961,21 +3989,21 @@ of the basis frames.</p>
 
 
 <h2 id="qwip.sequencer.phase_tracker.PhaseJump" class="doc doc-heading">
-            <code>PhaseJump</code>
+          <code>PhaseJump</code>
 
 
 <a href="#qwip.sequencer.phase_tracker.PhaseJump" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
+  <div class="doc doc-contents ">
 
-
+  
       <p>A discrete phase jump.</p>
 <p>A phase jump specifies a time t and a phase phi.</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-64">64</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-64">64</a></span>
 <span class="normal"><a href="#__codelineno-0-65">65</a></span>
 <span class="normal"><a href="#__codelineno-0-66">66</a></span>
 <span class="normal"><a href="#__codelineno-0-67">67</a></span>
@@ -4011,9 +4039,9 @@ of the basis frames.</p>
 </span><span id="__span-0-80"><a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="k">def</span> <span class="fm">__radd__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
 </span><span id="__span-0-81"><a id="__codelineno-0-81" name="__codelineno-0-81"></a>        <span class="k">return</span> <span class="n">evolve</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">phi</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">phi</span> <span class="o">+</span> <span class="n">other</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -4029,7 +4057,8 @@ of the basis frames.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -4038,15 +4067,15 @@ of the basis frames.</p>
 
 
 <h2 id="qwip.sequencer.phase_tracker.PhaseTracker" class="doc doc-heading">
-            <code>PhaseTracker</code>
+          <code>PhaseTracker</code>
 
 
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
+  <div class="doc doc-contents ">
 
-
+  
       <p>A data structure for maintaining a set of phase jumps.</p>
 <p>Each entry in the phase tracker references a relative phase between two states
 in the Hilbert space. Phases are indexed by a unique Frame that also specifies the
@@ -4054,45 +4083,46 @@ frequency at which the particular phase evolves in the absence of any discrete p
 jumps.</p>
 
 
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.sequencer.phase_tracker.PhaseTracker.phases">phases</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.PhaseJump" href="#qwip.sequencer.phase_tracker.PhaseJump">PhaseJump</a>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A dictionary mapping Frame to a list of phase jumps.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.sequencer.phase_tracker.PhaseTracker.resets">resets</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A mapping of reference frames to a list of times at which the phase
-should get reset.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
+  <p><span class="doc-section-title">Attributes:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.sequencer.phase_tracker.PhaseTracker.phases">phases</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.PhaseJump" href="#qwip.sequencer.phase_tracker.PhaseJump">PhaseJump</a>]]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A dictionary mapping Frame to a list of phase jumps.</p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.sequencer.phase_tracker.PhaseTracker.resets">resets</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a>]]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A mapping of reference frames to a list of times at which the phase
+should get reset.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+            <details class="quote">
+              <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
 <span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
 <span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
 <span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
@@ -4562,11 +4592,12 @@ should get reset.</p>
 </span><span id="__span-0-317"><a id="__codelineno-0-317" name="__codelineno-0-317"></a>
 </span><span id="__span-0-318"><a id="__codelineno-0-318" name="__codelineno-0-318"></a>        <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span> <span class="o">*</span> <span class="n">adjusted_ts</span> <span class="o">+</span> <span class="n">df</span> <span class="o">*</span> <span class="p">(</span><span class="n">ts</span> <span class="o">-</span> <span class="n">ts</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -4579,19 +4610,20 @@ should get reset.</p>
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.sequencer.phase_tracker.PhaseTracker.__contains__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__contains__</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="fm">__contains__</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></code>
 
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.__contains__" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns True if all references are in the phase dictionary.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-157">157</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-157">157</a></span>
 <span class="normal"><a href="#__codelineno-0-158">158</a></span>
 <span class="normal"><a href="#__codelineno-0-159">159</a></span>
 <span class="normal"><a href="#__codelineno-0-160">160</a></span>
@@ -4611,80 +4643,84 @@ should get reset.</p>
 </span><span id="__span-0-165"><a id="__codelineno-0-165" name="__codelineno-0-165"></a>
 </span><span id="__span-0-166"><a id="__codelineno-0-166" name="__codelineno-0-166"></a>    <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">phases</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">deps</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.sequencer.phase_tracker.PhaseTracker.__getitem__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__getitem__</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="fm">__getitem__</span><span class="p">(</span><span class="n">val</span><span class="p">)</span></code>
 
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.__getitem__" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Gets the list of phase jumps associated with the phase entry.</p>
 <p>If the frame that is requested does not already exist in the phase tracker, an
 entry is created and populated with a null phase jump.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>val</code></td>
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The frame or str representing a frame.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>val</code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The frame or str representing a frame.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.PhaseJump" href="#qwip.sequencer.phase_tracker.PhaseJump">PhaseJump</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A list of phase jumps associated with the frame.</p>
+            </div>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.PhaseJump" href="#qwip.sequencer.phase_tracker.PhaseJump">PhaseJump</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A list of phase jumps associated with the frame.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-129">129</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-129">129</a></span>
 <span class="normal"><a href="#__codelineno-0-130">130</a></span>
 <span class="normal"><a href="#__codelineno-0-131">131</a></span>
 <span class="normal"><a href="#__codelineno-0-132">132</a></span>
@@ -4738,29 +4774,31 @@ entry is created and populated with a null phase jump.</p>
 </span><span id="__span-0-154"><a id="__codelineno-0-154" name="__codelineno-0-154"></a>
 </span><span id="__span-0-155"><a id="__codelineno-0-155" name="__codelineno-0-155"></a>    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">it</span><span class="o">.</span><span class="n">chain</span><span class="o">.</span><span class="n">from_iterable</span><span class="p">(</span><span class="n">phases</span><span class="p">))</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.sequencer.phase_tracker.PhaseTracker.append" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">append</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">phase</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">append</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">phase</span><span class="p">)</span></code>
 
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.append" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Adds a phase jump.</p>
 <p>If a composite frame is given, the phase will be distributed among the basis
 frames. See <code>Frame.distribute_phase</code> for details.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-168">168</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-168">168</a></span>
 <span class="normal"><a href="#__codelineno-0-169">169</a></span>
 <span class="normal"><a href="#__codelineno-0-170">170</a></span>
 <span class="normal"><a href="#__codelineno-0-171">171</a></span>
@@ -4794,17 +4832,19 @@ frames. See <code>Frame.distribute_phase</code> for details.</p>
 </span><span id="__span-0-183"><a id="__codelineno-0-183" name="__codelineno-0-183"></a>
 </span><span id="__span-0-184"><a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">integrate_phase</span><span class="o">.</span><span class="n">cache_clear</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
-<h3 id="qwip.sequencer.phase_tracker.PhaseTracker.compress" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">compress</span><span class="p">(</span><span class="n">phases</span><span class="p">)</span></code>
 
+<h3 id="qwip.sequencer.phase_tracker.PhaseTracker.compress" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">compress</span><span class="p">(</span><span class="n">phases</span><span class="p">)</span></code>
+  
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
@@ -4812,13 +4852,13 @@ frames. See <code>Frame.distribute_phase</code> for details.</p>
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.compress" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a list of phases with a single entry per timepoint.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-194">194</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-194">194</a></span>
 <span class="normal"><a href="#__codelineno-0-195">195</a></span>
 <span class="normal"><a href="#__codelineno-0-196">196</a></span>
 <span class="normal"><a href="#__codelineno-0-197">197</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-194"><a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="nd">@staticmethod</span>
@@ -4826,93 +4866,97 @@ frames. See <code>Frame.distribute_phase</code> for details.</p>
 </span><span id="__span-0-196"><a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Returns a list of phases with a single entry per timepoint.&quot;&quot;&quot;</span>
 </span><span id="__span-0-197"><a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="k">return</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">tphis</span><span class="p">)</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">tphis</span> <span class="ow">in</span> <span class="n">it</span><span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="n">phases</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">pt</span><span class="p">:</span> <span class="n">pt</span><span class="o">.</span><span class="n">t</span><span class="p">)]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.sequencer.phase_tracker.PhaseTracker.compute_integrated_phase" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">compute_integrated_phase</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">compute_integrated_phase</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">ts</span><span class="p">)</span></code>
 
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.compute_integrated_phase" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Computes the jump phases for a set of timepoints.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>frame</code></td>
+          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The reference frame for the phase jumps.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>frame</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The reference frame for the phase jumps.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>ts</code></td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The timepoints at which to evaluate the phases.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+        <tr class="doc-section-item">
+          <td><code>ts</code></td>
+          <td>
+                <code><span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The timepoints at which to evaluate the phases.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The jump phase at each time point.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-246">246</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The jump phase at each time point.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-246">246</a></span>
 <span class="normal"><a href="#__codelineno-0-247">247</a></span>
 <span class="normal"><a href="#__codelineno-0-248">248</a></span>
 <span class="normal"><a href="#__codelineno-0-249">249</a></span>
@@ -4994,22 +5038,24 @@ frames. See <code>Frame.distribute_phase</code> for details.</p>
 </span><span id="__span-0-285"><a id="__codelineno-0-285" name="__codelineno-0-285"></a>
 </span><span id="__span-0-286"><a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="k">return</span> <span class="n">phis</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.sequencer.phase_tracker.PhaseTracker.compute_oscillator_phase" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">compute_oscillator_phase</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="p">{},</span> <span class="n">detuning</span><span class="o">=</span><span class="n">Frame</span><span class="p">())</span></code>
+          <code class="highlight language-python"><span class="n">compute_oscillator_phase</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">ts</span><span class="p">,</span> <span class="n">frames</span><span class="o">=</span><span class="p">{},</span> <span class="n">detuning</span><span class="o">=</span><span class="n">Frame</span><span class="p">())</span></code>
 
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.compute_oscillator_phase" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Computes the phase on a reference frame due to time evolution.</p>
 <p>When there are no specified phase resets before <code>t=0</code>, it is assumed that the
 time evolution begins at <code>t=0</code>. However, if there is a phase reset for some
@@ -5018,88 +5064,90 @@ at <code>t=0</code> is explicitly added. Note that a phase reset at time <code>t
 affect timepoints greater than or equal to <code>t</code>.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>frame</code></td>
+          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The reference frame to evaluate.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>frame</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The reference frame to evaluate.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>ts</code></td>
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The timepoints at which to compute the time-evolved phase.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>frames</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A map from reference frame names to concrete frequencies.</p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+        <tr class="doc-section-item">
+          <td><code>ts</code></td>
+          <td>
+                <code><span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The timepoints at which to compute the time-evolved phase.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The time evolved phase at the specified timepoints. This phase is assumed</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td><code>frames</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A map from reference frame names to concrete frequencies.</p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-288">288</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The time evolved phase at the specified timepoints. This phase is assumed</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-288">288</a></span>
 <span class="normal"><a href="#__codelineno-0-289">289</a></span>
 <span class="normal"><a href="#__codelineno-0-290">290</a></span>
 <span class="normal"><a href="#__codelineno-0-291">291</a></span>
@@ -5161,17 +5209,19 @@ affect timepoints greater than or equal to <code>t</code>.</p>
 </span><span id="__span-0-317"><a id="__codelineno-0-317" name="__codelineno-0-317"></a>
 </span><span id="__span-0-318"><a id="__codelineno-0-318" name="__codelineno-0-318"></a>    <span class="k">return</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="p">(</span><span class="n">freq</span> <span class="o">*</span> <span class="n">adjusted_ts</span> <span class="o">+</span> <span class="n">df</span> <span class="o">*</span> <span class="p">(</span><span class="n">ts</span> <span class="o">-</span> <span class="n">ts</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
-<h3 id="qwip.sequencer.phase_tracker.PhaseTracker.from_frames" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">from_frames</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span></code>
 
+<h3 id="qwip.sequencer.phase_tracker.PhaseTracker.from_frames" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">from_frames</span><span class="p">(</span><span class="n">frames</span><span class="p">)</span></code>
+  
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
   </span>
@@ -5179,44 +5229,45 @@ affect timepoints greater than or equal to <code>t</code>.</p>
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.from_frames" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Creates an entry in the phase dictionary for each base frame.</p>
 <p>A null phase jump (phase increment of 0) will always be added at t = 0 to
 indicate that the phase should start at 0 at t = 0.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>frames</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A sequence of frames to add to the phase tracker.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-102">102</a></span>
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>frames</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a> | <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A sequence of frames to add to the phase tracker.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-102">102</a></span>
 <span class="normal"><a href="#__codelineno-0-103">103</a></span>
 <span class="normal"><a href="#__codelineno-0-104">104</a></span>
 <span class="normal"><a href="#__codelineno-0-105">105</a></span>
@@ -5262,17 +5313,19 @@ indicate that the phase should start at 0 at t = 0.</p>
 </span><span id="__span-0-123"><a id="__codelineno-0-123" name="__codelineno-0-123"></a>
 </span><span id="__span-0-124"><a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="n">phases</span><span class="o">=</span><span class="n">phases</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
-<h3 id="qwip.sequencer.phase_tracker.PhaseTracker.integrate_phase" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">integrate_phase</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span></code>
 
+<h3 id="qwip.sequencer.phase_tracker.PhaseTracker.integrate_phase" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">integrate_phase</span><span class="p">(</span><span class="n">frame</span><span class="p">)</span></code>
+  
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-cached"><code>cached</code></small>
   </span>
@@ -5280,76 +5333,78 @@ indicate that the phase should start at 0 at t = 0.</p>
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.integrate_phase" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Computes the total accumulated phase from phase jumps.</p>
 <p>This method is cached until a new phase jump is appended to the phase tracker.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>frame</code></td>
+          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The reference frame on which to compute the phase accumulation.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>frame</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.sequencer.phase_tracker.Frame" href="#qwip.sequencer.phase_tracker.Frame">Frame</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The reference frame on which to compute the phase accumulation.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The timestep of each phase jump, and the resulting cumulative phase after</p>
+            </div>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The timestep of each phase jump, and the resulting cumulative phase after</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><span title="numpy.ndarray">ndarray</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>each phase jump.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td>
+                <code><span title="numpy.ndarray">ndarray</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>each phase jump.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-211">211</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-211">211</a></span>
 <span class="normal"><a href="#__codelineno-0-212">212</a></span>
 <span class="normal"><a href="#__codelineno-0-213">213</a></span>
 <span class="normal"><a href="#__codelineno-0-214">214</a></span>
@@ -5417,27 +5472,29 @@ indicate that the phase should start at 0 at t = 0.</p>
 </span><span id="__span-0-243"><a id="__codelineno-0-243" name="__codelineno-0-243"></a>
 </span><span id="__span-0-244"><a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="k">return</span> <span class="n">t_jump</span><span class="p">,</span> <span class="n">accumulated_phase</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.sequencer.phase_tracker.PhaseTracker.reset" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">reset</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">reset</span><span class="p">(</span><span class="n">frame</span><span class="p">,</span> <span class="n">time</span><span class="p">)</span></code>
 
 <a href="#qwip.sequencer.phase_tracker.PhaseTracker.reset" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Adds a phase reset.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/sequencer/phase_tracker.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-186">186</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\sequencer\phase_tracker.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-186">186</a></span>
 <span class="normal"><a href="#__codelineno-0-187">187</a></span>
 <span class="normal"><a href="#__codelineno-0-188">188</a></span>
 <span class="normal"><a href="#__codelineno-0-189">189</a></span>
@@ -5451,8 +5508,8 @@ indicate that the phase should start at 0 at t = 0.</p>
 </span><span id="__span-0-191"><a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
 </span><span id="__span-0-192"><a id="__codelineno-0-192" name="__codelineno-0-192"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">resets</span><span class="p">[</span><span class="n">frame</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">time</span><span class="p">]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -5460,7 +5517,8 @@ indicate that the phase should start at 0 at t = 0.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -5469,7 +5527,7 @@ indicate that the phase should start at 0 at t = 0.</p>
 
   </div>
 
-    </div>
+  </div>
 
 </div>
 
@@ -5565,7 +5623,7 @@ indicate that the phase should start at 0 at t = 0.</p>
     <script id="__config" type="application/json">{"base": "../../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../../assets/js/termynal.js"></script>
       

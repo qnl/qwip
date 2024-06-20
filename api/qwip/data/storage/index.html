@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../../assets/stylesheets/palette.06af60db.min.css">
@@ -591,6 +591,8 @@
       
         
       
+        
+      
     
     
       
@@ -686,6 +688,27 @@
   
   <span class="md-ellipsis">
     Sequences
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../user-guide/sequences/frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
   </span>
   
 
@@ -3632,9 +3655,9 @@
 
 
 <a id="qwip.data.storage"></a>
-    <div class="doc doc-contents first">
+  <div class="doc doc-contents first">
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3650,20 +3673,20 @@
 
 
 <h2 id="qwip.data.storage.HTTPStorageBackend" class="doc doc-heading">
-            <code>HTTPStorageBackend</code>
+          <code>HTTPStorageBackend</code>
 
 
 <a href="#qwip.data.storage.HTTPStorageBackend" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="qwip.data.storage.StorageBackend" href="#qwip.data.storage.StorageBackend">StorageBackend</a></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="qwip.data.storage.StorageBackend" href="#qwip.data.storage.StorageBackend">StorageBackend</a></code></p>
 
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/data/storage.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\data\storage.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
 <span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
 <span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
 <span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
@@ -4121,11 +4144,12 @@
 </span><span id="__span-0-320"><a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-321"><a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -4138,70 +4162,73 @@
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.data.storage.HTTPStorageBackend.list_directory" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_directory</span><span class="p">(</span><span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">list_directory</span><span class="p">(</span><span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
 
 <a href="#qwip.data.storage.HTTPStorageBackend.list_directory" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Get contents of a directory.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>folder</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The folder to list.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;/&#39;</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>folder</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The folder to list.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;/&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A list of the folder contents.</p>
+            </div>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A list of the folder contents.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-182">182</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-182">182</a></span>
 <span class="normal"><a href="#__codelineno-0-183">183</a></span>
 <span class="normal"><a href="#__codelineno-0-184">184</a></span>
 <span class="normal"><a href="#__codelineno-0-185">185</a></span>
@@ -4233,96 +4260,100 @@
 </span><span id="__span-0-196"><a id="__codelineno-0-196" name="__codelineno-0-196"></a>
 </span><span id="__span-0-197"><a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="k">return</span> <span class="n">response</span><span class="o">.</span><span class="n">json</span><span class="p">()[</span><span class="s2">&quot;contents&quot;</span><span class="p">]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.data.storage.HTTPStorageBackend.load_buffer" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load_buffer</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">load_buffer</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
 
 <a href="#qwip.data.storage.HTTPStorageBackend.load_buffer" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Loads the contents of a file from the storage backend.</p>
 <p>The file contents are loaded to a <code>SpooledTemporaryFile</code> so that large files
 are not completely read into memory. The file is deleted from disk and memory
 once it is closed.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>address</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The address of the file to load.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>address</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The address of the file to load.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>folder</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A subfolder that the address should be referenced to.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;/&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+        <tr class="doc-section-item">
+          <td><code>folder</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A subfolder that the address should be referenced to.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;/&#39;</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" title="tempfile.SpooledTemporaryFile" href="https://docs.python.org/3/library/tempfile.html#tempfile.SpooledTemporaryFile">SpooledTemporaryFile</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A temporary file that can be read from.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-289">289</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" title="tempfile.SpooledTemporaryFile" href="https://docs.python.org/3/library/tempfile.html#tempfile.SpooledTemporaryFile">SpooledTemporaryFile</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A temporary file that can be read from.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-289">289</a></span>
 <span class="normal"><a href="#__codelineno-0-290">290</a></span>
 <span class="normal"><a href="#__codelineno-0-291">291</a></span>
 <span class="normal"><a href="#__codelineno-0-292">292</a></span>
@@ -4382,64 +4413,66 @@ once it is closed.</p>
 </span><span id="__span-0-317"><a id="__codelineno-0-317" name="__codelineno-0-317"></a>
 </span><span id="__span-0-318"><a id="__codelineno-0-318" name="__codelineno-0-318"></a>    <span class="k">return</span> <span class="n">tmp</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.data.storage.HTTPStorageBackend.make_directory" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">make_directory</span><span class="p">(</span><span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">make_directory</span><span class="p">(</span><span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
 
 <a href="#qwip.data.storage.HTTPStorageBackend.make_directory" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Create a directory in the storage backend.</p>
 <p>If the specified folder already exists, the state of the dataserver will
 remain unchanged.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>folder</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The path of the folder to create. All parent directories are also
-created as needed.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;/&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>folder</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The path of the folder to create. All parent directories are also
+created as needed.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;/&#39;</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
 <details class="return" open>
   <summary>Return</summary>
   <p>The created folder path.</p>
 </details>
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-132">132</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-132">132</a></span>
 <span class="normal"><a href="#__codelineno-0-133">133</a></span>
 <span class="normal"><a href="#__codelineno-0-134">134</a></span>
 <span class="normal"><a href="#__codelineno-0-135">135</a></span>
@@ -4487,17 +4520,19 @@ created as needed.</p>
 </span><span id="__span-0-154"><a id="__codelineno-0-154" name="__codelineno-0-154"></a>        <span class="k">case</span> <span class="n">body</span><span class="p">:</span>
 </span><span id="__span-0-155"><a id="__codelineno-0-155" name="__codelineno-0-155"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown response from server: </span><span class="si">{</span><span class="n">body</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
-<h3 id="qwip.data.storage.HTTPStorageBackend.parse_url" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">parse_url</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">address</span><span class="p">)</span></code>
 
+<h3 id="qwip.data.storage.HTTPStorageBackend.parse_url" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">parse_url</span><span class="p">(</span><span class="n">folder</span><span class="p">,</span> <span class="n">address</span><span class="p">)</span></code>
+  
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-staticmethod"><code>staticmethod</code></small>
   </span>
@@ -4505,90 +4540,92 @@ created as needed.</p>
 <a href="#qwip.data.storage.HTTPStorageBackend.parse_url" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Normalizes address, filename pairs so the filename contains no slashes.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>folder</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The beginning part of the address.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>folder</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The beginning part of the address.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>address</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A filename to append to address, possibly containing additional
+        <tr class="doc-section-item">
+          <td><code>address</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A filename to append to address, possibly containing additional
 folders.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An (folder, address) pair such that all folders in filename are added to</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the address instead.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-104">104</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>An (folder, address) pair such that all folders in filename are added to</p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>the address instead.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-104">104</a></span>
 <span class="normal"><a href="#__codelineno-0-105">105</a></span>
 <span class="normal"><a href="#__codelineno-0-106">106</a></span>
 <span class="normal"><a href="#__codelineno-0-107">107</a></span>
@@ -4642,64 +4679,66 @@ folders.</p>
 </span><span id="__span-0-129"><a id="__codelineno-0-129" name="__codelineno-0-129"></a>
 </span><span id="__span-0-130"><a id="__codelineno-0-130" name="__codelineno-0-130"></a>    <span class="k">return</span> <span class="n">base</span><span class="p">,</span> <span class="n">name</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.data.storage.HTTPStorageBackend.remove_directory" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">remove_directory</span><span class="p">(</span><span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">remove_directory</span><span class="p">(</span><span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
 
 <a href="#qwip.data.storage.HTTPStorageBackend.remove_directory" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Remove a directory in the storage backend.</p>
 <p>All subfolders and files in the directory are recursively removed. The root
 folder cannot be deleted.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>folder</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The path of the folder to delete. All child directories and files
-are also removed.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;/&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>folder</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The path of the folder to delete. All child directories and files
+are also removed.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;/&#39;</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
 <details class="return" open>
   <summary>Return</summary>
   <p>The path of the deleted folder.</p>
 </details>
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-157">157</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-157">157</a></span>
 <span class="normal"><a href="#__codelineno-0-158">158</a></span>
 <span class="normal"><a href="#__codelineno-0-159">159</a></span>
 <span class="normal"><a href="#__codelineno-0-160">160</a></span>
@@ -4747,103 +4786,107 @@ are also removed.</p>
 </span><span id="__span-0-179"><a id="__codelineno-0-179" name="__codelineno-0-179"></a>        <span class="k">case</span> <span class="n">body</span><span class="p">:</span>
 </span><span id="__span-0-180"><a id="__codelineno-0-180" name="__codelineno-0-180"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown response from server: </span><span class="si">{</span><span class="n">body</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.data.storage.HTTPStorageBackend.save_buffer" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">save_buffer</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">save_buffer</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
 
 <a href="#qwip.data.storage.HTTPStorageBackend.save_buffer" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Saves the contents of a file-like object to the storage backend.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>address</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The address of the new file to create.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>address</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The address of the new file to create.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>folder</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A subfolder that the address should be referenced to.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;/&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+        <tr class="doc-section-item">
+          <td><code>folder</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A subfolder that the address should be referenced to.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;/&#39;</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The address of the file on the storage backend or <code>None</code>, if it failed to</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>save.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-199">199</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The address of the file on the storage backend or <code>None</code>, if it failed to</p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>save.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
 <span class="normal"><a href="#__codelineno-0-201">201</a></span>
 <span class="normal"><a href="#__codelineno-0-202">202</a></span>
@@ -4917,103 +4960,107 @@ are also removed.</p>
 </span><span id="__span-0-234"><a id="__codelineno-0-234" name="__codelineno-0-234"></a>        <span class="k">case</span> <span class="p">{</span><span class="s2">&quot;address&quot;</span><span class="p">:</span> <span class="n">download_address</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">}:</span>
 </span><span id="__span-0-235"><a id="__codelineno-0-235" name="__codelineno-0-235"></a>            <span class="k">return</span> <span class="n">download_address</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.data.storage.HTTPStorageBackend.save_buffers" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">save_buffers</span><span class="p">(</span><span class="n">streams</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">save_buffers</span><span class="p">(</span><span class="n">streams</span><span class="p">,</span> <span class="n">folder</span><span class="o">=</span><span class="s1">&#39;/&#39;</span><span class="p">)</span></code>
 
 <a href="#qwip.data.storage.HTTPStorageBackend.save_buffers" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Saves multiple files with a single http request.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>streams</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="io.BufferedReader" href="https://docs.python.org/3/library/io.html#io.BufferedReader">BufferedReader</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A mapping of addresses to file-like objects that can be read.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>streams</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="io.BufferedReader" href="https://docs.python.org/3/library/io.html#io.BufferedReader">BufferedReader</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A mapping of addresses to file-like objects that can be read.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>folder</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A subfolder that the addresses should be referenced to.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;/&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+        <tr class="doc-section-item">
+          <td><code>folder</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A subfolder that the addresses should be referenced to.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;/&#39;</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A list of addresses for the files that were uploaded. If a given file</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>fails to save, the address will be <code>None</code> instead.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-237">237</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A list of addresses for the files that were uploaded. If a given file</p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>fails to save, the address will be <code>None</code> instead.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-237">237</a></span>
 <span class="normal"><a href="#__codelineno-0-238">238</a></span>
 <span class="normal"><a href="#__codelineno-0-239">239</a></span>
 <span class="normal"><a href="#__codelineno-0-240">240</a></span>
@@ -5115,8 +5162,8 @@ are also removed.</p>
 </span><span id="__span-0-286"><a id="__codelineno-0-286" name="__codelineno-0-286"></a>                <span class="n">download_addresses</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">address</span><span class="p">)</span>
 </span><span id="__span-0-287"><a id="__codelineno-0-287" name="__codelineno-0-287"></a>    <span class="k">return</span> <span class="n">download_addresses</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -5124,7 +5171,8 @@ are also removed.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -5133,18 +5181,18 @@ are also removed.</p>
 
 
 <h2 id="qwip.data.storage.StorageBackend" class="doc doc-heading">
-            <code>StorageBackend</code>
+          <code>StorageBackend</code>
 
 
 <a href="#qwip.data.storage.StorageBackend" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
+  <div class="doc doc-contents ">
 
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/data/storage.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-28">28</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\data\storage.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-28">28</a></span>
 <span class="normal"><a href="#__codelineno-0-29">29</a></span>
 <span class="normal"><a href="#__codelineno-0-30">30</a></span>
 <span class="normal"><a href="#__codelineno-0-31">31</a></span>
@@ -5270,11 +5318,12 @@ are also removed.</p>
 </span><span id="__span-0-89"><a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="nd">@abstractmethod</span>
 </span><span id="__span-0-90"><a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="k">def</span> <span class="nf">load_buffer</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">address</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">SpooledTemporaryFile</span><span class="p">:</span> <span class="o">...</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -5287,100 +5336,103 @@ are also removed.</p>
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.data.storage.StorageBackend.load" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">load</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#qwip.data.storage.StorageBackend.load" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Loads a single object.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>address</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The address specifying where in the storage backend to locate
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>address</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The address specifying where in the storage backend to locate
 the object.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>serializer</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | <a class="autorefs autorefs-internal" title="qwip.data.serializers.Serializer" href="../serializers/#qwip.data.serializers.Serializer">Serializer</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The serializer to use. If a string is given, a serializer will
-be looked from the list of registered serializers.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;default&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>**kwargs</code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Remaining keyword arguments are passed to the serializer.</p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The loaded object.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td><code>serializer</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | <a class="autorefs autorefs-internal" title="qwip.data.serializers.Serializer" href="../serializers/#qwip.data.serializers.Serializer">Serializer</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The serializer to use. If a string is given, a serializer will
+be looked from the list of registered serializers.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;default&#39;</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>**kwargs</code></td>
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Remaining keyword arguments are passed to the serializer.</p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-57">57</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The loaded object.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-57">57</a></span>
 <span class="normal"><a href="#__codelineno-0-58">58</a></span>
 <span class="normal"><a href="#__codelineno-0-59">59</a></span>
 <span class="normal"><a href="#__codelineno-0-60">60</a></span>
@@ -5420,105 +5472,107 @@ be looked from the list of registered serializers.</p>
 </span><span id="__span-0-75"><a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="n">stream</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">load_buffer</span><span class="p">(</span><span class="n">address</span><span class="p">)</span>
 </span><span id="__span-0-76"><a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="k">return</span> <span class="n">serializer</span><span class="o">.</span><span class="n">from_stream</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.data.storage.StorageBackend.save" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">save</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">obj</span><span class="p">,</span> <span class="n">serializer</span><span class="o">=</span><span class="s1">&#39;default&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#qwip.data.storage.StorageBackend.save" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Saves a single object.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>address</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The address specifying where in the storage backend to save
-the object.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>obj</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The object to save. This will be serialized and then saved to the
-storage backend.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>serializer</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | <a class="autorefs autorefs-internal" title="qwip.data.serializers.Serializer" href="../serializers/#qwip.data.serializers.Serializer">Serializer</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The serializer to use. If a string is given, a serializer will
-be looked from the list of registered serializers.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;default&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>**kwargs</code></td>
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Additional keyword arguments are passed to the serializer.</p>
-              </div>
-            </td>
-            <td>
-                  <code>{}</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>address</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The address specifying where in the storage backend to save
+the object.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>obj</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The object to save. This will be serialized and then saved to the
+storage backend.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>serializer</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | <a class="autorefs autorefs-internal" title="qwip.data.serializers.Serializer" href="../serializers/#qwip.data.serializers.Serializer">Serializer</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The serializer to use. If a string is given, a serializer will
+be looked from the list of registered serializers.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;default&#39;</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>**kwargs</code></td>
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Additional keyword arguments are passed to the serializer.</p>
+            </div>
+          </td>
+          <td>
+                <code>{}</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
 <details class="return" open>
   <summary>Return</summary>
   <p>The location of the saved object, or <code>None</code> if it failed to save.</p>
 </details>
-            <details class="quote">
-              <summary>Source code in <code>qwip/data/storage.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-30">30</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\data\storage.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-30">30</a></span>
 <span class="normal"><a href="#__codelineno-0-31">31</a></span>
 <span class="normal"><a href="#__codelineno-0-32">32</a></span>
 <span class="normal"><a href="#__codelineno-0-33">33</a></span>
@@ -5570,8 +5624,8 @@ be looked from the list of registered serializers.</p>
 </span><span id="__span-0-54"><a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="n">stream</span> <span class="o">=</span> <span class="n">serializer</span><span class="o">.</span><span class="n">to_stream</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </span><span id="__span-0-55"><a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">save_buffer</span><span class="p">(</span><span class="n">address</span><span class="p">,</span> <span class="n">stream</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -5579,7 +5633,8 @@ be looked from the list of registered serializers.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -5588,7 +5643,7 @@ be looked from the list of registered serializers.</p>
 
   </div>
 
-    </div>
+  </div>
 
 </div>
 
@@ -5611,7 +5666,7 @@ be looked from the list of registered serializers.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1-2.1-2M12.5 7v5.2l4 2.4-1 1L11 13V7h1.5M11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2v1.8Z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">May 24, 2024</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">June 20, 2024</span>
   </span>
 
     
@@ -5684,7 +5739,7 @@ be looked from the list of registered serializers.</p>
     <script id="__config" type="application/json">{"base": "../../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../../assets/js/termynal.js"></script>
       

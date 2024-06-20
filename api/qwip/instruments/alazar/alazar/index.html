@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../../../assets/stylesheets/palette.06af60db.min.css">
@@ -591,6 +591,8 @@
       
         
       
+        
+      
     
     
       
@@ -686,6 +688,27 @@
   
   <span class="md-ellipsis">
     Sequences
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../../user-guide/sequences/frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
   </span>
   
 
@@ -3836,8 +3859,8 @@
 
 
 <a id="qwip.instruments.alazar.alazar"></a>
-    <div class="doc doc-contents first">
-
+  <div class="doc doc-contents first">
+  
       <p>Alazar device</p>
 <p>!note "To add a new Alazar board"
     1. Create a new class like ATS9870 below
@@ -3854,7 +3877,7 @@
 http://www.alazartech.com/support/Download%20Files/ATS-SDK-Guide-7.1.4.pdf
 </code></pre></div>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3870,20 +3893,20 @@ http://www.alazartech.com/support/Download%20Files/ATS-SDK-Guide-7.1.4.pdf
 
 
 <h2 id="qwip.instruments.alazar.alazar.Alazar" class="doc doc-heading">
-            <code>Alazar</code>
+          <code>Alazar</code>
 
 
 <a href="#qwip.instruments.alazar.alazar.Alazar" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
+  <div class="doc doc-contents ">
 
-
+  
       <p>Class for Alazar fast digitzer cards.</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-307">307</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-307">307</a></span>
 <span class="normal"><a href="#__codelineno-0-308">308</a></span>
 <span class="normal"><a href="#__codelineno-0-309">309</a></span>
 <span class="normal"><a href="#__codelineno-0-310">310</a></span>
@@ -5161,11 +5184,12 @@ http://www.alazartech.com/support/Download%20Files/ATS-SDK-Guide-7.1.4.pdf
 </span><span id="__span-0-944"><a id="__codelineno-0-944" name="__codelineno-0-944"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">abortCapture</span><span class="p">()</span>
 </span><span id="__span-0-945"><a id="__codelineno-0-945" name="__codelineno-0-945"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">abortAsyncRead</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -5178,20 +5202,21 @@ http://www.alazartech.com/support/Download%20Files/ATS-SDK-Guide-7.1.4.pdf
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.__init__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;Alazar&#39;</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s1">&#39;Alazar&#39;</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.__init__" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Initialize the board.</p>
 <p>Server initialization fails if no board can be found.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-310">310</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-310">310</a></span>
 <span class="normal"><a href="#__codelineno-0-311">311</a></span>
 <span class="normal"><a href="#__codelineno-0-312">312</a></span>
 <span class="normal"><a href="#__codelineno-0-313">313</a></span>
@@ -5251,111 +5276,115 @@ http://www.alazartech.com/support/Download%20Files/ATS-SDK-Guide-7.1.4.pdf
 </span><span id="__span-0-338"><a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="c1"># self.min_buffers = 32 # increased to fix overflow error with ATS9870</span>
 </span><span id="__span-0-339"><a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">min_buffers</span> <span class="o">=</span> <span class="mi">128</span>  <span class="c1"># Was 128, JM has 1024</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.acquire" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">acquire</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">convert_to_float</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">acquire</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="mi">10000</span><span class="p">,</span> <span class="n">convert_to_float</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.acquire" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Acquire data from the alazar. Returns a 4 dimensional array of data</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>timeout</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>time to wait for trigger before cancelling (ms)</p>
+            </div>
+          </td>
+          <td>
+                <code>10000</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>timeout</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>time to wait for trigger before cancelling (ms)</p>
-              </div>
-            </td>
-            <td>
-                  <code>10000</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>convert_to_float</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>returns data as a numpy float if <code>True</code>, otherwise returns
+        <tr class="doc-section-item">
+          <td><code>convert_to_float</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>returns data as a numpy float if <code>True</code>, otherwise returns
 an integer from zero to 2^bit depth.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+                <code>False</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An array of size <code>channels x n_repetitions x expected_triggers x samples</code></p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>if <code>mean=False</code>, or <code>channels x 1 x expected_triggers x samples</code> if</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>mean=True</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-851">851</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>An array of size <code>channels x n_repetitions x expected_triggers x samples</code></p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>if <code>mean=False</code>, or <code>channels x 1 x expected_triggers x samples</code> if</p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p><code>mean=True</code>.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-851">851</a></span>
 <span class="normal"><a href="#__codelineno-0-852">852</a></span>
 <span class="normal"><a href="#__codelineno-0-853">853</a></span>
 <span class="normal"><a href="#__codelineno-0-854">854</a></span>
@@ -5531,28 +5560,30 @@ an integer from zero to 2^bit depth.</p>
 </span><span id="__span-0-937"><a id="__codelineno-0-937" name="__codelineno-0-937"></a>
 </span><span id="__span-0-938"><a id="__codelineno-0-938" name="__codelineno-0-938"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">data</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.board_dsp_modules" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">board_dsp_modules</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">board_dsp_modules</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.board_dsp_modules" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the list of dsp modules in the alazar.</p>
 <p>Modules are delineated by ID number, version maj/minor, and length.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-369">369</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-369">369</a></span>
 <span class="normal"><a href="#__codelineno-0-370">370</a></span>
 <span class="normal"><a href="#__codelineno-0-371">371</a></span>
 <span class="normal"><a href="#__codelineno-0-372">372</a></span>
@@ -5564,124 +5595,131 @@ an integer from zero to 2^bit depth.</p>
 </span><span id="__span-0-373"><a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="__span-0-374"><a id="__codelineno-0-374" name="__codelineno-0-374"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">x</span><span class="o">.</span><span class="n">dspGetInfo</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">dspGetModules</span><span class="p">()]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.board_model" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">board_model</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">board_model</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.board_model" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the model of this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-376">376</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-376">376</a></span>
 <span class="normal"><a href="#__codelineno-0-377">377</a></span>
 <span class="normal"><a href="#__codelineno-0-378">378</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-376"><a id="__codelineno-0-376" name="__codelineno-0-376"></a><span class="k">def</span> <span class="nf">board_model</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-377"><a id="__codelineno-0-377" name="__codelineno-0-377"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the model of this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-378"><a id="__codelineno-0-378" name="__codelineno-0-378"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">name</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.board_type" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">board_type</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">board_type</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.board_type" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the numeric type of this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-365">365</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-365">365</a></span>
 <span class="normal"><a href="#__codelineno-0-366">366</a></span>
 <span class="normal"><a href="#__codelineno-0-367">367</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-365"><a id="__codelineno-0-365" name="__codelineno-0-365"></a><span class="k">def</span> <span class="nf">board_type</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-366"><a id="__codelineno-0-366" name="__codelineno-0-366"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the numeric type of this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-367"><a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">type</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.capture_clock_settings" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">capture_clock_settings</span><span class="p">(</span><span class="n">clock_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sample_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">capture_clock_settings</span><span class="p">(</span><span class="n">clock_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">sample_rate</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.capture_clock_settings" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Set the capture clock for this alazar board.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>clock_source</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>the name of a valid clock source for this board</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>clock_source</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the name of a valid clock source for this board</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>sample_rate</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>the name of a valid sample rate for this board, or the
+        <tr class="doc-section-item">
+          <td><code>sample_rate</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>the name of a valid sample rate for this board, or the
 numeric sample rate in MHz for the case of 9360 10 MHz PLL clock
 For the 9870, if clock_source is not "internal", sample_rate is ignored</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-574">574</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-574">574</a></span>
 <span class="normal"><a href="#__codelineno-0-575">575</a></span>
 <span class="normal"><a href="#__codelineno-0-576">576</a></span>
 <span class="normal"><a href="#__codelineno-0-577">577</a></span>
@@ -5795,58 +5833,61 @@ For the 9870, if clock_source is not "internal", sample_rate is ignored</p>
 </span><span id="__span-0-629"><a id="__codelineno-0-629" name="__codelineno-0-629"></a>
 </span><span id="__span-0-630"><a id="__codelineno-0-630" name="__codelineno-0-630"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">clock_settings</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.capture_decimation" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">capture_decimation</span><span class="p">(</span><span class="n">decimation</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">capture_decimation</span><span class="p">(</span><span class="n">decimation</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.capture_decimation" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Set decimation.</p>
 <p>Zero means no decimation. Note that decimation simply throws away data, rather
 than averaging.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>decimation</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Take only every nth data point</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-651">651</a></span>
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>decimation</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Take only every nth data point</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-651">651</a></span>
 <span class="normal"><a href="#__codelineno-0-652">652</a></span>
 <span class="normal"><a href="#__codelineno-0-653">653</a></span>
 <span class="normal"><a href="#__codelineno-0-654">654</a></span>
@@ -5906,48 +5947,52 @@ than averaging.</p>
 </span><span id="__span-0-679"><a id="__codelineno-0-679" name="__codelineno-0-679"></a>
 </span><span id="__span-0-680"><a id="__codelineno-0-680" name="__codelineno-0-680"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">clock_settings</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.channel_memory" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">channel_memory</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">channel_memory</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.channel_memory" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the number of channel for this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-384">384</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-384">384</a></span>
 <span class="normal"><a href="#__codelineno-0-385">385</a></span>
 <span class="normal"><a href="#__codelineno-0-386">386</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-384"><a id="__codelineno-0-384" name="__codelineno-0-384"></a><span class="k">def</span> <span class="nf">channel_memory</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-385"><a id="__codelineno-0-385" name="__codelineno-0-385"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the number of channel for this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-386"><a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">n_samples_per_chan</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.channel_settings" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">channel_settings</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">input_range</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">coupling</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">impedance</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">channel_settings</span><span class="p">(</span><span class="n">channel</span><span class="p">,</span> <span class="n">input_range</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">coupling</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">impedance</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.channel_settings" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Sets channel input range, coupling and impedance.</p>
 <p>Args:
 channel: which channel to set set. See your Alazar's channel_dict for allowed values
@@ -5956,9 +6001,9 @@ channel coupling: AC, DC etc. See channel_coupling_dict for allowed values
 impedance: see channel_impedance_dict for allowed values</p>
 <p>Raises AlazarException for invalid parameters</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-412">412</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-412">412</a></span>
 <span class="normal"><a href="#__codelineno-0-413">413</a></span>
 <span class="normal"><a href="#__codelineno-0-414">414</a></span>
 <span class="normal"><a href="#__codelineno-0-415">415</a></span>
@@ -6082,48 +6127,52 @@ impedance: see channel_impedance_dict for allowed values</p>
 </span><span id="__span-0-472"><a id="__codelineno-0-472" name="__codelineno-0-472"></a>
 </span><span id="__span-0-473"><a id="__codelineno-0-473" name="__codelineno-0-473"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">channel_settings</span><span class="p">[</span><span class="n">channel</span><span class="p">]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.channels" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">channels</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">channels</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.channels" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the channels for this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-380">380</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-380">380</a></span>
 <span class="normal"><a href="#__codelineno-0-381">381</a></span>
 <span class="normal"><a href="#__codelineno-0-382">382</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-380"><a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="k">def</span> <span class="nf">channels</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-381"><a id="__codelineno-0-381" name="__codelineno-0-381"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the channels for this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-382"><a id="__codelineno-0-382" name="__codelineno-0-382"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">channel_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.check_clock_source" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">check_clock_source</span><span class="p">(</span><span class="n">clock_source</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">check_clock_source</span><span class="p">(</span><span class="n">clock_source</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.check_clock_source" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Checks the clock source.</p>
 <p>Based on the clock_source, check to see if the ATS API is expecting a hex code or
 a frequency in Hz. If this function throws an error, it's likely that you tried
@@ -6131,39 +6180,40 @@ to set the clock source to something that has not been added to
 <code>board.clock_source_dict</code> or is not availble for the board you are using.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p><code>0</code> if sample rate must be restricted to sample_rate_dict values or <code>1</code> if</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>sample rate should be provided as frequency in Hz.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-632">632</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p><code>0</code> if sample rate must be restricted to sample_rate_dict values or <code>1</code> if</p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>sample rate should be provided as frequency in Hz.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-632">632</a></span>
 <span class="normal"><a href="#__codelineno-0-633">633</a></span>
 <span class="normal"><a href="#__codelineno-0-634">634</a></span>
 <span class="normal"><a href="#__codelineno-0-635">635</a></span>
@@ -6199,102 +6249,109 @@ to set the clock source to something that has not been added to
 </span><span id="__span-0-648"><a id="__codelineno-0-648" name="__codelineno-0-648"></a>        <span class="k">return</span> <span class="mi">1</span>
 </span><span id="__span-0-649"><a id="__codelineno-0-649" name="__codelineno-0-649"></a>    <span class="k">return</span> <span class="mi">0</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.clock_sources" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">clock_sources</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">clock_sources</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.clock_sources" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the clock sources for this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-392">392</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-392">392</a></span>
 <span class="normal"><a href="#__codelineno-0-393">393</a></span>
 <span class="normal"><a href="#__codelineno-0-394">394</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-392"><a id="__codelineno-0-392" name="__codelineno-0-392"></a><span class="k">def</span> <span class="nf">clock_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-393"><a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the clock sources for this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-394"><a id="__codelineno-0-394" name="__codelineno-0-394"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">clock_source_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.ext_trig_range" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">ext_trig_range</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">ext_trig_range</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.ext_trig_range" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the valid external trigger ranges for this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-408">408</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-408">408</a></span>
 <span class="normal"><a href="#__codelineno-0-409">409</a></span>
 <span class="normal"><a href="#__codelineno-0-410">410</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-408"><a id="__codelineno-0-408" name="__codelineno-0-408"></a><span class="k">def</span> <span class="nf">ext_trig_range</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-409"><a id="__codelineno-0-409" name="__codelineno-0-409"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the valid external trigger ranges for this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-410"><a id="__codelineno-0-410" name="__codelineno-0-410"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">ext_trig_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.get_true_sample_rate" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_true_sample_rate</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">get_true_sample_rate</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.get_true_sample_rate" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Get the sampling rate of the board.</p>
 <p>This takes into account both the clock rate and the decimation setting.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>sampling rate in Hz</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-682">682</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>sampling rate in Hz</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-682">682</a></span>
 <span class="normal"><a href="#__codelineno-0-683">683</a></span>
 <span class="normal"><a href="#__codelineno-0-684">684</a></span>
 <span class="normal"><a href="#__codelineno-0-685">685</a></span>
@@ -6320,53 +6377,57 @@ to set the clock source to something that has not been added to
 </span><span id="__span-0-693"><a id="__codelineno-0-693" name="__codelineno-0-693"></a>    <span class="k">else</span><span class="p">:</span>
 </span><span id="__span-0-694"><a id="__codelineno-0-694" name="__codelineno-0-694"></a>        <span class="k">return</span> <span class="n">current_clock_settings</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.input_couplings" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">input_couplings</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">input_couplings</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.input_couplings" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the valid input couplings for this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-404">404</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-404">404</a></span>
 <span class="normal"><a href="#__codelineno-0-405">405</a></span>
 <span class="normal"><a href="#__codelineno-0-406">406</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-404"><a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="k">def</span> <span class="nf">input_couplings</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-405"><a id="__codelineno-0-405" name="__codelineno-0-405"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the valid input couplings for this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-406"><a id="__codelineno-0-406" name="__codelineno-0-406"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">channel_coupling_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.list_boards" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">list_boards</span><span class="p">(</span><span class="n">system</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">list_boards</span><span class="p">(</span><span class="n">system</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.list_boards" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>List the boards in the given sysyem id, defaults to 1 (usually is only 1)</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-359">359</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-359">359</a></span>
 <span class="normal"><a href="#__codelineno-0-360">360</a></span>
 <span class="normal"><a href="#__codelineno-0-361">361</a></span>
 <span class="normal"><a href="#__codelineno-0-362">362</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-359"><a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="k">def</span> <span class="nf">list_boards</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">system</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
@@ -6374,54 +6435,58 @@ to set the clock source to something that has not been added to
 </span><span id="__span-0-361"><a id="__codelineno-0-361" name="__codelineno-0-361"></a>    <span class="n">num_boards</span> <span class="o">=</span> <span class="n">atsapi</span><span class="o">.</span><span class="n">boardsInSystemBySystemID</span><span class="p">(</span><span class="n">system</span><span class="p">)</span>
 </span><span id="__span-0-362"><a id="__codelineno-0-362" name="__codelineno-0-362"></a>    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;System </span><span class="si">{</span><span class="n">system</span><span class="si">}</span><span class="s2"> has </span><span class="si">{</span><span class="n">num_boards</span><span class="si">}</span><span class="s2"> board(s)&quot;</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.ranges" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">ranges</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">ranges</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.ranges" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the valid ranges for this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-400">400</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-400">400</a></span>
 <span class="normal"><a href="#__codelineno-0-401">401</a></span>
 <span class="normal"><a href="#__codelineno-0-402">402</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-400"><a id="__codelineno-0-400" name="__codelineno-0-400"></a><span class="k">def</span> <span class="nf">ranges</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-401"><a id="__codelineno-0-401" name="__codelineno-0-401"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the valid ranges for this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-402"><a id="__codelineno-0-402" name="__codelineno-0-402"></a>    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">input_range_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.reset_boards" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">reset_boards</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">reset_boards</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.reset_boards" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Tries to forcefully close and reopen the ATS api.</p>
 <p>This should reset the board settings. Probably doesn't work yet.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-341">341</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-341">341</a></span>
 <span class="normal"><a href="#__codelineno-0-342">342</a></span>
 <span class="normal"><a href="#__codelineno-0-343">343</a></span>
 <span class="normal"><a href="#__codelineno-0-344">344</a></span>
@@ -6455,48 +6520,52 @@ to set the clock source to something that has not been added to
 </span><span id="__span-0-356"><a id="__codelineno-0-356" name="__codelineno-0-356"></a>
 </span><span id="__span-0-357"><a id="__codelineno-0-357" name="__codelineno-0-357"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">capture_clock_settings</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.sample_rates" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">sample_rates</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">sample_rates</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.sample_rates" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the valid sample rates for this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-396">396</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-396">396</a></span>
 <span class="normal"><a href="#__codelineno-0-397">397</a></span>
 <span class="normal"><a href="#__codelineno-0-398">398</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-396"><a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="k">def</span> <span class="nf">sample_rates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-397"><a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the valid sample rates for this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-398"><a id="__codelineno-0-398" name="__codelineno-0-398"></a>    <span class="k">return</span> <span class="nb">sorted</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">sample_rate_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.start_acquire" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">start_acquire</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">n_repetitions</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pre_trigger</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">expected_triggers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;TRIG&#39;</span><span class="p">,</span> <span class="n">save_file_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">start_acquire</span><span class="p">(</span><span class="n">samples</span><span class="p">,</span> <span class="n">n_repetitions</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mean</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pre_trigger</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">expected_triggers</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s1">&#39;TRIG&#39;</span><span class="p">,</span> <span class="n">save_file_path</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">save_only</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.start_acquire" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Starts an acquisition.</p>
 <p>Prepares the alazar to receive data. Will respond to
 <code>n_repetitions*expected_triggers</code> triggers and save as many records, each
@@ -6505,142 +6574,143 @@ cycles through expected_triggers distinct sequences. Set expected_triggers=1
 to ignore this functionality.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>samples</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of time points per time trace (record). Minimal value and
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>samples</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Number of time points per time trace (record). Minimal value and
 increment given in record_limits.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>n_repetitions</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of times to record a time trace for each AWG sequence
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>n_repetitions</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Number of times to record a time trace for each AWG sequence
 element.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>mean</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Average traces. Does so in a memory-efficient way.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>pre_trigger</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Include this many time points before the trigger ocurred.
+            </div>
+          </td>
+          <td>
+                <code>1</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>mean</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Average traces. Does so in a memory-efficient way.</p>
+            </div>
+          </td>
+          <td>
+                <code>False</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>pre_trigger</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Include this many time points before the trigger ocurred.
 Limits are board-specific. (Note: currently passing ADMA_NPT=ADMA
 NoPreTrigger, so pretrigger may not be working).</p>
-              </div>
-            </td>
-            <td>
-                  <code>0</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>expected_triggers</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Number of sequence elements.</p>
-              </div>
-            </td>
-            <td>
-                  <code>1</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>mode</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>'TRIG' only acquires upon trigger. Otherwise acquires continuously.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;TRIG&#39;</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>save_file_path</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If not None, streams Alazar data directly to harddrive.
+            </div>
+          </td>
+          <td>
+                <code>0</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>expected_triggers</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Number of sequence elements.</p>
+            </div>
+          </td>
+          <td>
+                <code>1</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>mode</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>'TRIG' only acquires upon trigger. Otherwise acquires continuously.</p>
+            </div>
+          </td>
+          <td>
+                <code>&#39;TRIG&#39;</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>save_file_path</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If not None, streams Alazar data directly to harddrive.
 Currently ignored if mode is not <code>'TRIG'</code>.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>save_only</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If save_file_path is not None, you can get faster streaming to
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>save_only</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If save_file_path is not None, you can get faster streaming to
 hard drive by setting this to True, which which case no data is passed
 to python.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+            </div>
+          </td>
+          <td>
+                <code>False</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-696">696</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-696">696</a></span>
 <span class="normal"><a href="#__codelineno-0-697">697</a></span>
 <span class="normal"><a href="#__codelineno-0-698">698</a></span>
 <span class="normal"><a href="#__codelineno-0-699">699</a></span>
@@ -6948,108 +7018,112 @@ to python.</p>
 </span><span id="__span-0-848"><a id="__codelineno-0-848" name="__codelineno-0-848"></a>    <span class="k">except</span><span class="p">:</span>
 </span><span id="__span-0-849"><a id="__codelineno-0-849" name="__codelineno-0-849"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.trigger_settings" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">trigger_settings</span><span class="p">(</span><span class="n">trig_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trig_slope</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trig_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">trigger_settings</span><span class="p">(</span><span class="n">trig_source</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trig_slope</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">trig_threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.trigger_settings" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Sets the source of the trigger to start recording a Record</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>trig_source</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>sets which alazar input should be used to trigger. Allowed
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>trig_source</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>sets which alazar input should be used to trigger. Allowed
 values given by trigger_source_dict</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>trig_slope</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>trigger on rising or falling edge. Allowed values given by
-trigger_slope_dict</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>trig_threshold</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>threshold for triggering, from 0 to 255. 0V is 128.</p>
-              </div>
-            </td>
-            <td>
-                  <code>None</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Trigger_settings info array</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+        <tr class="doc-section-item">
+          <td><code>trig_slope</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>trigger on rising or falling edge. Allowed values given by
+trigger_slope_dict</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code>trig_threshold</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>threshold for triggering, from 0 to 255. 0V is 128.</p>
+            </div>
+          </td>
+          <td>
+                <code>None</code>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-475">475</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Trigger_settings info array</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-475">475</a></span>
 <span class="normal"><a href="#__codelineno-0-476">476</a></span>
 <span class="normal"><a href="#__codelineno-0-477">477</a></span>
 <span class="normal"><a href="#__codelineno-0-478">478</a></span>
@@ -7187,34 +7261,36 @@ trigger_slope_dict</p>
 </span><span id="__span-0-542"><a id="__codelineno-0-542" name="__codelineno-0-542"></a>
 </span><span id="__span-0-543"><a id="__codelineno-0-543" name="__codelineno-0-543"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">trigger_settings</span><span class="p">[</span><span class="n">trigger</span><span class="p">]</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.instruments.alazar.alazar.Alazar.trigger_sources" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">trigger_sources</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">trigger_sources</span><span class="p">()</span></code>
 
 <a href="#qwip.instruments.alazar.alazar.Alazar.trigger_sources" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Return the trigger sources for this Alazar board.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/instruments/alazar/alazar.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-388">388</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\instruments\alazar\alazar.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-388">388</a></span>
 <span class="normal"><a href="#__codelineno-0-389">389</a></span>
 <span class="normal"><a href="#__codelineno-0-390">390</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-388"><a id="__codelineno-0-388" name="__codelineno-0-388"></a><span class="k">def</span> <span class="nf">trigger_sources</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-389"><a id="__codelineno-0-389" name="__codelineno-0-389"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the trigger sources for this Alazar board.&quot;&quot;&quot;</span>
 </span><span id="__span-0-390"><a id="__codelineno-0-390" name="__codelineno-0-390"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">board</span><span class="o">.</span><span class="n">trigger_source_dict</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -7222,7 +7298,8 @@ trigger_slope_dict</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -7231,7 +7308,7 @@ trigger_slope_dict</p>
 
   </div>
 
-    </div>
+  </div>
 
 </div>
 
@@ -7254,7 +7331,7 @@ trigger_slope_dict</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1-2.1-2M12.5 7v5.2l4 2.4-1 1L11 13V7h1.5M11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2v1.8Z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">May 24, 2024</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">June 20, 2024</span>
   </span>
 
     
@@ -7327,7 +7404,7 @@ trigger_slope_dict</p>
     <script id="__config" type="application/json">{"base": "../../../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../../../assets/js/termynal.js"></script>
       

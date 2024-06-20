@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../assets/stylesheets/palette.06af60db.min.css">
@@ -591,6 +591,8 @@
       
         
       
+        
+      
     
     
       
@@ -686,6 +688,27 @@
   
   <span class="md-ellipsis">
     Sequences
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../user-guide/sequences/frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
   </span>
   
 
@@ -3686,11 +3709,11 @@
 
 
 <a id="qwip.flatdict"></a>
-    <div class="doc doc-contents first">
-
+  <div class="doc doc-contents first">
+  
       <p>A module for implementing a FlatDict object.</p>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3706,50 +3729,51 @@
 
 
 <h2 id="qwip.flatdict.FlatDict" class="doc doc-heading">
-            <code>FlatDict</code>
+          <code>FlatDict</code>
 
 
 <a href="#qwip.flatdict.FlatDict" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatMapping" href="#qwip.flatdict.FlatMapping">FlatMapping</a></code>, <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatMapping" href="#qwip.flatdict.FlatMapping">FlatMapping</a></code>, <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code></p>
 
-
+  
       <p>A mapping object that supports key chaining and attribute access.</p>
 <p>Values can be accessed like <code>params['one/two/three']</code> or
 <code>params.one.two.three</code> in lieu of <code>params['one']['two']['three']</code>.</p>
 
 
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.flatdict.FlatDict._delim">_delim</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A class variable that specifies the character used to
-separate nested mappings.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/flatdict.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-361">361</a></span>
+  <p><span class="doc-section-title">Attributes:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.flatdict.FlatDict._delim">_delim</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A class variable that specifies the character used to
+separate nested mappings.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+            <details class="quote">
+              <summary>Source code in <code>qwip\flatdict.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-361">361</a></span>
 <span class="normal"><a href="#__codelineno-0-362">362</a></span>
 <span class="normal"><a href="#__codelineno-0-363">363</a></span>
 <span class="normal"><a href="#__codelineno-0-364">364</a></span>
@@ -3845,11 +3869,12 @@ separate nested mappings.</p>
 </span><span id="__span-0-407"><a id="__codelineno-0-407" name="__codelineno-0-407"></a>        <span class="k">finally</span><span class="p">:</span>
 </span><span id="__span-0-408"><a id="__codelineno-0-408" name="__codelineno-0-408"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">orig</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -3862,19 +3887,20 @@ separate nested mappings.</p>
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatDict.context" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">context</span><span class="p">(</span><span class="n">update</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.flatdict.FlatDict.context" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Context manager for temporarily changing values.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-399">399</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-399">399</a></span>
 <span class="normal"><a href="#__codelineno-0-400">400</a></span>
 <span class="normal"><a href="#__codelineno-0-401">401</a></span>
 <span class="normal"><a href="#__codelineno-0-402">402</a></span>
@@ -3894,8 +3920,8 @@ separate nested mappings.</p>
 </span><span id="__span-0-407"><a id="__codelineno-0-407" name="__codelineno-0-407"></a>    <span class="k">finally</span><span class="p">:</span>
 </span><span id="__span-0-408"><a id="__codelineno-0-408" name="__codelineno-0-408"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">orig</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -3903,7 +3929,8 @@ separate nested mappings.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -3912,22 +3939,22 @@ separate nested mappings.</p>
 
 
 <h2 id="qwip.flatdict.FlatItemsView" class="doc doc-heading">
-            <code>FlatItemsView</code>
+          <code>FlatItemsView</code>
 
 
 <a href="#qwip.flatdict.FlatItemsView" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" title="collections.abc.ItemsView" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.ItemsView">ItemsView</a></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-external" title="collections.abc.ItemsView" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.ItemsView">ItemsView</a></code></p>
 
-
+  
       <p>A flattened items view.</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/flatdict.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-69">69</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\flatdict.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-69">69</a></span>
 <span class="normal"><a href="#__codelineno-0-70">70</a></span>
 <span class="normal"><a href="#__codelineno-0-71">71</a></span>
 <span class="normal"><a href="#__codelineno-0-72">72</a></span>
@@ -3957,9 +3984,9 @@ separate nested mappings.</p>
 </span><span id="__span-0-82"><a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-83"><a id="__codelineno-0-83" name="__codelineno-0-83"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="fm">__iter__</span><span class="p">())</span><span class="si">}</span><span class="s2">)&quot;</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3975,7 +4002,8 @@ separate nested mappings.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -3984,22 +4012,22 @@ separate nested mappings.</p>
 
 
 <h2 id="qwip.flatdict.FlatKeysView" class="doc doc-heading">
-            <code>FlatKeysView</code>
+          <code>FlatKeysView</code>
 
 
 <a href="#qwip.flatdict.FlatKeysView" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" title="collections.abc.KeysView" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.KeysView">KeysView</a></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-external" title="collections.abc.KeysView" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.KeysView">KeysView</a></code></p>
 
-
+  
       <p>A flattened key view.</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/flatdict.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-19">19</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\flatdict.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-19">19</a></span>
 <span class="normal"><a href="#__codelineno-0-20">20</a></span>
 <span class="normal"><a href="#__codelineno-0-21">21</a></span>
 <span class="normal"><a href="#__codelineno-0-22">22</a></span>
@@ -4061,9 +4089,9 @@ separate nested mappings.</p>
 </span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="fm">__iter__</span><span class="p">())</span><span class="si">}</span><span class="s2">))&quot;</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -4079,7 +4107,8 @@ separate nested mappings.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -4088,50 +4117,51 @@ separate nested mappings.</p>
 
 
 <h2 id="qwip.flatdict.FlatMapping" class="doc doc-heading">
-            <code>FlatMapping</code>
+          <code>FlatMapping</code>
 
 
 <a href="#qwip.flatdict.FlatMapping" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" title="collections.abc.MutableMapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping">MutableMapping</a></code>, <code><a class="autorefs autorefs-external" title="typing.Generic" href="https://docs.python.org/3/library/typing.html#typing.Generic">Generic</a>[<span title="qwip.flatdict.KT">KT</span>, <span title="qwip.flatdict.VT">VT</span>]</code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-external" title="collections.abc.MutableMapping" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.MutableMapping">MutableMapping</a></code>, <code><a class="autorefs autorefs-external" title="typing.Generic" href="https://docs.python.org/3/library/typing.html#typing.Generic">Generic</a>[<span title="qwip.flatdict.KT">KT</span>, <span title="qwip.flatdict.VT">VT</span>]</code></p>
 
-
+  
       <p>A base class for a mapping object that allows "flat" access.</p>
 <p>Values can be accessed like <code>flatmap['one/two/three']</code> or
 <code>flatmap.one.two.three</code> in lieu of <code>flatmap['one']['two']['three']</code>.</p>
 
 
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.flatdict.FlatMapping._delim">_delim</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A class variable that specifies the character used to
-separate nested mappings.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/flatdict.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
+  <p><span class="doc-section-title">Attributes:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.flatdict.FlatMapping._delim">_delim</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A class variable that specifies the character used to
+separate nested mappings.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+            <details class="quote">
+              <summary>Source code in <code>qwip\flatdict.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
 <span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
 <span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
 <span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
@@ -4677,11 +4707,12 @@ separate nested mappings.</p>
 </span><span id="__span-0-357"><a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">        &quot;&quot;&quot;</span>
 </span><span id="__span-0-358"><a id="__codelineno-0-358" name="__codelineno-0-358"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatitems</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">)}</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -4694,16 +4725,16 @@ separate nested mappings.</p>
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatMapping.__getitem__" class="doc doc-heading">
-            <code class="highlight language-python"><span class="fm">__getitem__</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="fm">__getitem__</span><span class="p">(</span><span class="n">key</span><span class="p">)</span></code>
 
 <a href="#qwip.flatdict.FlatMapping.__getitem__" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns the item stored at <code>key</code>.</p>
-
 
 <details class="example" open>
   <summary>Example</summary>
@@ -4711,9 +4742,9 @@ separate nested mappings.</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>x[&#39;one/two/three&#39;] &lt;==&gt; x[&#39;one&#39;][&#39;two&#39;][&#39;three&#39;]
 </span></code></pre></div>
 </details>
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-100">100</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-100">100</a></span>
 <span class="normal"><a href="#__codelineno-0-101">101</a></span>
 <span class="normal"><a href="#__codelineno-0-102">102</a></span>
 <span class="normal"><a href="#__codelineno-0-103">103</a></span>
@@ -4785,50 +4816,53 @@ separate nested mappings.</p>
 </span><span id="__span-0-134"><a id="__codelineno-0-134" name="__codelineno-0-134"></a>
 </span><span id="__span-0-135"><a id="__codelineno-0-135" name="__codelineno-0-135"></a>    <span class="k">return</span> <span class="n">val</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatMapping.copy" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">copy</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">copy</span><span class="p">()</span></code>
 
 <a href="#qwip.flatdict.FlatMapping.copy" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a deep copy of the <code>FlatMapping</code> object</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatMapping" href="#qwip.flatdict.FlatMapping">FlatMapping</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A copy of the <code>FlatMapping</code></p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-299">299</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatMapping" href="#qwip.flatdict.FlatMapping">FlatMapping</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A copy of the <code>FlatMapping</code></p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-299">299</a></span>
 <span class="normal"><a href="#__codelineno-0-300">300</a></span>
 <span class="normal"><a href="#__codelineno-0-301">301</a></span>
 <span class="normal"><a href="#__codelineno-0-302">302</a></span>
@@ -4842,52 +4876,55 @@ separate nested mappings.</p>
 </span><span id="__span-0-304"><a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="__span-0-305"><a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="k">return</span> <span class="n">deepcopy</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatMapping.flatitems" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">flatitems</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">flatitems</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.flatdict.FlatMapping.flatitems" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a <code>View</code> of flattened items.</p>
 <p>Nested <code>FlatMappings</code> are flattened and keys joined with a <code>'.'</code>.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>FlatItemsView</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatItemsView" href="#qwip.flatdict.FlatItemsView">FlatItemsView</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An iterator that returns a tuple of <code>(flatkey, val)</code>
-for all values in the <code>FlatMapping</code> object.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-288">288</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+<td><code>FlatItemsView</code></td>          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatItemsView" href="#qwip.flatdict.FlatItemsView">FlatItemsView</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>An iterator that returns a tuple of <code>(flatkey, val)</code>
+for all values in the <code>FlatMapping</code> object.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-288">288</a></span>
 <span class="normal"><a href="#__codelineno-0-289">289</a></span>
 <span class="normal"><a href="#__codelineno-0-290">290</a></span>
 <span class="normal"><a href="#__codelineno-0-291">291</a></span>
@@ -4907,52 +4944,55 @@ for all values in the <code>FlatMapping</code> object.</p>
 </span><span id="__span-0-296"><a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="__span-0-297"><a id="__codelineno-0-297" name="__codelineno-0-297"></a>    <span class="k">return</span> <span class="n">FlatItemsView</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatMapping.flatkeys" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">flatkeys</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">flatkeys</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.flatdict.FlatMapping.flatkeys" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a <code>View</code> of flattened keys.</p>
 <p>Nested <code>FlatMappings</code> are flattened and keys joined with a <code>'.'</code>.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>FlatKeysView</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatKeysView" href="#qwip.flatdict.FlatKeysView">FlatKeysView</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An iterator that returns all flattened keys in the
-<code>FlatMapping</code> object.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-266">266</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+<td><code>FlatKeysView</code></td>          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatKeysView" href="#qwip.flatdict.FlatKeysView">FlatKeysView</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>An iterator that returns all flattened keys in the
+<code>FlatMapping</code> object.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-266">266</a></span>
 <span class="normal"><a href="#__codelineno-0-267">267</a></span>
 <span class="normal"><a href="#__codelineno-0-268">268</a></span>
 <span class="normal"><a href="#__codelineno-0-269">269</a></span>
@@ -4972,52 +5012,55 @@ for all values in the <code>FlatMapping</code> object.</p>
 </span><span id="__span-0-274"><a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="__span-0-275"><a id="__codelineno-0-275" name="__codelineno-0-275"></a>    <span class="k">return</span> <span class="n">FlatKeysView</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatMapping.flatvalues" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">flatvalues</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">flatvalues</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.flatdict.FlatMapping.flatvalues" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a <code>View</code> of flattened values.</p>
 <p>All <code>FlatMapping</code> objects contained within this object are iterated over</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>FlatValuesView</code></td>            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatValuesView" href="#qwip.flatdict.FlatValuesView">FlatValuesView</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>An iterator that returns all values in the
-<code>FlatMapping</code> object, including values in nested <code>FlatMappings</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-277">277</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+<td><code>FlatValuesView</code></td>          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.flatdict.FlatValuesView" href="#qwip.flatdict.FlatValuesView">FlatValuesView</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>An iterator that returns all values in the
+<code>FlatMapping</code> object, including values in nested <code>FlatMappings</code>.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-277">277</a></span>
 <span class="normal"><a href="#__codelineno-0-278">278</a></span>
 <span class="normal"><a href="#__codelineno-0-279">279</a></span>
 <span class="normal"><a href="#__codelineno-0-280">280</a></span>
@@ -5037,27 +5080,29 @@ for all values in the <code>FlatMapping</code> object.</p>
 </span><span id="__span-0-285"><a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="__span-0-286"><a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="k">return</span> <span class="n">FlatValuesView</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatMapping.get_keys" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">get_keys</span><span class="p">(</span><span class="o">*</span><span class="n">keys</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">get_keys</span><span class="p">(</span><span class="o">*</span><span class="n">keys</span><span class="p">)</span></code>
 
 <a href="#qwip.flatdict.FlatMapping.get_keys" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Returns a subset of the <code>FlatMapping</code> with the specified keys.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-326">326</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-326">326</a></span>
 <span class="normal"><a href="#__codelineno-0-327">327</a></span>
 <span class="normal"><a href="#__codelineno-0-328">328</a></span>
 <span class="normal"><a href="#__codelineno-0-329">329</a></span>
@@ -5069,50 +5114,53 @@ for all values in the <code>FlatMapping</code> object.</p>
 </span><span id="__span-0-330"><a id="__codelineno-0-330" name="__codelineno-0-330"></a>
 </span><span id="__span-0-331"><a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="k">return</span> <span class="n">subset</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatMapping.todict" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">todict</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">todict</span><span class="p">()</span></code>
 
 <a href="#qwip.flatdict.FlatMapping.todict" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Recursively converts the <code>FlatDict</code> object to a dictionary.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>dict</code></td>            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The converted <code>FlatDict</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-342">342</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+<td><code>dict</code></td>          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The converted <code>FlatDict</code>.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-342">342</a></span>
 <span class="normal"><a href="#__codelineno-0-343">343</a></span>
 <span class="normal"><a href="#__codelineno-0-344">344</a></span>
 <span class="normal"><a href="#__codelineno-0-345">345</a></span>
@@ -5130,50 +5178,53 @@ for all values in the <code>FlatMapping</code> object.</p>
 </span><span id="__span-0-349"><a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="n">k</span><span class="p">:</span> <span class="n">v</span><span class="o">.</span><span class="n">todict</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">FlatMapping</span><span class="p">)</span> <span class="k">else</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
 </span><span id="__span-0-350"><a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="p">}</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.flatdict.FlatMapping.toflatdict" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">toflatdict</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">toflatdict</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span></code>
 
 <a href="#qwip.flatdict.FlatMapping.toflatdict" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Converts the flattenned <code>FlatDict</code> object to a dictionary.</p>
 
 
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-<th>Name</th>          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-<td><code>dict</code></td>            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The flattened <code>FlatDict</code>.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/flatdict.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-352">352</a></span>
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+<th>Name</th>        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+<td><code>dict</code></td>          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The flattened <code>FlatDict</code>.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\flatdict.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-352">352</a></span>
 <span class="normal"><a href="#__codelineno-0-353">353</a></span>
 <span class="normal"><a href="#__codelineno-0-354">354</a></span>
 <span class="normal"><a href="#__codelineno-0-355">355</a></span>
@@ -5187,8 +5238,8 @@ for all values in the <code>FlatMapping</code> object.</p>
 </span><span id="__span-0-357"><a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="__span-0-358"><a id="__codelineno-0-358" name="__codelineno-0-358"></a>    <span class="k">return</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">flatitems</span><span class="p">(</span><span class="n">levels</span><span class="o">=</span><span class="n">levels</span><span class="p">)}</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -5196,7 +5247,8 @@ for all values in the <code>FlatMapping</code> object.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -5205,22 +5257,22 @@ for all values in the <code>FlatMapping</code> object.</p>
 
 
 <h2 id="qwip.flatdict.FlatValuesView" class="doc doc-heading">
-            <code>FlatValuesView</code>
+          <code>FlatValuesView</code>
 
 
 <a href="#qwip.flatdict.FlatValuesView" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" title="collections.abc.ValuesView" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.ValuesView">ValuesView</a></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><a class="autorefs autorefs-external" title="collections.abc.ValuesView" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.ValuesView">ValuesView</a></code></p>
 
-
+  
       <p>A flattened values view.</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/flatdict.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-52">52</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\flatdict.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-52">52</a></span>
 <span class="normal"><a href="#__codelineno-0-53">53</a></span>
 <span class="normal"><a href="#__codelineno-0-54">54</a></span>
 <span class="normal"><a href="#__codelineno-0-55">55</a></span>
@@ -5250,9 +5302,9 @@ for all values in the <code>FlatMapping</code> object.</p>
 </span><span id="__span-0-65"><a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 </span><span id="__span-0-66"><a id="__codelineno-0-66" name="__codelineno-0-66"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="fm">__iter__</span><span class="p">())</span><span class="si">}</span><span class="s2">)&quot;</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
 
@@ -5268,7 +5320,8 @@ for all values in the <code>FlatMapping</code> object.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -5277,7 +5330,7 @@ for all values in the <code>FlatMapping</code> object.</p>
 
   </div>
 
-    </div>
+  </div>
 
 </div>
 
@@ -5373,7 +5426,7 @@ for all values in the <code>FlatMapping</code> object.</p>
     <script id="__config" type="application/json">{"base": "../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../assets/js/termynal.js"></script>
       

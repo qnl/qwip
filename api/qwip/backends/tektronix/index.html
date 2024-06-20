@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../../../../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.23">
+      <meta name="generator" content="mkdocs-1.6.0, mkdocs-material-9.5.22">
     
     
       
@@ -26,7 +26,7 @@
       
     
     
-      <link rel="stylesheet" href="../../../../assets/stylesheets/main.6543a935.min.css">
+      <link rel="stylesheet" href="../../../../assets/stylesheets/main.732c4fb1.min.css">
       
         
         <link rel="stylesheet" href="../../../../assets/stylesheets/palette.06af60db.min.css">
@@ -591,6 +591,8 @@
       
         
       
+        
+      
     
     
       
@@ -686,6 +688,27 @@
   
   <span class="md-ellipsis">
     Sequences
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../../user-guide/sequences/frame-tracking/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Frame Tracking
   </span>
   
 
@@ -3626,9 +3649,9 @@
 
 
 <a id="qwip.backends.tektronix"></a>
-    <div class="doc doc-contents first">
+  <div class="doc doc-contents first">
 
-
+  
 
   <div class="doc doc-children">
 
@@ -3644,25 +3667,25 @@
 
 
 <h2 id="qwip.backends.tektronix.TektronixBackend" class="doc doc-heading">
-            <code>TektronixBackend</code>
+          <code>TektronixBackend</code>
 
 
 <a href="#qwip.backends.tektronix.TektronixBackend" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="qwip.backends.backend.DACBackend">DACBackend</span></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><span title="qwip.backends.backend.DACBackend">DACBackend</span></code></p>
 
-
+  
       <p>A hardware DAC backend for interfacing with the Tektronix AWGs.</p>
 <p>Attributes;
     device: The QCoDeS instrument corresponding to the device.
     channels: The channel information representing each channel.</p>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-236">236</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-236">236</a></span>
 <span class="normal"><a href="#__codelineno-0-237">237</a></span>
 <span class="normal"><a href="#__codelineno-0-238">238</a></span>
 <span class="normal"><a href="#__codelineno-0-239">239</a></span>
@@ -3862,11 +3885,12 @@
 </span><span id="__span-0-334"><a id="__codelineno-0-334" name="__codelineno-0-334"></a>        <span class="c1"># Expects times in nanoseconds</span>
 </span><span id="__span-0-335"><a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">trigger_seq_timer</span><span class="p">(</span><span class="n">exe</span><span class="o">.</span><span class="n">reset_delay</span> <span class="o">*</span> <span class="mf">1e9</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -3879,9 +3903,10 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="qwip.backends.tektronix.TektronixBackend.connect" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">connect</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;tektronix&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
+<h3 id="qwip.backends.tektronix.TektronixBackend.connect" class="doc doc-heading">
+          <code class="highlight language-python"><span class="n">connect</span><span class="p">(</span><span class="n">ip</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;tektronix&#39;</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+  
   <span class="doc doc-labels">
       <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
   </span>
@@ -3889,80 +3914,82 @@
 <a href="#qwip.backends.tektronix.TektronixBackend.connect" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Creates a new backend instance from an IP address.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>ip</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The IP address for the Tektronix instrument.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>ip</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The IP address for the Tektronix instrument.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>name</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A unique name for the device. This should match the name specified
+        <tr class="doc-section-item">
+          <td><code>name</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A unique name for the device. This should match the name specified
 in the configuration database.</p>
-              </div>
-            </td>
-            <td>
-                  <code>&#39;tektronix&#39;</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+            </div>
+          </td>
+          <td>
+                <code>&#39;tektronix&#39;</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" title="typing.Self" href="https://docs.python.org/3/library/typing.html#typing.Self">Self</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A new <code>TektronixBackend</code> instance.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-271">271</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" title="typing.Self" href="https://docs.python.org/3/library/typing.html#typing.Self">Self</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A new <code>TektronixBackend</code> instance.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-271">271</a></span>
 <span class="normal"><a href="#__codelineno-0-272">272</a></span>
 <span class="normal"><a href="#__codelineno-0-273">273</a></span>
 <span class="normal"><a href="#__codelineno-0-274">274</a></span>
@@ -4002,27 +4029,29 @@ in the configuration database.</p>
 </span><span id="__span-0-289"><a id="__codelineno-0-289" name="__codelineno-0-289"></a>
 </span><span id="__span-0-290"><a id="__codelineno-0-290" name="__codelineno-0-290"></a>    <span class="k">return</span> <span class="n">backend</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.backends.tektronix.TektronixBackend.start" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">start</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">start</span><span class="p">()</span></code>
 
 <a href="#qwip.backends.tektronix.TektronixBackend.start" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Starts the tektronix and turns on the output for all channels.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-292">292</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-292">292</a></span>
 <span class="normal"><a href="#__codelineno-0-293">293</a></span>
 <span class="normal"><a href="#__codelineno-0-294">294</a></span>
 <span class="normal"><a href="#__codelineno-0-295">295</a></span>
@@ -4032,27 +4061,29 @@ in the configuration database.</p>
 </span><span id="__span-0-295"><a id="__codelineno-0-295" name="__codelineno-0-295"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">all_channels_on</span><span class="p">()</span>
 </span><span id="__span-0-296"><a id="__codelineno-0-296" name="__codelineno-0-296"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">start</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.backends.tektronix.TektronixBackend.stop" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">stop</span><span class="p">()</span></code>
+          <code class="highlight language-python"><span class="n">stop</span><span class="p">()</span></code>
 
 <a href="#qwip.backends.tektronix.TektronixBackend.stop" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Stops the tektronix and turns off the output for all channels.</p>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-298">298</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-298">298</a></span>
 <span class="normal"><a href="#__codelineno-0-299">299</a></span>
 <span class="normal"><a href="#__codelineno-0-300">300</a></span>
 <span class="normal"><a href="#__codelineno-0-301">301</a></span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-298"><a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="k">def</span> <span class="nf">stop</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -4060,58 +4091,61 @@ in the configuration database.</p>
 </span><span id="__span-0-300"><a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">stop</span><span class="p">()</span>
 </span><span id="__span-0-301"><a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">all_channels_off</span><span class="p">()</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.backends.tektronix.TektronixBackend.update_parameters" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">update_parameters</span><span class="p">(</span><span class="n">qpu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">update_parameters</span><span class="p">(</span><span class="n">qpu</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span></code>
 
 <a href="#qwip.backends.tektronix.TektronixBackend.update_parameters" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Updates device parameters from the QPU.</p>
 <p>This will update the sample rate of the Tektronix to match the specified sample
 rate in the device info.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>qpu</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.qpu.qpu.QPU" href="../../qpu/qpu/#qwip.qpu.qpu.QPU">QPU</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>QPU</code> instance.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-303">303</a></span>
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>qpu</code></td>
+          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.qpu.qpu.QPU" href="../../qpu/qpu/#qwip.qpu.qpu.QPU">QPU</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A <code>QPU</code> instance.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-303">303</a></span>
 <span class="normal"><a href="#__codelineno-0-304">304</a></span>
 <span class="normal"><a href="#__codelineno-0-305">305</a></span>
 <span class="normal"><a href="#__codelineno-0-306">306</a></span>
@@ -4131,57 +4165,60 @@ rate in the device info.</p>
 </span><span id="__span-0-311"><a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">    &quot;&quot;&quot;</span>
 </span><span id="__span-0-312"><a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">sample_rate</span> <span class="o">=</span> <span class="n">qpu</span><span class="o">.</span><span class="n">compiler</span><span class="o">.</span><span class="n">devices</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">sample_rate</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
+
 
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.backends.tektronix.TektronixBackend.upload" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">upload</span><span class="p">(</span><span class="n">exe</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">upload</span><span class="p">(</span><span class="n">exe</span><span class="p">)</span></code>
 
 <a href="#qwip.backends.tektronix.TektronixBackend.upload" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Uploads an executable to the AWG.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>exe</code></td>
-            <td>
-                  <code><span title="qwip.sequencer.compilation.QWiPExecutable">QWiPExecutable</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>QWiPExecutable</code> containing the <code>TektronixProgram</code> to upload. The
-program should be keyed by the device name.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-314">314</a></span>
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>exe</code></td>
+          <td>
+                <code><span title="qwip.sequencer.compilation.QWiPExecutable">QWiPExecutable</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A <code>QWiPExecutable</code> containing the <code>TektronixProgram</code> to upload. The
+program should be keyed by the device name.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-314">314</a></span>
 <span class="normal"><a href="#__codelineno-0-315">315</a></span>
 <span class="normal"><a href="#__codelineno-0-316">316</a></span>
 <span class="normal"><a href="#__codelineno-0-317">317</a></span>
@@ -4225,8 +4262,8 @@ program should be keyed by the device name.</p>
 </span><span id="__span-0-334"><a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="c1"># Expects times in nanoseconds</span>
 </span><span id="__span-0-335"><a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">device</span><span class="o">.</span><span class="n">trigger_seq_timer</span><span class="p">(</span><span class="n">exe</span><span class="o">.</span><span class="n">reset_delay</span> <span class="o">*</span> <span class="mf">1e9</span><span class="p">)</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -4234,7 +4271,8 @@ program should be keyed by the device name.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -4243,20 +4281,20 @@ program should be keyed by the device name.</p>
 
 
 <h2 id="qwip.backends.tektronix.TektronixCompiler" class="doc doc-heading">
-            <code>TektronixCompiler</code>
+          <code>TektronixCompiler</code>
 
 
 <a href="#qwip.backends.tektronix.TektronixCompiler" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="qwip.sequencer.compilation.HardwareCompiler">HardwareCompiler</span></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><span title="qwip.sequencer.compilation.HardwareCompiler">HardwareCompiler</span></code></p>
 
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-126">126</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-126">126</a></span>
 <span class="normal"><a href="#__codelineno-0-127">127</a></span>
 <span class="normal"><a href="#__codelineno-0-128">128</a></span>
 <span class="normal"><a href="#__codelineno-0-129">129</a></span>
@@ -4374,11 +4412,12 @@ program should be keyed by the device name.</p>
 </span><span id="__span-0-183"><a id="__codelineno-0-183" name="__codelineno-0-183"></a>
 </span><span id="__span-0-184"><a id="__codelineno-0-184" name="__codelineno-0-184"></a>        <span class="k">return</span> <span class="n">tek_program</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -4391,87 +4430,90 @@ program should be keyed by the device name.</p>
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.backends.tektronix.TektronixCompiler.compile" class="doc doc-heading">
-            <code class="highlight language-python"><span class="nb">compile</span><span class="p">(</span><span class="n">program</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="nb">compile</span><span class="p">(</span><span class="n">program</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span></code>
 
 <a href="#qwip.backends.tektronix.TektronixCompiler.compile" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Compiles a sequence.</p>
 <p>This function takes an abstract sequence and compiles it into a concrete
 set of timepoints.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>program</code></td>
+          <td>
+                <code><span title="qwip.sequencer.compilation.IntermediateProgram">IntermediateProgram</span></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The intermediate representation to be compiled.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>program</code></td>
-            <td>
-                  <code><span title="qwip.sequencer.compilation.IntermediateProgram">IntermediateProgram</span></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The intermediate representation to be compiled.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code>device</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.sequencer.compilation.DeviceInfo" href="../../sequencer/compilation/#qwip.sequencer.compilation.DeviceInfo">DeviceInfo</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Device information for the tektronix instrument being targeted.</p>
-              </div>
-            </td>
-            <td>
-                <em>required</em>
-            </td>
-          </tr>
-      </tbody>
-    </table>
-
-
-    <p><span class="doc-section-title">Returns:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+        <tr class="doc-section-item">
+          <td><code>device</code></td>
+          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.sequencer.compilation.DeviceInfo" href="../../sequencer/compilation/#qwip.sequencer.compilation.DeviceInfo">DeviceInfo</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Device information for the tektronix instrument being targeted.</p>
+            </div>
+          </td>
+          <td>
+              <em>required</em>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-internal" title="qwip.backends.tektronix.TektronixProgram" href="#qwip.backends.tektronix.TektronixProgram">TektronixProgram</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A <code>TektronixProgram</code> instance.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-128">128</a></span>
+
+
+  <p><span class="doc-section-title">Returns:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-internal" title="qwip.backends.tektronix.TektronixProgram" href="#qwip.backends.tektronix.TektronixProgram">TektronixProgram</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A <code>TektronixProgram</code> instance.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
+
+          <details class="quote">
+            <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-128">128</a></span>
 <span class="normal"><a href="#__codelineno-0-129">129</a></span>
 <span class="normal"><a href="#__codelineno-0-130">130</a></span>
 <span class="normal"><a href="#__codelineno-0-131">131</a></span>
@@ -4585,8 +4627,8 @@ set of timepoints.</p>
 </span><span id="__span-0-183"><a id="__codelineno-0-183" name="__codelineno-0-183"></a>
 </span><span id="__span-0-184"><a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="k">return</span> <span class="n">tek_program</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -4594,7 +4636,8 @@ set of timepoints.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -4603,134 +4646,135 @@ set of timepoints.</p>
 
 
 <h2 id="qwip.backends.tektronix.TektronixProgram" class="doc doc-heading">
-            <code>TektronixProgram</code>
+          <code>TektronixProgram</code>
 
 
 <a href="#qwip.backends.tektronix.TektronixProgram" class="headerlink" title="Permanent link">&para;</a></h2>
 
 
-    <div class="doc doc-contents ">
-            <p class="doc doc-class-bases">
-              Bases: <code><span title="qwip.sequencer.compilation.Program">Program</span></code></p>
+  <div class="doc doc-contents ">
+          <p class="doc doc-class-bases">
+            Bases: <code><span title="qwip.sequencer.compilation.Program">Program</span></code></p>
 
-
+  
       <p>A representation of a tektronix sequencer program.</p>
 <p>Most of the attributes are passed directly to the <code>make_send_and_load_awg_file</code>
 method of the QCoDeS driver.</p>
 
 
-<p><span class="doc-section-title">Attributes:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.backends.tektronix.TektronixProgram.channels">channels</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>, ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The channels indices that are involved. Note that these are
+
+  <p><span class="doc-section-title">Attributes:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.backends.tektronix.TektronixProgram.channels">channels</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>, ...]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The channels indices that are involved. Note that these are
 zero-indexed, but the Tektronix channels are 1-indexed on the device itself.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.backends.tektronix.TektronixProgram.waveforms">waveforms</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<span title="numpy.ndarray">ndarray</span>], ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A tuple of lists of numpy arrays containing the waveform data. The
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.backends.tektronix.TektronixProgram.waveforms">waveforms</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<span title="numpy.ndarray">ndarray</span>], ...]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A tuple of lists of numpy arrays containing the waveform data. The
 outermost tuple indexes the channels and each list indexes the sequence
 element.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.backends.tektronix.TektronixProgram.marker1s">marker1s</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<span title="numpy.ndarray">ndarray</span>], ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A tuple of lists of numpy arrays containing the values for the first
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.backends.tektronix.TektronixProgram.marker1s">marker1s</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<span title="numpy.ndarray">ndarray</span>], ...]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A tuple of lists of numpy arrays containing the values for the first
 marker on each channel, indexed the same way as waveforms. These values
 should either be 0 or 1.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.backends.tektronix.TektronixProgram.marker2s">marker2s</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<span title="numpy.ndarray">ndarray</span>], ...]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>A tuple of lists of numpy arrays containing the values for the second
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.backends.tektronix.TektronixProgram.marker2s">marker2s</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<span title="numpy.ndarray">ndarray</span>], ...]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>A tuple of lists of numpy arrays containing the values for the second
 marker on each channel, indexed the same way as waveforms. These values
 should either be 0 or 1.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.backends.tektronix.TektronixProgram.repeats">repeats</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The number of times to repeat the corresponding element.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.backends.tektronix.TektronixProgram.waits">waits</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether or not to wait for a trigger before playing the corresponding
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.backends.tektronix.TektronixProgram.repeats">repeats</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The number of times to repeat the corresponding element.</p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.backends.tektronix.TektronixProgram.waits">waits</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Whether or not to wait for a trigger before playing the corresponding
 element.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.backends.tektronix.TektronixProgram.go_tos">go_tos</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The element to go to after completing the current sequence element.</p>
-              </div>
-            </td>
-          </tr>
-          <tr class="doc-section-item">
-            <td><code><span title="qwip.backends.tektronix.TektronixProgram.jump_tos">jump_tos</span></code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>The event jump value for each element. Should be 0 for most cases.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.backends.tektronix.TektronixProgram.go_tos">go_tos</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The element to go to after completing the current sequence element.</p>
+            </div>
+          </td>
+        </tr>
+        <tr class="doc-section-item">
+          <td><code><span title="qwip.backends.tektronix.TektronixProgram.jump_tos">jump_tos</span></code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a>]</code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>The event jump value for each element. Should be 0 for most cases.</p>
+            </div>
+          </td>
+        </tr>
+    </tbody>
+  </table>
 
-              <details class="quote">
-                <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-                <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-25"> 25</a></span>
+            <details class="quote">
+              <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-25"> 25</a></span>
 <span class="normal"><a href="#__codelineno-0-26"> 26</a></span>
 <span class="normal"><a href="#__codelineno-0-27"> 27</a></span>
 <span class="normal"><a href="#__codelineno-0-28"> 28</a></span>
@@ -4928,11 +4972,12 @@ element.</p>
 </span><span id="__span-0-122"><a id="__codelineno-0-122" name="__codelineno-0-122"></a>
 </span><span id="__span-0-123"><a id="__codelineno-0-123" name="__codelineno-0-123"></a>        <span class="k">return</span> <span class="kc">True</span>
 </span></code></pre></div></td></tr></table></div>
-              </details>
+            </details>
 
-
+  
 
   <div class="doc doc-children">
+
 
 
 
@@ -4945,73 +4990,76 @@ element.</p>
 <div class="doc doc-object doc-function">
 
 
+
 <h3 id="qwip.backends.tektronix.TektronixProgram.validate" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">validate</span><span class="p">(</span><span class="n">raise_on_error</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
+          <code class="highlight language-python"><span class="n">validate</span><span class="p">(</span><span class="n">raise_on_error</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span></code>
 
 <a href="#qwip.backends.tektronix.TektronixProgram.validate" class="headerlink" title="Permanent link">&para;</a></h3>
 
 
-    <div class="doc doc-contents ">
-
+  <div class="doc doc-contents ">
+  
       <p>Validates a program.</p>
 <p>The minimum number of samples for every element on the 5014c is 250, discovered
 via experimental programming.</p>
 
 
-<p><span class="doc-section-title">Parameters:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Type</th>
-          <th>Description</th>
-          <th>Default</th>
+
+  <p><span class="doc-section-title">Parameters:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Description</th>
+        <th>Default</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td><code>raise_on_error</code></td>
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>Whether to raise an exception or just return False.</p>
+            </div>
+          </td>
+          <td>
+                <code>False</code>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td><code>raise_on_error</code></td>
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>Whether to raise an exception or just return False.</p>
-              </div>
-            </td>
-            <td>
-                  <code>False</code>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
 
-<p><span class="doc-section-title">Raises:</span></p>
-    <table>
-      <thead>
-        <tr>
-          <th>Type</th>
-          <th>Description</th>
+
+  <p><span class="doc-section-title">Raises:</span></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+        <tr class="doc-section-item">
+          <td>
+                <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#ValueError">ValueError</a></code>
+          </td>
+          <td>
+            <div class="doc-md-description">
+              <p>If the program is invalid in any way.</p>
+            </div>
+          </td>
         </tr>
-      </thead>
-      <tbody>
-          <tr class="doc-section-item">
-            <td>
-                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#ValueError">ValueError</a></code>
-            </td>
-            <td>
-              <div class="doc-md-description">
-                <p>If the program is invalid in any way.</p>
-              </div>
-            </td>
-          </tr>
-      </tbody>
-    </table>
+    </tbody>
+  </table>
 
-            <details class="quote">
-              <summary>Source code in <code>qwip/backends/tektronix.py</code></summary>
-              <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-66"> 66</a></span>
+          <details class="quote">
+            <summary>Source code in <code>qwip\backends\tektronix.py</code></summary>
+            <div class="language-python highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-66"> 66</a></span>
 <span class="normal"><a href="#__codelineno-0-67"> 67</a></span>
 <span class="normal"><a href="#__codelineno-0-68"> 68</a></span>
 <span class="normal"><a href="#__codelineno-0-69"> 69</a></span>
@@ -5127,8 +5175,8 @@ via experimental programming.</p>
 </span><span id="__span-0-122"><a id="__codelineno-0-122" name="__codelineno-0-122"></a>
 </span><span id="__span-0-123"><a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="k">return</span> <span class="kc">True</span>
 </span></code></pre></div></td></tr></table></div>
-            </details>
-    </div>
+          </details>
+  </div>
 
 </div>
 
@@ -5136,7 +5184,8 @@ via experimental programming.</p>
 
   </div>
 
-    </div>
+  </div>
+
 
 </div>
 
@@ -5145,7 +5194,7 @@ via experimental programming.</p>
 
   </div>
 
-    </div>
+  </div>
 
 </div>
 
@@ -5168,7 +5217,7 @@ via experimental programming.</p>
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1-2.1-2M12.5 7v5.2l4 2.4-1 1L11 13V7h1.5M11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2v1.8Z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">May 24, 2024</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">June 20, 2024</span>
   </span>
 
     
@@ -5241,7 +5290,7 @@ via experimental programming.</p>
     <script id="__config" type="application/json">{"base": "../../../..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.code.annotate", "navigation.tabs", "navigation.indexes"], "search": "../../../../assets/javascripts/workers/search.b8dbb3d2.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
     
     
-      <script src="../../../../assets/javascripts/bundle.ebd0bdb7.min.js"></script>
+      <script src="../../../../assets/javascripts/bundle.5cfa9459.min.js"></script>
       
         <script src="../../../../assets/js/termynal.js"></script>
       
