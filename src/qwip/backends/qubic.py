@@ -8,11 +8,13 @@ from loguru import logger
 
 try:
     import qubic.toolchain as tc
-    from distproc.compiler import CompiledProgram
+    from distproc.compiler import CompiledProgram, get_passes, CompilerFlags
     from distproc.compiler import Compiler as _QubicInternalCompiler
+    from distproc.hwconfig import ChannelConfig as QubicChannelConfig
     from distproc.hwconfig import FPGAConfig
     from distproc.ir import passes
     from distproc.ir.instructions import Pulse, VirtualZ
+    from distproc.executable import Executable
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
 except ImportError as e:
@@ -49,7 +51,7 @@ def get_compiler_passes(
     qchip: QChip,
     qubit_grouping: tuple[str, ...] = ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"),
     proc_grouping: list[tuple[str, ...]] = [
-        ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo")
+        ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"), ('{qubit}.qdrv2', '{qubit}.dcoffs')
     ],
 ):
     """Constructs the default compiler passes for the internal Qubic compiler.
@@ -81,40 +83,40 @@ def get_compiler_passes(
     ]
 
 
-@qfrozen
-class QubicChannelConfig:
-    """A Qubic channel config object.
+# @qfrozen
+# class QubicChannelConfig:
+#     """A Qubic channel config object.
 
-    Attributes:
-        device: The device that the channel belongs to. Should be one of
-            `[qdrv, rdrv, rdlo]`.
-        core_ind: The core index for the channel.
-        elem_ind: The element index for the channel.
-        elem_params: A dictionary with the clock samples and interpolation ratio.
-        env_mem_name: The name of the envelope memory for the channel.
-        freq_mem_name: The name of the frequency memory for the channel.
-        acc_mem_name: The name of the acc buffer for the channel.
-    """
+#     Attributes:
+#         device: The device that the channel belongs to. Should be one of
+#             `[qdrv, rdrv, rdlo]`.
+#         core_ind: The core index for the channel.
+#         elem_ind: The element index for the channel.
+#         elem_params: A dictionary with the clock samples and interpolation ratio.
+#         env_mem_name: The name of the envelope memory for the channel.
+#         freq_mem_name: The name of the frequency memory for the channel.
+#         acc_mem_name: The name of the acc buffer for the channel.
+#     """
 
-    device: str
-    core_ind: int
-    elem_ind: int = 0
-    elem_params: dict[str, int] = dict(samples_per_clk=16, interp_ratio=1)
-    env_mem_name: str = field()
-    freq_mem_name: str = field()
-    acc_mem_name: str = field()
+#     device: str
+#     core_ind: int
+#     elem_ind: int = 0
+#     elem_params: dict[str, int] = dict(samples_per_clk=16, interp_ratio=1)
+#     env_mem_name: str = field()
+#     freq_mem_name: str = field()
+#     acc_mem_name: str = field()
 
-    @env_mem_name.default
-    def _default_env_mem_name(self) -> str:
-        return f"{self.device}env{self.core_ind}"
+#     @env_mem_name.default
+#     def _default_env_mem_name(self) -> str:
+#         return f"{self.device}env{self.core_ind}"
 
-    @freq_mem_name.default
-    def _default_freq_mem_name(self) -> str:
-        return f"{self.device}freq{self.core_ind}"
+#     @freq_mem_name.default
+#     def _default_freq_mem_name(self) -> str:
+#         return f"{self.device}freq{self.core_ind}"
 
-    @acc_mem_name.default
-    def _default_acc_mem_name(self) -> str:
-        return f"accbuf{self.core_ind}"
+#     @acc_mem_name.default
+#     def _default_acc_mem_name(self) -> str:
+#         return f"accbuf{self.core_ind}"
 
 
 @qfrozen
@@ -122,7 +124,7 @@ class QubicExecutable(QuantumExecutable):
     program: CompiledProgram = field(eq=id)
     # cattrs will always copy a dict when converting, so we disable autoconversion
     # to allow QubicExecutable's to be copied with the exact same assembly
-    assembly: dict = field(
+    assembly: Executable = field(
         eq=id, metadata=dict(auto_convert=False), repr=lambda asm: asm.keys()
     )
     repetition_delay: float
@@ -320,16 +322,15 @@ class QubicCompiler(QWiPCompiler):
         start = _to_python_number(loc)
         end = start + width
 
-        if wave.channel:
-            if (ch_info := self.get_channel_info(wave.channel)) is None:
-                raise ValueError(f"Channel {wave.channel} is not a valid channel.")
+        if (ch_info := self.get_channel_info(wave.channel)) is None:
+            raise ValueError(f"Channel {wave.channel} is not a valid channel.")
 
-            if ch_info.read:
-                reads[wave.channel] += 1
+        if ch_info.read:
+            reads[wave.channel] += 1
 
-            dtype = self.devices[ch_info.device].dtype
-        else:
-            dtype = None
+        dtype = self.devices[ch_info.device].dtype
+        sample_rate = self.devices[ch_info.device].sample_rate
+        is_dc = bool(sample_rate == 0)
 
         # np.round().astype() will return a np.int32 instead of an int
         start_cycle = t0 + int(np.round(start / self.fpga_config.fpga_clk_period))
@@ -592,8 +593,19 @@ class QubicCompiler(QWiPCompiler):
         qchip = self.get_qchip()
         channel_config = self.get_channel_config()
 
-        passes = kwargs.get("passes", get_compiler_passes(self.fpga_config, qchip))
-        qubic_compiler = _QubicInternalCompiler(circuit)
+        default_passes = get_passes(
+            self.fpga_config,
+            qchip,
+            compiler_flags=CompilerFlags(schedule=False),
+            qubit_grouping=("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"),
+            proc_grouping=[
+                ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"), ("{qubit}.qdrv2", '{qubit}.dcoffs')
+            ]
+        )
+        passes = kwargs.get("passes", default_passes)
+        qubic_compiler = _QubicInternalCompiler(circuit, proc_grouping=[
+            ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"), ("{qubit}.qdrv2", '{qubit}.dcoffs')
+        ])
         qubic_compiler.run_ir_passes(passes)
 
         prog = qubic_compiler.compile()
@@ -631,18 +643,39 @@ class QubicCompiler(QWiPCompiler):
 
             for ch in dev.channels:
                 _, device = ch.name.split(".")
-                samples_per_clk = 4 if device.lower() == "rdlo" else 16
-                interp_ratio = round(
-                    samples_per_clk / (sample_rate * self.fpga_config.fpga_clk_period)
-                )
+
+                if sample_rate == 0:
+                    elem_params = {}
+                    elem_type = "dc"
+                    memory = {}
+                else:
+                    samples_per_clk = 4 if device.lower() == "rdlo" else 16
+                    interp_ratio = round(
+                        samples_per_clk
+                        / (sample_rate * self.fpga_config.fpga_clk_period)
+                    )
+                    elem_params = dict(
+                        samples_per_clk=samples_per_clk, interp_ratio=interp_ratio
+                    )
+                    elem_type = "rf"
+
+                    if device == "qdrv2":
+                        device = "qdrv"
+
+                    memory = dict(
+                        env_mem_name=f"{device}env{ch.index}",
+                        freq_mem_name = f"{device}freq{ch.index}"
+                    )
+
+                    if device == "rdlo":                    
+                        memory["acc_mem_name"] = f"accbuf{ch.index}"
 
                 channel_config[ch.name] = QubicChannelConfig(
-                    device=device,
                     core_ind=ch.index,
+                    elem_type=elem_type,
                     elem_ind=ch.subchannel,
-                    elem_params=dict(
-                        samples_per_clk=samples_per_clk, interp_ratio=interp_ratio
-                    ),
+                    elem_params=elem_params,
+                    **memory
                 )
 
         return channel_config

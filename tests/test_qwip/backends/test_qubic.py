@@ -7,6 +7,7 @@ from numpy.testing import assert_almost_equal, assert_equal
 
 try:
     from distproc.compiler import CompiledProgram
+    from distproc.executable import Executable
     from distproc.ir.instructions import Pulse, VirtualZ
 
     from qwip.backends.qubic import (
@@ -51,10 +52,10 @@ def assert_instructions_almost_equal(ins1, ins2):
 class TestQubicExecutable:
     def test_equality_and_hash(self):
         exe1 = QubicExecutable(
-            program=CompiledProgram([]), assembly={}, repetition_delay=1
+            program=CompiledProgram([]), assembly=Executable(), repetition_delay=1
         )
         exe2 = QubicExecutable(
-            program=CompiledProgram([]), assembly={}, repetition_delay=1
+            program=CompiledProgram([]), assembly=Executable(), repetition_delay=1
         )
         exe3 = QubicExecutable(
             program=exe1.program, assembly=exe1.assembly, repetition_delay=1
@@ -66,7 +67,7 @@ class TestQubicExecutable:
 
     def test_frozen(self):
         exe1 = QubicExecutable(
-            program=CompiledProgram([]), assembly={}, repetition_delay=1
+            program=CompiledProgram([]), assembly=Executable(), repetition_delay=1
         )
 
         with pytest.raises(attrs.exceptions.FrozenInstanceError):
@@ -196,12 +197,15 @@ class TestQubicCompiler:
         assert np.round(channel_config.pop("fpga_clk_freq")) == 5e8
 
         for k, ch_config in channel_config.items():
+            device = k[-4:]
             ch_id = ch_config.core_ind
-            assert ch_config.device == k[3:]
-            assert ch_config.elem_params == expected_elem_params[ch_config.device]
-            assert ch_config.env_mem_name == f"{ch_config.device}env{ch_id}"
-            assert ch_config.freq_mem_name == f"{ch_config.device}freq{ch_id}"
-            assert ch_config.acc_mem_name == f"accbuf{ch_id}"
+            assert ch_config.elem_params == expected_elem_params[device]
+            assert ch_config.elem_type == "rf"
+            assert ch_config.env_mem_name == f"{device}env{ch_id}"
+            assert ch_config.freq_mem_name == f"{device}freq{ch_id}"
+            
+            if device == "rdlo":
+                assert ch_config.acc_mem_name == f"accbuf{ch_id}" 
 
     @pytest.mark.parametrize(
         "location,wave,t0,expected",
