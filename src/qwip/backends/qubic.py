@@ -35,6 +35,7 @@ from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import _to_python_number
 from qwip.sequencer.waveform import (
     BasicWaveform,
+    DCWaveform,
     Marker,
     ModulatedWaveform,
     Operation,
@@ -358,6 +359,17 @@ class QubicCompiler(QWiPCompiler):
                     VirtualZ(qubit=qubit, phase=phase * np.pi / 180, freq=freqname)
                 )
 
+            case DCWaveform():
+                instructions.append(Pulse(
+                    env=None,
+                    dest=wave.channel,
+                    freq=None,
+                    phase=0,
+                    amp=wave.amplitude,
+                    twidth=0,
+                    start_time=start_cycle,
+                ))
+
             case ModulatedWaveform(envelope=env, modulation=mod):
                 sample_rate = self.devices[ch_info.device].sample_rate
                 # First check if we've evaluated this envelope already
@@ -593,19 +605,19 @@ class QubicCompiler(QWiPCompiler):
         qchip = self.get_qchip()
         channel_config = self.get_channel_config()
 
+        proc_grouping = [
+            ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"), ("{qubit}.qdrv2", '{qubit}.dcoffs')
+        ]
+
         default_passes = get_passes(
             self.fpga_config,
             qchip,
             compiler_flags=CompilerFlags(schedule=False),
             qubit_grouping=("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"),
-            proc_grouping=[
-                ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"), ("{qubit}.qdrv2", '{qubit}.dcoffs')
-            ]
+            proc_grouping=proc_grouping
         )
         passes = kwargs.get("passes", default_passes)
-        qubic_compiler = _QubicInternalCompiler(circuit, proc_grouping=[
-            ("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"), ("{qubit}.qdrv2", '{qubit}.dcoffs')
-        ])
+        qubic_compiler = _QubicInternalCompiler(circuit, proc_grouping=proc_grouping)
         qubic_compiler.run_ir_passes(passes)
 
         prog = qubic_compiler.compile()
@@ -638,18 +650,17 @@ class QubicCompiler(QWiPCompiler):
         """
         channel_config = dict(fpga_clk_freq=self.fpga_config.fpga_clk_freq)
 
-        for dev in self.devices.values():
-            sample_rate = dev.sample_rate
+        for devname, devinfo in self.devices.items():
+            sample_rate = devinfo.sample_rate
 
-            for ch in dev.channels:
-                _, device = ch.name.split(".")
+            for ch in devinfo.channels:
 
                 if sample_rate == 0:
                     elem_params = {}
                     elem_type = "dc"
                     memory = {}
                 else:
-                    samples_per_clk = 4 if device.lower() == "rdlo" else 16
+                    samples_per_clk = 4 if devname.lower() == "rdlo" else 16
                     interp_ratio = round(
                         samples_per_clk
                         / (sample_rate * self.fpga_config.fpga_clk_period)
@@ -659,15 +670,12 @@ class QubicCompiler(QWiPCompiler):
                     )
                     elem_type = "rf"
 
-                    if device == "qdrv2":
-                        device = "qdrv"
-
                     memory = dict(
-                        env_mem_name=f"{device}env{ch.index}",
-                        freq_mem_name = f"{device}freq{ch.index}"
+                        env_mem_name=f"{devname}env{ch.index}",
+                        freq_mem_name = f"{devname}freq{ch.index}"
                     )
 
-                    if device == "rdlo":                    
+                    if ch.read:
                         memory["acc_mem_name"] = f"accbuf{ch.index}"
 
                 channel_config[ch.name] = QubicChannelConfig(
