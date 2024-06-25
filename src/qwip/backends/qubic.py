@@ -611,7 +611,7 @@ class QubicCompiler(QWiPCompiler):
 
         default_passes = get_passes(
             self.fpga_config,
-            qchip,
+            qchip, 
             compiler_flags=CompilerFlags(schedule=False),
             qubit_grouping=("{qubit}.qdrv", "{qubit}.rdrv", "{qubit}.rdlo"),
             proc_grouping=proc_grouping
