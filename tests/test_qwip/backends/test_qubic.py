@@ -203,9 +203,9 @@ class TestQubicCompiler:
             assert ch_config.elem_type == "rf"
             assert ch_config.env_mem_name == f"{device}env{ch_id}"
             assert ch_config.freq_mem_name == f"{device}freq{ch_id}"
-            
+
             if device == "rdlo":
-                assert ch_config.acc_mem_name == f"accbuf{ch_id}" 
+                assert ch_config.acc_mem_name == f"accbuf{ch_id}"
 
     @pytest.mark.parametrize(
         "location,wave,t0,expected",

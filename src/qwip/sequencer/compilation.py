@@ -94,6 +94,7 @@ class DeviceInfo:
         repr=lambda channels: repr(tuple(ch.name for ch in channels))
     )
     sample_rate: float
+    envelope_sample_rate: float | None = None
     dtype: type = np.float32
     trigger: TriggerInfo | None = None
 

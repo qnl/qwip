@@ -608,6 +608,7 @@ class CWWaveform(InfiniteWaveform):
         # Add base modulation at the relevant frequency if doing software modulation
         oscillator = 0 if self.hardware_modulation else software_oscillator
         amplitude = 1 if self.hardware_modulation else amplitude
+        phase = 0 if self.hardware_modulation else phase
         wave = amplitude * np.exp(1j * (oscillator + phis + phase), dtype=np.complex64)
 
         return wave
