@@ -49,6 +49,12 @@ if TYPE_CHECKING:
     from qwip.qpu.qpu import QPU
 
 
+def _sort_virtual_z(loc_op: tuple[float, Operation]) -> tuple[float, int]:
+    """Sort key function so that VirtualZWaveforms come first."""
+    loc, op = loc_op
+    return (loc, int(not isinstance(op, VirtualZWaveform)))
+
+
 def get_compiler_passes(
     fpga_config: FPGAConfig,
     qchip: QChip,
@@ -383,7 +389,7 @@ class QubicCompiler(QWiPCompiler):
                 ...
 
             case BasicWaveform():
-                if wave in waveform_cache:
+                if (wave, int(sample_rate)) in waveform_cache:
                     w_t = waveform_cache[wave, int(sample_rate)]
                 else:
                     ch_info = self.get_channel_info(wave.channel)
@@ -412,9 +418,11 @@ class QubicCompiler(QWiPCompiler):
     def compile_timeline(
         self,
         tmln: Timeline,
+        substitutions: dict = {},
         *,
         waveform_cache: dict[tuple[Waveform, int], np.ndarray] = {},
         t0: int = 0,
+        reset_delay: float = 0,
         **kwargs,
     ) -> tuple[list, Counter[str]]:
         """Compiles a single pulse timeline.
@@ -432,6 +440,17 @@ class QubicCompiler(QWiPCompiler):
             A list of instructions and a counter specifying the number of reads on each
             channel.
         """
+        tmln.resolve(inplace=True, sort=_sort_virtual_z, **substitutions)
+
+        t_end = _to_python_number(tmln.width)
+        if t_end > reset_delay:
+            raise ValueError(
+                f"Timeline length {t_end} is greater than reset delay "
+                f"{reset_delay}."
+            )
+
+        phase_tracker = self.compile_phases(tmln)
+
         instructions = []
         start_times = []
         reads = Counter()
@@ -501,8 +520,7 @@ class QubicCompiler(QWiPCompiler):
         seq: Sequence,
         reset_delay: float,
         preamble: list = [],
-        location_kwargs: dict = {},
-        pulse_kwargs: dict = {},
+        substitutions: dict = {},
         **kwargs,
     ) -> tuple[list, list[int]]:
         """Constructs a Qubic instruction list from a sequence.
@@ -527,34 +545,18 @@ class QubicCompiler(QWiPCompiler):
         """
         waveform_cache = {}
 
-        def _sort_virtual_z(loc_op: tuple[float, Operation]) -> tuple[float, int]:
-            """Sort key function so that VirtualZWaveforms come first."""
-            loc, op = loc_op
-            return (loc, int(not isinstance(op, VirtualZWaveform)))
-
-        for tmln in seq.flat:
-            tmln.resolve(
-                inplace=True, sort=_sort_virtual_z, **location_kwargs, **pulse_kwargs
-            )
-
         reads_per_timeline = []
         circuit = preamble or []
         for i, tmln in enumerate(seq.flat):
-            t_end = _to_python_number(tmln.width)
-
-            if t_end > reset_delay:
-                raise ValueError(
-                    f"Timeline length {t_end} is greater than reset delay "
-                    f"{reset_delay}."
-                )
-
             instructions, reads = self.compile_timeline(
                 tmln,
+                substitutions,
                 waveform_cache=waveform_cache,
                 t0=self.start_offset
                 + int(
                     np.round((i + 1) * reset_delay / self.fpga_config.fpga_clk_period)
                 ),
+                reset_delay=reset_delay,
                 **kwargs,
             )
 
@@ -573,8 +575,7 @@ class QubicCompiler(QWiPCompiler):
     def compile(
         self,
         seq: Sequence,
-        location_kwargs: dict = {},
-        pulse_kwargs: dict = {},
+        substitutions: dict = {},
         frame_scopes: dict = {},
         proc_grouping: list | None = None,
         reset_delay: float | None = None,
@@ -599,8 +600,7 @@ class QubicCompiler(QWiPCompiler):
             seq,
             reset_delay,
             frame_declarations,
-            location_kwargs,
-            pulse_kwargs,
+            substitutions,
             **kwargs,
         )
 
