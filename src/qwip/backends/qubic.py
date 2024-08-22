@@ -137,6 +137,16 @@ def find_constant_segments(
     return locs[:-1], vals, lengths
 
 
+def _get_board_and_type(devname: str) -> tuple[str, str]:
+    match devname.split("_"):
+        case (board, ch_type):
+            return board, ch_type
+        case (ch_type,):
+            return "", ch_type
+        case _:
+            raise ValueError(f"Malformed QubiC device name: {devname}")
+
+
 @register_compiler
 @qdefine
 class QubicCompiler(QWiPCompiler):
@@ -658,8 +668,9 @@ class QubicCompiler(QWiPCompiler):
         cores = defaultdict(list)
 
         for devinfo in self.devices.values():
+            board_name, _ = _get_board_and_type(devinfo.name)
             for ch in devinfo.channels:
-                cores[ch.index].append(ch.name)
+                cores[board_name, ch.index].append(ch.name)
 
         return [tuple(grp) for grp in cores.values()]
 
@@ -675,8 +686,9 @@ class QubicCompiler(QWiPCompiler):
             sample_rate = devinfo.sample_rate
             env_sample_rate = devinfo.envelope_sample_rate
 
-            for ch in devinfo.channels:
+            board_name, ch_type = _get_board_and_type(devname)
 
+            for ch in devinfo.channels:
                 if sample_rate == 0:
                     elem_params = {}
                     elem_type = "dc"
@@ -693,8 +705,8 @@ class QubicCompiler(QWiPCompiler):
                     elem_type = "rf"
 
                     memory = dict(
-                        env_mem_name=f"{devname}env{ch.index}",
-                        freq_mem_name=f"{devname}freq{ch.index}",
+                        env_mem_name=f"{ch_type}env{ch.index}",
+                        freq_mem_name=f"{ch_type}freq{ch.index}",
                     )
 
                     if ch.read:
@@ -705,6 +717,7 @@ class QubicCompiler(QWiPCompiler):
                     elem_type=elem_type,
                     elem_ind=ch.subchannel,
                     elem_params=elem_params,
+                    board_name=board_name,
                     **memory,
                 )
 
@@ -767,6 +780,9 @@ class QubicBackend(QuantumBackend):
         iq_results = {}
         for k, data in result.items():
             df = pd.DataFrame(data[0].flatten().conj(), index=index, columns=["IQ"])
+
+            if k not in self.result_map:
+                continue
 
             name = self.result_map.get(k, k)
             iq_results[name] = IQResult(name=name, data=df)
