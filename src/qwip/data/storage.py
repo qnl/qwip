@@ -335,12 +335,19 @@ class LocalStorageBackend(StorageBackend):
 
 # ========== httpx.Client converters ========== #
 
+CLIENT_CACHE = {}
+
 
 def httpx_client_structure_fn(val, cls):
     if isinstance(val, cls):
         return val
 
-    return httpx.Client(**val)
+    key = tuple(val.items())
+    if key in CLIENT_CACHE:
+        return CLIENT_CACHE[key]
+
+    client = CLIENT_CACHE[key] = httpx.Client(**val)
+    return client
 
 
 def httpx_client_unstructure_fn(obj):

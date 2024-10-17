@@ -28,6 +28,7 @@ from qwip.backends.backend import QuantumBackend
 from qwip.flatdict import FlatDict
 from qwip.processing.processors import IQResult
 from qwip.sequencer.compilation import (
+    ChannelInfo,
     QuantumExecutable,
     QWiPCompiler,
     register_compiler,
@@ -137,14 +138,28 @@ def find_constant_segments(
     return locs[:-1], vals, lengths
 
 
-def _get_board_and_type(devname: str) -> tuple[str, str]:
+def _get_board_and_core(devname: str) -> tuple[str, str]:
     match devname.split("_"):
-        case (board, ch_type):
-            return board, ch_type
-        case (ch_type,):
-            return "", ch_type
+        case (board, core, sig_gen):
+            return board, core, sig_gen
+        case (core, sig_gen):
+            return "", core, sig_gen
         case _:
             raise ValueError(f"Malformed QubiC device name: {devname}")
+
+
+def _get_memory_name(channel: ChannelInfo) -> dict[str, str]:
+    board, core, sig_gen = _get_board_and_core(channel.device)
+
+    memory = dict(
+        env_mem_name=f"{core}_{sig_gen}_env{channel.index}",
+        freq_mem_name=f"{core}_{sig_gen}_freq{channel.index}",
+    )
+
+    if channel.read:
+        memory["acc_mem_name"] = f"{core}_accbuf{channel.index}"
+
+    return memory
 
 
 @register_compiler
@@ -668,9 +683,9 @@ class QubicCompiler(QWiPCompiler):
         cores = defaultdict(list)
 
         for devinfo in self.devices.values():
-            board_name, _ = _get_board_and_type(devinfo.name)
+            board, core, _ = _get_board_and_core(devinfo.name)
             for ch in devinfo.channels:
-                cores[board_name, ch.index].append(ch.name)
+                cores[board, core, ch.index].append(ch.name)
 
         return [tuple(grp) for grp in cores.values()]
 
@@ -686,7 +701,7 @@ class QubicCompiler(QWiPCompiler):
             sample_rate = devinfo.sample_rate
             env_sample_rate = devinfo.envelope_sample_rate
 
-            board_name, ch_type = _get_board_and_type(devname)
+            board, core, _ = _get_board_and_core(devname)
 
             for ch in devinfo.channels:
                 if sample_rate == 0:
@@ -704,20 +719,15 @@ class QubicCompiler(QWiPCompiler):
                     )
                     elem_type = "rf"
 
-                    memory = dict(
-                        env_mem_name=f"{ch_type}env{ch.index}",
-                        freq_mem_name=f"{ch_type}freq{ch.index}",
-                    )
-
-                    if ch.read:
-                        memory["acc_mem_name"] = f"accbuf{ch.index}"
+                    memory = _get_memory_name(ch)
 
                 channel_config[ch.name] = QubicChannelConfig(
                     core_ind=ch.index,
                     elem_type=elem_type,
                     elem_ind=ch.subchannel,
                     elem_params=elem_params,
-                    board_name=board_name,
+                    core_name=core,
+                    board_name=board,
                     **memory,
                 )
 

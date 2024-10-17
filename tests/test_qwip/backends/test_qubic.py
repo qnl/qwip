@@ -13,6 +13,8 @@ try:
     from qwip.backends.qubic import (
         QubicCompiler,
         QubicExecutable,
+        _get_board_and_core,
+        _get_memory_name,
         find_constant_segments,
     )
 except ImportError:
@@ -47,6 +49,12 @@ def assert_instructions_almost_equal(ins1, ins2):
             )
         else:
             assert getattr(ins1, f.name) == getattr(ins2, f.name)
+
+
+def test_get_board_and_core(): ...
+
+
+def test_get_memory_name(): ...
 
 
 class TestQubicExecutable:
