@@ -29,7 +29,7 @@ from qwip.visualization.utils import all_legend_handles_labels
 
 Location = sym.Expr
 LocationLike = Location | str | Real
-TChannelMap = dict[str, tuple[Location, Waveform]]
+TChannelMap = dict[str, tuple[Location, Operation]]
 
 
 def _default_sort_key(loc_op: tuple[float, Operation]) -> float:
@@ -38,7 +38,7 @@ def _default_sort_key(loc_op: tuple[float, Operation]) -> float:
 
 @qdefine
 class Timeline:
-    lw_pairs: list[tuple[Location, Waveform]] = field(factory=list)
+    lw_pairs: list[tuple[Location, Operation]] = field(factory=list)
     width: Location | None = None
     constraints: set[sym.Expr] = field(factory=set)
     channels: set[str] = field(factory=set, metadata=dict(serialize=False))
@@ -56,13 +56,13 @@ class Timeline:
         return [loc for loc, _ in self]
 
     @property
-    def operations(self) -> list[Waveform]:
+    def operations(self) -> list[Operation]:
         return [op for _, op in self]
 
     @classmethod
     def fromtuples(
         cls,
-        locations: list[tuple[LocationLike, Waveform | None]],
+        locations: list[tuple[LocationLike, Operation | None]],
         width: LocationLike | None = None,
         constraints: list[sym.Expr] = [],
     ) -> Self:
@@ -83,7 +83,7 @@ class Timeline:
     @classmethod
     def from_dict(
         cls,
-        pulse_locations: dict[LocationLike, list[Waveform]],
+        pulse_locations: dict[LocationLike, list[Operation]],
         width: LocationLike | None = None,
         constraints: list[sym.Expr] = [],
     ) -> Self:
@@ -151,7 +151,7 @@ class Timeline:
                     case Timeline():
                         tmln.add(op, t0)
                         width = op.width
-                    case Waveform():
+                    case Operation():
                         tmln.add(op, t0)
                         width = op.width
                     case Real():
@@ -171,7 +171,7 @@ class Timeline:
 
         return tmln
 
-    def add(self, target: Self | Waveform, /, location: LocationLike = 0.0) -> Self:
+    def add(self, target: Self | Operation, /, location: LocationLike = 0.0) -> Self:
         """Adds a waveform or another pulse timeline to the specified location.
 
         Args:
@@ -189,13 +189,13 @@ class Timeline:
             case _:
                 return self.add_waveform(target, location=location)
 
-    def _add_location_waveform_pair(self, loc: LocationLike, wave: Waveform) -> None:
+    def _add_location_waveform_pair(self, loc: LocationLike, wave: Operation) -> None:
         loc = qwip.converter.structure(loc, sym.Expr)
         self.lw_pairs.append((loc, wave))
 
     def add_waveform(
         self,
-        waveforms: Waveform | Iterable[Waveform],
+        waveforms: Operation | Iterable[Operation],
         location: LocationLike = 0.0,
     ) -> Self:
         """Adds a waveform to the pulse timeline at the specified location.
@@ -216,7 +216,7 @@ class Timeline:
 
     def remove_waveform(
         self,
-        waveform: Waveform | Collection[Waveform],
+        waveform: Operation | Collection[Operation],
         location: LocationLike | None = None,
     ) -> Self:
         """Removes a waveform to the pulse timeline.
@@ -226,7 +226,7 @@ class Timeline:
         specified location are removed.
         """
 
-        if isinstance(waveform, Waveform):
+        if isinstance(waveform, Operation):
             waveform = (waveform,)
 
         if location is not None:
@@ -474,7 +474,7 @@ class Timeline:
         sort: bool | Callable = True,
         reset_zero: Literal["pos", "neg", "both"] = "neg",
         **substitutions: Real | str | sym.Expr,
-    ) -> list[tuple[Location, Waveform]]:
+    ) -> list[tuple[Location, Operation]]:
         lw_pairs = []
 
         new_constraints = qwip.converter.structure(constraints, set[sym.Expr])
@@ -531,7 +531,7 @@ class Timeline:
     @deprecated(
         version="24.6.0", removed="24.8.0", message="Use `Timeline.resolve` instead."
     )
-    def resolve_waveforms(self, **pulse_vars: float | int) -> dict[Waveform, Waveform]:
+    def resolve_waveforms(self, **pulse_vars: float | int) -> dict[Operation, Operation]:
         """Resolves all waveform variables into concrete values.
 
         Args:
@@ -570,7 +570,7 @@ class Timeline:
         end_marker: str | None = "end",
         markers: dict | None = None,
         **kwargs: Location,
-    ) -> dict[Location, list[Waveform]]:
+    ) -> dict[Location, list[Operation]]:
         """Resolves all locations into concrete times.
 
         Optionally time orders the location mapping and sets the earliest location
@@ -584,7 +584,7 @@ class Timeline:
                 before solving for the locations.
 
         Returns:
-            A dictionary mapping concrete locations to lists of Waveforms
+            A dictionary mapping concrete locations to lists of Operations
         """
         constraints = self.solve_constraints(**kwargs)
 

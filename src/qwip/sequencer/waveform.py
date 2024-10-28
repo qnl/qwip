@@ -36,14 +36,14 @@ from qwip.utils import deprecated
 if TYPE_CHECKING:
     from qwip.sequencer.timeline import Timeline
 
-REGISTERED_WAVEFORMS: dict[str, "Waveform"] = dict()
+REGISTERED_OPERATIONS: dict[str, "Operation"] = dict()
 
 
-def register_waveform(cls) -> type:
-    if not issubclass(cls, Waveform):
-        raise TypeError(f"Registered waveforms must subclass {Waveform}.")
+def register_operation(cls) -> type:
+    if not issubclass(cls, Operation):
+        raise TypeError(f"Registered operations must subclass {Operation}.")
 
-    REGISTERED_WAVEFORMS[cls.__name__] = cls
+    REGISTERED_OPERATIONS[cls.__name__] = cls
 
     return cls
 
@@ -337,7 +337,7 @@ class Waveform(Operation):
         return fftshift(ks), fftshift(fs)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class TimedWaveform(Waveform):
     t0: NumberOrExpression = 0
@@ -369,13 +369,13 @@ class TimedWaveform(Waveform):
         return self.evolve(channel=new_channel)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class Delay(TimedWaveform):
     hardware: bool = False
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class BasicWaveform(TimedWaveform):
     amplitude: NumberOrExpression = 1
@@ -386,13 +386,13 @@ class BasicWaveform(TimedWaveform):
         return self.amplitude * sym.exp(1j * self.phase * sym.pi / 180)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class InfiniteWaveform(BasicWaveform):
     width: NumberOrExpression = field(default=sym.oo, init=False)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class Marker(TimedWaveform):
     width: NumberOrExpression = field(default=0, init=False)
@@ -483,7 +483,7 @@ class ConvolvedWaveform(Waveform):
         return self.evolve(a_channel=new_channel, b_channel=new_channel)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class TriggeredWaveform(BasicWaveform):
     target: "qwip.sequencer.timeline.Timeline | None" = field(
@@ -499,12 +499,12 @@ class TriggeredWaveform(BasicWaveform):
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class ReadoutMarker(Marker): ...
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class DCWaveform(InfiniteWaveform):
     def evaluate_timepoints(
@@ -543,7 +543,7 @@ class DCWaveform(InfiniteWaveform):
         return fig
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class CWWaveform(InfiniteWaveform):
     frequency: Frame
@@ -614,7 +614,7 @@ class CWWaveform(InfiniteWaveform):
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class ModulatedWaveform(Waveform):
     envelope: Waveform
@@ -679,7 +679,7 @@ class ModulatedWaveform(Waveform):
         return self.evolve(modulation_channel=new_channel)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class VirtualZWaveform(Marker):
     """A Virtual-Z operation.
@@ -719,7 +719,7 @@ class VirtualZWaveform(Marker):
         )
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class PhaseResetWaveform(Marker):
     frame: Frame
@@ -730,7 +730,7 @@ class PhaseResetWaveform(Marker):
         phase_tracker.reset(self.frame, time)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class SquareWaveform(BasicWaveform):
     def evaluate_timepoints(
@@ -762,7 +762,7 @@ class SquareWaveform(BasicWaveform):
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class GaussianWaveform(BasicWaveform):
     cutoff: NumberOrExpression = 3
@@ -805,7 +805,7 @@ class GaussianWaveform(BasicWaveform):
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class CosineRampWaveform(BasicWaveform):
     ramp: NumberOrExpression | None = None
@@ -866,7 +866,7 @@ class CosineRampWaveform(BasicWaveform):
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class DRAG(Waveform):
     envelope: Waveform
@@ -923,19 +923,19 @@ class DRAG(Waveform):
 # ========== Waveform converters ========== #
 
 
-def make_waveform_structure_fn(cls):
+def make_operation_structure_fn(cls):
     structure_attrs = make_attrs_structure_fn(cls)
 
     def structure_fn(val, cls):
         if isinstance(val, cls):
             return val
 
-        subclass = REGISTERED_WAVEFORMS.get(
+        subclass = REGISTERED_OPERATIONS.get(
             val.get("__class__"),
         )
 
         if subclass is None:
-            logger.warning(f"No registered waveform found. Structuring {val} as {cls}.")
+            logger.warning(f"No registered operation found. Structuring {val} as {cls}.")
             return structure_attrs(val, cls)
 
         if subclass is VirtualZWaveform and "mod_key" in val:
@@ -959,7 +959,7 @@ def make_waveform_structure_fn(cls):
     return structure_fn
 
 
-def make_waveform_unstructure_fn(cls):
+def make_operation_unstructure_fn(cls):
     unstructure_attrs = make_attrs_unstructure_fn(cls)
 
     def unstructure_fn(obj):
@@ -969,15 +969,16 @@ def make_waveform_unstructure_fn(cls):
 
 
 qwip.converter.register_structure_hook_factory(
-    lambda cls: cls in (BasicWaveform, Waveform), make_waveform_structure_fn
+    lambda cls: cls in (BasicWaveform, Waveform, Operation), make_operation_structure_fn
 )
 
 qwip.converter.register_unstructure_hook_factory(
-    lambda cls: issubclass(cls, Waveform), make_waveform_unstructure_fn
+    lambda cls: issubclass(cls, Operation), make_operation_unstructure_fn
 )
 
 __all__ = [
-    "register_waveform",
+    "register_operation",
+    "Operation",
     "Waveform",
     "BasicWaveform",
     "ConvolvedWaveform",
