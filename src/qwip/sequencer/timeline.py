@@ -320,20 +320,19 @@ class Timeline:
             ValueError: If any constraints that are declared in both sequence
                 elements and differ from each other.
         """
-        if not isinstance(self_loc, Location):
-            self_loc = qwip.converter.structure(self_loc, sym.Expr)
-
-        if not isinstance(other_loc, Location):
-            other_loc = qwip.converter.structure(other_loc, sym.Expr)
-
+        self_loc = qwip.converter.structure(self_loc, Location)
+        other_loc = qwip.converter.structure(other_loc, Location)
         dt = self_loc - other_loc
+
         if name is not None:
             name = sym.Symbol(name)
             self.constraints.add(name - dt)
             dt = name
 
         for loc, op in other:
-            loc += dt
+            if dt != 0:
+                loc = loc + dt
+
             self.lw_pairs.append((loc, op))
 
         self.constraints.update(other.constraints)
@@ -850,7 +849,7 @@ class Timeline:
                 channels = other.channels
                 constraints = other.constraints
             case Operation():
-                lw_pairs = [(0, other)]
+                lw_pairs = [(0.0, other)]
                 channels = {other.channel} if other.channel else set()
                 constraints = []
             case np.ndarray():  # Send to Sequence __radd__

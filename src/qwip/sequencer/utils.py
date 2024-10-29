@@ -617,6 +617,9 @@ qwip.converter.register_unstructure_hook_factory(
 
 def structure_sympy_expression(obj, cls):
     match obj:
+        # Use floats by default bc of sympy comparison weirdness
+        case sym.core.numbers.Zero():
+            return sym.Float(0)
         case sym.Expr():
             return obj
         case Real() if not isinstance(obj, bool):

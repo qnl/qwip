@@ -293,18 +293,18 @@ class TestTimeline:
 
         lw_pairs = tmln.resolve(inplace=False, sort=True)
         assert lw_pairs == [
-            (0, markers["f"]),
-            (0, markers["e"]),
-            (2, markers["b"]),
-            (3, markers["a"]),
+            (0.0, markers["f"]),
+            (0.0, markers["e"]),
+            (2.0, markers["b"]),
+            (3.0, markers["a"]),
         ]
 
         lw_pairs = tmln.resolve(inplace=False, sort=_sort_key)
         assert lw_pairs == [
-            (0, markers["e"]),
-            (0, markers["f"]),
-            (2, markers["b"]),
-            (3, markers["a"]),
+            (0.0, markers["e"]),
+            (0.0, markers["f"]),
+            (2.0, markers["b"]),
+            (3.0, markers["a"]),
         ]
 
     def test_resolve_negative(self):
@@ -630,7 +630,7 @@ class TestTimeline:
                 ),
                 dict(
                     lw_pairs=[
-                        [
+                        (
                             0.0,
                             dict(
                                 channel="Q0",
@@ -638,19 +638,19 @@ class TestTimeline:
                                 amplitude="amp",
                                 __class__="SquareWaveform",
                             ),
-                        ],
-                        [
+                        ),
+                        (
                             "tau/2",
                             dict(
                                 width="tau/2",
                                 amplitude="-amp",
                                 __class__="SquareWaveform",
                             ),
-                        ],
-                        [
+                        ),
+                        (
                             "tau",
                             dict(frame="Q0", phase=90, __class__="VirtualZWaveform"),
-                        ],
+                        ),
                     ]
                 ),
             ),
