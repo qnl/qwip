@@ -531,7 +531,9 @@ class Timeline:
     @deprecated(
         version="24.6.0", removed="24.8.0", message="Use `Timeline.resolve` instead."
     )
-    def resolve_waveforms(self, **pulse_vars: float | int) -> dict[Operation, Operation]:
+    def resolve_waveforms(
+        self, **pulse_vars: float | int
+    ) -> dict[Operation, Operation]:
         """Resolves all waveform variables into concrete values.
 
         Args:

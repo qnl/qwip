@@ -14,7 +14,7 @@ from qwip.database.database import VersionControlled
 from qwip.database.dolt import DoltTable
 from qwip.database.metadata import QWIP_DB_METADATA, QWIP_DB_REGISTRY
 from qwip.database.utils import JSONTypes, PendulumDateTime, utc_timestamp
-from qwip.sequencer.waveform import Waveform
+from qwip.sequencer.waveform import Operation
 
 
 @qdefine(slots=False)
@@ -133,10 +133,10 @@ QWIP_DB_REGISTRY.map_imperatively(
 
 ## =============== Waveforms =============== ##
 
-waveform_table = DoltTable(
-    "waveforms",
+operation_table = DoltTable(
+    "operations",
     QWIP_DB_METADATA,
-    Column("waveform_id", sa.Integer, primary_key=True, autoincrement=True),
+    Column("operation_id", sa.Integer, primary_key=True, autoincrement=True),
     Column("classname", sa.String(255), nullable=False),
     Column("properties", sa.JSON, nullable=False, default=dict),
     Column("key", sa.String(255)),
@@ -144,8 +144,8 @@ waveform_table = DoltTable(
         "parent_id",
         sa.Integer,
         ForeignKey(
-            "waveforms.waveform_id",
-            name="fk_waveforms_waveforms",
+            "operations.operation_id",
+            name="fk_operations_operations",
             onupdate="CASCADE",
             ondelete="CASCADE",
             use_alter=True,
@@ -155,7 +155,7 @@ waveform_table = DoltTable(
 
 
 @qdefine(slots=False)
-class WaveformModel(VersionControlled):
+class OperationModel(VersionControlled):
     classname: str
     properties: dict[str] = field(factory=dict)
     key: str | None = None
@@ -163,67 +163,67 @@ class WaveformModel(VersionControlled):
     children: dict[str, Self] = field(factory=dict)
 
     @classmethod
-    def from_unstructured_wave(cls, wave_dict, parent=None, key=None):
+    def from_unstructured_op(cls, op_dict, parent=None, key=None):
         properties = {}
         children = {}
-        for k, val in wave_dict.items():
+        for k, val in op_dict.items():
             if isinstance(val, dict) and "__class__" in val:
                 children[k] = val
             elif k != "__class__":
                 properties[k] = val
 
-        wave_model = cls(
-            classname=wave_dict["__class__"],
+        op_model = cls(
+            classname=op_dict["__class__"],
             properties=properties,
             key=key,
             parent=parent,
         )
 
         for key, child_dict in children.items():
-            cls.from_unstructured_wave(child_dict, parent=wave_model, key=key)
+            cls.from_unstructured_op(child_dict, parent=op_model, key=key)
 
-        return wave_model
+        return op_model
 
     @classmethod
-    def from_waveform(cls, wave):
-        wave_dict = qwip.converter.unstructure(wave)
-        return cls.from_unstructured_wave(wave_dict)
+    def from_operation(cls, op):
+        op_dict = qwip.converter.unstructure(op)
+        return cls.from_unstructured_op(op_dict)
 
-    def to_unstructured_waveform(self):
+    def to_unstructured_operation(self):
         unstructured = dict(__class__=self.classname, **self.properties)
 
-        for k, wave_model in self.children.items():
-            unstructured[k] = wave_model.to_unstructured_waveform()
+        for k, op_model in self.children.items():
+            unstructured[k] = op_model.to_unstructured_operation()
 
         return unstructured
 
-    def to_waveform(self):
-        return qwip.converter.structure(self.to_unstructured_waveform(), Waveform)
+    def to_operation(self):
+        return qwip.converter.structure(self.to_unstructured_operation(), Operation)
 
 
 QWIP_DB_REGISTRY.map_imperatively(
-    WaveformModel,
-    waveform_table,
+    OperationModel,
+    operation_table,
     properties=dict(
         children=relationship(
-            WaveformModel,
+            OperationModel,
             cascade="all, delete-orphan",
             back_populates="parent",
             collection_class=attribute_mapped_collection("key"),
         ),
         parent=relationship(
-            WaveformModel,
+            OperationModel,
             back_populates="children",
-            remote_side=[waveform_table.c.waveform_id],
+            remote_side=[operation_table.c.operation_id],
         ),
     ),
 )
 
 
 @qdefine(slots=False)
-class WaveformLocationModel(VersionControlled):
+class OperationLocationModel(VersionControlled):
     location: str
-    waveform: WaveformModel
+    operation: OperationModel
     timeline: "TimelineModel" = field(repr=False)
 
 
@@ -237,18 +237,18 @@ class ConstraintModel(VersionControlled):
 class TimelineModel(VersionControlled):
     name: str
     width: str | None = None
-    locations: list[WaveformLocationModel] = field(factory=list)
+    locations: list[OperationLocationModel] = field(factory=list)
     constraints: list[ConstraintModel] = field(factory=dict)
 
     @classmethod
     def from_timeline(cls, tmln, name):
         tmln_model = cls(name=name, width=qwip.converter.unstructure(tmln.width))
 
-        for loc, wave in tmln:
-            wave_model = WaveformModel.from_waveform(wave)
-            pair = WaveformLocationModel(
+        for loc, op in tmln:
+            op_model = OperationModel.from_operation(op)
+            pair = OperationLocationModel(
                 location=qwip.converter.unstructure(loc),
-                waveform=wave_model,
+                operation=op_model,
                 timeline=tmln_model,
             )
 
@@ -264,23 +264,22 @@ class TimelineModel(VersionControlled):
 
         constraints = {c.expression for c in self.constraints}
         pairs = [
-            (waveloc.location, waveloc.waveform.to_waveform())
-            for waveloc in self.locations
+            (oploc.location, oploc.operation.to_operation()) for oploc in self.locations
         ]
 
         return Timeline.fromtuples(pairs, width=self.width, constraints=constraints)
 
 
-waveform_location_table = DoltTable(
-    "waveform_locations",
+operation_location_table = DoltTable(
+    "operation_locations",
     QWIP_DB_METADATA,
     Column("location", sa.String(255), nullable=False),
     Column(
-        "waveform_id",
+        "operation_id",
         sa.Integer,
         ForeignKey(
-            "waveforms.waveform_id",
-            name="fk_waveform_locations_waveforms",
+            "operations.operation_id",
+            name="fk_operation_locations_operations",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
@@ -291,7 +290,7 @@ waveform_location_table = DoltTable(
         sa.Integer,
         ForeignKey(
             "timelines.timeline_id",
-            name="fk_waveform_locations_timelines",
+            name="fk_operation_locations_timelines",
             onupdate="CASCADE",
             ondelete="CASCADE",
         ),
@@ -327,11 +326,11 @@ timeline_table = DoltTable(
 
 
 QWIP_DB_REGISTRY.map_imperatively(
-    WaveformLocationModel,
-    waveform_location_table,
+    OperationLocationModel,
+    operation_location_table,
     properties=dict(
-        waveform=relationship(
-            WaveformModel,
+        operation=relationship(
+            OperationModel,
             cascade="all",
         ),
         timeline=relationship(
@@ -352,7 +351,7 @@ QWIP_DB_REGISTRY.map_imperatively(
     timeline_table,
     properties=dict(
         locations=relationship(
-            WaveformLocationModel,
+            OperationLocationModel,
             back_populates="timeline",
             cascade="all, delete-orphan",
         ),
@@ -368,8 +367,8 @@ QWIP_DB_REGISTRY.map_imperatively(
 config_tables = [
     folder_table,
     parameter_table,
-    waveform_table,
-    waveform_location_table,
+    operation_table,
+    operation_location_table,
     constraint_table,
     timeline_table,
 ]
@@ -383,14 +382,14 @@ __all__ = [
     "VersionControlled",
     "Folder",
     "Parameter",
-    "WaveformModel",
-    "WaveformLocationModel",
+    "OperationModel",
+    "OperationLocationModel",
     "ConstraintModel",
     "TimelineModel",
     "folder_table",
     "parameter_table",
-    "waveform_table",
-    "waveform_location_table",
+    "operation_table",
+    "operation_location_table",
     "constraint_table",
     "timeline_table",
 ]

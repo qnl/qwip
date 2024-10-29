@@ -935,7 +935,9 @@ def make_operation_structure_fn(cls):
         )
 
         if subclass is None:
-            logger.warning(f"No registered operation found. Structuring {val} as {cls}.")
+            logger.warning(
+                f"No registered operation found. Structuring {val} as {cls}."
+            )
             return structure_attrs(val, cls)
 
         if subclass is VirtualZWaveform and "mod_key" in val:
