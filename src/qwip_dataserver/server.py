@@ -64,10 +64,10 @@ async def make_directory(
     """
     directory = root / file_path
 
-    if directory.exists() and not directory.is_dir():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot create directory."
-        )
+    # if directory.exists() and not directory.is_dir():
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot create directory."
+    #     )
 
     try:
         directory.mkdir(parents=True, exist_ok=True)
@@ -94,7 +94,7 @@ async def remove_directory(
 
     if directory == root:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Cannot remove root directory.",
         )
 
@@ -112,7 +112,7 @@ async def remove_directory(
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error when creating directory.",
+            detail="Error removing directory.",
         )
 
     return dict(path=f"/{directory.relative_to(root).as_posix()}")
