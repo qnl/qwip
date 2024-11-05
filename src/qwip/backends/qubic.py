@@ -791,9 +791,6 @@ class QubicBackend(QuantumBackend):
         for k, data in result.items():
             df = pd.DataFrame(data[0].flatten().conj(), index=index, columns=["IQ"])
 
-            if k not in self.result_map:
-                continue
-
             name = self.result_map.get(k, k)
             iq_results[name] = IQResult(name=name, data=df)
 

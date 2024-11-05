@@ -169,6 +169,8 @@ class Timeline:
 
             t0 += get_layer_width(widths)
 
+        tmln.width = t0
+
         return tmln
 
     def add(self, target: Self | Operation, /, location: LocationLike = 0.0) -> Self:

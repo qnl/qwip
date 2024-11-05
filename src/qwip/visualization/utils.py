@@ -6,6 +6,7 @@ Useful helper functions for working with matplotlib.
 import itertools as it
 from collections import defaultdict
 from collections.abc import Callable, Collection, Iterable
+from functools import wraps
 from typing import Any, Literal
 
 import matplotlib as mpl
@@ -19,7 +20,7 @@ from matplotlib.colors import (
     to_hex,
     to_rgb,
 )
-from matplotlib.figure import Figure
+from matplotlib.figure import Figure, FigureBase
 
 TColor = str | tuple[float, float, float] | tuple[float, float, float, float]
 
@@ -199,7 +200,8 @@ def make_list_grid(
 
 def grid_plotter(
     dataset: dict[str, Any],
-    axes_plotter: Callable | None = None,
+    plotter: Callable | None = None,
+    fig: dict[str, Figure] | None = None,
     subplot_kwargs: dict = {},
     grid_kwargs: dict = {},
     sort: bool = True,
@@ -213,8 +215,8 @@ def grid_plotter(
         dataset: A dictionary mapping keys to data. The values can be MeasurementResult
             instances, pandas dataframes, or numpy arrays, as long as the axes plotter
             can handle the data type.
-        axes_plotter: A plotting function that plots the data on a given `Axes`.
-        subplot_kwargs: A dictionary of parameters that are passed to `axes_plotter`
+        plotter: A plotting function that plots the data on a given `Axes` or `SubFigure`.
+        subplot_kwargs: A dictionary of parameters that are passed to `plotter`
         grid_kwargs: A dictionary of parameters that are passed to `make_dict_grid`.
         sort: If `True`, the dataset keys will be sorted first.
 
@@ -226,15 +228,86 @@ def grid_plotter(
     if sort:
         dataset = dict(sorted(dataset.items()))
 
-    fig, axes = make_dict_grid(dataset.keys(), **grid_kwargs)
+    if fig is None:
+        fig, subplots = make_dict_grid(dataset.keys(), **grid_kwargs)
+    elif fig.subfigs:
+        subplots = subfigure_dict(fig)
+    else:
+        subplots = axes_dict(fig)
 
-    for key, axdata in dataset.items():
-        axes_plotter(axdata, ax=axes[key], **subplot_kwargs)
+    for key, subplot_data in dataset.items():
+        canvas = subplots[key]
 
-        if not axes[key].title.get_text():
-            axes[key].set_title(key)
+        match canvas:
+            case Axes():
+                canvas.set_title(key)
+                subplot_kwargs["ax"] = canvas
+            case FigureBase():
+                canvas.suptitle(key)
+                subplot_kwargs["fig"] = canvas
+        
+        plotter(subplot_data, **subplot_kwargs)
 
     return fig
+
+def axes_dict(fig: Figure):
+    return {ax.get_label(): ax for ax in fig.axes}
+
+def subfigure_dict(fig: Figure):
+    return {subfig.get_label(): subfig for subfig in fig.subfigs}
+
+def basic_canvas(fig_kwargs={}, subplot_kwargs={}):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, fig: Figure | None = None, ax: Axes | None = None, **kwargs):
+            if ax:
+                ...
+            elif fig:
+                ax = fig.subplots(**subplot_kwargs)
+            else:
+                fig, ax = plt.subplots(**fig_kwargs, **subplot_kwargs)
+            
+            return func(*args, ax=ax, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+def figure_canvas(fig_kwargs={}):
+    ...
+
+def mosaic_canvas(mosaic: list[list[str]], /, fig_kwargs={}, subplot_kwargs={}):
+    labels = {label for row in mosaic for label in row}
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, fig: Figure | None = None, ax: Axes | None = None, **kwargs):
+            if fig is None and ax is None:
+                fig, axes = plt.subplot_mosaic(mosaic, **fig_kwargs, **subplot_kwargs)
+                return func(*args, fig=fig, **kwargs)
+
+            if ax: # replace ax with subfigure in same location
+                outer_fig = ax.get_figure()
+                fig = outer_fig.add_subfigure(ax.get_subplotspec())
+                fig.set_label(ax.get_label())
+                ax.remove()
+
+            # fig is guaranteed to exist here
+            if fig.axes:
+                axes = axes_dict(fig)
+
+                if set(axes) != labels:
+                    raise ValueError(
+                        f"{func} expects canvas with labels {labels} but got {set(axes)}"
+                    )
+            else:
+                fig.subplot_mosaic(mosaic, **subplot_kwargs)
+            
+            return func(*args, fig=fig, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 ## Watermark
