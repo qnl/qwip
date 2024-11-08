@@ -16,7 +16,7 @@ try:
     from distproc.hwconfig import ChannelConfig as QubicChannelConfig
     from distproc.hwconfig import FPGAConfig
     from distproc.ir import passes
-    from distproc.ir.instructions import DeclareFreq, Pulse, VirtualZ
+    from distproc.ir.instructions import BranchFproc, DeclareFreq, Idle, Pulse, VirtualZ
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
 except ImportError as e:
@@ -38,6 +38,7 @@ from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.utils import _to_python_number
 from qwip.sequencer.waveform import (
     BasicWaveform,
+    BranchOperation,
     DCWaveform,
     Marker,
     ModulatedWaveform,
@@ -438,6 +439,41 @@ class QubicCompiler(QWiPCompiler):
                 )
                 instructions.extend(ins)
 
+            case BranchOperation():
+                reads[wave.channel] -= 1
+                end_cycle = t0 + int(np.round(end / self.fpga_config.fpga_clk_period))
+                left = wave.left or Timeline(width=0)
+                right = wave.right or Timeline(width=0)
+                idle = Idle(
+                    end_time=start_cycle, scope=list(left.channels | right.channels)
+                )
+
+                left_ins, _ = self.compile_timeline(
+                    left,
+                    waveform_cache=waveform_cache,
+                    t0=end_cycle,
+                    reset_delay=np.inf,
+                    zero_dc=False,
+                )
+                right_ins, _ = self.compile_timeline(
+                    right,
+                    waveform_cache=waveform_cache,
+                    t0=end_cycle,
+                    reset_delay=np.inf,
+                    zero_dc=False,
+                )
+
+                branch = BranchFproc(
+                    cond_lhs=1,  # left half plane
+                    alu_cond="eq",
+                    func_id=ch_info.index,
+                    scope=list(left.channels | right.channels),
+                    true=left_ins,
+                    false=right_ins,
+                )
+
+                instructions.extend([idle, branch])
+
         return instructions
 
     def compile_timeline(
@@ -448,6 +484,7 @@ class QubicCompiler(QWiPCompiler):
         waveform_cache: dict[tuple[Waveform, int], np.ndarray] = {},
         t0: int = 0,
         reset_delay: float = 0,
+        zero_dc: bool = True,
         **kwargs,
     ) -> tuple[list, Counter[str]]:
         """Compiles a single pulse timeline.
@@ -519,24 +556,25 @@ class QubicCompiler(QWiPCompiler):
                     instructions.insert(0, ins)
                     start_times.insert(0, ins.start_time)
 
-        t_end = _to_python_number(tmln.width)
-        end_cycle = t0 + int(np.round(t_end / self.fpga_config.fpga_clk_period))
-        for device in self.devices.values():
-            if device.sample_rate != 0:
-                continue
+        if zero_dc:
+            t_end = _to_python_number(tmln.width)
+            end_cycle = t0 + int(np.round(t_end / self.fpga_config.fpga_clk_period))
+            for device in self.devices.values():
+                if device.sample_rate != 0:
+                    continue
 
-            for ch in device.channels:
-                instructions.append(
-                    Pulse(
-                        env=None,
-                        dest=ch.name,
-                        freq=None,
-                        phase=0,
-                        amp=0,
-                        twidth=0,
-                        start_time=end_cycle,
+                for ch in device.channels:
+                    instructions.append(
+                        Pulse(
+                            env=None,
+                            dest=ch.name,
+                            freq=None,
+                            phase=0,
+                            amp=0,
+                            twidth=0,
+                            start_time=end_cycle,
+                        )
                     )
-                )
 
         return instructions, reads
 

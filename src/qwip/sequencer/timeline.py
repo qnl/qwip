@@ -504,7 +504,10 @@ class Timeline:
             tmin = loc if tmin is None else min(tmin, loc)
             tmax = loc + width if tmax is None else max(tmax, loc + width)
 
-        should_reset = (
+        if self.width is not None:
+            tmax = self.width if tmax is None else max(tmax, self.width)
+
+        should_reset = (tmin is not None) and (
             (reset_zero == "neg" and tmin < 0)
             or (reset_zero == "pos" and tmin > 0)
             or (reset_zero == "both")

@@ -227,6 +227,32 @@ class Operation:
         return var in self.variables()
 
 
+@register_operation
+@qfrozen
+class TimedOperation(Operation):
+    t0: NumberOrExpression = 0
+    width: NumberOrExpression = 0
+    channel: str = field(
+        default="",
+        metadata=dict(allow_override=False),
+    )
+
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(channel=new_channel)
+
+
+@register_operation
+@qfrozen
+class BranchOperation(TimedOperation):
+    left: "qwip.sequencer.timeline.Timeline | None" = field(
+        default=None, eq=id, metadata=dict(allow_override=False)
+    )
+    right: "qwip.sequencer.timeline.Timeline | None" = field(
+        default=None, eq=id, metadata=dict(allow_override=False)
+    )
+
+
 @qfrozen
 class Waveform(Operation):
     def _update_fields(self, **kwargs) -> dict[str, Number]:
@@ -339,34 +365,11 @@ class Waveform(Operation):
 
 @register_operation
 @qfrozen
-class TimedWaveform(Waveform):
-    t0: NumberOrExpression = 0
-    width: NumberOrExpression = 0
-    channel: str = field(
-        default="",
-        metadata=dict(allow_override=False),
-    )
-
-    @property
-    @deprecated(
-        version="24.6.0",
-        removed="24.8.0",
-        message=(
-            "Waveforms are now restricted to a single channel. Use `Waveform.channel` "
-            "instead."
-        ),
-    )
-    def channels(self) -> tuple[str]:
-        return (self.channel,) if self.channel else tuple()
-
+class TimedWaveform(Waveform, TimedOperation):
     def evaluate_timepoints(
         self, ts: np.ndarray, width: float, t0: float, **kwargs
     ) -> np.ndarray:
         return np.zeros((len(self.channels), len(ts)))
-
-    def assign_channel(self, new_channel, /) -> Self:
-        """Returns a modified waveform with a new channel."""
-        return self.evolve(channel=new_channel)
 
 
 @register_operation
@@ -983,6 +986,7 @@ __all__ = [
     "Operation",
     "Waveform",
     "BasicWaveform",
+    "BranchOperation",
     "ConvolvedWaveform",
     "InfiniteWaveform",
     "Marker",
