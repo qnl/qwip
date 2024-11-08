@@ -243,16 +243,19 @@ def grid_plotter(
                 subplot_kwargs["ax"] = canvas
             case FigureBase():
                 subplot_kwargs["fig"] = canvas
-        
+
         plotter(subplot_data, **subplot_kwargs)
 
     return fig
 
+
 def axes_dict(fig: Figure):
     return {ax.get_label(): ax for ax in fig.axes}
 
+
 def subfigure_dict(fig: Figure):
     return {subfig.get_label(): subfig for subfig in fig.subfigs}
+
 
 def basic_canvas(fig_kwargs={}, subplot_kwargs={}):
     def decorator(func):
@@ -264,9 +267,9 @@ def basic_canvas(fig_kwargs={}, subplot_kwargs={}):
                 ax = fig.subplots(**subplot_kwargs)
             else:
                 fig, ax = plt.subplots(**fig_kwargs, **subplot_kwargs)
-            
+
             f = func(*args, ax=ax, **kwargs)
-            
+
             if not ax.get_title():
                 ax.set_title(ax.get_label())
 
@@ -276,8 +279,9 @@ def basic_canvas(fig_kwargs={}, subplot_kwargs={}):
 
     return decorator
 
-def figure_canvas(fig_kwargs={}):
-    ...
+
+def figure_canvas(fig_kwargs={}): ...
+
 
 def mosaic_canvas(mosaic: list[list[str]], /, fig_kwargs={}, subplot_kwargs={}):
     labels = {label for row in mosaic for label in row}
@@ -289,7 +293,7 @@ def mosaic_canvas(mosaic: list[list[str]], /, fig_kwargs={}, subplot_kwargs={}):
                 fig, axes = plt.subplot_mosaic(mosaic, **fig_kwargs, **subplot_kwargs)
                 return func(*args, fig=fig, **kwargs)
 
-            if ax: # replace ax with subfigure in same location
+            if ax:  # replace ax with subfigure in same location
                 outer_fig = ax.get_figure()
                 fig = outer_fig.add_subfigure(ax.get_subplotspec())
                 fig.set_label(ax.get_label())
@@ -305,7 +309,7 @@ def mosaic_canvas(mosaic: list[list[str]], /, fig_kwargs={}, subplot_kwargs={}):
                     )
             else:
                 fig.subplot_mosaic(mosaic, **subplot_kwargs)
-            
+
             f = func(*args, fig=fig, **kwargs)
 
             if fig.get_suptitle():

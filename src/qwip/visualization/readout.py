@@ -10,7 +10,13 @@ from matplotlib.figure import Figure
 from matplotlib.ticker import EngFormatter
 
 from qwip.utils import deprecated
-from qwip.visualization.utils import TColor, get_colormap, axes_dict, mosaic_canvas, basic_canvas
+from qwip.visualization.utils import (
+    TColor,
+    axes_dict,
+    basic_canvas,
+    get_colormap,
+    mosaic_canvas,
+)
 
 if TYPE_CHECKING:
     from qwip.processing.processors import GMMClassification, IQResult
@@ -101,6 +107,7 @@ def plot_IQ(
     axes["IQ"].yaxis.set_major_formatter(formatter)
 
     return fig
+
 
 @basic_canvas()
 def plot_IQ_histogram(
@@ -200,6 +207,7 @@ def plot_readout_IQ(
         bins=bins,
         title=title,
     )
+
 
 @basic_canvas()
 def plot_GMM(
