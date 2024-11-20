@@ -45,7 +45,7 @@ class TestSympyUtilities:
     @pytest.mark.parametrize(
         "expr,subs,expect",
         [
-            (sym.Symbol("Q0.freq_01"), {"Q0.freq_01": 5}, 5),
+            (sym.Symbol("Q0.freq_01"), {"Q0.freq_01": 5}, 5.0),
             (
                 sym.Symbol("frequency"),
                 {"frequency": "Q0.freq_01"},

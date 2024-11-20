@@ -7,7 +7,7 @@ build-backend="setuptools.build_meta"
 
 [project]
 name = "qwip"
-version = "24.6.0"
+version = "24.10.0"
 authors = [
     {name = "Larry Chen", email = "larrychen@berkeley.edu"},
 ]
@@ -15,10 +15,10 @@ description = "Quantum Workflows in Python"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "attrs",
-    "cattrs",
+    "attrs>=24.2.0",
+    "cattrs>=24.1.0",
     "httpx",
-    "loguru",
+    "loguru>=0.7.2,<0.8",
     "lmfit",
     "matplotlib",
     "mysqlclient",
@@ -35,7 +35,7 @@ dependencies = [
     "scikit-learn",
     "scipy",
     "sqlalchemy",
-    "sympy==1.12",
+    "sympy>=1.13",
     "tomli",
     "uuid6",
 ]

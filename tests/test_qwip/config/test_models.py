@@ -6,10 +6,10 @@ import qwip
 from qwip.config.models import (
     ConstraintModel,
     Folder,
+    OperationLocationModel,
+    OperationModel,
     Parameter,
     TimelineModel,
-    WaveformLocationModel,
-    WaveformModel,
 )
 from qwip.sequencer.timeline import Timeline
 from qwip.sequencer.waveform import (
@@ -73,7 +73,7 @@ class TestParameter:
         assert params is None
 
 
-class TestWaveformModel:
+class TestOperationModel:
     WAVEFORMS = dict(
         X90=ModulatedWaveform(
             name="X90",
@@ -99,45 +99,45 @@ class TestWaveformModel:
     )
 
     def test_select_none(self, session, models):
-        waveforms = session.scalars(sa.select(WaveformModel)).one_or_none()
+        waveforms = session.scalars(sa.select(OperationModel)).one_or_none()
 
         assert waveforms is None
 
     def test_insert_select(self, session, models):
         models = []
         for wave in self.WAVEFORMS.values():
-            model = WaveformModel.from_waveform(wave)
+            model = OperationModel.from_operation(wave)
             session.add(model)
             models.append(model)
 
         session.flush()
 
         num_total = session.scalar(
-            sa.select(sa.func.count()).select_from(WaveformModel)
+            sa.select(sa.func.count()).select_from(OperationModel)
         )
 
         assert num_total == 6
 
         num_toplevel = session.scalar(
             sa.select(sa.func.count())
-            .select_from(WaveformModel)
-            .where(WaveformModel.parent_id == None)
+            .select_from(OperationModel)
+            .where(OperationModel.parent_id == None)
         )
 
         assert num_toplevel == 3
 
         results = session.scalars(
-            sa.select(WaveformModel)
-            .where(WaveformModel.parent_id == None)
-            .order_by(WaveformModel.waveform_id)
+            sa.select(OperationModel)
+            .where(OperationModel.parent_id == None)
+            .order_by(OperationModel.operation_id)
         ).all()
 
         assert models == results
 
         results = session.scalars(
-            sa.select(WaveformModel)
-            .where(WaveformModel.parent_id != None)
-            .order_by(WaveformModel.waveform_id)
+            sa.select(OperationModel)
+            .where(OperationModel.parent_id != None)
+            .order_by(OperationModel.operation_id)
         )
 
         assert [w.key for w in results] == ["envelope", "modulation", "envelope"]
@@ -145,19 +145,19 @@ class TestWaveformModel:
     def test_round_trip(self, session, models):
         models = []
         for wave in self.WAVEFORMS.values():
-            model = WaveformModel.from_waveform(wave)
+            model = OperationModel.from_operation(wave)
             session.add(model)
             models.append(model)
 
         session.flush()
 
         results = session.scalars(
-            sa.select(WaveformModel)
-            .where(WaveformModel.parent_id == None)
-            .order_by(WaveformModel.waveform_id)
+            sa.select(OperationModel)
+            .where(OperationModel.parent_id == None)
+            .order_by(OperationModel.operation_id)
         ).all()
 
-        reloaded = [w.to_waveform() for w in results]
+        reloaded = [w.to_operation() for w in results]
         original = list(self.WAVEFORMS.values())
         assert reloaded[:-1] == original[:-1]
         assert reloaded[-1].target == original[-1].target
@@ -194,11 +194,11 @@ class TestTimelines:
 
         num_waves = session.scalar(
             sa.select(sa.func.count())
-            .select_from(WaveformModel)
-            .where(WaveformModel.parent_id == None)
+            .select_from(OperationModel)
+            .where(OperationModel.parent_id == None)
         )
         num_pairs = session.scalar(
-            sa.select(sa.func.count()).select_from(WaveformLocationModel)
+            sa.select(sa.func.count()).select_from(OperationLocationModel)
         )
 
         assert num_waves == 3
@@ -210,7 +210,7 @@ class TestTimelines:
 
     def test_delete(self, session, models, x90_tmln):
         tmln_model = TimelineModel.from_timeline(x90_tmln, name="x90")
-        extra_wave = WaveformModel.from_waveform(
+        extra_wave = OperationModel.from_operation(
             CosineRampWaveform(amplitude=0.5, width=20e-9)
         )
         session.add(extra_wave)
@@ -222,11 +222,11 @@ class TestTimelines:
 
         num_waves = session.scalar(
             sa.select(sa.func.count())
-            .select_from(WaveformModel)
-            .where(WaveformModel.parent_id == None)
+            .select_from(OperationModel)
+            .where(OperationModel.parent_id == None)
         )
         num_pairs = session.scalar(
-            sa.select(sa.func.count()).select_from(WaveformLocationModel)
+            sa.select(sa.func.count()).select_from(OperationLocationModel)
         )
 
         assert num_waves == 1

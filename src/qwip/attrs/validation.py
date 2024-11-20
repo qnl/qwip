@@ -16,7 +16,7 @@ from typing import (
 
 import attrs
 import numpy as np
-from attr._make import _obj_setattr
+from attr._make import _OBJ_SETATTR
 from attrs import field, frozen, resolve_types
 from attrs.validators import (
     and_,
@@ -354,7 +354,7 @@ def resolve_types_with_validation(maybe_cls=None, globalns=None, localns=None):
             if field.validator is not None:
                 type_validator = and_(type_validator, field.validator)
 
-            _obj_setattr(field, "validator", type_validator)
+            _OBJ_SETATTR(field, "validator", type_validator)
 
         return __build_class__
 

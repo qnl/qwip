@@ -818,13 +818,13 @@ class OfflineConfigDB(Database):
     def init_pulses(self):
         self.pulses = PulsesFolder(session=self.session)
 
-    def connect(self, test: bool = True, timeout: int = 2):
+    def connect(self, test: bool = True, validate: bool = True, timeout: int = 2):
         engine = super().connect(test=test, timeout=timeout)
 
         reflected_tables = self.tables()
         expected_tables = set(t.name for t in config_tables)
 
-        if reflected_tables != expected_tables:
+        if reflected_tables != expected_tables and validate:
             version = qwip.qsettings.version
             raise ValueError(
                 f"Database {self.url} has tables {reflected_tables} that do not match "

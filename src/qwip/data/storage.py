@@ -1,10 +1,13 @@
 import io
+import platform
+import shutil
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from tempfile import SpooledTemporaryFile
 from typing import Any, Self
 
 import httpx
+from attrs import field
 from loguru import logger
 
 import qwip
@@ -27,6 +30,36 @@ def register_storage_backend(cls: type["StorageBackend"]) -> type["StorageBacken
 
 @qfrozen
 class StorageBackend(metaclass=ABCMeta):
+    read_buffer: int = 1024 * 1024
+
+    @staticmethod
+    def parse_url(folder: str, address: str) -> tuple[str, str]:
+        """Normalizes address, filename pairs so the filename contains no slashes.
+
+        Args:
+            folder: The beginning part of the address.
+            address: A filename to append to address, possibly containing additional
+                folders.
+
+        Returns:
+            An (folder, address) pair such that all folders in address are added to
+            the folder instead.
+        """
+        # pathlib handles // differently when it is at the beginning of a path
+        # but strips extra / otherwise. Using //// to avoid this difference in behavior.
+        url = Path("////" + folder + "////" + address).resolve()
+        filename = Path(address)
+
+        base, name = (url.parent, url.name) if filename.name else (url, "")
+        base = base.relative_to(url.anchor).as_posix().lstrip(".")
+
+        if not base.startswith("/"):
+            base = "/" + base
+        if not base.endswith("/"):
+            base = base + "/"
+
+        return base, name
+
     def save(
         self,
         address: str,
@@ -93,41 +126,12 @@ class StorageBackend(metaclass=ABCMeta):
 @register_storage_backend
 @qfrozen
 class HTTPStorageBackend(StorageBackend):
-    client: httpx.Client
-    read_buffer: int = 1024 * 1024
+    client: httpx.Client = field(eq=lambda client: client.base_url)
 
     @classmethod
     def from_url(cls, url: str, **kwargs) -> Self:
         client = httpx.Client(base_url=url)
         return cls(client=client, **kwargs)
-
-    @staticmethod
-    def parse_url(folder: str, address: str) -> tuple[str, str]:
-        """Normalizes address, filename pairs so the filename contains no slashes.
-
-        Args:
-            folder: The beginning part of the address.
-            address: A filename to append to address, possibly containing additional
-                folders.
-
-        Returns:
-            An (folder, address) pair such that all folders in filename are added to
-            the address instead.
-        """
-        # pathlib handles // differently when it is at the beginning of a path
-        # but strips extra / otherwise. Using //// to avoid this difference in behavior.
-        url = Path("////" + folder + "////" + address).resolve()
-        filename = Path(address)
-
-        base, name = (url.parent, url.name) if filename.name else (url, "")
-        base = base.relative_to(url.anchor).as_posix().lstrip(".")
-
-        if not base.startswith("/"):
-            base = "/" + base
-        if not base.endswith("/"):
-            base = base + "/"
-
-        return base, name
 
     def make_directory(self, folder: str = "/"):
         """Create a directory in the storage backend.
@@ -146,7 +150,11 @@ class HTTPStorageBackend(StorageBackend):
         url = "/api/v1/folder" + folder
 
         response = self.client.post(url)
-        response.raise_for_status()
+
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            raise FileExistsError() from e
 
         match response.json():
             case {"path": folder}:
@@ -171,7 +179,14 @@ class HTTPStorageBackend(StorageBackend):
         url = "/api/v1/folder" + folder
 
         response = self.client.delete(url)
-        response.raise_for_status()
+
+        match response.status_code:
+            case httpx.codes.OK:
+                ...
+            case httpx.codes.UNAUTHORIZED:
+                raise PermissionError("Cannot remove root folder")
+            case _:
+                raise FileNotFoundError(f"Folder '{folder}' does not exist")
 
         match response.json():
             case {"path": folder}:
@@ -192,7 +207,14 @@ class HTTPStorageBackend(StorageBackend):
         url = "/api/v1/folder" + folder
 
         response = self.client.get(url)
-        response.raise_for_status()
+
+        match response.status_code:
+            case httpx.codes.OK:
+                ...
+            case httpx.codes.BAD_REQUEST:
+                raise FileNotFoundError(f"Folder '{folder}' does not exist")
+            case _:
+                response.raise_for_status()
 
         return response.json()["contents"]
 
@@ -225,7 +247,13 @@ class HTTPStorageBackend(StorageBackend):
         except AttributeError:
             ...
 
-        response.raise_for_status()
+        match response.status_code:
+            case httpx.codes.OK:
+                ...
+            case httpx.codes.BAD_REQUEST:
+                raise FileNotFoundError(f"Folder '{folder}' is not a valid directory.")
+            case _:
+                response.raise_for_status()
 
         match response.json()["uploads"][0]:
             case {"error": error}:
@@ -274,7 +302,14 @@ class HTTPStorageBackend(StorageBackend):
             except AttributeError:
                 ...
 
-        response.raise_for_status()
+        match response.status_code:
+            case httpx.codes.OK:
+                ...
+            case httpx.codes.BAD_REQUEST:
+                raise FileNotFoundError(f"Folder '{folder}' is not a valid directory.")
+            case _:
+                response.raise_for_status()
+
         download_addresses = []
 
         for upload in response.json()["uploads"]:
@@ -324,23 +359,121 @@ class HTTPStorageBackend(StorageBackend):
 @register_storage_backend
 @qfrozen
 class LocalStorageBackend(StorageBackend):
-    directory: Path = Path()
+    hostname: str = field(default=platform.node(), metadata=dict(serialize=True))
+    directory: Path = field(factory=lambda: Path(".").absolute())
+
+    def make_directory(self, folder: str = "/"):
+        """Create a directory in the storage backend.
+
+        If the specified folder already exists, the state of the dataserver will
+        remain unchanged.
+
+        Args:
+            folder: The path of the folder to create. All parent directories are also
+                created as needed.
+
+        Return:
+            The created folder path.
+        """
+
+        folder, _ = self.parse_url(folder, "")
+        new_directory = self.directory / folder.lstrip("/")
+
+        try:
+            new_directory.mkdir(parents=True, exist_ok=True)
+            if folder != "/":
+                folder = folder.rstrip("/")
+            return folder
+        except Exception as e:
+            logger.exception(
+                f"Error creating directory '{new_directory.as_posix()}'", exception=e
+            )
+            raise e
+
+    def remove_directory(self, folder: str = "/"):
+        folder, _ = self.parse_url(folder, "")
+
+        directory = self.directory / folder.lstrip("/")
+
+        if directory == self.directory:
+            raise PermissionError("Cannot remove root directory")
+
+        if not directory.exists():
+            raise FileNotFoundError(f"Folder '{folder}' does not exist.")
+
+        try:
+            shutil.rmtree(directory)
+        except Exception as e:
+            logger.exception(
+                f"Error removing directory '{directory.as_posix()}'", exception=e
+            )
+
+        return "/" + directory.relative_to(self.directory).as_posix()
+
+    def list_directory(self, folder: str = "/"):
+        """Get contents of a directory.
+
+        Args:
+            folder: The folder to list.
+
+        Returns:
+            A list of the folder contents.
+        """
+        folder, _ = self.parse_url(folder, "")
+        directory = self.directory / folder.lstrip("/")
+
+        contents = [
+            p.relative_to(self.directory).as_posix() for p in directory.iterdir()
+        ]
+
+        return contents
 
     def save_buffer(
         self, address: str, stream: io.BufferedReader, folder: str = "/"
-    ) -> str: ...
+    ) -> str | None:
+        folder, filename = self.parse_url(folder, address)
 
-    def load_buffer(self, address: str, **kwargs) -> SpooledTemporaryFile: ...
+        if not filename:
+            raise ValueError(f"Filename cannot be empty, got '{filename}'")
+
+        self.make_directory(folder)
+        full_path = self.directory / folder.lstrip("/") / filename
+
+        try:
+            with open(full_path, "wb") as dest:
+                shutil.copyfileobj(stream, dest)
+
+            address = folder + filename
+        except Exception:
+            address = None
+        finally:
+            stream.close()
+
+        return address
+
+    def load_buffer(self, address: str, folder: str = "/") -> SpooledTemporaryFile:
+        folder, filename = self.parse_url(folder, address)
+
+        full_path = self.directory / folder.lstrip("/") / filename
+
+        return open(full_path, "rb")
 
 
 # ========== httpx.Client converters ========== #
+
+CLIENT_CACHE = {}
 
 
 def httpx_client_structure_fn(val, cls):
     if isinstance(val, cls):
         return val
 
-    return httpx.Client(**val)
+    key = tuple(val.items())
+    if key in CLIENT_CACHE:
+        return CLIENT_CACHE[key]
+
+    client = CLIENT_CACHE[key] = httpx.Client(**val)
+    return client
 
 
 def httpx_client_unstructure_fn(obj):

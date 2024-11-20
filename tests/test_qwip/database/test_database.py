@@ -12,8 +12,8 @@ class TestDatabase:
         assert database.tables() == {
             "folders",
             "parameters",
-            "waveforms",
-            "waveform_locations",
+            "operations",
+            "operation_locations",
             "constraints",
             "timelines",
             "datasets",

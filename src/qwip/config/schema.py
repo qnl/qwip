@@ -57,7 +57,8 @@ class ClassificationSchema(ValidatedConfigFolder):
 
 @configschema
 class ReadoutRegisterSchema(ValidatedConfigFolder):
-    drive: str
+    drive: str = ""
+    channel: str = ""
     classification: ClassificationSchema
 
 
@@ -111,6 +112,7 @@ class DeviceSchema(ValidatedConfigFolder):
     name: str
     channels: list[str] = field(factory=list)
     sample_rate: float
+    envelope_sample_rate: float | None = None
     trigger: TriggerInfoSchema
     dtype: str = "numpy.float32"
 

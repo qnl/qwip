@@ -364,9 +364,9 @@ class Sequence(np.ndarray):
             label = labels[axis]
 
             if isinstance(label, pd.MultiIndex):
-                codes += [c[coord] for c in label.codes]
-                levels += label.levels
-                names += label.names
+                codes.extend([c[coord] for c in label.codes])
+                levels.extend(label.levels)
+                names.extend(label.names)
             else:
                 codes.append(coord)
                 levels.append(label)

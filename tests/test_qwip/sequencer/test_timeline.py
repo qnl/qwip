@@ -74,7 +74,7 @@ class TestTimeline:
     @pytest.mark.parametrize(
         "layers,expect",
         [
-            ([], Timeline()),
+            ([], Timeline(width=0.0)),
             (
                 [
                     SquareWaveform(width=5e-9),
@@ -87,7 +87,8 @@ class TestTimeline:
                         (5e-9, SquareWaveform(width=10e-9)),
                         (5e-9, SquareWaveform(width=20e-9)),
                         (25e-9, SquareWaveform(width=10e-9)),
-                    ]
+                    ],
+                    width=35e-9,
                 ),
             ),
             (
@@ -99,7 +100,8 @@ class TestTimeline:
                     [
                         (0, SquareWaveform(width=10e-9)),
                         (20e-9, SquareWaveform(width=10e-9)),
-                    ]
+                    ],
+                    width=30e-9,
                 ),
             ),
             (
@@ -121,7 +123,8 @@ class TestTimeline:
                         (0, SquareWaveform(width=25e-9)),
                         (25e-9, VirtualZWaveform(frame="Q0")),
                         ("25e-9 + delay", SquareWaveform(width=10e-9)),
-                    ]
+                    ],
+                    width="35e-9 + delay",
                 ),
             ),
             (
@@ -134,7 +137,8 @@ class TestTimeline:
                     [
                         (0, SquareWaveform(width=10e-9)),
                         ("20e-9 + delay", SquareWaveform(width=5e-9)),
-                    ]
+                    ],
+                    width="25e-9 + delay",
                 ),
             ),
         ],
@@ -147,7 +151,9 @@ class TestTimeline:
     def test_from_layers_start_time(self):
         tmln = Timeline.from_layers([SquareWaveform(width=20)], t0="start_delay")
 
-        expect = Timeline.fromtuples([("start_delay", SquareWaveform(width=20))])
+        expect = Timeline.fromtuples(
+            [("start_delay", SquareWaveform(width=20))], width="start_delay + 20.0"
+        )
 
         assert tmln == expect
 
@@ -293,18 +299,18 @@ class TestTimeline:
 
         lw_pairs = tmln.resolve(inplace=False, sort=True)
         assert lw_pairs == [
-            (0, markers["f"]),
-            (0, markers["e"]),
-            (2, markers["b"]),
-            (3, markers["a"]),
+            (0.0, markers["f"]),
+            (0.0, markers["e"]),
+            (2.0, markers["b"]),
+            (3.0, markers["a"]),
         ]
 
         lw_pairs = tmln.resolve(inplace=False, sort=_sort_key)
         assert lw_pairs == [
-            (0, markers["e"]),
-            (0, markers["f"]),
-            (2, markers["b"]),
-            (3, markers["a"]),
+            (0.0, markers["e"]),
+            (0.0, markers["f"]),
+            (2.0, markers["b"]),
+            (3.0, markers["a"]),
         ]
 
     def test_resolve_negative(self):
@@ -630,7 +636,7 @@ class TestTimeline:
                 ),
                 dict(
                     lw_pairs=[
-                        [
+                        (
                             0.0,
                             dict(
                                 channel="Q0",
@@ -638,19 +644,19 @@ class TestTimeline:
                                 amplitude="amp",
                                 __class__="SquareWaveform",
                             ),
-                        ],
-                        [
+                        ),
+                        (
                             "tau/2",
                             dict(
                                 width="tau/2",
                                 amplitude="-amp",
                                 __class__="SquareWaveform",
                             ),
-                        ],
-                        [
+                        ),
+                        (
                             "tau",
                             dict(frame="Q0", phase=90, __class__="VirtualZWaveform"),
-                        ],
+                        ),
                     ]
                 ),
             ),
