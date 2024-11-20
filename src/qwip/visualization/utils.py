@@ -240,9 +240,9 @@ def grid_plotter(
 
         match canvas:
             case Axes():
-                subplot_kwargs["ax"] = canvas
+                subplot_kwargs = {**subplot_kwargs, "ax": canvas}
             case FigureBase():
-                subplot_kwargs["fig"] = canvas
+                subplot_kwargs = {**subplot_kwargs, "fig": canvas}
 
         plotter(subplot_data, **subplot_kwargs)
 
@@ -312,7 +312,7 @@ def mosaic_canvas(mosaic: list[list[str]], /, fig_kwargs={}, subplot_kwargs={}):
 
             f = func(*args, fig=fig, **kwargs)
 
-            if fig.get_suptitle():
+            if not fig.get_suptitle():
                 fig.suptitle(fig.get_label())
 
             return f
