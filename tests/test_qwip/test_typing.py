@@ -1,10 +1,9 @@
 from collections.abc import Callable, Mapping, Sequence
-from typing import Annotated, Any, ForwardRef, Optional, Union, get_args
+from typing import Annotated, Any, ForwardRef, Optional, Self, Union, get_args
 
 import numpy as np
 import pytest
 from numpy.typing import NDArray
-from typing_extensions import Self
 
 from qwip import FlatDict
 from qwip.processing.processors import Labeled, StatePopulations
@@ -172,7 +171,12 @@ class TestTypeDispatch:
 
 @pytest.mark.parametrize(
     "subtype,tp,expect",
-    [(dict, Mapping, True), (bool, int, True), (Annotated, Mapping, False)],
+    [
+        (dict, Mapping, True),
+        (bool, int, True),
+        (Annotated, Mapping, False),
+        (dict[str, int], Mapping, True),
+    ],
 )
 def test_issubtype(subtype, tp, expect):
     assert issubtype(subtype, tp) == expect
@@ -319,7 +323,6 @@ TypeA = ForwardRef("A", module=__name__, is_class=True)
     ],
 )
 def test_replace_self_type(tp, expect):
-    class A:
-        ...
+    class A: ...
 
     assert replace_self_type(tp, A) == expect

@@ -1,5 +1,7 @@
 import functools
 import re
+from contextlib import contextmanager
+from typing import Self
 
 import attrs
 import pendulum
@@ -9,7 +11,6 @@ from rich.prompt import Prompt
 from sqlalchemy import event
 from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.orm import Session
-from typing_extensions import Self
 
 from qwip.attrs import qdefine, qfrozen
 from qwip.database.dolt import (
@@ -198,6 +199,14 @@ class Database:
                 event.listens_for(engine, "begin")(sqlite_begin)
 
         return engine
+
+    @contextmanager
+    def begin(self):
+        if self.session.in_transaction():
+            yield self.session.get_transaction()
+        else:
+            with self.session.begin() as s:
+                yield s
 
     def connect(self, test: bool = True, timeout: int = 2):
         """Connect to the database.

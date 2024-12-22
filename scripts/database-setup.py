@@ -5,11 +5,14 @@ from enum import Enum
 
 import sqlalchemy as sa
 import typer
+from packaging.version import Version
 from rich import print
 from rich.console import Text
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+import qwip
+from qwip.config import ConfigDB
 from qwip.config.models import config_tables
 from qwip.data.models import datastore_tables
 from qwip.database.database import DoltDB
@@ -45,9 +48,9 @@ def add_progress(
 
 
 @add_progress(description="Testing database connection...", sleep=1)
-def test_connection(db: DoltDB):
+def test_connection(db: DoltDB, validate: bool = True):
     try:
-        db.connect(test=True)
+        db.connect(test=True, validate=validate)
         return True
     except sa.exc.OperationalError as e:
         print(e)
@@ -186,15 +189,139 @@ def show(
     get_databases(db)
 
 
+def migrate(db: DoltDB, current: str, target: str = qwip.__version__):
+    if Version(current) > Version(target):
+        print("Downgrading database versions is currently unsupported!")
+        typer.Exit()
+
+    print(f"Upgrading database version from {current} to {target}...")
+
+    if Version(target) == Version("24.5.0"):
+        updated = migrate_24_5_0(db)
+    elif Version(target) == Version("24.10.0"):
+        updated = migrate_24_10_0(db)
+    else:
+        updated = False
+
+    if updated:
+        print(f"Upgraded database to version {target}!")
+        db.commit(f"Upgraded databse to version {target}.", add="all")
+    else:
+        print("No changes applied.")
+
+
+def migrate_24_5_0(db: DoltDB):
+    for table in config_tables:
+        if table.name == "constraints":
+            break
+
+    with db.session.begin():
+        stmt = sa.text("SHOW COLUMNS FROM constraints")
+        col_names = [name for (name, *rest) in db.session.execute(stmt).all()]
+
+        stmt = sa.text("SELECT COUNT(*) FROM constraints")
+        nrows = db.session.execute(stmt).scalar_one()
+
+    if "expression" in col_names:
+        print("Database has already been upgraded!")
+        return False
+
+    if nrows:
+        print("Modifying non-empty constraints table is not supported!")
+        return False
+
+    with db.session.begin():
+        stmt = sa.text(
+            "ALTER TABLE `constraints` "
+            "DROP COLUMN `name`, "
+            "RENAME COLUMN `location` TO `expression`"
+        )
+        db.session.execute(stmt)
+
+    return True
+
+
+def migrate_24_10_0(db: DoltDB):
+    current_tables = db.tables()
+
+    updated = False
+
+    if "waveforms" in current_tables:
+        rename_table = sa.text("RENAME TABLE `waveforms` to `operations`;")
+        rename_col = sa.text(
+            "ALTER TABLE `operations` RENAME COLUMN `waveform_id` to `operation_id`;"
+        )
+
+        rename_fk = sa.text(
+            "ALTER TABLE `operations` DROP FOREIGN KEY `fk_waveforms_waveforms`,"
+            "ADD CONSTRAINT `fk_operations_operations` FOREIGN KEY (operation_id) "
+            "REFERENCES operations(operation_id) "
+            "ON DELETE CASCADE ON UPDATE CASCADE;"
+        )
+
+        with db.session.begin():
+            db.session.execute(rename_table)
+            db.session.execute(rename_col)
+            db.session.execute(rename_fk)
+
+        updated = True
+
+    if "waveform_locations" in current_tables:
+        rename_table = sa.text(
+            "RENAME TABLE `waveform_locations` to `operation_locations`;"
+        )
+        rename_col = sa.text(
+            "ALTER TABLE `operation_locations` RENAME COLUMN `waveform_id` to "
+            "`operation_id`;"
+        )
+
+        rename_tmln_fk = sa.text(
+            "ALTER TABLE `operation_locations` DROP FOREIGN KEY "
+            "`fk_waveform_locations_timelines`, "
+            "ADD CONSTRAINT `fk_operation_locations_timelines` FOREIGN KEY "
+            "(timeline_id) REFERENCES timelines(timeline_id) "
+            "ON DELETE CASCADE ON UPDATE CASCADE;"
+        )
+        rename_wf_fk = sa.text(
+            "ALTER TABLE `operation_locations` DROP FOREIGN KEY "
+            "`fk_waveform_locations_waveforms`, "
+            "ADD CONSTRAINT `fk_operation_locations_operations` FOREIGN KEY "
+            "(operation_id) REFERENCES operations(operation_id) "
+            "ON DELETE CASCADE ON UPDATE CASCADE;"
+        )
+
+        with db.session.begin():
+            db.session.execute(rename_table)
+            db.session.execute(rename_col)
+            db.session.execute(rename_tmln_fk)
+            db.session.execute(rename_wf_fk)
+
+        updated = True
+
+    return updated
+
+
 @app.command()
 def upgrade(
     ctx: typer.Context,
-    host: str = typer.Argument(...),
-    username: str = typer.Argument(...),
-    password: str = typer.Argument(...),
-    database: str = typer.Argument(...),
+    hostname: str = typer.Option(..., prompt=True),
+    username: str = typer.Option(..., prompt=True),
+    password: str = typer.Option(..., prompt=True, hide_input=True),
+    database: str = typer.Option(..., prompt=True),
 ):
-    ...
+    db = ConfigDB.from_parameters(
+        host=hostname, username=username, password=password, database=database
+    )
+
+    if not test_connection(db, validate=False):
+        raise typer.Exit()
+
+    try:
+        current_version = db.config.version
+    except AttributeError:
+        current_version = qwip.__version__
+
+    migrate(db, current_version, target="24.10.0")
 
 
 if __name__ == "__main__":

@@ -37,6 +37,62 @@ Successfully created tables!
 
 ## Connecting to the Database
 
-To connect to the database.
+1. **Choose the hostname and the database of the Database.**
+``` py title="connect to the database" linenums="1"
+db = ConfigDB.from_parameters(
+    host='[hostname]',
+    database='[databasename]',
+    schema=ConfigSchema
+)
 
+db.connect()
 
+datastore = Datastore(
+    storage=HTTPStorageBackend.from_url("http://localhost:4002"),
+    url=db.url.set(database="qnl_dataserver")
+)
+datastore.connect();
+```
+
+2. **Login with your credentials.**
+```python linenums="1"
+Username: 
+......
+Password: 
+······
+```
+
+## Configuring the Database
+After create and connect to the Database, we need to configure the new Database
+
+1. **All and readout**
+    ```python linenums="1"
+    db.config.create_all()
+    db.config.readout.create_all(default={})
+    ```
+2. **Setup channels and construct compiler from devices**
+    ```python linenums="1"
+    from qwip.sequencer.compilation import DeviceInfo, ChannelInfo
+    from qwip.backends.qubic import QubicCompiler
+    
+    qubit = DeviceInfo.from_channels([ChannelInfo(name=f"CH{ch}.qdrv", index=ch, subchannel=0) for ch in range(8)], name="qubit", sample_rate=8e9, dtype=np.complex64)
+    readout = DeviceInfo.from_channels([ChannelInfo(name=f"CH{ch}.rdrv", index=ch, subchannel=1) for ch in range(8)], name="readout", sample_rate=0.5e9, dtype=np.complex64)
+    adc = DeviceInfo.from_channels([ChannelInfo(name=f"CH{ch}.rdlo", index=ch, read=True, subchannel=2) for ch in range(8)], name="adc", sample_rate=0.5e9, dtype=np.complex64)
+    
+    compiler = QubicCompiler.from_devices([qubit, readout, adc])
+    ```
+3. **Pipeline**
+    ```python linenums="1"
+    from qwip.processing import ReadoutPipeline
+    pipeline = ReadoutPipeline()
+    ```
+4. **Initialize the QPU**
+    ```python linenums="1"
+    qpu = QPU(db=db, compiler=compiler, pipeline=pipeline, subsystems={}, datastore=datastore)
+    qpu.save_compiler()
+    ```
+5. **Commit all the configuration**
+    ```python linenums="1"
+    db.config.update(sample_id="[sample_id]", cooldown_id="[cooldown_id]")
+    db.commit("Initial setup", add="all")
+    ```

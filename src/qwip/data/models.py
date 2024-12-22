@@ -1,6 +1,6 @@
 import platform
 from collections.abc import Iterable
-from typing import Any
+from typing import Any, Self
 
 import attrs
 import pendulum
@@ -9,7 +9,6 @@ from attrs import field
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, types
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm.collections import attribute_mapped_collection
-from typing_extensions import Self
 from uuid6 import UUID, uuid7
 
 import qwip
@@ -76,9 +75,11 @@ class Dataset(VersionControlled):
 
     id: UUID = field(factory=uuid7, repr=lambda uid: uid.hex if uid else str(uid))
     timestamp: pendulum.DateTime = field(
-        repr=lambda dt: dt.in_tz("local").isoformat()
-        if isinstance(dt, pendulum.DateTime)
-        else repr(dt),
+        repr=lambda dt: (
+            dt.in_tz("local").isoformat()
+            if isinstance(dt, pendulum.DateTime)
+            else repr(dt)
+        ),
         factory=pendulum.now,
     )
     host: str = field(factory=platform.node)
@@ -199,13 +200,15 @@ class Asset(VersionControlled):
         return f"/{dataset_id.hex}/{filename}"
 
     @classmethod
-    def create(cls, obj: Any, /, name: str | None = None, **kwargs) -> Self:
+    def create(
+        cls, obj: Any, /, name: str = "", name_fmt: str = "{name}", **kwargs
+    ) -> Self:
         serializer = get_serializer(key=kwargs.get("serializer"), obj=obj)
         name = name or serializer.get_name(obj)
 
         kwargs = dict(serializer=serializer.key) | kwargs
 
-        return cls(name=name, obj=obj, **kwargs)
+        return cls(name=name_fmt.format(name=name), obj=obj, **kwargs)
 
     def save(self, **kwargs):
         """Saves the asset data to the storage backend.

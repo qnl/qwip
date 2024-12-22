@@ -1,14 +1,53 @@
+import platform
+from io import BytesIO
 from pathlib import Path
 
 import httpx
 import pytest
 
 import qwip
-from qwip.data.storage import HTTPStorageBackend, StorageBackend
+from qwip.data.storage import HTTPStorageBackend, LocalStorageBackend, StorageBackend
 from qwip.flatdict import FlatDict
 
 
-class TestHTTPStorageBackend:
+class TestStorageBackend:
+    @pytest.mark.parametrize(
+        "folder,address,expect",
+        [
+            ("", "", ("/", "")),
+            ("/", "", ("/", "")),
+            ("", "", ("/", "")),
+            ("folder", "", ("/folder/", "")),
+            ("/folder", "", ("/folder/", "")),
+            ("/a", "/a/b/c", ("/a/a/b/", "c")),
+            ("/folder", "./file", ("/folder/", "file")),
+            ("/folder/subfolder", "../file", ("/folder/", "file")),
+            ("", "/folder/file.txt", ("/folder/", "file.txt")),
+        ],
+    )
+    def test_parse_url(self, storage, folder, address, expect):
+        assert storage.parse_url(folder, address) == expect
+
+    @pytest.mark.parametrize("address,data", [("text.txt", b"ASCII bytes.")])
+    def test_data_round_trip(self, storage, address, data):
+        download_address = storage.save_buffer(
+            address, BytesIO(data), folder="pytest-roundtrip"
+        )
+        downloaded = storage.load_buffer(download_address).read()
+
+        assert data == downloaded
+
+        storage.remove_directory("pytest-roundtrip")
+
+    def test_structure_round_trip(self, storage):
+        unstructured = qwip.converter.unstructure(storage)
+        structured = qwip.converter.structure(unstructured, StorageBackend)
+
+        assert structured == storage
+        assert type(structured) == type(storage)
+
+
+class TestHTTPStorageBackend(TestStorageBackend):
     @pytest.fixture(scope="class")
     def root(self, settings):
         root = settings.DATASERVER_ROOT
@@ -37,28 +76,17 @@ class TestHTTPStorageBackend:
 
         yield root
 
-    @pytest.mark.parametrize(
-        "folder,address,expect",
-        [
-            ("", "", ("/", "")),
-            ("/", "", ("/", "")),
-            ("", "", ("/", "")),
-            ("folder", "", ("/folder/", "")),
-            ("/folder", "", ("/folder/", "")),
-            ("/a", "/a/b/c", ("/a/a/b/", "c")),
-            ("/folder", "./file", ("/folder/", "file")),
-            ("/folder/subfolder", "../file", ("/folder/", "file")),
-            ("", "/folder/file.txt", ("/folder/", "file.txt")),
-        ],
-    )
-    def test_parse_url(self, storage, folder, address, expect):
-        assert storage.parse_url(folder, address) == expect
+    def test_equal(self):
+        s1 = HTTPStorageBackend(client=httpx.Client(base_url="https://url"))
+        s2 = HTTPStorageBackend(client=httpx.Client(base_url="https://url"))
+
+        assert s1 == s2
 
     @pytest.mark.skip_dataserver
     @pytest.mark.parametrize(
         "folder,expect",
         [
-            ("/non-existent", httpx.HTTPStatusError),
+            ("/non-existent", FileNotFoundError),
             (
                 "/",
                 ["data-folder", "empty", "README.md"],
@@ -104,7 +132,7 @@ class TestHTTPStorageBackend:
         if hasattr(storage.client, "app"):
             assert (root / folder.lstrip("./")).exists() is False
 
-        with pytest.raises(httpx.HTTPStatusError):
+        with pytest.raises(FileNotFoundError):
             storage.list_directory(folder)
 
     @pytest.mark.skip_dataserver
@@ -148,15 +176,6 @@ class TestHTTPStorageBackend:
 
             assert downloaded == expect
 
-    @pytest.mark.parametrize("address,data", [("text.txt", b"ASCII bytes.")])
-    def test_data_round_trip(self, storage, address, data):
-        download_address = storage.save_buffer(address, data, folder="pytest-roundtrip")
-        downloaded = storage.load_buffer(download_address).read()
-
-        assert data == downloaded
-
-        storage.remove_directory("pytest-roundtrip")
-
     def test_unstructure(self, storage):
         unstructured = qwip.converter.unstructure(storage)
 
@@ -177,9 +196,85 @@ class TestHTTPStorageBackend:
         assert structured.client.base_url == httpx.URL("http://dataserver")
         assert isinstance(structured, HTTPStorageBackend)
 
-    def test_structure_round_trip(self, storage):
-        unstructured = qwip.converter.unstructure(storage)
-        structured = qwip.converter.structure(unstructured, StorageBackend)
 
-        assert structured.client.base_url == storage.client.base_url
-        assert type(structured) == type(storage)
+class TestLocalStorageBackend(TestStorageBackend):
+    @pytest.fixture(scope="function")
+    def storage(self, tmp_path_factory):
+        directory = tmp_path_factory.mktemp("pytest")
+        return LocalStorageBackend(directory=directory)
+
+    @pytest.mark.parametrize(
+        "folder,expect",
+        [
+            ("/", "/"),
+            ("", "/"),
+            ("folder", "/folder"),
+            ("/folder1/folder2/", "/folder1/folder2"),
+        ],
+    )
+    def test_make_directory(self, storage, folder, expect):
+        address = storage.make_directory(folder)
+        assert (storage.directory / folder.lstrip("/")).exists()
+        assert address == expect
+
+    def test_make_directory_exists(self, storage):
+        with open(storage.directory / "file", "w") as f:
+            f.write("")
+
+        with pytest.raises(FileExistsError):
+            storage.make_directory("file")
+
+    def test_list_directory(self, storage):
+        assert storage.list_directory() == []
+
+        for address in ["folder", "nested/folder"]:
+            storage.make_directory(address)
+
+        assert storage.list_directory() == ["folder", "nested"]
+
+    @pytest.mark.parametrize(
+        "address,data,expect",
+        [
+            ("text.txt", b"Binary text.", "/save_buffer/text.txt"),
+            (
+                "/subfolder/text.txt",
+                b"Binary text.",
+                "/save_buffer/subfolder/text.txt",
+            ),
+            ("exists", b"", None),
+        ],
+    )
+    def test_save_buffer(self, storage, address, data, expect):
+        (storage.directory / "save_buffer/exists").mkdir(parents=True, exist_ok=True)
+
+        download_address = storage.save_buffer(
+            address, BytesIO(data), folder="/save_buffer"
+        )
+        assert download_address == expect
+        if download_address:
+            assert (
+                storage.directory / "save_buffer" / address.lstrip("./")
+            ).read_bytes() == data
+
+    @pytest.mark.parametrize(
+        "address,data",
+        [
+            ("README.md", b"This is the test directory structure"),
+            ("data-folder/file.txt", b"A text file with some strings"),
+            ("/data-folder/number.bin", (1234567890).to_bytes(8, "big")),
+        ],
+    )
+    def test_load_buffer(self, storage, address, data):
+        storage.save_buffer(address, BytesIO(data))
+        downloaded = storage.load_buffer(address).read()
+
+        assert downloaded == data
+
+    def test_unstructure(self, storage):
+        unstructured = qwip.converter.unstructure(storage)
+
+        assert unstructured == dict(
+            directory=str(storage.directory),
+            hostname=platform.node(),
+            __class__="LocalStorageBackend",
+        )

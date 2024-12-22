@@ -1,16 +1,19 @@
 import itertools as it
+import re
 from collections.abc import Sequence as TSequence
-from typing import Any
+from numbers import Real
+from typing import Any, Protocol, Self, runtime_checkable
 
 import numpy as np
+import pandas as pd
 from loguru import logger
 from numpy.typing import NDArray
-from typing_extensions import Self
 
 import qwip
-from qwip._cattr import make_attrs_unstructure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.timeline import Timeline
+
+DIM_REGEX = re.compile(r"d(?P<axis>\d+)")
 
 SEQUENCE_FUNCTIONS = {}
 
@@ -23,15 +26,27 @@ def sequence_implements(np_function):
     return decorator
 
 
+@runtime_checkable
+class Sweepable(Protocol):
+    def __iter__(self): ...
+    def __len__(self): ...
+
+
 @qdefine(init=False, slots=False, repr=False, eq=False, order=False)
 class Sequence(np.ndarray):
-    names: tuple[str | None, ...]
-    labels: dict[str, np.ndarray]
+    """Sequences are arrays of timelines with corresponding axis labels.
+
+    Attributes:
+        labels: A tuple of pandas index objects that specify the labels for each axis.
+
+    """
+
+    labels: tuple[pd.Index, ...]
 
     def __new__(
         cls,
         array: NDArray[Timeline],
-        names: tuple[str, ...] | None = None,
+        /,
         **labels,
     ):
         # Turn array into ndarray and return view as Sequence
@@ -39,31 +54,56 @@ class Sequence(np.ndarray):
         # np.asanyarray unchanged.
         obj = np.asanyarray(array, dtype=object).view(cls)
 
-        if names is None and not labels:
-            return obj
+        if len(labels) > obj.ndim:
+            raise ValueError(
+                f"Number of labels exceeds number of sequence dimensions {obj.shape}."
+            )
 
-        # Validate names
-        if names is not None:
-            names = _expand_names(names, obj.shape)
+        validated = []
+        names = set()
+        for name, label in labels.items():
+            axis = len(validated)
+            match label:
+                case pd.MultiIndex():
+                    label.name = "_".join(label.names)
+                case pd.Index(name=label_name):
+                    if label_name is None:
+                        label.name = name
+                    elif name != label_name:
+                        logger.warning(
+                            f"Index name '{label_name}' does not match keyword argument "
+                            f"'{name}'. Using '{label_name}' for axis {axis}"
+                        )
+                case None:
+                    label = pd.RangeIndex(0, obj.shape[axis], name=name)
+                case _:
+                    label = pd.Index(label, name=name)
 
-            if len(names) != len(obj.shape):
+            if label.shape[0] != obj.shape[axis]:
                 raise ValueError(
-                    f"Length of axis names {names} does not match shape {obj.shape}."
+                    f"Label '{name}' has length {label.shape[0]} that does not match "
+                    f"sequence dimension {obj.shape[axis]} for axis {axis}."
                 )
 
-            unique_names = set()
-            for n in names:
-                if n in unique_names:
-                    raise ValueError(f"{names} contains a duplicate name!")
-                if n is not None:
-                    unique_names.add(n)
+            if name in names:
+                raise ValueError(
+                    f"Sequence axis names must be unique, got duplicate name '{name}' "
+                    f"for axis {axis}."
+                )
 
-            obj.names = names
+            names.add(label.name)
+            validated.append(label)
 
-        if labels:
-            obj.labels = dict()
-            _set_labels(obj, labels, should_raise=True)
+        for axis in range(len(validated), obj.ndim):
+            # Use existing or default label if not explicitly specified.
+            label = obj.labels[axis]
+            if label.name in names:
+                raise ValueError(
+                    f"Reserved axis name '{label.name}' is used on the wron axis."
+                )
+            validated.append(label)
 
+        obj.labels = tuple(validated)
         obj.__array_finalize__()
 
         return obj
@@ -73,24 +113,19 @@ class Sequence(np.ndarray):
         if obj is None:
             return
 
-        if not hasattr(self, "names"):
+        if not hasattr(self, "labels"):
             # We copy names from obj if it exists and obj matches the correct shape
-            if hasattr(obj, "names") and self.shape == obj.shape:
-                self.names = obj.names
+            if self.shape == obj.shape and hasattr(obj, "labels"):
+                self.labels = obj.labels
             # otherwise set to default
             else:
-                self.names = (None,) * len(self.shape)
-
-        if not hasattr(self, "labels"):
-            self.labels = dict()
-
-            if hasattr(obj, "labels"):
-                _set_labels(self, obj.labels, should_raise=False)
+                self.labels = tuple(
+                    pd.RangeIndex(0, d, name=f"d{axis}")
+                    for axis, d in enumerate(self.shape)
+                )
 
     def __repr__(self) -> str:
-        names = (
-            "" if all(n is None for n in self.names) else f"names={self.names}" + ", "
-        )
+        names = f"names={self.names}" + ", "
         prefix = "    "
         arr = prefix + np.array2string(self, prefix=prefix)
         return f"Sequence({names}shape={self.shape}\n{arr}\n)"
@@ -124,53 +159,61 @@ class Sequence(np.ndarray):
 
         return tuple(it.chain(*(replace_ellipsis(i) for i in index)))
 
-    def _get_names_from_index(self, index: tuple) -> tuple:
-        """Determines new names for a view of self given the index.
+    def _get_labels_from_index(self, index: tuple[int, ...]) -> tuple[pd.Index, ...]:
+        """Determines new labels for a view of self given the index.
 
         Args:
             index: The expanded index with no ellipses.
 
         Returns:
-            A tuple of updated names
+            A list of updated labels.
         """
-        names = []
+        labels = []
 
-        dim = 0
-        for idx in index:
-            if isinstance(idx, slice):
-                names.append(self.names[dim])
-                dim += 1
-            elif idx is None:
-                names.append(None)
-            else:
-                dim += 1
+        old_axis = 0
+        for new_axis, idx in enumerate(index):
+            match idx:
+                case slice():
+                    labels.append(idx := self.labels[old_axis][idx])
+                    old_axis += 1
+                # A new axis is being created here with dimension 1
+                case None:
+                    labels.append(pd.RangeIndex(1, name=f"d{new_axis}"))
+                case int():
+                    old_axis += 1
 
-        return tuple(names)
+        for axis, label in enumerate(labels):
+            default = f"d{axis}"
+            if isinstance(label, pd.MultiIndex):
+                label.name = "_".join(label.names)
+
+            if DIM_REGEX.fullmatch(label.name) and label.name != default:
+                label.name = default
+
+        return tuple(labels)
 
     def __getitem__(self, key):
+        # Shortcut for getting a label
+        if isinstance(key, str):
+            for label in self.labels:
+                if label.name == key:
+                    return label
+            else:
+                raise KeyError(f"'{key}'")
+
         if _is_advanced_index(key):
             return NotImplemented
 
         obj = super().__getitem__(key)
 
-        # If indexing leads to a single valued sequence element
+        # If indexing leads to a single valued timeline, e.g. seq[0] for a 1D sequence
         if not isinstance(obj, type(self)):
             return obj
 
         expanded = self._expand_basic_index(key)
-        logger.debug(f"Expanded form of {key} is {expanded}")
-        obj.names = self._get_names_from_index(expanded)  # Set names
-
-        slices = tuple(idx for idx in expanded if idx is not None)
-        # Copy over label views
-        for level, n in enumerate(self.names):
-            if n not in obj.names or n not in self.labels:
-                continue
-
-            logger.debug(
-                f"Slicing {slices[level]} from label for {n} which was level {level}"
-            )
-            obj.labels[n] = self.labels[n][slices[level]]
+        logger.trace(f"Expanded form of {key} is {expanded}")
+        labels = self._get_labels_from_index(expanded)  # Set names
+        obj.labels = labels
 
         return obj
 
@@ -184,11 +227,7 @@ class Sequence(np.ndarray):
         )
 
         results = getattr(ufunc, method)(*args, **kwargs)
-
-        names, labels = broadcast_names_and_labels(
-            *(seq for seq in inputs if isinstance(seq, Sequence)),
-            raise_on_conflict=ufunc.__name__ not in ("equal", "not_equal"),
-        )
+        labels = broadcast_labels(*(seq for seq in inputs if isinstance(seq, Sequence)))
 
         if results is NotImplemented:
             return NotImplemented
@@ -199,29 +238,51 @@ class Sequence(np.ndarray):
         if ufunc.nout == 1:
             results = (results,)
 
+        def _view_cast_if_sequence(arr):
+            match arr:
+                case Timeline():
+                    return np.asanyarray(arr).view(type(self))
+                case np.ndarray():
+                    ...
+                case _:
+                    return np.asanyarray(arr)
+
+            match arr.dtype.char:
+                case "O":
+                    return np.asanyarray(arr).view(type(self))
+                case _:
+                    return arr
+
         results = tuple(
-            (np.asanyarray(result).view(type(self)) if output is None else output)
+            (_view_cast_if_sequence(result) if output is None else output)
             for result, output in zip(results, outputs)
         )
 
-        if len(results) == 1:
-            results = results[0]
-
-            if method == "reduce" and not kwargs.get("keepdims", False):
+        if len(results) == 1 and isinstance(results := results[0], Sequence):
+            if method == "reduce":
                 axis = kwargs.get("axis", 0)
 
                 if axis is None:
-                    names = tuple()
+                    labels = tuple()
                 else:
                     axis = (axis,) if isinstance(axis, int) else axis
                     axis = tuple(d + inputs[0].ndim if d < 0 else d for d in axis)
 
-                    names = tuple(n for i, n in enumerate(names) if i not in axis)
+                    if kwargs.get("keepdims", False):
+                        labels = tuple(
+                            pd.RangeIndex(1, name=lb.name) if i in axis else lb
+                            for i, lb in enumerate(labels)
+                        )
+                    else:
+                        labels = tuple(
+                            lb for i, lb in enumerate(labels) if i not in axis
+                        )
 
-            results.names = names
-            for dim, n in enumerate(results.names):
-                if n in labels and len(labels[n]) == results.shape[dim]:
-                    results.labels[n] = labels[n]
+            for axis, label in enumerate(results.labels):
+                if len(label) != results.shape[axis]:
+                    labels[axis] = pd.RangeIndex(results.shape[axis], name=label.name)
+
+            results.labels = tuple(labels)
 
         return results
 
@@ -233,6 +294,10 @@ class Sequence(np.ndarray):
             return NotImplemented
 
         return SEQUENCE_FUNCTIONS[func](*args, **kwargs)
+
+    @property
+    def names(self) -> tuple[str]:
+        return tuple(lb.name for lb in self.labels)
 
     @property
     def T(self) -> Self:
@@ -262,10 +327,54 @@ class Sequence(np.ndarray):
             axes = axes[0]
 
         if axes is None or not len(axes):
-            seq.names = tuple(reversed(self.names))
+            seq.labels = tuple(reversed(self.labels))
             return seq
 
-        seq.names = tuple(self.names[i] for i in axes)
+        seq.labels = tuple(self.labels[i] for i in axes)
+
+        return seq
+
+    def flatten(self, **kwargs) -> Self:
+        """Flattens a sequence into a 1-D sequence, while preserving labels.
+
+        Args:
+            **kwargs: Keyword arguments are passed to `numpy.ndarray.flatten`.
+        """
+        if kwargs.get("order", "C") != "C":
+            logger.warning(
+                "Sequence labels are only preserved when flattening in C-style"
+                "row-major order."
+            )
+            return super().flatten()
+
+        labels = self.labels
+        seq = super().flatten()
+
+        if self.ndim == 1:
+            seq.labels = (labels[0].copy(),)
+            return seq
+
+        grid = np.meshgrid(*(np.r_[:dim] for dim in self.shape), indexing="ij")
+
+        levels = []
+        codes = []
+        names = []
+        for axis, coord in enumerate(grid):
+            coord = coord.flatten()
+            label = labels[axis]
+
+            if isinstance(label, pd.MultiIndex):
+                codes.extend([c[coord] for c in label.codes])
+                levels.extend(label.levels)
+                names.extend(label.names)
+            else:
+                codes.append(coord)
+                levels.append(label)
+                names.append(label.name)
+
+        name = "_".join(names)
+        seq.labels = (pd.MultiIndex(levels=levels, codes=codes, names=names),)
+        seq.labels[0].name = name
 
         return seq
 
@@ -273,15 +382,17 @@ class Sequence(np.ndarray):
     def empty(
         cls,
         shape: tuple[int, ...],
-        names: tuple[str, ...] | None = None,
-        **labels: np.ndarray,
+        **labels: pd.Index,
     ) -> Self:
         """Creates a Sequence of the specified shape with empty Timelines.
 
         Args:
             shape: The desired shape of the output sequence.
-            names: Names to attach to the axis dimensions.
-            labels: Labels to attach to the axis dimensions.
+            **labels: Labels to attach to the axis dimensions. If the number of labels
+                provided is less than the number of dimensions, the remaining
+                unspecified axis will be set to default labels. To specify only the
+                name of the axis, pass in `None`, in which case default index values
+                will be used.
         """
 
         arr = np.empty(shape, dtype=object)
@@ -289,95 +400,110 @@ class Sequence(np.ndarray):
         for index in np.ndindex(*arr.shape):
             arr[index] = Timeline()
 
-        return cls(arr, names, **labels)
+        return cls(arr, **labels)
 
     @classmethod
-    def sweep(cls, tmln: Timeline, /, name=None, label=None, **params) -> Self:
-        """Create a sequence from the sequence element."""
+    def sweep(cls, tmln: Timeline, /, **params: Sweepable | Real) -> Self:
+        """Create a sequence from a timeline.
 
-        shape = min(len(arr) for arr in params.values())
-        name = name or ",".join(params)
+        Args:
+            tmln: The timeline to sweep parameters from.
+            **params: Keyword arguments specify the parameters to sweep. If a single
+                value is passed for a given parameter, it will be resolved in all
+                timelines, but will not be added to the sequence label.
 
-        values = list(zip(*params.values()))
+        Returns:
+            The resulting sequence from sweeping over all the given parameters.
+        """
 
-        if label is None:
-            if len(params) == 1:
-                label = params[name]
+        lengths = set()
+        excluded_params = {}
+        labeled_params = {}
+        for p in params:
+            if isinstance(params[p], str) or not isinstance(params[p], Sweepable):
+                excluded_params[p] = params[p]
             else:
-                label = np.empty(shape, dtype=object)
-                label[:] = values
-        elif label.shape[0] != len(values):
+                labeled_params[p] = params[p]
+                lengths.add(len(params[p]))
+
+        if len(lengths - {1}) > 1:
             raise ValueError(
-                f"Provided label must have length {len(values)} that matches "
-                f"sequence shape."
+                "Parameter sweeps must all be the same length, or a single value."
             )
+        elif len(lengths) == 0:
+            raise ValueError("No parameter sweeps given.")
 
-        seq = Sequence.empty((shape,), names=(name,), **{name: label})
+        N = next(iter(lengths)) if len(lengths) == 1 else next(iter(lengths - {1}))
 
-        for i, vals in enumerate(values):
-            new = tmln.copy()
+        levels = list(labeled_params.values())
+        codes = [
+            np.r_[:N] if len(values) == N else np.zeros(N, dtype=int)
+            for values in labeled_params.values()
+        ]
+        names = list(labeled_params)
 
-            update = {n: v for n, v in zip(params, vals)}
-            new.add_constraints(**update)
-            new.resolve_waveforms(**update)
+        label = pd.MultiIndex(levels=levels, codes=codes, names=names)
+        label.name = "_".join(names)
 
-            seq[i] = new
+        seq = Sequence.empty((N,), **{label.name: label})
+
+        for i, values in enumerate(label):
+            new_tmln = tmln.copy()
+            update = excluded_params | {n: v for n, v in zip(names, values)}
+            seq[i] = new_tmln.substitute(**update)
+
+        if label.nlevels == 1:
+            label = label.levels[0][label.codes[0]]
+            seq.labels = (label,)
 
         return seq
 
     @classmethod
-    def product(cls, tmln: Timeline, /, **params) -> Self:
-        """Create a sequence from the sequence element."""
-        shape = tuple(len(arrs) for arrs in params.values())
-        names = tuple(params)
+    def product(cls, tmln: Timeline, /, **params: Sweepable | Real) -> Self:
+        """Create a sequence from a timeline.
 
-        seq = Sequence.empty(shape, names=names, **params)
+        Args:
+            tmln: The timeline to sweep parameters from.
+            **params: Keyword arguments specify the parameters to sweep. If a single
+                value is passed for a given parameter, it will be resolved in all
+                timelines, but will not be added to the sequence label.
 
-        for i, vals in enumerate(it.product(*params.values())):
-            new = tmln.copy()
+        Returns:
+            The resulting sequence from sweeping over all the given parameters.
+        """
 
-            update = {n: v for n, v in zip(names, vals)}
-            new.add_constraints(**update)
-            new.resolve_waveforms(**update)
+        excluded_params = {}
+        labeled_params = {}
+        shape = []
+        for p in params:
+            if isinstance(params[p], str) or not isinstance(params[p], Sweepable):
+                excluded_params[p] = params[p]
+            else:
+                labeled_params[p] = params[p]
+                shape.append(len(params[p]))
 
-            seq.flat[i] = new
+        if not len(labeled_params):
+            raise ValueError("No parameter sweeps given.")
+
+        seq = Sequence.empty(shape, **labeled_params)
+
+        for idx in np.ndindex(*seq.shape):
+            new_tmln = tmln.copy()
+
+            update = {}
+            for level, i in enumerate(idx):
+                label = seq.labels[level]
+
+                if isinstance(label, pd.MultiIndex):
+                    values = label[i]
+                    update.update(zip(label.names, values))
+                else:
+                    update[label.name] = label[i]
+
+            update = excluded_params | update
+            seq[idx] = new_tmln.substitute(**update)
 
         return seq
-
-
-def _expand_names(names: tuple, shape: tuple[int]) -> tuple:
-    """Expands out ellipses in names to match shape.
-
-    This function expands out any tuples of names containing ... to match
-    the number of dimensions specified by shape. Replace ... with as many
-    None values as necessary. The name tuple is also validated to ensure
-    that the total length matches the number of dimensions (unless ...
-    is included) and that no duplicate names exist (except for None).
-
-    Args:
-        names: The tuple of names passed to the constructor.
-        shape: The shape of the array that the names will be attached to.
-
-    Returns:
-        An equivalent tuple of names with every dimension expanded out.
-
-    Raises:
-        IndexError: If names contains more than one ellipsis.
-    """
-
-    if ... not in names:
-        return names
-
-    if names.count(...) > 1:
-        raise IndexError("names can only contain a single ellipsis ('...')")
-
-    num_dims = len(shape)
-    num_to_expand = num_dims - len(names) + 1
-
-    def replace_ellipsis(n):
-        return (None for _ in range(num_to_expand)) if n is ... else (n,)
-
-    return tuple(it.chain(*(replace_ellipsis(n) for n in names)))
 
 
 def _is_advanced_index(index: TSequence) -> True:
@@ -407,101 +533,118 @@ def _is_advanced_index(index: TSequence) -> True:
     )
 
 
-def _set_labels(
-    obj: Sequence, labels: dict[str, TSequence], should_raise: bool = False
-) -> Sequence:
-    """Sets labels on a Sequence.
+def _is_default_label(label: pd.Index, dim: int) -> bool:
+    """Determines whether the given axis has a default label.
 
-    This function os used in both the explicit constructor and
-    `__array_finalize__` to copy labels from a source dict to the Sequence
-    object being created. Label arrays are copied by reference when the
-    Sequence object is a view of another ndarray or Sequence. Labels are
-    automatically converted to ndarrays.
+    A default label is defined as matching an autogenerated label, which has a name of
+    the form `r"d(\\d+)"` and values `[0, 1, 2, ..., N-1]` for an axis of dimension `N`.
 
     Args:
-        obj: The Sequence object to attach the labels to.
-        labels: The source dictionary from which labels should be copied.
-        should_raise: Whether or not to raise an exception or silently pass.
+        label: The sequence label to check.
+        axis: The axis level of the sequence to check.
 
     Returns:
-        The Sequence object.
+        `True` if the axis label for the sequence matches a "default" format.
     """
-    for n, arr in labels.items():
-        try:
-            idx = obj.names.index(n)
-
-        except ValueError as e:
-            if should_raise:
-                raise ValueError(
-                    f"'{n}' is not an axis name. names = {obj.names}"
-                ) from e
-
-            continue
-
-        if len(arr) != obj.shape[idx]:
-            if should_raise:
-                raise ValueError(
-                    f"{arr} has shape {arr.shape} which does not match shape "
-                    f"{obj.shape} for dimension {idx}."
-                )
-
-            continue
-
-        obj.labels[n] = np.asarray(arr)
-
-    return obj
-
-
-def broadcast_names_and_labels(*seqs, raise_on_conflict=False):
-    b = np.broadcast(*seqs)
-
-    def get_name(seq, dim):
-        if b.ndim - seq.ndim > dim:
-            return None
-
-        return seq.names[seq.ndim - b.ndim + dim]
-
-    seq_names = tuple(
-        tuple(get_name(seq, dim) for seq in seqs) for dim in range(b.ndim)
+    return bool(DIM_REGEX.fullmatch(label.name)) and bool(
+        label.equals(pd.RangeIndex(0, dim))
     )
 
+
+def _combine_indices(*indices: pd.Index, dim: int) -> pd.Index:
+    """Combines a set of pandas indices into a single index.
+
+    If only a single pandas index is given, it will be returned as is. Otherwise they
+    will be combined into a single `pd.MultiIndex` instance where the levels match the
+    order in which the indices are given. If any index has length 1, it will be
+    broadcasted to match the same length of the other indices. If any indices are
+    duplicates, only the first will be kept.
+
+    Args:
+        *indices: The set of indices to combine.
+        dim: The length of the final index. All indices should either have length equal
+            to 1 or `dim`.
+
+    Returns:
+        The resulting combined index.
+    """
+    match len(indices):
+        case 0:
+            raise ValueError("No indices to combine!")
+        case 1 if len(indices) == dim:
+            return indices[0]
+
+    index_values = []
     names = []
-    labels = {}
-    for dim, axis_names in enumerate(seq_names):
-        unique_names = set(n for n in axis_names if n is not None)
-        if len(unique_names) == 0:
-            names.append(None)
-            continue
-        elif len(unique_names) > 1:
-            if raise_on_conflict:
-                raise ValueError(
-                    f"All names along axis {dim} must be the same. {seq_names[dim]}"
-                )
 
-            names.append(None)
-            continue
+    for idx in indices:
+        if len(idx.values) == 1:
+            values = np.repeat(idx.values, dim)
+        else:
+            values = idx.values
 
-        name = next(iter(unique_names))  # Get the axis name
-        names.append(name)
+        if isinstance(idx, pd.MultiIndex):
+            index_values += [*zip(*values)]
+            names = names + idx.names
+        else:
+            index_values.append(values)
+            names = names + [idx.name]
 
+    combined = pd.DataFrame(dict(zip(names, index_values)))
+    # set_index is necessary here b/c drop_duplicates ignores indices, which after
+    # transposing corresponds to the index names. This ensures that two indices with
+    # different names but the same values will both be kept.
+    combined = combined.T.reset_index().drop_duplicates().set_index("index").T
+
+    if len(combined.columns) == 1:
+        return pd.Index(combined[combined.columns[0]])
+
+    label = pd.MultiIndex.from_frame(combined)
+    label.name = "_".join(label.names)
+    return label
+
+
+def broadcast_labels(*seqs: Sequence) -> list[pd.Index]:
+    """Returns the resulting labels from broadcasting one or more sequences.
+
+    Explicit sequence labels take precedence over default sequence labels. If multiple
+    sequences have explicit labels along the same axis, a combined multiiindex label
+    will be created for that axis with index values from each sequence.
+
+    Args:
+        *seqs: The sequences to broadcast.
+
+    Returns:
+        The labels for the resulting broadcasted sequence.
+    """
+    out_shape = np.broadcast_shapes(*(s.shape for s in seqs))
+    ndim = len(out_shape)
+
+    labels = []
+    for axis in range(ndim):
         axis_labels = []
+        for seq in seqs:
+            # Broadcasted dimension
+            if ndim - axis > seq.ndim:
+                continue
 
-        for s in seqs:
-            label = s.labels.get(name)
+            # Broadcasted array shapes are right aligned
+            seq_axis = seq.ndim - (ndim - axis)
 
-            # append labels for each array to labels if it exists
-            if label is not None:
-                if len(label) != b.shape[dim]:
-                    label = np.broadcast_to(label, (b.shape[dim],))
-                axis_labels.append(label)
+            # Ignore default axis labels
+            if _is_default_label(seq.labels[seq_axis], seq.shape[seq_axis]):
+                continue
+
+            axis_labels.append(seq.labels[seq_axis])
 
         if axis_labels:
-            unique_values = np.unique(np.stack(axis_labels), axis=0)
-            # Assign labels only if all labels are the same
-            if unique_values.shape[0] == 1:
-                labels[name] = axis_labels[0]
+            label = _combine_indices(*axis_labels, dim=out_shape[axis])
+            labels.append(label)
+        # If all sequences have default axis labels then use default.
+        else:
+            labels.append(pd.RangeIndex(out_shape[axis], name=f"d{axis}"))
 
-    return names, labels
+    return labels
 
 
 @sequence_implements(np.array2string)
@@ -525,48 +668,35 @@ def concatenate(
     arr_views = tuple(np.asarray(arr) for arr in sequences)
     seq = np.concatenate(arr_views, axis=axis, **kwargs).view(Sequence)
 
-    arr_names = tuple(
-        tuple(arr.names[dim] for arr in sequences) for dim in range(seq.ndim)
-    )
+    if len(sequences) == 1:
+        seq.labels = (idx.copy() for idx in sequences[0].labels)
 
     if axis < 0:
         axis = seq.ndim + axis
 
-    names = []
-    for dim, axis_names in enumerate(arr_names):
-        unique_names = set(n for n in axis_names if n is not None)
-        if len(unique_names) == 0:
-            names.append(None)
-            continue
-        elif len(unique_names) > 1:
-            raise ValueError(
-                f"All names along axis {dim} must be the same. {arr_names[dim]}"
-            )
-
-        name = next(iter(unique_names))  # Get the axis name
-        names.append(name)
-
-        labels = []
-
-        for s in sequences:
-            label = s.labels.get(name)
-
-            # append labels for each array to labels if it exists
-            if label is not None:
-                labels.append(label)
-            # if labels is None, break if concatenation axis or continue otherwise
-            elif dim == axis:
-                break
+    labels = []
+    for a in range(seq.ndim):
+        axis_labels = [s.labels[a] for s in sequences]
+        dims = [s.shape[a] for s in sequences]
+        if a == axis:
+            if all([_is_default_label(lb, dim) for lb, dim in zip(axis_labels, dims)]):
+                label = pd.RangeIndex(seq.shape[a], name=f"d{a}")
+            else:
+                label = axis_labels[0].append(axis_labels[1:])
+                label.name = label.name or f"d{axis}"
         else:
-            if dim == axis:
-                seq.labels[name] = np.concatenate(labels)
-            elif labels:
-                unique_values = np.unique(np.stack(labels), axis=0)
-                # Assign labels only if all labels along non-concatenation axis are the same
-                if unique_values.shape[0] == 1:
-                    seq.labels[name] = labels[0]
+            axis_labels = [
+                lb for lb in axis_labels if not _is_default_label(lb, dims[a])
+            ]
 
-    seq.names = tuple(names)
+            if axis_labels:
+                label = _combine_indices(*axis_labels, dim=dims[a])
+            else:
+                label = pd.RangeIndex(seq.shape[a], name=f"d{a}")
+
+        labels.append(label)
+
+    seq.labels = tuple(labels)
 
     return seq
 
@@ -575,8 +705,7 @@ def concatenate(
 def stack(
     seqs: Sequence,
     axis: int = 0,
-    name: str | None = None,
-    label: np.ndarray | None = None,
+    label: pd.Index | str | None = None,
     **kwargs,
 ) -> Sequence:
     """Joins sequences along a new axis.
@@ -584,8 +713,8 @@ def stack(
     Args:
         seqs: An iterable of sequences to concatenate.
         axis: Specifies the new axis in the stacked sequences.
-        name: A name for the new axis.
-        label: Labels for the new axis. Must match the number of sequences.
+        label: Labels for the new axis. Must match the number of sequences. To specify
+            a label name but not label values, a string can be given.
 
     Returns:
         The joined sequences.
@@ -596,31 +725,41 @@ def stack(
     if axis < 0:
         axis = seq.ndim + axis
 
-    names, labels = broadcast_names_and_labels(*seqs, raise_on_conflict=True)
+    labels = broadcast_labels(*seqs)
+    names = [lb.name for lb in labels]
 
-    if name in names and name is not None:
-        raise ValueError(f"Axis name {name} is already in names. {names}")
-    else:
-        names.insert(axis, name)
+    N = len(seqs)
+    default_name = f"d{axis}"
+    match label:
+        case None:
+            label = pd.RangeIndex(N, name=default_name)
+        case str():
+            label = pd.RangeIndex(N, name=label)
+        case pd.Index():
+            label.name = label.name or default_name
+        case _:
+            raise ValueError(f"Label must be a pd.Index, str, or `None`, got {label}.")
 
-    if label is not None:
-        if name is None:
-            raise ValueError("Cannot add a label for an axis with no name.")
+    if name := label.name in names:
+        logger.warning(
+            f"Axis name {name} is already in names. Falling back to default name "
+            f"'d{axis}' for axis {axis}."
+        )
 
-        if label.shape[0] != seq.shape[axis]:
-            raise ValueError(
-                f"Label has shape {label.shape} that is not compatible with "
-                f"shape {seq.shape} on axis {axis}."
-            )
+        label.name = f"d{axis}"
 
-        labels[name] = label
+    if len(label) != N:
+        raise ValueError(
+            f"Label length ({len(label)}) does not match number of sequences ({N})."
+        )
 
-    seq.names = tuple(names)
+    labels.insert(axis, label)
 
-    for n in seq.names:
-        if (l := labels.get(n)) is not None:
-            seq.labels[n] = l
+    for a, label in enumerate(labels):
+        if DIM_REGEX.fullmatch(label.name):
+            label.name = f"d{a}"
 
+    seq.labels = tuple(labels)
     return seq
 
 
@@ -694,17 +833,19 @@ def make_sequence_structure_fn(cls):
 
         data = qwip.converter.structure(val["data"], tp)
 
-        return Sequence(data, names=val["names"], **val["labels"])
+        return Sequence(data, **val["labels"])
 
     return structure_fn
 
 
 def make_sequence_unstructure_fn(cls):
-    unstructure_attrs = make_attrs_unstructure_fn(cls)
-
     def unstructure_fn(obj):
         return {
-            **unstructure_attrs(obj),
+            "names": list(obj.names),
+            "labels": {
+                label.name: qwip.converter.unstructure(label.to_numpy())
+                for label in obj.labels
+            },
             "shape": obj.shape,
             "data": qwip.converter.unstructure(obj.tolist()),
         }
@@ -721,13 +862,4 @@ qwip.converter.register_unstructure_hook_factory(
 )
 
 
-__all__ = [
-    "Sequence",
-    "array2string",
-    "concatenate",
-    "stack",
-    "reshape",
-    "transpose",
-    "add",
-    "sum",
-]
+__all__ = ["Sequence"]

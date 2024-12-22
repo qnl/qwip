@@ -2,8 +2,7 @@ from qwip.sequencer.timeline import Timeline
 from qwip.utils import deprecated
 
 
-class SequenceElement(Timeline):
-    ...
+class SequenceElement(Timeline): ...
 
 
 SequenceElement.__init__ = deprecated(

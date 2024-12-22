@@ -7,8 +7,7 @@ from qwip.settings import Settings
 
 
 @qdefine
-class InstrumentSettings(Settings):
-    ...
+class InstrumentSettings(Settings): ...
 
 
 @qdefine

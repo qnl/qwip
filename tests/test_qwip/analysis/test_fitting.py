@@ -7,8 +7,7 @@ from qwip.analysis.fitting import FrequencyModel, TriangularWaveModel
 
 
 class TestFrequencyModel:
-    def test_override_guess(self):
-        ...
+    def test_override_guess(self): ...
 
     CASES_PHASE_EST = [
         (1, 4, phi, 0.5, np.linspace(0, 1), 0)

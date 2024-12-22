@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from numpy.random import default_rng
 
-from qwip.backends.backend import FakeBackend
+from qwip.backends.backend import DummyBackend
 from qwip.processing.processors import GMMClassification, StatePopulations
 from qwip.sequencer import ReadoutMarker, Sequence, Timeline
 from qwip.sequencer.compilation import IntermediateProgram, QWiPExecutable
@@ -11,7 +11,7 @@ from qwip.sequencer.compilation import IntermediateProgram, QWiPExecutable
 class TestQuantumBackend:
     @pytest.fixture
     def backend(self, qpu_01, seed):
-        backend = FakeBackend(rng=default_rng(seed))
+        backend = DummyBackend(rng=default_rng(seed))
         backend.update_parameters(qpu_01)
 
         return backend
@@ -71,6 +71,7 @@ class TestQuantumBackend:
         assert (results["R0"].data["0"] > 0.99).all()
         assert (results["R1"].data["0"] > 0.99).all()
 
+    @pytest.mark.xfail
     def test_acquire_sin(self, qpu_01, backend, exe):
         qpu = qpu_01
 

@@ -2,6 +2,7 @@ import itertools as it
 
 import numpy as np
 import pytest
+import sympy as sym
 
 from qwip.backends.qtrl import (
     QTRLBackend,
@@ -98,9 +99,7 @@ def pulses():
         f"Q{q}_X90": ModulatedWaveform(
             name=f"Q{q}_X90",
             envelope=GaussianWaveform(width=25e-9, amplitude=0.1),
-            modulation=CWWaveform(
-                frequency=f"mod_Q{q}", channels=(f"Q{q}_I", f"Q{q}_Q")
-            ),
+            modulation=CWWaveform(frequency=f"mod_Q{q}", channel=f"Q{q}_IQ"),
         )
         for q in range(4)
     }
@@ -114,7 +113,7 @@ def pulses():
         f"R{r}": ModulatedWaveform(
             name=f"R{r}",
             envelope=SquareWaveform(width=1e-6, amplitude=0.2),
-            modulation=CWWaveform(channels=("RO_I", "RO_Q"), frequency=f"mod_R{r}"),
+            modulation=CWWaveform(channel="RO_IQ", frequency=f"mod_R{r}"),
         )
         for r in range(4)
     }
@@ -123,7 +122,7 @@ def pulses():
         f"D{r}": ModulatedWaveform(
             name=f"D{r}",
             envelope=SquareWaveform(width=1e-6, amplitude=1),
-            modulation=CWWaveform(channels=(f"R{r}",), frequency=f"mod_R{r}"),
+            modulation=CWWaveform(channel=f"R{r}", frequency=f"mod_R{r}"),
         )
         for r in range(4)
     }
@@ -142,9 +141,9 @@ def freq_sweep(pulses):
 
     dm = Timeline()
     dm.add(pulses["D0"])
-    demod = TriggeredWaveform(target=dm, width=50e-9, channels=("INT_marker",))
+    demod = TriggeredWaveform(target=dm, width=50e-9, channel="INT_marker")
     ro.add(demod)
-    readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))
+    readout = TriggeredWaveform(target=ro, width=50e-9, channel="RO_marker")
 
     tmln.add(readout, 2 * pulses["Q0_X90"].width)
 
@@ -165,11 +164,11 @@ def t1_sweep(pulses):
 
     dm = Timeline()
     dm.add(pulses["D0"])
-    demod = TriggeredWaveform(target=dm, width=50e-9, channels=("INT_marker",))
+    demod = TriggeredWaveform(target=dm, width=50e-9, channel="INT_marker")
     ro.add(demod)
-    readout = TriggeredWaveform(target=ro, width=50e-9, channels=("RO_marker",))
+    readout = TriggeredWaveform(target=ro, width=50e-9, channel="RO_marker")
 
-    tmln.add(readout, 2 * pulses["Q0_X90"].width + "delay")
+    tmln.add(readout, 2 * pulses["Q0_X90"].width + sym.Symbol("delay"))
 
     seq = Sequence.sweep(tmln, delay=np.linspace(0, 200e-6, 21))
     return seq

@@ -1,16 +1,22 @@
 import itertools as it
 from collections import defaultdict
 from functools import lru_cache
-from numbers import Number
-from typing import TYPE_CHECKING, Any, get_args
+from numbers import Number, Real
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 import attrs
+import matplotlib.pyplot as plt
 import numpy as np
+import sympy as sym
 from attrs import field, validators
 from cattr import Converter
 from loguru import logger
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
+from matplotlib.ticker import EngFormatter
+from matplotlib.transforms import ScaledTranslation
 from scipy.fft import fft, fftfreq, fftshift
-from typing_extensions import Self
+from scipy.signal import convolve
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -18,56 +24,41 @@ from qwip.attrs import qfrozen
 from qwip.attrs.serialization import _TypeConverter
 from qwip.defaults import dynamic_default
 from qwip.sequencer.phase_tracker import Frame, PhaseJump, PhaseTracker
-from qwip.sequencer.utils import LinearExpression, Location
+from qwip.sequencer.utils import (
+    LinearExpression,
+    NumberOrExpression,
+    _to_python_number,
+    _variable_substitution,
+)
 from qwip.typing import is_union_type
+from qwip.utils import deprecated
 
 if TYPE_CHECKING:
     from qwip.sequencer.timeline import Timeline
 
-REGISTERED_WAVEFORMS: dict[str, "Waveform"] = dict()
+REGISTERED_OPERATIONS: dict[str, "Operation"] = dict()
 
 
-def register_waveform(cls) -> type:
-    if not issubclass(cls, Waveform):
-        raise TypeError(f"Registered waveforms must subclass {Waveform}.")
+def register_operation(cls) -> type:
+    if not issubclass(cls, Operation):
+        raise TypeError(f"Registered operations must subclass {Operation}.")
 
-    REGISTERED_WAVEFORMS[cls.__name__] = cls
+    REGISTERED_OPERATIONS[cls.__name__] = cls
 
     return cls
 
 
-def update_fields(inst, /, **kwargs) -> dict:
-    fields = {}
-
-    for field in attrs.fields(type(inst)):
-        if not field.metadata.get("allow_override", True):
-            continue
-
-        value = getattr(inst, field.name)
-
-        if field.type is Location:
-            value = value.resolve(**kwargs)
-
-            if value.resolved:
-                fields[field.name] = value.offset
-            else:
-                value = value if len(value.references) else value.offset
-                fields[field.name] = kwargs.get(field.name, value)
-
-            continue
-
-        fields[field.name] = kwargs.pop(value, kwargs.pop(field.name, value))
-
-    return fields | {k: v for k, v in kwargs.items() if k not in fields}
-
-
 @qfrozen
-class Waveform:
+class Operation:
     name: str = field(metadata=dict(allow_override=False))
 
     @property
+    def channel(self) -> str:
+        return ""
+
+    @property
     def resolved(self) -> bool:
-        """True if a Waveform contains no variables.
+        """True if an Operation contains no variables.
 
         Returns:
             A boolean that specifies if a waveform has any variables.
@@ -78,94 +69,34 @@ class Waveform:
     def _default_name(self):
         return type(self).__name__
 
-    def __call__(self, ts: np.ndarray, **kwargs) -> np.ndarray:
-        kwargs = update_fields(self, **kwargs)
-
-        try:
-            wave = self.evaluate_timepoints(ts.astype(np.float32), **kwargs)
-            return wave
-        except TypeError as e:
-            variables = set()
-            for f in attrs.fields(type(self)):
-                v = getattr(self, f.name)
-
-                if not isinstance(v, Number) and f.name not in ("name", "channels"):
-                    variables.add((f.name, v))
-
-            text = (
-                "The following string variables need to be resolved:\n\t"
-                + "\n\t".join(f"{n} = {v}" for n, v in variables)
-            )
-
-            if variables:
-                raise ValueError(text) from e
-            else:
-                raise e
-
     def __copy__(self) -> Self:
-        """Overrides copy for Waveform objects.
+        """Overrides copy for Operation instances.
 
-        Since Waveforms are immutable and only contain references
+        Since Operations are immutable and only contain references
         to other immutable objects we just return self instead of
         unnecessarily creating new objects.
 
         Returns:
-            The Waveform object.
+            The Operation object.
         """
         return self
 
     def __deepcopy__(self, memo) -> Self:
-        """Overrides deepcopy for Waveform objects.
+        """Overrides deepcopy for Operation instances.
 
-        Since Waveforms are immutable and only contain references
+        Since Operations are immutable and only contain references
         to other immutable objects we just return self instead of
         unnecessarily creating new objects.
 
         Returns:
-            The Waveform object.
+            The Operation object.
         """
         return self
 
-    def evaluate_timepoints(self, ts: np.ndarray, **kwargs) -> np.ndarray:
-        raise NotImplementedError(
-            f"Method evaluate_timepoints not defined for {type(self)}!"
-        )
-
-    def plot(self):
-        ...
-
-    def fft(self, ts, **kwargs) -> tuple[np.ndarray, np.ndarray]:
-        wave = self(ts, **kwargs)
-
-        if len(wave.shape) > 1 and wave.shape[0] == 2:
-            wave = 1j * wave[1] + wave[0]
-
-        N = len(ts)
-        fs = fft(wave)
-        ks = fftfreq(N, ts[1] - ts[0])
-
-        return fftshift(ks), fftshift(fs)
-
+    @classmethod
     @lru_cache
-    def variables(self) -> frozenset[str]:
-        """Returns the set of variables referenced in the waveform."""
-        from qwip.sequencer.timeline import Timeline
-
-        varset = set()
-
-        for f in attrs.fields(type(self)):
-            var = getattr(self, f.name)
-
-            if isinstance(var, Waveform):
-                varset.update(var.variables())
-            elif isinstance(var, LinearExpression):
-                varset.update(var.variables(return_string=True))
-            elif isinstance(var, Timeline):
-                varset.update(var.variables())
-            elif isinstance(var, str) and is_union_type(f.type):
-                varset.add(var)
-
-        return frozenset(varset)
+    def evolvable(cls) -> set[str]:
+        return set((f.name for f in attrs.fields(cls) if f.init))
 
     def resolve(self, **variable_map) -> Self:
         from qwip.sequencer.timeline import Timeline
@@ -178,30 +109,49 @@ class Waveform:
         to_update = {}
 
         for f in attrs.fields(type(self)):
+            if not f.init:
+                continue
+
             orig = getattr(self, f.name)
 
-            if isinstance(orig, (LinearExpression, Waveform)):
-                to_update[f.name] = orig.resolve(**variable_map)
-            elif isinstance(orig, Timeline) and set(variable_map) & orig.variables(
-                subset="waveform"
-            ):
-                new = orig.copy()
-                new.resolve_waveforms(**variable_map)
-                to_update[f.name] = new
-            elif (
-                isinstance(orig, str)
-                and is_union_type(f.type)
-                and (updated := variable_map.get(orig)) is not None
-            ):
-                to_update[f.name] = updated
+            match orig:
+                case Operation():
+                    to_update[f.name] = orig.resolve(**variable_map)
+                case sym.Expr():
+                    to_update[f.name] = _variable_substitution(orig, variable_map)
+                case LinearExpression():
+                    converted = {}
+                    for k, v in variable_map.items():
+                        if k not in orig.variables(return_string=True):
+                            continue
+
+                        v = qwip.converter.unstructure(v)
+                        if isinstance(v, str):
+                            converted[k] = type(orig).from_string(v)
+                        else:
+                            converted[k] = v
+                    to_update[f.name] = orig.resolve(**converted)
+                case Timeline() if set(variable_map) & orig.variables():
+                    new = orig.copy()
+                    new.resolve(**variable_map, inplace=True)
+                    to_update[f.name] = new
+
+        if not to_update:
+            return self
 
         return attrs.evolve(self, **to_update)
 
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        raise NotImplementedError(
+            f"Cannot assign channel for object of type {type(self)}"
+        )
+
     def evolve(self, **updates):
-        # Separate out fields that are also waveforms.
+        # Separate out fields that are also operations.
         groupby = it.groupby(
             attrs.fields(type(self)),
-            key=lambda f: isinstance(getattr(self, f.name), Waveform),
+            key=lambda f: isinstance(getattr(self, f.name), Operation),
         )
 
         field_names = dict(waveform=[], other=[])
@@ -235,11 +185,11 @@ class Waveform:
         to_update = dict()
         # First make pass through non-nested attributes
         for name in field_names["other"]:
-            if name in updates:
+            if name in updates and name in self.evolvable():
                 to_update[name] = updates.pop(name)
 
         for name in field_names["waveform"]:
-            if name in updates:
+            if name in updates and name in self.evolvable():
                 to_update[name] = updates[name]
             else:
                 old = getattr(self, name)
@@ -248,87 +198,295 @@ class Waveform:
 
         return attrs.evolve(self, **to_update)
 
+    @lru_cache
+    def variables(self) -> frozenset[str]:
+        """Returns the set of variables referenced in the waveform."""
+        from qwip.sequencer.timeline import Timeline
+
+        varset = set()
+
+        for f in attrs.fields(type(self)):
+            var = getattr(self, f.name)
+
+            match var:
+                case Operation():
+                    varset.update(var.variables())
+                case Timeline():
+                    varset.update(var.variables())
+                case sym.Expr():
+                    varset.update(s.name for s in var.free_symbols)
+                case LinearExpression():
+                    varset.update(var.variables(return_string=True))
+                case _:
+                    ...
+
+        return frozenset(varset)
+
     def __contains__(self, var: str) -> bool:
         """Returns whether a variable is referenced in the waveform."""
         return var in self.variables()
 
 
-# Custom structuring of waveform channels to account for legacy serialization.
-def structure_channel(value, cls: type):
-    try:
-        return value["name"]
-    except (KeyError, TypeError):
-        ...
-
-    return qwip.converter.structure(value, str)
-
-
-channels_converter = Converter()
-channels_converter.register_structure_hook(str, structure_channel)
-
-
-def _channels_converter(value):
-    """Converter for Waveform channels.
-
-    This is needed for compatibility with legacy `Channel` classes, which were
-    unstructured as a dictionary with a `"name"` parameter.
-    """
-    try:
-        return channels_converter.structure(value, tuple[str, ...])
-    except Exception:
-        ...
-
-    return _TypeConverter(tuple[str, ...])(value)
-
-
-@register_waveform
+@register_operation
 @qfrozen
-class TimedWaveform(Waveform):
-    channels: tuple[str, ...] = field(
-        factory=tuple,
+class TimedOperation(Operation):
+    t0: NumberOrExpression = 0
+    width: NumberOrExpression = 0
+    channel: str = field(
+        default="",
         metadata=dict(allow_override=False),
-        converter=_channels_converter,
     )
-    width: Location = Location()
-    t0: float | str = 0
 
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(channel=new_channel)
+
+
+@register_operation
+@qfrozen
+class BranchOperation(TimedOperation):
+    left: "qwip.sequencer.timeline.Timeline | None" = field(
+        default=None, eq=id, metadata=dict(allow_override=False)
+    )
+    right: "qwip.sequencer.timeline.Timeline | None" = field(
+        default=None, eq=id, metadata=dict(allow_override=False)
+    )
+
+
+@qfrozen
+class Waveform(Operation):
+    def _update_fields(self, **kwargs) -> dict[str, Number]:
+        fields = {}
+
+        symbols = self.variables()
+
+        for f in attrs.fields(type(self)):
+            if not f.metadata.get("allow_override", True):
+                continue
+
+            value = getattr(self, f.name)
+            match value:
+                case sym.Expr():
+                    subs = {
+                        k: v
+                        for k, v in kwargs.items()
+                        if isinstance(v, (str, Real, sym.Expr))
+                    }
+                    fields[f.name] = value = _to_python_number(
+                        _variable_substitution(value, subs)
+                    )
+                case str():
+                    fields[f.name] = kwargs.get(value, kwargs.get(f.name, value))
+                case _:
+                    fields[f.name] = value
+
+        return fields | {k: v for k, v in kwargs.items() if k not in symbols}
+
+    def __call__(self, ts: np.ndarray, **kwargs) -> np.ndarray:
+        kwargs = self._update_fields(**kwargs)
+
+        try:
+            wave = self.evaluate_timepoints(ts.astype(np.float32), **kwargs)
+            return wave
+        except TypeError as e:
+            variables = set()
+            for f in attrs.fields(type(self)):
+                v = getattr(self, f.name)
+
+                if not isinstance(v, Number) and f.name not in ("name", "channel"):
+                    variables.add((f.name, v))
+
+            text = (
+                "The following string variables need to be resolved:\n\t"
+                + "\n\t".join(f"{n} = {v}" for n, v in variables)
+            )
+
+            if variables:
+                raise ValueError(text) from e
+            else:
+                raise e
+
+    def __mul__(self, other) -> Self:
+        return ConvolvedWaveform(a=self, b=other)
+
+    def evaluate_timepoints(self, ts: np.ndarray, **kwargs) -> np.ndarray:
+        raise NotImplementedError(
+            f"Method evaluate_timepoints not defined for {type(self)}!"
+        )
+
+    def plot(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        ax: Axes | None = None,
+        sample_rate: float | None = None,
+        label: str = "",
+        fig_kwargs: dict = {},
+    ) -> Figure:
+        wave = self.resolve(**variables)
+
+        if wvars := wave.variables():
+            raise ValueError(
+                f"Cannot plot wave without concrete values for: {", ".join(wvars)}"
+            )
+
+        if ts is None:
+            sample_rate = sample_rate or 101 / wave.width
+            N = int(sample_rate * wave.width)
+            ts = wave.t0 + np.r_[: N + 1] / sample_rate
+
+        if ax is None:
+            fig, ax = plt.subplots(**fig_kwargs)
+        else:
+            fig = ax.get_figure()
+
+        w_t = wave(ts)
+        ax.plot(ts, w_t.real)
+        ax.plot(ts, w_t.imag)
+        ax.xaxis.set_major_formatter(EngFormatter(unit="s"))
+
+        return fig
+
+    def fft(
+        self, ts: np.ndarray, variables: dict[str, float] = {}
+    ) -> tuple[np.ndarray, np.ndarray]:
+        wave = self(ts, **variables)
+
+        if len(wave.shape) > 1 and wave.shape[0] == 2:
+            wave = 1j * wave[1] + wave[0]
+
+        N = len(ts)
+        fs = fft(wave)
+        ks = fftfreq(N, ts[1] - ts[0])
+
+        return fftshift(ks), fftshift(fs)
+
+
+@register_operation
+@qfrozen
+class TimedWaveform(Waveform, TimedOperation):
     def evaluate_timepoints(
         self, ts: np.ndarray, width: float, t0: float, **kwargs
     ) -> np.ndarray:
         return np.zeros((len(self.channels), len(ts)))
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class Delay(TimedWaveform):
     hardware: bool = False
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class BasicWaveform(TimedWaveform):
-    amplitude: float | str = 1
+    amplitude: NumberOrExpression = 1
+    phase: NumberOrExpression = 0
+
+    @property
+    def complex_amp(self):
+        return self.amplitude * sym.exp(1j * self.phase * sym.pi / 180)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class InfiniteWaveform(BasicWaveform):
-    width: Location = Location(np.inf)
+    width: NumberOrExpression = field(default=sym.oo, init=False)
 
 
-@register_waveform
+@register_operation
 @qfrozen
-class Marker(Waveform):
-    @property
-    def channels(self):
-        return tuple()
+class Marker(TimedWaveform):
+    width: NumberOrExpression = field(default=0, init=False)
+
+    def plot(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        ax: Axes | None = None,
+        sample_rate: float | None = None,
+        label: str = "",
+        fig_kwargs: dict = {},
+    ) -> Figure:
+        wave = self.resolve(**variables)
+
+        if not isinstance(wave.t0, Real):
+            raise ValueError(f"Cannot plot Marker with t0 = {self.t0}")
+
+        if ax is None:
+            fig, ax = plt.subplots(**fig_kwargs)
+        else:
+            fig = ax.get_figure()
+
+        label = label or f"{wave.name}"
+        offset = ScaledTranslation(10 / 72, 0, fig.dpi_scale_trans)
+        text_transform = ax.get_xaxis_transform() + offset
+
+        ax.axvline(wave.t0)
+        ax.text(wave.t0, 0.9, label, transform=text_transform)
+        ax.autoscale_view()
+        ax.xaxis.set_major_formatter(EngFormatter(unit="s"))
+
+        return fig
+
+
+@qfrozen
+class ConvolvedWaveform(Waveform):
+    a: Waveform
+    b: Waveform = field()
+
+    @b.validator
+    def _validate_operands(self, attribute, value):
+        a = self.a
+        b = value
+        if a.channel and b.channel and a.channel != b.channel:
+            raise ValueError(
+                f"Cannot convolve waveforms on different channels. Got channels "
+                f"'{a.channel}' != '{b.channel}'"
+            )
 
     @property
-    def width(self):
-        return Location()
+    def width(self) -> NumberOrExpression:
+        return self.a.width + self.b.width
+
+    @property
+    def t0(self) -> NumberOrExpression:
+        return self.a.t0 + self.b.t0
+
+    @property
+    def phase(self) -> NumberOrExpression:
+        return self.a.phase + self.b.phase
+
+    @property
+    def channel(self) -> str:
+        return self.a.channel or self.b.channel
+
+    def evaluate_timepoints(self, ts: np.ndarray, **kwargs) -> np.ndarray:
+        t0 = kwargs.get("t0", self.t0)
+
+        start = ts[0]
+        (N,) = ts.shape
+
+        t0 = ((t0 - start) / 2).astype(np.float32)
+
+        t_eval = ts - start
+        t_eval = np.r_[-t_eval[::-1], t_eval[1:]]
+
+        a_t = self.a(t_eval, **(kwargs | dict(t0=t0)))
+        b_t = self.b(t_eval, **(kwargs | dict(t0=t0)))
+
+        w_t = convolve(a_t, b_t, mode="full")
+
+        return w_t[2 * (N - 1) : 3 * (N - 1) + 1]
+
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(a_channel=new_channel, b_channel=new_channel)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class TriggeredWaveform(BasicWaveform):
     target: "qwip.sequencer.timeline.Timeline | None" = field(
@@ -344,29 +502,58 @@ class TriggeredWaveform(BasicWaveform):
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
-class ReadoutMarker(Marker):
-    ...
+class ReadoutMarker(Marker): ...
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class DCWaveform(InfiniteWaveform):
     def evaluate_timepoints(
-        self, ts: np.ndarray, amplitude: float, t0: float, **kwargs
+        self, ts: np.ndarray, amplitude: float, phase: float, t0: float, **kwargs
     ) -> np.ndarray:
-        return amplitude * np.ones_like(ts, dtype=np.float32)
+        rphi = amplitude * np.exp(1j * phase * np.pi / 180)
+        wave = rphi * np.ones_like(ts, dtype=np.complex64)
+        return wave
+
+    def plot(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        ax: Axes | None = None,
+        sample_rate: float | None = None,
+        label: str = "",
+        fig_kwargs: dict = {},
+    ) -> Figure:
+        wave = self.resolve(**variables)
+
+        if isinstance(wave.amplitude, Real):
+            raise ValueError(
+                f"Cannot plot DCWaveform with amplitude = {self.ampllitude}"
+            )
+
+        if ax is None:
+            fig, ax = plt.subplots(**fig_kwargs)
+        else:
+            fig = ax.get_figure()
+
+        ax.axhline(wave.t0)
+        ax.autoscale_view()
+        ax.xaxis.set_major_formatter(EngFormatter(unit="s"))
+
+        return fig
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class CWWaveform(InfiniteWaveform):
     frequency: Frame
-    phase: float | str = 0
-    offset: float | complex | str = field(
-        default=0, converter=lambda v: float(v) if isinstance(v, int) else v
-    )
+    phase: NumberOrExpression = 0
+    # offset: NumberOrExpression = field(
+    #     default=0, converter=lambda v: float(v) if isinstance(v, int) else v
+    # )
     frame: Frame | None = None
     hardware_modulation: bool = False
 
@@ -376,11 +563,9 @@ class CWWaveform(InfiniteWaveform):
         ts: np.ndarray,
         amplitude: float,
         phase: float,
-        offset: float | complex,
         phase_tracker: PhaseTracker | None = None,
         frames: dict[str, Frame] = {},
         phase_unit: str = None,
-        complex_out: bool = False,
         **kwargs,
     ) -> np.ndarray:
         """Single frequency waveform.
@@ -395,7 +580,7 @@ class CWWaveform(InfiniteWaveform):
             phase: The starting phase of the modulation tone.
             phase_tracker: A phase tracking dictionary mapping modulation channels
                 to a ndarray of times and discrete phase jumps.
-            phase_unit: Eithe r degrees or radians, specifies the phase units.
+            phase_unit: Either degrees or radians, specifies the phase units.
                 Defaults to the value set in `qsettings['units/phase']`.
 
         Returns:
@@ -426,66 +611,53 @@ class CWWaveform(InfiniteWaveform):
         # Add base modulation at the relevant frequency if doing software modulation
         oscillator = 0 if self.hardware_modulation else software_oscillator
         amplitude = 1 if self.hardware_modulation else amplitude
-        wave = (
-            amplitude * np.exp(1j * (oscillator + phis + phase), dtype=np.complex64)
-            + offset
-        )
+        phase = 0 if self.hardware_modulation else phase
+        wave = amplitude * np.exp(1j * (oscillator + phis + phase), dtype=np.complex64)
 
-        if complex_out:
-            return wave
-        elif len(self.channels) <= 1:
-            return wave.real
-        elif len(self.channels) == 2:
-            return wave.view(np.float32).reshape(-1, 2).T
-        else:
-            shape = (max(1, len(self.channels)), len(wave))
-            return np.broadcast_to(wave.real, shape)
+        return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class ModulatedWaveform(Waveform):
     envelope: Waveform
     modulation: CWWaveform
 
     @property
-    def width(self) -> float | str:
+    def width(self) -> NumberOrExpression:
         return self.envelope.width
 
     @property
-    def t0(self) -> float | str:
+    def t0(self) -> NumberOrExpression:
         return self.envelope.t0
 
     @property
-    def amplitude(self) -> float | str:
+    def amplitude(self) -> NumberOrExpression:
         A_e = self.envelope.amplitude
-        A_f = self.modulation.amplitude
-        try:
-            return A_e * A_f
-        except TypeError:
-            return f"{A_e} * {A_f}"
+        A_m = self.modulation.amplitude
+
+        return A_e * A_m
 
     @property
-    def channels(self) -> tuple[str, ...]:
-        return self.modulation.channels
+    def phase(self) -> NumberOrExpression:
+        phi_e = self.envelope.phase
+        phi_m = self.modulation.phase
+
+        return phi_e + phi_m
+
+    @property
+    def channel(self) -> str:
+        return self.modulation.channel
 
     def evaluate_timepoints(
         self, ts: np.ndarray, complex_out: bool = False, **kwargs
     ) -> np.ndarray:
-        modulation = self.modulation(ts, complex_out=True, **kwargs)
+        modulation = self.modulation(ts, **kwargs)
         envelope = self.envelope(ts, **kwargs)
 
         wave = envelope * modulation
 
-        if complex_out:
-            return wave
-        elif len(self.channels) <= 1:
-            return wave.real
-        elif len(self.channels) == 2:
-            return wave.view(np.float32).reshape(-1, 2).T
-        else:
-            shape = (max(1, len(self.channels)), len(wave))
-            return np.broadcast_to(wave.real, shape)
+        return wave
 
     def update_phase_tracker(
         self,
@@ -505,12 +677,22 @@ class ModulatedWaveform(Waveform):
             for frame, phase in phis.items():
                 phase_tracker.append(frame, PhaseJump(t0, phase))
 
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(modulation_channel=new_channel)
 
-@register_waveform
+
+@register_operation
 @qfrozen
 class VirtualZWaveform(Marker):
+    """A Virtual-Z operation.
+
+    Virtual-Z gates are implemented by applying a phase update to a particular reference
+    frame that tracks the qubit phase evolution.
+    """
+
     frame: Frame
-    phase: float | str = 0
+    phase: NumberOrExpression = 0
 
     def update_phase_tracker(
         self,
@@ -520,8 +702,27 @@ class VirtualZWaveform(Marker):
     ) -> None:
         phase_tracker.append(self.frame, PhaseJump(time, self.phase))
 
+    def plot(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        ax: Axes | None = None,
+        sample_rate: float | None = None,
+        label: str = "",
+        fig_kwargs: dict = {},
+    ) -> Figure:
+        return super().plot(
+            ts=ts,
+            variables=variables,
+            ax=ax,
+            sample_rate=sample_rate,
+            label=label or f"VZ[{self.frame}, {self.phase}]",
+            fig_kwargs=fig_kwargs,
+        )
 
-@register_waveform
+
+@register_operation
 @qfrozen
 class PhaseResetWaveform(Marker):
     frame: Frame
@@ -532,11 +733,17 @@ class PhaseResetWaveform(Marker):
         phase_tracker.reset(self.frame, time)
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class SquareWaveform(BasicWaveform):
     def evaluate_timepoints(
-        self, ts: np.ndarray, width: float, amplitude: float, t0: float, **kwargs
+        self,
+        ts: np.ndarray,
+        width: float,
+        amplitude: float,
+        phase: float,
+        t0: float,
+        **kwargs,
     ) -> np.ndarray:
         """Square waveform.
 
@@ -544,6 +751,7 @@ class SquareWaveform(BasicWaveform):
             ts: Time values at which to evaluate the pulse.
             width: The width of the square pulse.
             amplitude: The amplitude of the pulse.
+            phase: The phase of the pulse.
             t0: The starting time of the pulse.
 
         Returns:
@@ -551,21 +759,23 @@ class SquareWaveform(BasicWaveform):
             times.
         """
         ts = ts - t0
-        wave = amplitude * ((ts > 0) & (ts < width)).astype(np.float32)
+        rphi = amplitude * np.exp(1j * phase * np.pi / 180)
+        wave = rphi * ((ts > 0) & (ts < width)).astype(np.complex64)
 
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class GaussianWaveform(BasicWaveform):
-    cutoff: float | str = 3
+    cutoff: NumberOrExpression = 3
 
     def evaluate_timepoints(
         self,
         ts: np.ndarray,
         width: float,
         amplitude: float,
+        phase: float,
         t0: float,
         cutoff: float,
         **kwargs,
@@ -577,6 +787,7 @@ class GaussianWaveform(BasicWaveform):
             width: The width of the Gaussian pulse, the Gaussian waveform will be
                 truncated such that w(t) == 0 for t < t0 and t > t0 + width.
             amplitude: The amplitude of the pulse.
+            phase: The phase of the pulse.
             t0: The starting time of the pulse.
             cutoff: How many standard deviations to include in the pulse width.
                 This defines the standard deviation as sigma = width / (2 * cutoff).
@@ -587,18 +798,21 @@ class GaussianWaveform(BasicWaveform):
         """
         ts = ts - t0
         sigma = width / (2 * cutoff)
-        wave = amplitude * np.exp(-0.5 * (ts - width / 2) ** 2 / sigma**2)
+        rphi = amplitude * np.exp(1j * phase * np.pi / 180)
+        wave = rphi * np.exp(
+            -0.5 * (ts - width / 2) ** 2 / sigma**2, dtype=np.complex64
+        )
 
         wave[~((0 <= ts) & (ts <= width))] = 0
 
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class CosineRampWaveform(BasicWaveform):
-    ramp: float | str | None = None
-    ramp_fraction: float | str | None = field(
+    ramp: NumberOrExpression | None = None
+    ramp_fraction: NumberOrExpression | None = field(
         default=0.1, validator=[validators.le(0.5), validators.gt(0)]
     )
 
@@ -607,6 +821,7 @@ class CosineRampWaveform(BasicWaveform):
         ts: np.ndarray,
         width: float,
         amplitude: float,
+        phase: float,
         t0: float,
         ramp: float = None,
         ramp_fraction: float = 0.1,
@@ -618,6 +833,7 @@ class CosineRampWaveform(BasicWaveform):
             ts: Time values at which to evaluate the pulse.
             width: The total width of the cosine ramp pulse, including ramp times.
             amplitude: The amplitude of the pulse.
+            phase: The phase of the pulse.
             t0: The starting time of the pulse.
             ramp: The ramp fraction. The pulse will be smoothly varied from 0 to
                 amplitude and vice versa over a time (width * ramp) at the
@@ -635,42 +851,50 @@ class CosineRampWaveform(BasicWaveform):
         else:
             raise ValueError("One of ramp or ramp_fraction must be specified!")
 
-        wave = np.zeros_like(ts, dtype=np.float32)
+        wave = np.zeros_like(ts, dtype=np.complex64)
+
+        rphi = amplitude * np.exp(1j * phase * np.pi / 180)
 
         ramp_up = (0 <= ts) & (ts < rlen)
-        wave[ramp_up] = 0.5 * amplitude * (1 - np.cos(np.pi / rlen * ts[ramp_up]))
+        wave[ramp_up] = 0.5 * rphi * (1 - np.cos(np.pi / rlen * ts[ramp_up]))
 
         const = (rlen <= ts) & (ts < width - rlen)
-        wave[const] = amplitude
+        wave[const] = rphi
 
         ramp_down = (width - rlen <= ts) & (ts < width)
         wave[ramp_down] = (
-            0.5
-            * amplitude
-            * (1 + np.cos(np.pi / rlen * (ts[ramp_down] - width + rlen)))
+            0.5 * rphi * (1 + np.cos(np.pi / rlen * (ts[ramp_down] - width + rlen)))
         )
 
         return wave
 
 
-@register_waveform
+@register_operation
 @qfrozen
 class DRAG(Waveform):
     envelope: Waveform
-    lmbda: float | str = 0
-    lmbda2: float | str = 0
+    lmbda: NumberOrExpression = 0
+    lmbda2: NumberOrExpression = 0
 
     @property
-    def width(self) -> float | str:
+    def width(self) -> NumberOrExpression:
         return self.envelope.width
 
     @property
-    def t0(self) -> float | str:
+    def t0(self) -> NumberOrExpression:
         return self.envelope.t0
 
     @property
-    def amplitude(self) -> float | str:
+    def amplitude(self) -> NumberOrExpression:
         self.envelope.amplitude
+
+    @property
+    def phase(self) -> NumberOrExpression:
+        return self.envelope.phase
+
+    @property
+    def channel(self) -> str:
+        return self.envelope.channel
 
     def evaluate_timepoints(
         self, ts: np.ndarray, lmbda: float, lmbda2: float, **kwargs: Any
@@ -689,53 +913,34 @@ class DRAG(Waveform):
         """
         envelope = self.envelope(ts, **kwargs)
 
-        d1 = np.gradient(envelope)
-        d2 = np.gradient(d1)
+        d1 = np.gradient(envelope, ts)
+        d2 = np.gradient(d1, ts)
 
         return envelope + 1j * lmbda * d1 + lmbda2 * d2
 
-
-# ========== float | str converters ========== #
-
-
-def convert_number_or_string(v, cls):
-    if isinstance(v, cls):
-        return v
-
-    ntype, stype = get_args(cls)
-
-    try:
-        return qwip.converter.structure(v, ntype)
-    except Exception:
-        ...
-
-    try:
-        return qwip.converter.structure(v, stype)
-    except Exception:
-        ...
-
-    return v
-
-
-qwip.converter.register_structure_hook(float | str, convert_number_or_string)
+    def assign_channel(self, new_channel, /) -> Self:
+        """Returns a modified waveform with a new channel."""
+        return self.evolve(envelope_channel=new_channel)
 
 
 # ========== Waveform converters ========== #
 
 
-def make_waveform_structure_fn(cls):
+def make_operation_structure_fn(cls):
     structure_attrs = make_attrs_structure_fn(cls)
 
     def structure_fn(val, cls):
         if isinstance(val, cls):
             return val
 
-        subclass = REGISTERED_WAVEFORMS.get(
+        subclass = REGISTERED_OPERATIONS.get(
             val.get("__class__"),
         )
 
         if subclass is None:
-            logger.warning(f"No registered waveform found. Structuring {val} as {cls}.")
+            logger.warning(
+                f"No registered operation found. Structuring {val} as {cls}."
+            )
             return structure_attrs(val, cls)
 
         if subclass is VirtualZWaveform and "mod_key" in val:
@@ -746,12 +951,20 @@ def make_waveform_structure_fn(cls):
             val["frame"] = val["mod_key"]
             del val["mod_key"]
 
+        if "channels" in val:
+            logger.warning(
+                "Waveform 'channels' has been renamed to 'channel' and is now "
+                "deprecated. Waveforms can only have a single string channel now."
+            )
+            val["channel"] = "".join(sorted(val["channels"]))
+            del val["channels"]
+
         return qwip.converter.structure(val, subclass)
 
     return structure_fn
 
 
-def make_waveform_unstructure_fn(cls):
+def make_operation_unstructure_fn(cls):
     unstructure_attrs = make_attrs_unstructure_fn(cls)
 
     def unstructure_fn(obj):
@@ -761,17 +974,25 @@ def make_waveform_unstructure_fn(cls):
 
 
 qwip.converter.register_structure_hook_factory(
-    lambda cls: cls in (BasicWaveform, Waveform), make_waveform_structure_fn
+    lambda cls: cls in (BasicWaveform, Waveform, Operation), make_operation_structure_fn
 )
 
 qwip.converter.register_unstructure_hook_factory(
-    lambda cls: issubclass(cls, Waveform), make_waveform_unstructure_fn
+    lambda cls: issubclass(cls, Operation), make_operation_unstructure_fn
+)
+
+qwip.converter.register_structure_hook(
+    NumberOrExpression,
+    lambda v, cls: _to_python_number(qwip.converter.structure(v, sym.Expr)),
 )
 
 __all__ = [
-    "register_waveform",
+    "register_operation",
+    "Operation",
     "Waveform",
     "BasicWaveform",
+    "BranchOperation",
+    "ConvolvedWaveform",
     "InfiniteWaveform",
     "Marker",
     "TriggeredWaveform",

@@ -5,6 +5,7 @@ from typing import (
     Annotated,
     Any,
     ForwardRef,
+    Self,
     Type,
     TypeVar,
     Union,
@@ -15,7 +16,7 @@ from typing import (
 
 import attrs
 import numpy as np
-from attr._make import _obj_setattr
+from attr._make import _OBJ_SETATTR
 from attrs import field, frozen, resolve_types
 from attrs.validators import (
     and_,
@@ -27,7 +28,6 @@ from attrs.validators import (
 )
 from loguru import logger
 from numpy.typing import NDArray
-from typing_extensions import Self
 
 from qwip.typing import replace_self_type, typedispatch
 
@@ -65,9 +65,11 @@ class _NumpyTypeValidator:
                     dtype=self.dtype,
                     actual=value.__class__,
                     value=value,
-                    optional_dtype=f" with dtype {value.dtype}"
-                    if isinstance(value, np.ndarray)
-                    else "",
+                    optional_dtype=(
+                        f" with dtype {value.dtype}"
+                        if isinstance(value, np.ndarray)
+                        else ""
+                    ),
                 ),
                 attr,
                 self.dtype,
@@ -352,7 +354,7 @@ def resolve_types_with_validation(maybe_cls=None, globalns=None, localns=None):
             if field.validator is not None:
                 type_validator = and_(type_validator, field.validator)
 
-            _obj_setattr(field, "validator", type_validator)
+            _OBJ_SETATTR(field, "validator", type_validator)
 
         return __build_class__
 

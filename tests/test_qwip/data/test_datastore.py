@@ -59,14 +59,12 @@ class TestOfflineDatastore:
         result = Asset.create(measurement_results, name="raw", serializer="result")
 
         dataset = datastore.save(
-            metadata=simple_dict,
-            time=timestamp,
-            raw=result,
+            metadata=simple_dict, time=timestamp, raw=result, name_fmt="{name}_01"
         )
 
-        assert dataset["metadata"].load() == simple_dict
-        assert dataset["time"].load(cls=pendulum.DateTime) == timestamp
-        assert dataset["raw"].load() == measurement_results
+        assert dataset["metadata_01"].load() == simple_dict
+        assert dataset["time_01"].load(cls=pendulum.DateTime) == timestamp
+        assert dataset["raw_01"].load() == measurement_results
 
         datastore.storage.remove_directory(dataset.id.hex)
 
@@ -82,6 +80,10 @@ class TestOfflineDatastore:
         assert asset.load() == simple_dict
 
         new_dict = dict(a=2, b=3, c=4)
+
+        with pytest.raises(FileExistsError):
+            datastore.add_asset(dataset.id, new_dict, "metadata")
+
         new_asset = datastore.add_asset(
             dataset.id, new_dict, "metadata", overwrite=True
         )

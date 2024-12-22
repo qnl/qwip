@@ -87,9 +87,9 @@ class TestGetJSONType:
     def test_generic_types(self, tp, expected):
         assert get_json_type(tp) == expected
 
-    from pendulum import Date, DateTime, Duration, Period, Time
+    from pendulum import Date, DateTime, Duration, Interval, Time
 
-    @pytest.mark.parametrize("tp", [(Date, Time, DateTime, Duration, Period)])
+    @pytest.mark.parametrize("tp", [(Date, Time, DateTime, Duration, Interval)])
     def test_pendulum_types(self, tp):
         assert get_json_type(tp) == "string"
 

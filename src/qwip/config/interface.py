@@ -3,7 +3,7 @@ import itertools as it
 import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Callable, get_args
+from typing import Callable, Self, get_args
 
 import attrs
 import pandas as pd
@@ -12,7 +12,6 @@ import sqlalchemy as sa
 from attrs import field
 from loguru import logger
 from sqlalchemy.engine import URL, make_url
-from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine, qfrozen
@@ -695,11 +694,11 @@ class PulsesFolder:
     session: sa.orm.Session
 
     def _get_timeline_model(self, name: str) -> TimelineModel:
-        se_model = self.session.scalar(
+        tmln_model = self.session.scalar(
             sa.select(TimelineModel).where(TimelineModel.name == name)
         )
 
-        return se_model
+        return tmln_model
 
     @session_context
     def keys(self) -> tuple[str]:
@@ -819,13 +818,13 @@ class OfflineConfigDB(Database):
     def init_pulses(self):
         self.pulses = PulsesFolder(session=self.session)
 
-    def connect(self, test: bool = True, timeout: int = 2):
+    def connect(self, test: bool = True, validate: bool = True, timeout: int = 2):
         engine = super().connect(test=test, timeout=timeout)
 
         reflected_tables = self.tables()
         expected_tables = set(t.name for t in config_tables)
 
-        if reflected_tables != expected_tables:
+        if reflected_tables != expected_tables and validate:
             version = qwip.qsettings.version
             raise ValueError(
                 f"Database {self.url} has tables {reflected_tables} that do not match "
@@ -857,6 +856,7 @@ class OfflineConfigDB(Database):
         targets: tuple[str],
         pulse_key: str = None,
         tmln: Timeline | None = None,
+        channel_map: dict[str, str] = {},
         include_var: Callable[[str], bool] = lambda v: True,
     ) -> ConfigFolder:
         """Adds a pulse to the config database.
@@ -873,6 +873,8 @@ class OfflineConfigDB(Database):
                 If `None`, the pulse key is assumed to be the same as `name`.
             tmln: The pulse prototype to add to the database. If `None`, the pulse key
                 must refer to an existing timeline in the database.
+            channel_map: A map from channel names in the pulse prototype to channel
+                names in the resolved pulse.
 
         Returns:
             The pulse configuration.
@@ -890,11 +892,17 @@ class OfflineConfigDB(Database):
         else:
             self.pulses.add(pulse_key, tmln)
 
+        if extra := set(channel_map) - tmln.channels:
+            raise ValueError(
+                f"Channels {extra} do not exist in the timeline prototype."
+            )
+
         parameters = {
             name: dict(
                 variables={v: v for v in tmln.variables() if include_var(v)},
                 targets=targets,
                 pulse_key=pulse_key,
+                channels=channel_map,
             )
         }
         self.config["pulses"].create_all(**parameters)
@@ -953,6 +961,7 @@ class OfflineConfigDB(Database):
                 return to_replace[v]
 
         tmln.rename_variables(replace)
+        tmln.assign_channels(**pulse_metadata.get("channels", {}))
 
         return tmln
 

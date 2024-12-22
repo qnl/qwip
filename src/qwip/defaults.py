@@ -80,7 +80,7 @@ class dynamic_default:
                     path=valid_updates[name], settings_=self.__settings__
                 )
                 arg = arg.replace(default=default)
-                logger.debug(
+                logger.trace(
                     f'Adding default {default} for "{name}" in {func.__name__}'
                 )
 

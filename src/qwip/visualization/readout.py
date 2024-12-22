@@ -7,22 +7,35 @@ import pandas as pd
 from matplotlib.axes import Axes
 from matplotlib.colors import Colormap, LogNorm
 from matplotlib.figure import Figure
+from matplotlib.ticker import EngFormatter
 
 from qwip.utils import deprecated
-from qwip.visualization.utils import TColor, get_colormap
+from qwip.visualization.utils import (
+    TColor,
+    axes_dict,
+    basic_canvas,
+    get_colormap,
+    mosaic_canvas,
+)
 
 if TYPE_CHECKING:
     from qwip.processing.processors import GMMClassification, IQResult
 
 
+@mosaic_canvas(
+    [["amplitude", "IQ"], ["phase", "IQ"]],
+    fig_kwargs=dict(figsize=(8, 4)),
+)
 def plot_IQ(
     data: "IQResult",
     /,
-    ax: Axes | None = None,
+    fig: plt.Figure | None = None,
     x_axis: str = "frequency",
+    x_unit: str = "",
     log_mag: bool = True,
     electrical_delay: float = 0,
     unwrap: bool = False,
+    plot_kwargs: dict = {},
 ) -> Figure:
     """Plots an IQResult as a function of a specified index level.
 
@@ -44,16 +57,7 @@ def plot_IQ(
         The matplotlib `Figure` that the subplot belongs to.
     """
 
-    grid = [["amplitude", "IQ"], ["phase", "IQ"]]
-
-    if ax is None:
-        fig, axes = plt.subplot_mosaic(grid, figsize=(8, 4), layout="constrained")
-    else:
-        fig = ax.get_figure()
-        gridspec = ax.get_subplotspec()
-        ax.remove()
-        subfig = fig.add_subfigure(gridspec)
-        axes = subfig.subplot_mosaic(grid)
+    axes = axes_dict(fig)
 
     axes["phase"].sharex(axes["amplitude"])
     axes["amplitude"].tick_params(labelbottom=False, length=0)
@@ -77,26 +81,35 @@ def plot_IQ(
         groupby = [idx for idx in data.index.names if idx != x_axis]
         for label, df in combined.groupby(groupby):
             df = df.droplevel(groupby)
+            pkw = plot_kwargs.get(label, {})
 
-            axes["amplitude"].plot(df["amplitude"])
-            axes["phase"].plot(df["phase"])
-            axes["IQ"].plot(np.real(df["IQ"]), np.imag(df["IQ"]))
+            axes["amplitude"].plot(df["amplitude"], **pkw)
+            axes["phase"].plot(df["phase"], **pkw)
+            axes["IQ"].plot(np.real(df["IQ"]), np.imag(df["IQ"]), **pkw)
     else:
-        axes["amplitude"].plot(combined["amplitude"])
-        axes["phase"].plot(combined["phase"])
-        axes["IQ"].plot(np.real(combined["IQ"]), np.imag(combined["IQ"]))
+        axes["amplitude"].plot(combined["amplitude"], **plot_kwargs)
+        axes["phase"].plot(combined["phase"], **plot_kwargs)
+        axes["IQ"].plot(np.real(combined["IQ"]), np.imag(combined["IQ"]), **plot_kwargs)
 
     axes["amplitude"].set_ylabel("Amplitude" + (" (dB)" if log_mag else ""))
     axes["phase"].set_ylabel("Phase")
+
+    axes["phase"].xaxis.set_major_formatter(EngFormatter(unit=x_unit))
+    axes["amplitude"].margins(x=0)
+    axes["phase"].set_xlabel(x_axis if x_axis.isupper() else x_axis.capitalize())
+
     axes["IQ"].set_title("IQ")
     axes["IQ"].set_xlabel("I")
     axes["IQ"].set_ylabel("Q")
-    axes["amplitude"].margins(x=0)
-    axes["phase"].set_xlabel(x_axis if x_axis.isupper() else x_axis.capitalize())
+
+    formatter = EngFormatter(unit="")
+    axes["IQ"].xaxis.set_major_formatter(formatter)
+    axes["IQ"].yaxis.set_major_formatter(formatter)
 
     return fig
 
 
+@basic_canvas()
 def plot_IQ_histogram(
     data: "IQResult",
     /,
@@ -122,10 +135,6 @@ def plot_IQ_histogram(
     Returns:
         The matplotlib `Figure` that the subplot belongs to.
     """
-    if ax is None:
-        fig, ax = plt.subplots()
-    else:
-        fig = ax.get_figure()
 
     ax.grid(False)
     ax.set_aspect("equal")
@@ -150,9 +159,12 @@ def plot_IQ_histogram(
                 IQ.real, IQ.imag, norm=norm, density=True, cmap=cmap, bins=bins
             )
 
+    formatter = EngFormatter()
+    ax.xaxis.set_major_formatter(formatter)
+    ax.yaxis.set_major_formatter(formatter)
     ax.axis("square")
 
-    return fig
+    return ax.get_figure()
 
 
 @deprecated(
@@ -197,8 +209,10 @@ def plot_readout_IQ(
     )
 
 
+@basic_canvas()
 def plot_GMM(
     gmm: "GMMClassification",
+    /,
     ax: Axes | None = None,
     mesh: int = 200,
     legend: bool = False,
@@ -223,10 +237,6 @@ def plot_GMM(
     Returns:
         The matplotlib `Figure` that the subplot belongs to.
     """
-    if ax is None:
-        fig, ax = plt.subplots()
-    else:
-        fig = ax.get_figure()
 
     for i, m in enumerate(gmm.means):
         ax.plot(*m, color=f"C{i}", label=f"{i}", **means_kw)
@@ -245,7 +255,7 @@ def plot_GMM(
     if legend:
         ax.legend(**legend_kw)
 
-    return fig
+    return ax.get_figure()
 
 
 __all__ = ["plot_IQ", "plot_IQ_histogram", "plot_GMM"]

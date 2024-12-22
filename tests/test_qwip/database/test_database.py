@@ -12,13 +12,18 @@ class TestDatabase:
         assert database.tables() == {
             "folders",
             "parameters",
-            "waveforms",
-            "waveform_locations",
+            "operations",
+            "operation_locations",
             "constraints",
             "timelines",
             "datasets",
             "assets",
         }
+
+    def test_begin(self, database):
+        with database.begin() as s1:
+            with database.begin() as s2:
+                assert s1 is s2
 
 
 @pytest.mark.usefixtures("skip_dolt")

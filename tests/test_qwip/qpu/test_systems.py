@@ -13,17 +13,15 @@ class TestQuantumSystem:
 class TestTransmon:
     def test_get_frames(self):
         t = Transmon(name="Q0", frequency=5e9)
-        assert t.get_frames() == {"Q0.mod_GE": 5e9}
+        assert t.get_frames() == {"Q0.freq_01": 5e9}
 
-        t = Transmon(name="Q1", frequency=5.1e9, local_oscillator="qubit_LO")
-        with pytest.raises(KeyError):
-            t.get_frames()
-        assert t.get_frames(dict(qubit_LO=5.2e9)) == {"Q1.mod_GE": -100e6}
+        t = Transmon(name="Q1", frequency=5.1e9)
+        assert t.get_frames() == {"Q1.freq_01": 5.1e9}
 
         t.anharmonicity = -200e6
-        assert t.get_frames(dict(qubit_LO=5e9)) == {
-            "Q1.mod_GE": 100e6,
-            "Q1.mod_EF": -100e6,
+        assert t.get_frames() == {
+            "Q1.freq_01": 5.1e9,
+            "Q1.freq_12": 4.9e9,
         }
 
     def test_frame_key(self):
@@ -34,7 +32,7 @@ class TestTransmon:
         assert t.get_frames() == {"Q2": 5e9}
 
         t.frame_key = "{subspace}_for_{name}"
-        assert t.get_frames() == {"GE_for_Q2": 5e9}
+        assert t.get_frames() == {"01_for_Q2": 5e9}
 
 
 class TestReadoutResonator:
@@ -51,7 +49,7 @@ class TestReadoutResonator:
 
     def test_get_frames(self):
         r = ReadoutResonator(name="R0", frequency=6e9)
-        assert r.get_frames() == {"R0.mod": 6e9}
+        assert r.get_frames() == {"R0.freq": 6e9}
 
     @pytest.mark.parametrize(
         "drive,chis",

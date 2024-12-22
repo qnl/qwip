@@ -7,7 +7,7 @@ import pendulum
 import pytest
 from loguru import logger
 from numpy.random import default_rng
-from qcodes.tests.instrument_mocks import DummyInstrument
+from qcodes.instrument_drivers.mock_instruments import DummyInstrument
 from sqlalchemy.engine import make_url
 
 try:
@@ -17,13 +17,11 @@ try:
 except ModuleNotFoundError:
     ...
 
-from qwip.config.interface import ConfigDB, OfflineConfigDB
-from qwip.config.schema import ConfigSchema
+
 from qwip.data.models import *
 from qwip.database.database import Database, DoltDB
 from qwip.database.metadata import QWIP_DB_METADATA
 from qwip.instruments.instrument_server import InstrumentServer
-from qwip.qpu.qpu import QPU
 
 
 def ignore_config_commit(record: dict) -> bool:
@@ -52,6 +50,14 @@ def pytest_addoption(parser):
     parser.addoption(
         "--dataserver", action="store", default=None, help="A dataserver host."
     )
+
+
+def pytest_exception_interact(node, call, report):
+    # https://stackoverflow.com/a/56813896
+    excinfo = call.excinfo
+    if "script" in getattr(node, "funcargs", []):
+        excinfo.traceback = excinfo.traceback.cut(path=node.funcargs["script"])
+    report.longrepr = node.repr_failure(excinfo)
 
 
 @pytest.fixture(scope="session")
@@ -108,7 +114,7 @@ def rng(seed):
 @pytest.fixture
 def fixed_time():
     now = pendulum.datetime(2015, 3, 14, 9, 26, 53, tz="America/Los_Angeles")
-    with pendulum.test(now):
+    with pendulum.travel_to(now, freeze=True):
         yield now
 
 
@@ -177,9 +183,34 @@ def session_with_models(session, models):
     yield session
 
 
+@pytest.fixture(scope="class")
+def config_db(database, models):
+    from qwip.config import ConfigDB, ConfigSchema, OfflineConfigDB
+
+    db_cls = ConfigDB if isinstance(database, DoltDB) else OfflineConfigDB
+    db = db_cls(url=database.url, schema=ConfigSchema)
+    db.engine = database.engine
+    db.session = database.session
+    db.init_config()
+    db.init_pulses()
+
+    with db.session.begin_nested():
+        if isinstance(db, ConfigDB):
+            commit_hash = database.get_commit().hash
+
+        yield db
+
+        if isinstance(db, ConfigDB):
+            database.reset(commit_hash)
+
+        db.session.rollback()
+
+
 @pytest.fixture
 def configdb_01():
-    db_file = Path(__file__).parent / "sample_configs/config_01.sqlite"
+    from qwip.config import ConfigSchema, OfflineConfigDB
+
+    db_file = Path(__file__).parent / "sample_configs/qubic.sqlite"
     db = OfflineConfigDB(url=f"sqlite:///{db_file}", schema=ConfigSchema)
     db.connect()
 
@@ -190,6 +221,8 @@ def configdb_01():
 
 @pytest.fixture
 def qpu_01(configdb_01):
+    from qwip.qpu import QPU
+
     qpu = QPU.load(configdb_01)
 
     # Is this necessary?

@@ -1,11 +1,10 @@
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, Self, runtime_checkable
 
 import attrs
 import numpy as np
 import pandas as pd
 import pendulum
 from attrs import field
-from typing_extensions import Self
 
 import qwip
 from qwip.attrs import qdefine, qfrozen
@@ -19,35 +18,25 @@ if TYPE_CHECKING:
 
 @runtime_checkable
 class VNA(Protocol):
-    def get_complex_data(self, run: bool = True) -> np.ndarray:
-        ...
+    def get_complex_data(self, run: bool = True) -> np.ndarray: ...
 
-    def points(self) -> int:
-        ...
+    def points(self) -> int: ...
 
-    def start(self) -> float:
-        ...
+    def start(self) -> float: ...
 
-    def stop(self) -> float:
-        ...
+    def stop(self) -> float: ...
 
-    def trace(self) -> str:
-        ...
+    def trace(self) -> str: ...
 
-    def power(self) -> float:
-        ...
+    def power(self) -> float: ...
 
-    def averages(self) -> float:
-        ...
+    def averages(self) -> float: ...
 
-    def averages_enabled(self) -> bool:
-        ...
+    def averages_enabled(self) -> bool: ...
 
-    def electrical_delay(self) -> float:
-        ...
+    def electrical_delay(self) -> float: ...
 
-    def if_bandwidth(self) -> float:
-        ...
+    def if_bandwidth(self) -> float: ...
 
 
 @qdefine
@@ -179,7 +168,7 @@ class VNABackend(QuantumBackend):
         device: A VNA instrument for interfacing with a Vector Network Analyzer.
     """
 
-    device: VNA
+    device: Any
 
     @property
     def name(self) -> str:
@@ -248,8 +237,7 @@ class VNABackend(QuantumBackend):
 
         return {self.name: result}
 
-    def update_parameters(self, qpu: "QPU", **kwargs):
-        ...
+    def update_parameters(self, qpu: "QPU", **kwargs): ...
 
     @property
     def exe_formats(self) -> set[type[QuantumExecutable]]:

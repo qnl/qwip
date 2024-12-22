@@ -73,13 +73,13 @@ class TestQWiPCompiler:
         Q0_X90 = ModulatedWaveform(
             name="Q0_X90",
             envelope=GaussianWaveform(width=25e-9, amplitude=0.1),
-            modulation=CWWaveform(frequency="mod_Q0", channels=("Q0_I", "Q0_Q")),
+            modulation=CWWaveform(frequency="mod_Q0", channel="Q0_IQ"),
         )
 
         Q1_X90 = ModulatedWaveform(
             name="Q1_X90",
             envelope=GaussianWaveform(width=25e-9, amplitude=0.1),
-            modulation=CWWaveform(frequency="mod_Q1", channels=("Q1_I", "Q1_Q")),
+            modulation=CWWaveform(frequency="mod_Q1", channel="Q1_IQ"),
         )
 
         Q0_Z90 = VirtualZWaveform(name="Q0_Z", frame="mod_Q0", phase=90)
@@ -88,25 +88,25 @@ class TestQWiPCompiler:
         R0 = ModulatedWaveform(
             name="R0",
             envelope=SquareWaveform(width=1e-6, amplitude=0.2),
-            modulation=CWWaveform(channels=("RO_I", "RO_Q"), frequency="mod_R0"),
+            modulation=CWWaveform(channel="RO_IQ", frequency="mod_R0"),
         )
 
         R1 = ModulatedWaveform(
             name="R1",
             envelope=SquareWaveform(width=1e-6, amplitude=0.25),
-            modulation=CWWaveform(channels=("RO_I", "RO_Q"), frequency="mod_R1"),
+            modulation=CWWaveform(channel="RO_IQ", frequency="mod_R1"),
         )
 
         D0 = ModulatedWaveform(
             name="D0",
             envelope=SquareWaveform(width=1e-6, amplitude=1),
-            modulation=CWWaveform(channels=("R0",), frequency="mod_R0"),
+            modulation=CWWaveform(channel="R0", frequency="mod_R0"),
         )
 
         D1 = ModulatedWaveform(
             name="D0",
             envelope=SquareWaveform(width=1e-6, amplitude=1),
-            modulation=CWWaveform(channels=("R1",), frequency="mod_R1"),
+            modulation=CWWaveform(channel="R1", frequency="mod_R1"),
         )
 
         return dict(
@@ -116,7 +116,7 @@ class TestQWiPCompiler:
             Q1_Z90=Q1_Z90,
             R0=R0,
             R1=R1,
-            read=SquareWaveform(width=1e-6, channels=("RO",)),
+            read=SquareWaveform(width=1e-6, channel="RO"),
             D0=D0,
             D1=D1,
         )
@@ -132,7 +132,7 @@ class TestQWiPCompiler:
         ro.add(pulses["D0"])
         ro.add(pulses["D1"])
 
-        readout = TriggeredWaveform(target=ro, width=2e-9, channels=("RO_marker",))
+        readout = TriggeredWaveform(target=ro, width=2e-9, channel="RO_marker")
 
         tmln.add(readout, 2 * pulses["Q0_X90"].width + 100e-9)
 
@@ -145,4 +145,5 @@ class TestQWiPCompiler:
         compiler.compile_timeline(exe, tmln, instruction_cache=instruction_cache)
 
         for prog in exe.programs.values():
-            print(prog)
+            # print(prog)
+            ...

@@ -56,10 +56,15 @@ class ClassificationSchema(ValidatedConfigFolder):
 
 
 @configschema
+class ReadoutRegisterSchema(ValidatedConfigFolder):
+    drive: str = ""
+    channel: str = ""
+    classification: ClassificationSchema
+
+
+@configschema
 class ReadoutSchema(ValidatedConfigFolder):
-    drives: ConfigFolder[Target, str]
-    classification: ConfigFolder[Target, ClassificationSchema]
-    length: float = 0
+    registers: ConfigFolder[str, ReadoutRegisterSchema]
 
 
 @configschema
@@ -73,6 +78,7 @@ class PulsesSchema(ValidatedConfigFolder):
     targets: tuple[Target]
     pulse_key: str
     variables: ConfigFolder[str, str | float]
+    channels: ConfigFolder[str, str]
 
 
 @configschema
@@ -106,6 +112,7 @@ class DeviceSchema(ValidatedConfigFolder):
     name: str
     channels: list[str] = field(factory=list)
     sample_rate: float
+    envelope_sample_rate: float | None = None
     trigger: TriggerInfoSchema
     dtype: str = "numpy.float32"
 

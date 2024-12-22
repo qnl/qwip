@@ -2,6 +2,7 @@
 
 All models should have guess functions implemented.
 """
+
 from collections.abc import Callable
 from typing import Any
 
@@ -344,3 +345,53 @@ class HangerResonatorModel(MobiusModel):
         self.set_param_hint("Q_i", expr="fr / kappa_i")
         self.set_param_hint("Q_e", expr="fr / kappa_e")
         self.set_param_hint("Q", expr="fr / kappa")
+
+
+class StarkShiftModel(GuessModel):
+    def __init__(
+        self,
+        offset: bool = True,
+        prefix="",
+        nan_policy="raise",
+        name="f0 + delta - sgn(delta)*sqrt((2*g*x)^2 + delta^2)",
+        **kwargs,
+    ):
+        self.offset = offset
+        super().__init__(
+            type(self).func,
+            independent_vars=["x"],
+            prefix=prefix,
+            nan_policy=nan_policy,
+            name=name,
+            **kwargs,
+        )
+
+        self.set_param_hint("f0")
+        self.set_param_hint("g", min=0)
+        self.set_param_hint("delta")
+
+    @classmethod
+    def func(cls, x, f0=0, g=1, delta=0):
+        """Stark shift."""
+
+        return f0 + delta - np.sign(delta) * np.sqrt((2 * g * x) ** 2 + delta**2)
+
+    def guess(self, data: np.ndarray, x: np.ndarray):
+        """Determines initial fit parameters.
+
+        Returns:
+            An initialized `Parameters` dictionary.
+        """
+
+        df_dx = np.gradient(data, x)
+        sign = np.sign(np.mean(df_dx))
+
+        if sign > 0:
+            f0 = np.min(data)
+        else:
+            f0 = np.max(data)
+
+        g = np.abs(np.mean(df_dx) / 2)
+        delta = -sign * (np.max(data) - np.min(data))
+
+        return self.make_params(delta=delta, g=g, f0=f0)

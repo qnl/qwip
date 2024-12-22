@@ -1,6 +1,6 @@
 import itertools as it
 from collections.abc import Collection
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, Self, TypeVar
 
 import attrs
 import numpy as np
@@ -10,7 +10,6 @@ from loguru import logger
 from numpy.random import Generator, default_rng
 from numpy.typing import NDArray
 from sklearn.mixture import GaussianMixture
-from typing_extensions import Self
 
 from qwip.attrs import _numpy_equals, qdefine
 from qwip.processing.data_processor import (
@@ -19,7 +18,8 @@ from qwip.processing.data_processor import (
     GenericDataProcessor,
     MeasurementResult,
 )
-from qwip.sequencer.compilation import QuantumExecutable
+from qwip.sequencer.compilation import BatchedExecutable, QuantumExecutable
+from qwip.sequencer.sequence import Sequence
 
 M = TypeVar("M", bound=MeasurementResult)
 
@@ -424,6 +424,48 @@ class HeterodyneDemodulation(DataProcessor):
 
 @DATA_PROCESSORS.register
 @qdefine
+class BatchReindex(DataProcessor):
+    """A data processor for updating timeline/shot indices based on batch information.
+
+    Attributes:
+        angle (float): A phase angle (in radians) to rotate the IQ data by.
+    """
+
+    def run(
+        self, result: IQResult, batch: "BatchedExecutable | None" = None, **kwargs
+    ) -> IQResult:
+        """Updates the timeline/shot indices based on the batch information.
+
+        Args:
+            result: The `IQResult` to reindex.
+
+        Returns:
+            The resulting reindexed `IQResult`.
+        """
+        result = attrs.evolve(result, data=result.d.copy())
+
+        if batch is None or (batch.timeline_index == batch.repetition_index == 0):
+            return result
+
+        old_idx = result.d.index
+        if batch.timeline_index:
+            i = old_idx.names.index("timeline")
+            result.d.index = old_idx.set_levels(
+                old_idx.levels[i] + batch.timeline_index, level="timeline"
+            )
+
+        old_idx = result.d.index
+        if batch.repetition_index:
+            i = old_idx.names.index("shot")
+            result.d.index = old_idx.set_levels(
+                old_idx.levels[i] + batch.repetition_index, level="shot"
+            )
+
+        return result
+
+
+@DATA_PROCESSORS.register
+@qdefine
 class IQRotation(DataProcessor):
     """A data processor for rotating IQ data points.
 
@@ -783,38 +825,54 @@ class Labeled(GenericDataProcessor):
 
     level: str = "timeline"
 
-    def run(self, result: M, exe: QuantumExecutable | None = None, **kwargs) -> M:
-        if exe is None or exe.seq is None:
-            return result
-
-        seq = exe.sequence
+    def run(
+        self,
+        result: M,
+        label: pd.Index | None = None,
+        exe: QuantumExecutable | None = None,
+        **kwargs,
+    ) -> M:
+        # Ensure a copy is made always.
         result = attrs.evolve(result, data=result.data.copy())
+
+        if label is None and (exe is None or exe.seq is None):
+            return result
+        elif label is None:
+            seq = exe.sequence
+            label = seq.flatten().labels[0]
+        elif not isinstance(label, pd.Index):
+            raise ValueError(
+                f"Explicit labels must be a pandas index, got {type(label)}."
+            )
+
         old_idx = result.data.index
+        level_to_relabel = old_idx.levels[old_idx.names.index(self.level)]
+        if len(label) != len(level_to_relabel):
+            raise ValueError(
+                f"Number of labels {len(label)} does not match length "
+                f"{len(level_to_relabel)} of level {self.level}."
+            )
 
-        new_idx = pd.DataFrame(
-            it.product(
-                *(
-                    seq.labels.get(n, np.arange(seq.shape[i]))
-                    for i, n in enumerate(seq.names)
-                )
-            ),
-            columns=[name or f"{self.level}{i}" for i, name in enumerate(seq.names)],
-        )
-        broadcasted = new_idx.loc[result.data.index.get_level_values(self.level)]
+        names = []
+        levels = []
+        codes = []
+        for name, level, code in zip(old_idx.names, old_idx.levels, old_idx.codes):
+            if name != self.level:
+                names.append(name)
+                levels.append(level)
+                codes.append(code)
+            elif isinstance(label, pd.MultiIndex):
+                names.extend(label.names)
+                levels.extend(label.levels)
 
-        idx_vals = []
-        idx_names = []
-        for name in old_idx.names:
-            if name == self.level:
-                for c in new_idx.columns:
-                    idx_vals.append(broadcasted[c].values)
-                    idx_names.append(c)
+                for label_code in label.codes:
+                    codes.append(label_code[code])
             else:
-                level = old_idx.get_level_values(name)
-                idx_vals.append(level.values)
-                idx_names.append(level.name)
+                names.append(label.name)
+                levels.append(label)
+                codes.append(code)
 
-        result.data.index = pd.MultiIndex.from_arrays(idx_vals, names=idx_names)
+        result.data.index = pd.MultiIndex(levels=levels, codes=codes, names=names)
 
         return result
 
@@ -825,6 +883,7 @@ __all__ = [
     "dataframe_complex_to_real",
     "dataframe_real_to_complex",
     "Averaged",
+    "BatchReindex",
     "ClassifiedResult",
     "GMMClassification",
     "HeterodyneDemodulation",

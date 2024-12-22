@@ -4,6 +4,7 @@ import pytest
 from qwip.config.interface import ConfigFolder
 from qwip.config.models import Parameter
 from qwip.config.schema import ConfigSchema
+from qwip.sequencer import *
 
 
 @pytest.fixture(scope="function")
@@ -155,7 +156,7 @@ class TestConfigSchema:
             targets=qubit_names + resonator_names,
         )
 
-        assert list(config.keys()) == [
+        assert set(config.keys()) == {
             "hardware",
             "readout",
             "subsystems",
@@ -167,4 +168,100 @@ class TestConfigSchema:
             "sample_id",
             "cooldown_id",
             "targets",
-        ]
+        }
+
+
+class TestConfigDB:
+    @pytest.fixture(scope="class")
+    def populated_config_db(self, config_db):
+        config_db.config.create_all(
+            targets=[f"Q{i}" for i in range(4)] + [f"R{i}" for i in range(4)]
+        )
+
+        yield config_db
+
+    @pytest.fixture
+    def ro_tmln(self):
+        drive = ModulatedWaveform(
+            envelope=SquareWaveform(width="drive_width"),
+            modulation=CWWaveform(
+                amplitude="amplitude",
+                frequency="frequency",
+                channel="drive",
+                hardware_modulation=True,
+            ),
+        )
+
+        demod = ModulatedWaveform(
+            envelope=SquareWaveform(width="demod_width"),
+            modulation=CWWaveform(
+                amplitude=1,
+                frequency="frequency",
+                channel="demod",
+                hardware_modulation=True,
+            ),
+        )
+
+        ro_tmln = Timeline().add(drive).add(demod, "demod_delay")
+        return ro_tmln
+
+    def test_add_pulse(self, populated_config_db, ro_tmln):
+        db = populated_config_db
+
+        db.add_pulse(
+            name="Q0_RO_basic",
+            targets=["R0"],
+            pulse_key="RO_basic",
+            tmln=ro_tmln,
+            channel_map=dict(drive="Q0.qdrv", demod="Q0.rdlo"),
+        )
+
+        db.add_pulse(
+            name="Q1_RO_basic",
+            targets=["R1"],
+            pulse_key="RO_basic",
+            channel_map=dict(drive="Q1.qdrv", demod="Q1.rdlo"),
+        )
+
+        for i in range(2):
+            pulse = db.config.pulses[f"Q{i}_RO_basic"]
+            assert pulse.pulse_key == "RO_basic"
+            assert pulse.channels.todict() == dict(
+                drive=f"Q{i}.qdrv", demod=f"Q{i}.rdlo"
+            )
+            assert set(pulse.variables.keys()) == ro_tmln.variables()
+
+        assert db.pulses["RO_basic"] == ro_tmln
+
+    def test_load_pulse(self, populated_config_db, ro_tmln):
+        db = populated_config_db
+
+        db.add_pulse(
+            name="Q2_RO",
+            targets=["R0"],
+            pulse_key="RO_square",
+            tmln=ro_tmln,
+            channel_map=dict(drive="Q2.qdrv", demod="Q2.rdlo"),
+        )
+
+        db.config.pulses["Q2_RO"].variables.update(
+            amplitude=0.01,
+            frequency=6.543e9,
+            drive_width=1e-6,
+            demod_width=1.2e-6,
+            demod_delay=200e-9,
+        )
+
+        q2_ro = db.load_pulse("Q2_RO")
+
+        assert q2_ro.variables() == set()
+        assert q2_ro.channels == {"Q2.qdrv", "Q2.rdlo"}
+
+    def test_delete_pulse(self, populated_config_db, ro_tmln):
+        db = populated_config_db
+        db.pulses.add("new_pulse", ro_tmln)
+
+        assert db.pulses["new_pulse"] == ro_tmln
+
+        db.pulses.delete("new_pulse")
+        assert "new_pulse" not in ro_tmln

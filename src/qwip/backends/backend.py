@@ -16,43 +16,36 @@ if TYPE_CHECKING:
 
 @qdefine
 class DACBackend(metaclass=ABCMeta):
-    @abstractproperty
-    def sample_rate(self) -> float:
-        ...
+    @property
+    @abstractmethod
+    def sample_rate(self) -> float: ...
 
     @abstractmethod
-    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
-        ...
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None: ...
 
     @abstractmethod
-    def start(self, **kwargs) -> None:
-        ...
+    def start(self, **kwargs) -> None: ...
 
     @abstractmethod
-    def stop(self, **kwargs) -> None:
-        ...
+    def stop(self, **kwargs) -> None: ...
 
 
 @qdefine
 class ADCBackend(metaclass=ABCMeta):
-    @abstractproperty
-    def sample_rate(self) -> float:
-        ...
+    @property
+    @abstractmethod
+    def sample_rate(self) -> float: ...
 
     @abstractmethod
-    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
-        ...
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None: ...
 
     @abstractmethod
-    def start(self, **kwargs) -> None:
-        ...
+    def start(self, **kwargs) -> None: ...
 
     @abstractmethod
-    def stop(self, **kwargs) -> None:
-        ...
+    def stop(self, **kwargs) -> None: ...
 
-    def acquire(self, **kwargs) -> np.ndarray:
-        ...
+    def acquire(self, **kwargs) -> np.ndarray: ...
 
 
 @qdefine
@@ -60,16 +53,13 @@ class QuantumBackend(metaclass=ABCMeta):
     uploaded: QuantumExecutable | None = None
 
     @abstractmethod
-    def upload(self, exe: QuantumExecutable, **kwargs) -> None:
-        ...
+    def upload(self, exe: QuantumExecutable, **kwargs) -> None: ...
 
     @abstractmethod
-    def acquire(self, **kwargs) -> dict:
-        ...
+    def acquire(self, **kwargs) -> dict: ...
 
     @abstractmethod
-    def update_parameters(self, qpu: "QPU", **kwargs):
-        ...
+    def update_parameters(self, qpu: "QPU", **kwargs): ...
 
     @property
     def exe_formats(self) -> set[type[QuantumExecutable]]:
@@ -139,7 +129,7 @@ def population_data_sampler(
 
 
 @qdefine
-class FakeBackend(QuantumBackend):
+class DummyBackend(QuantumBackend):
     """A test backend used for testing upstream code.
 
     This backend is meant to act like a real backend, by accepting an executable for
@@ -229,4 +219,4 @@ class FakeBackend(QuantumBackend):
                     self.gmms[key] = proc
 
 
-__all__ = ["ADCBackend", "DACBackend", "QuantumBackend", "QWiPBackend", "FakeBackend"]
+__all__ = ["ADCBackend", "DACBackend", "QuantumBackend", "QWiPBackend", "DummyBackend"]

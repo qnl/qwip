@@ -33,16 +33,15 @@ from qwip.typing import generic_to_string
 try:
     import trueq as tq
 except Exception as e:
-    logger.exception("Unable to import True-Q", exception=e)
+    logger.warning("Unable to import True-Q")
 
 SERIALIZERS: dict[str, "Serializer"] = dict()
 
 
 @qfrozen
 class Serializer(metaclass=ABCMeta):
-    @abstractproperty
-    def formats(self) -> tuple[str, ...]:
-        ...
+    @property
+    def formats(self) -> tuple[str, ...]: ...
 
     @property
     def default_format(self) -> str | None:
@@ -85,9 +84,10 @@ class Serializer(metaclass=ABCMeta):
 
         return obj
 
-    def get_name(self, obj: Any) -> str:
+    def get_name(self, obj: Any, fmt="{name}") -> str:
         """Returns an auto-generated name for the object based on the type."""
-        return camel_to_kebab(type(obj).__name__)
+        name = camel_to_kebab(type(obj).__name__)
+        return fmt.format(name=name)
 
 
 @qfrozen
@@ -217,7 +217,8 @@ class ResultSerializer(DataFrameSerializer):
     ) -> dict[str, MeasurementResult]:
         data, metadata = super().from_stream_parquet(stream)
 
-        for k, df in data.groupby(level="key", axis="columns"):
+        for k, df in data.T.groupby(level="key"):
+            df = df.T
             metadata[k]["data"] = df.droplevel("key", axis="columns")
 
         return qwip.converter.structure(metadata, dict[str, MeasurementResult])
@@ -234,7 +235,8 @@ class ResultSerializer(DataFrameSerializer):
     ) -> dict[str, MeasurementResult]:
         data, metadata = super().from_stream_feather(stream)
 
-        for k, df in data.groupby(level="key", axis="columns"):
+        for k, df in data.T.groupby(level="key"):
+            df = df.T
             metadata[k]["data"] = df.droplevel("key", axis="columns")
 
         return qwip.converter.structure(metadata, dict[str, MeasurementResult])
@@ -296,7 +298,9 @@ class ResultSerializer(DataFrameSerializer):
 
         return metadata, data
 
-    def get_name(self, result: MeasurementResult | dict[str, MeasurementResult]) -> str:
+    def get_name(
+        self, result: MeasurementResult | dict[str, MeasurementResult], fmt="{name}"
+    ) -> str:
         """Returns an auto-generated name from a result.
 
         Args:
@@ -305,7 +309,8 @@ class ResultSerializer(DataFrameSerializer):
         Returns:
             A kebab-case name based on the final processor for the result.
         """
-        return self.name_from_processor(type(self).get_result_processor(result))
+        name = self.name_from_processor(type(self).get_result_processor(result))
+        return fmt.format(name=name)
 
     def name_from_processor(
         self,

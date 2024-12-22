@@ -3,13 +3,20 @@ from collections import Counter
 import attrs
 import numpy as np
 import pytest
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal, assert_equal
 
 try:
     from distproc.compiler import CompiledProgram
-    from distproc.ir_instructions import Pulse, VirtualZ
+    from distproc.executable import Executable
+    from distproc.ir.instructions import Pulse, VirtualZ
 
-    from qwip.backends.qubic import QubicCompiler, QubicExecutable
+    from qwip.backends.qubic import (
+        QubicCompiler,
+        QubicExecutable,
+        _get_board_and_core,
+        _get_memory_name,
+        find_constant_segments,
+    )
 except ImportError:
     pytest.skip("Qubic dependencies not installed.", allow_module_level=True)
 
@@ -18,7 +25,6 @@ from qwip.sequencer import (
     CWWaveform,
     Frame,
     GaussianWaveform,
-    Location,
     ModulatedWaveform,
     Sequence,
     SquareWaveform,
@@ -32,19 +38,32 @@ def assert_instructions_almost_equal(ins1, ins2):
     assert type(ins1) == type(ins2)
     for f in attrs.fields(type(ins1)):
         if f.name == "env":
-            assert ins1.env.dtype == ins2.env.dtype
-            assert_almost_equal(ins1.env, ins2.env)
+            if isinstance(ins1.env, str) and isinstance(ins2.env, str):
+                assert ins1.env == ins2.env
+            else:
+                assert ins1.env.dtype == ins2.env.dtype
+                assert_almost_equal(ins1.env, ins2.env)
+        elif f.name == "phase":
+            assert_almost_equal(
+                ins1.phase % (2 * np.pi), ins2.phase % (2 * np.pi), decimal=6
+            )
         else:
             assert getattr(ins1, f.name) == getattr(ins2, f.name)
+
+
+def test_get_board_and_core(): ...
+
+
+def test_get_memory_name(): ...
 
 
 class TestQubicExecutable:
     def test_equality_and_hash(self):
         exe1 = QubicExecutable(
-            program=CompiledProgram([]), assembly={}, repetition_delay=1
+            program=CompiledProgram([]), assembly=Executable(), repetition_delay=1
         )
         exe2 = QubicExecutable(
-            program=CompiledProgram([]), assembly={}, repetition_delay=1
+            program=CompiledProgram([]), assembly=Executable(), repetition_delay=1
         )
         exe3 = QubicExecutable(
             program=exe1.program, assembly=exe1.assembly, repetition_delay=1
@@ -56,11 +75,36 @@ class TestQubicExecutable:
 
     def test_frozen(self):
         exe1 = QubicExecutable(
-            program=CompiledProgram([]), assembly={}, repetition_delay=1
+            program=CompiledProgram([]), assembly=Executable(), repetition_delay=1
         )
 
         with pytest.raises(attrs.exceptions.FrozenInstanceError):
             exe1.seq = Sequence([])
+
+
+@pytest.mark.parametrize(
+    "arr,locations,values,lengths",
+    [
+        (
+            np.array([0, 1, 2, 2, 3, 3, 3]),
+            np.array([0, 1, 2, 4]),
+            np.array([0, 1, 2, 3]),
+            np.array([1, 1, 2, 3]),
+        ),
+        (
+            np.array([0.0, 1.0, 2.0, 3.0]),
+            np.array([0, 1, 2, 3]),
+            np.array([0, 1, 2, 3.0]),
+            np.array([1, 1, 1, 1]),
+        ),
+    ],
+)
+def test_find_constant_segments(arr, locations, values, lengths):
+    locs, vals, lens = find_constant_segments(arr)
+
+    assert_equal(locs, locations)
+    assert_equal(vals, values)
+    assert_equal(lens, lengths)
 
 
 class TestQubicCompiler:
@@ -99,7 +143,7 @@ class TestQubicCompiler:
                 ModulatedWaveform(
                     envelope=GaussianWaveform(width=30e-9),
                     modulation=CWWaveform(
-                        channels=(f"Q{q}.qdrv",),
+                        channel=f"Q{q}.qdrv",
                         frequency=f"Q{q}.freq_GE",
                         hardware_modulation=True,
                     ),
@@ -113,7 +157,7 @@ class TestQubicCompiler:
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
                     modulation=CWWaveform(
-                        channels=(f"Q{q}.rdrv",),
+                        channel=f"Q{q}.rdrv",
                         frequency=f"Q{q}.readfreq",
                         hardware_modulation=True,
                     ),
@@ -123,7 +167,7 @@ class TestQubicCompiler:
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
                     modulation=CWWaveform(
-                        channels=(f"Q{q}.rdlo",),
+                        channel=f"Q{q}.rdlo",
                         frequency=f"Q{q}.readfreq",
                         hardware_modulation=True,
                     ),
@@ -161,25 +205,34 @@ class TestQubicCompiler:
         assert np.round(channel_config.pop("fpga_clk_freq")) == 5e8
 
         for k, ch_config in channel_config.items():
+            device = k[-4:]
             ch_id = ch_config.core_ind
-            assert ch_config.device == k[3:]
-            assert ch_config.elem_params == expected_elem_params[ch_config.device]
-            assert ch_config.env_mem_name == f"{ch_config.device}env{ch_id}"
-            assert ch_config.freq_mem_name == f"{ch_config.device}freq{ch_id}"
-            assert ch_config.acc_mem_name == f"accbuf{ch_id}"
+            assert ch_config.elem_params == expected_elem_params[device]
+            assert ch_config.elem_type == "rf"
+            assert ch_config.env_mem_name == f"{device}env{ch_id}"
+            assert ch_config.freq_mem_name == f"{device}freq{ch_id}"
+
+            if device == "rdlo":
+                assert ch_config.acc_mem_name == f"accbuf{ch_id}"
 
     @pytest.mark.parametrize(
         "location,wave,t0,expected",
         [
             (
-                Location(),
+                0,
                 VirtualZWaveform(phase=90, frame="Q0.freq_GE"),
                 0,
                 [VirtualZ(qubit="Q0", phase=np.pi / 2, freq="freq_GE")],
             ),
             (
-                Location(50e-9),
-                SquareWaveform(width=50e-9, amplitude=0.5, channels=("Q0.qdrv",)),
+                0,
+                VirtualZWaveform(phase=90, frame=5e9),
+                0,
+                [VirtualZ(phase=np.pi / 2, freq=5e9)],
+            ),
+            (
+                50e-9,
+                SquareWaveform(width=50e-9, amplitude=0.5, channel="Q0.qdrv"),
                 500,
                 [
                     Pulse(
@@ -194,13 +247,13 @@ class TestQubicCompiler:
                 ],
             ),
             (
-                Location(),
+                0,
                 ModulatedWaveform(
                     envelope=SquareWaveform(width=2e-6),
                     modulation=CWWaveform(
                         amplitude=0.5,
                         phase=180,
-                        channels=("Q1.rdlo",),
+                        channel="Q1.rdlo",
                         frequency="Q1.readfreq",
                         hardware_modulation=True,
                     ),
@@ -229,13 +282,74 @@ class TestQubicCompiler:
             wave,
             waveform_cache={},
             reads=reads,
-            pulse_kwargs={},
             t0=t0,
+            cw_threshold=None,
         )
 
-        for c in wave.channels:
-            if "rdlo" in c:
-                assert reads[c] == 1
+        if "rdlo" in wave.channel:
+            assert reads[wave.channel] == 1
+
+        assert len(instructions) == len(expected)
+
+        for i1, i2 in zip(instructions, expected):
+            assert_instructions_almost_equal(i1, i2)
+
+    @pytest.mark.parametrize(
+        "wave,threshold,expected",
+        [
+            (
+                ModulatedWaveform(
+                    envelope=SquareWaveform(amplitude=0.5, width=100e-9),
+                    modulation=CWWaveform(
+                        amplitude=0.5,
+                        frequency=100,
+                        phase=180,
+                        channel="Q0.rdrv",
+                        hardware_modulation=True,
+                    ),
+                ),
+                16,
+                [
+                    Pulse(
+                        freq=100,
+                        phase=0,
+                        amp=0.5,
+                        twidth=6e-9,
+                        env=np.array([0, -0.5, -0.5]).astype(np.complex64),
+                        dest="Q0.rdrv",
+                        start_time=0,
+                    ),
+                    Pulse(
+                        freq=100,
+                        phase=np.pi,
+                        amp=0.25,
+                        twidth=88e-9,
+                        env="cw",
+                        dest="Q0.rdrv",
+                        start_time=3,
+                    ),
+                    Pulse(
+                        freq=100,
+                        phase=0,
+                        amp=0.5,
+                        twidth=6e-9,
+                        env=np.array([-0.5, -0.5, -0.5]).astype(np.complex64),
+                        dest="Q0.rdrv",
+                        start_time=47,
+                    ),
+                ],
+            )
+        ],
+    )
+    def test_compile_instruction_cw(self, compiler, wave, threshold, expected):
+        instructions = compiler.compile_instruction(
+            0,
+            wave,
+            waveform_cache={},
+            reads=Counter(),
+            t0=0,
+            cw_threshold=threshold,
+        )
 
         assert len(instructions) == len(expected)
 
@@ -247,10 +361,11 @@ class TestQubicCompiler:
         tmln.add(gates["Q0_X90"])
         tmln.add(gates["Q0_X90"], gates["Q0_X90"].width)
         tmln.add(gates["Q0_RO"], 2 * gates["Q0_X90"].width)
+        tmln.resolve()
 
         waveform_cache = {}
         instructions, reads = compiler.compile_timeline(
-            tmln.resolve_locations(), waveform_cache=waveform_cache
+            tmln, waveform_cache=waveform_cache, cw_threshold=None
         )
 
         expected = [
@@ -310,7 +425,7 @@ class TestQubicCompiler:
 
         seq = Sequence([nopi, pi])
 
-        exe = compiler.compile(seq)
+        exe = compiler.compile(seq, cw_threshold=None)
 
         ops = exe.program.program[("Q0.qdrv", "Q0.rdrv", "Q0.rdlo")]
 

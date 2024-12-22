@@ -5,11 +5,17 @@ a superconduting quantum device as a quantum circuit processor, including circui
 compilation/transpilation, data acquisition, and measurement processing. This is the
 main user interface for interacting with experimental devices.
 """
+
+from collections import defaultdict
+
+import attrs
+import numpy as np
+import pandas as pd
 from attrs import field
 from loguru import logger
 
 import qwip
-from qwip.attrs import qdefine
+from qwip.attrs import qdefine, qfrozen
 from qwip.backends.backend import QuantumBackend
 from qwip.config.interface import ConfigFolder, OfflineConfigDB, PulsesFolder
 from qwip.config.schema import Target
@@ -20,11 +26,12 @@ from qwip.processing.data_processor import (
     MeasurementResult,
     ReadoutPipeline,
 )
-from qwip.processing.processors import GMMClassification, IQRotation
+from qwip.processing.processors import BatchReindex, GMMClassification, IQRotation
 from qwip.qpu.systems import REGISTERED_QSYSTEMS, QuantumSystem
 from qwip.sequencer import Sequence
 from qwip.sequencer.compilation import (
     REGISTERED_COMPILERS,
+    BatchedExecutable,
     ChannelInfo,
     DeviceInfo,
     QuantumExecutable,
@@ -155,10 +162,13 @@ class QPU:
                         **qwip.converter.unstructure(ch)
                     )
 
+            self.config["compilation/compiler"] = dict(
+                __class__=type(self.compiler).__name__
+            )
+
     def update_frames(self):
-        frames = {}
-        local_oscillators = {
-            key: LO_info["frequency"]
+        frames = {
+            key: Frame(LO_info["frequency"])
             for key, LO_info in self.config["hardware/local_oscillators"].items()
         }
 
@@ -166,7 +176,7 @@ class QPU:
             match system:
                 case QuantumSystem(get_frames=_):
                     frames |= qwip.converter.structure(
-                        system.get_frames(local_oscillators),
+                        system.get_frames(),
                         dict[str, Frame],
                     )
                 case _:
@@ -198,20 +208,22 @@ class QPU:
             else:
                 processors.append(processor_cls())
 
-        for k, classification in ro_config["classification"].items():
+        for k, register in ro_config["registers"].items():
             processors.append(
                 GMMClassification(
                     measurement_key=k,
-                    means=classification["means"].astype(float),
-                    covariances=classification["covariances"].astype(float),
-                    num_states=classification["num_states"],
+                    means=register["classification/means"].astype(float),
+                    covariances=register["classification/covariances"].astype(float),
+                    num_states=register["classification/num_states"],
                 )
             )
 
-            if angle := classification["rotation"]:
+            if angle := register["classification"]["rotation"]:
                 processors.append(IQRotation(measurement_key=k, angle=angle))
 
-        return ReadoutPipeline(name=readout_config, processors=processors)
+        return ReadoutPipeline(
+            name=readout_config, processors=processors, default_processor=BatchReindex
+        )
 
     def save_pipeline(self):
         with self.db.session.begin():
@@ -222,11 +234,11 @@ class QPU:
                     case GMMClassification(
                         measurement_key=k, means=m, covariances=c, num_states=s
                     ):
-                        ro_config["classification"][k] = dict(
+                        ro_config[f"registers/{k}/classification"].update(
                             means=m, covariances=c, num_states=s
                         )
                     case IQRotation(angle) if angle:
-                        ro_config[f"classification/{k}/rotation"] = angle
+                        ro_config[f"registers/{k}/classification/rotation"] = angle
 
     @classmethod
     def load_subsystems(cls, config: ConfigFolder) -> dict[Target, QuantumSystem]:
@@ -271,11 +283,73 @@ class QPU:
                             f"Model data is missing parameters: {system_data}"
                         )
 
+    def batch_program(
+        self,
+        program: Sequence | QuantumExecutable | None,
+        repetitions: int,
+        timelines_per_batch: int | None = None,
+        repetitions_per_batch: int | None = None,
+        compilation: dict = {},
+    ) -> list[BatchedExecutable]:
+        match program:
+            case Sequence():
+                seq = program
+                flattened = seq.flatten()
+                N = len(flattened)
+                timelines_per_batch = timelines_per_batch or N
+
+                exes = [
+                    self.compiler.compile(
+                        flattened[tmln_idx : tmln_idx + timelines_per_batch],
+                        **compilation,
+                    )
+                    for tmln_idx in np.r_[:N:timelines_per_batch]
+                ]
+
+            case QuantumExecutable():
+                if timelines_per_batch is not None:
+                    logger.warning(
+                        f"Cannot batch a pre-compiled executable by timeline. Argument "
+                        f"`timelines_per_batch` = {timelines_per_batch} will be ignored."
+                    )
+
+                exes = [program]
+            case None:
+                exes = [self.backend.uploaded]
+            case _:
+                raise NotImplementedError(
+                    f"Only 'Sequence' and 'CompiledSequence' programs are currently "
+                    f"supported. Got {program}"
+                )
+
+        repetitions_per_batch = repetitions_per_batch or repetitions
+
+        batched_exes = []
+        for rep_idx in np.r_[:repetitions:repetitions_per_batch]:
+            for batch_idx, exe in enumerate(exes):
+                batch_reps = min(repetitions_per_batch, repetitions - rep_idx)
+
+                skip_upload = (program is None) or (len(exes) == 1 and rep_idx > 0)
+
+                batched_exes.append(
+                    BatchedExecutable(
+                        exe=exe,
+                        repetitions=batch_reps,
+                        timeline_index=batch_idx * timelines_per_batch,
+                        repetition_index=rep_idx,
+                        batch_index=(batch_idx, rep_idx // repetitions_per_batch),
+                        upload=not skip_upload,
+                    )
+                )
+
+        return batched_exes
+
     def run(
         self,
         program: Sequence | QuantumExecutable | None,
         processor: type[DataProcessor] | dict[str, type[DataProcessor]] | None = None,
         repetitions: int = 512,
+        batch: dict = {},
         compilation: dict = {},
         backend: dict = {},
         data: dict = {},
@@ -290,6 +364,8 @@ class QPU:
                 the previously uploaded sequence is run.
             processor: The data processor to use. See `qpu.process_results`.
             repetitions: The number of shots to take for each pulse timeline.
+            batch: Batch parameters. Can specify `timelines_per_batch` and
+                `repetitions_per_batch` to control how sequences are batched.
             compilation: The compilation arguments, which are passed to
                 `self.compiler.compile`.
             backend: Any backend arguments which are passed to `self.backend.acquire`
@@ -304,35 +380,69 @@ class QPU:
         self.update_frames()
         self.backend.update_parameters(self)
 
-        match program:
-            case Sequence():
-                exe = self.compiler.compile(program, **compilation)
-            case QuantumExecutable():
-                exe = program
-            case None:
-                exe = self.backend.uploaded
-            case _:
-                raise NotImplementedError(
-                    f"Only 'Sequence' and 'CompiledSequence' programs are currently "
-                    f"supported. Got {program}"
-                )
+        batched_exes = self.batch_program(
+            program, repetitions=repetitions, **batch, compilation=compilation
+        )
 
-        if program is not None:
-            self.backend.upload(exe)
-
-        raw_data = self.backend.acquire(repetitions=repetitions, **backend)
-        processed = self.process_results(raw_data, processor, exe=exe)
+        label = program.flatten().labels[0] if isinstance(program, Sequence) else None
 
         if self.datastore and save:
             data = dict(config_db=self.db) | data
-            if exe and exe.sequence is None:
-                data["executable"] = exe
-            elif exe:
-                data["sequence"] = exe.sequence
+            dataset = self.datastore.save(**data)
 
-            self.datastore.save(*self.pipeline.grouped_data(), **data)
+        results = defaultdict(list)
+        num_batches = len(batched_exes)
+        for batch_no, batch in enumerate(batched_exes):
+            logger.debug(f"Starting batch {batch_no + 1} of {num_batches}.")
+            exe = batch.exe
+            if batch.upload:
+                self.backend.upload(exe)
 
-        return processed
+            raw_data = self.backend.acquire(repetitions=batch.repetitions, **backend)
+
+            processed = self.process_results(
+                raw_data, BatchReindex, exe=exe, batch=batch
+            )
+
+            for k, res in processed.items():
+                results[k].append(res)
+
+            if self.datastore and save:
+                if exe and exe.sequence is None:
+                    data["executable"] = batch.exe
+                elif exe:
+                    data["sequence"] = exe.sequence
+
+                asset_kwargs = dict()
+                if len(batched_exes) > 1:
+                    suffix = f"_t{batch.batch_index[0]}-r{batch.batch_index[1]}"
+                    asset_kwargs["name_fmt"] = "{name}" + suffix
+
+                with self.datastore.begin():
+                    assets = self.datastore._make_assets(
+                        self.pipeline.grouped_data(), **asset_kwargs
+                    )
+                    dataset.add(assets)
+                    for asset in assets:
+                        asset.save()
+
+        result = {}
+        for k, rlist in results.items():
+            data = pd.concat([r.d for r in rlist])
+            result[k] = attrs.evolve(rlist[0], data=data)
+
+        result = self.process_results(result, processor, label=label)
+
+        if self.datastore and save:
+            with self.datastore.begin():
+                assets = self.datastore._make_assets(
+                    self.pipeline.grouped_data(exclude={None, BatchReindex})
+                )
+                dataset.add(assets)
+                for asset in assets:
+                    asset.save()
+
+        return result
 
     def process_results(
         self,
