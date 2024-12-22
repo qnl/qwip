@@ -69,9 +69,6 @@ class Operation:
     def _default_name(self):
         return type(self).__name__
 
-    def __getattribute__(self, name: str) -> Any:
-        return _to_python_number(object.__getattribute__(self, name))
-
     def __copy__(self) -> Self:
         """Overrides copy for Operation instances.
 
@@ -85,7 +82,7 @@ class Operation:
         return self
 
     def __deepcopy__(self, memo) -> Self:
-        """Overrides deepcopy for Opoeration instances.
+        """Overrides deepcopy for Operation instances.
 
         Since Operations are immutable and only contain references
         to other immutable objects we just return self instead of
@@ -125,6 +122,9 @@ class Operation:
                 case LinearExpression():
                     converted = {}
                     for k, v in variable_map.items():
+                        if k not in orig.variables(return_string=True):
+                            continue
+
                         v = qwip.converter.unstructure(v)
                         if isinstance(v, str):
                             converted[k] = type(orig).from_string(v)
@@ -979,6 +979,11 @@ qwip.converter.register_structure_hook_factory(
 
 qwip.converter.register_unstructure_hook_factory(
     lambda cls: issubclass(cls, Operation), make_operation_unstructure_fn
+)
+
+qwip.converter.register_structure_hook(
+    NumberOrExpression,
+    lambda v, cls: _to_python_number(qwip.converter.structure(v, sym.Expr)),
 )
 
 __all__ = [
