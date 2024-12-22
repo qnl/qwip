@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 @qdefine
 class DACBackend(metaclass=ABCMeta):
-    @abstractproperty
+    @property
+    @abstractmethod
     def sample_rate(self) -> float: ...
 
     @abstractmethod
@@ -31,7 +32,8 @@ class DACBackend(metaclass=ABCMeta):
 
 @qdefine
 class ADCBackend(metaclass=ABCMeta):
-    @abstractproperty
+    @property
+    @abstractmethod
     def sample_rate(self) -> float: ...
 
     @abstractmethod
@@ -127,7 +129,7 @@ def population_data_sampler(
 
 
 @qdefine
-class FakeBackend(QuantumBackend):
+class DummyBackend(QuantumBackend):
     """A test backend used for testing upstream code.
 
     This backend is meant to act like a real backend, by accepting an executable for
@@ -217,4 +219,4 @@ class FakeBackend(QuantumBackend):
                     self.gmms[key] = proc
 
 
-__all__ = ["ADCBackend", "DACBackend", "QuantumBackend", "QWiPBackend", "FakeBackend"]
+__all__ = ["ADCBackend", "DACBackend", "QuantumBackend", "QWiPBackend", "DummyBackend"]
