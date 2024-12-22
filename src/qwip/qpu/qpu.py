@@ -380,9 +380,12 @@ class QPU:
         self.update_frames()
         self.backend.update_parameters(self)
 
-        batched_exes = self.batch_program(
-            program, repetitions=repetitions, **batch, compilation=compilation
-        )
+        if isinstance(program, list):
+            batched_exes = program
+        else:
+            batched_exes = self.batch_program(
+                program, repetitions=repetitions, **batch, compilation=compilation
+            )
 
         label = program.flatten().labels[0] if isinstance(program, Sequence) else None
 
