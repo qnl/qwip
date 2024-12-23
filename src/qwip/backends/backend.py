@@ -50,7 +50,7 @@ class ADCBackend(metaclass=ABCMeta):
 
 @qdefine
 class QuantumBackend(metaclass=ABCMeta):
-    uploaded: QuantumExecutable | None = None
+    uploaded: tuple[QuantumExecutable, ...] = field(factory=tuple)
 
     @abstractmethod
     def upload(self, exe: QuantumExecutable, **kwargs) -> None: ...

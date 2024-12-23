@@ -7,6 +7,7 @@ main user interface for interacting with experimental devices.
 """
 
 from collections import defaultdict
+from collections.abc import Sequence as TSequence
 
 import attrs
 import numpy as np
@@ -39,6 +40,8 @@ from qwip.sequencer.compilation import (
 )
 from qwip.sequencer.phase_tracker import Frame
 from qwip.utils import deprecated
+
+Program = Sequence | QuantumExecutable | Sequence[QuantumExecutable] | None
 
 
 @qdefine
@@ -344,12 +347,30 @@ class QPU:
 
         return batched_exes
 
+    def program_to_exes(
+        self, program: Program, compilation: dict = {}
+    ) -> tuple[QuantumExecutable, ...]:
+        match program:
+            case Sequence(seq):
+                exes = tuple(self.compiler.compile(seq, **compilation))
+            case QuantumExecutable():
+                exes = (program,)
+            case (*exes,):
+                exes = tuple(exes)
+            case None:
+                exes = self.backend.uploaded
+            case _:
+                raise NotImplementedError(
+                    f"Only 'Sequence' and 'CompiledSequence' programs are currently "
+                    f"supported. Got {program}"
+                )
+        return exes
+
     def run(
         self,
         program: Sequence | QuantumExecutable | None,
         processor: type[DataProcessor] | dict[str, type[DataProcessor]] | None = None,
         repetitions: int = 512,
-        batch: dict = {},
         compilation: dict = {},
         backend: dict = {},
         data: dict = {},
@@ -380,58 +401,58 @@ class QPU:
         self.update_frames()
         self.backend.update_parameters(self)
 
-        batched_exes = self.batch_program(
-            program, repetitions=repetitions, **batch, compilation=compilation
-        )
+        exes = self.program_to_exes(program, compilation=compilation)
 
-        label = program.flatten().labels[0] if isinstance(program, Sequence) else None
+        repetition_size = compilation.pop("repetitions_per_batch", repetitions)
+        # label = program.flatten().labels[0] if isinstance(program, Sequence) else None
 
         if self.datastore and save:
             data = dict(config_db=self.db) | data
             dataset = self.datastore.save(**data)
 
         results = defaultdict(list)
-        num_batches = len(batched_exes)
-        for batch_no, batch in enumerate(batched_exes):
-            logger.debug(f"Starting batch {batch_no + 1} of {num_batches}.")
-            exe = batch.exe
-            if batch.upload:
-                self.backend.upload(exe)
+        num_batches = len(exes)
+        last_uploaded = None
+        for rep_idx in np.r_[:repetitions:repetition_size]:
+            for batch_no, exe in enumerate(exes):
+                logger.debug(f"Starting batch {batch_no + 1} of {num_batches}.")
 
-            raw_data = self.backend.acquire(repetitions=batch.repetitions, **backend)
+                if exe is not last_uploaded:
+                    self.backend.upload(exe)
+                exe.repetition_index = rep_idx
+                batch_reps = min(repetitions - rep_idx, repetition_size)
+                raw_data = self.backend.acquire(repetitions=batch_reps, **backend)
 
-            processed = self.process_results(
-                raw_data, BatchReindex, exe=exe, batch=batch
-            )
+                processed = self.process_results(raw_data, None, exe=exe)
 
-            for k, res in processed.items():
-                results[k].append(res)
+                for k, res in processed.items():
+                    results[k].append(res)
 
-            if self.datastore and save:
-                if exe and exe.sequence is None:
-                    data["executable"] = batch.exe
-                elif exe:
-                    data["sequence"] = exe.sequence
+                if self.datastore and save:
+                    if exe and exe.sequence is None:
+                        data["executable"] = exe
+                    elif exe:
+                        data["sequence"] = exe.sequence
 
-                asset_kwargs = dict()
-                if len(batched_exes) > 1:
-                    suffix = f"_t{batch.batch_index[0]}-r{batch.batch_index[1]}"
-                    asset_kwargs["name_fmt"] = "{name}" + suffix
+                    asset_kwargs = dict()
+                    if len(exes) > 1:
+                        suffix = f"_t{batch_no}-r{rep_idx // repetition_size}"
+                        asset_kwargs["name_fmt"] = "{name}" + suffix
 
-                with self.datastore.begin():
-                    assets = self.datastore._make_assets(
-                        self.pipeline.grouped_data(), **asset_kwargs
-                    )
-                    dataset.add(assets)
-                    for asset in assets:
-                        asset.save()
+                    with self.datastore.begin():
+                        assets = self.datastore._make_assets(
+                            self.pipeline.grouped_data(), **asset_kwargs
+                        )
+                        dataset.add(assets)
+                        for asset in assets:
+                            asset.save()
 
         result = {}
         for k, rlist in results.items():
             data = pd.concat([r.d for r in rlist])
             result[k] = attrs.evolve(rlist[0], data=data)
 
-        result = self.process_results(result, processor, label=label)
+        result = self.process_results(result, processor)
 
         if self.datastore and save:
             with self.datastore.begin():
