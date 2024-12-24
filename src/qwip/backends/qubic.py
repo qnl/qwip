@@ -678,8 +678,9 @@ class QubicCompiler(QWiPCompiler):
         batch_size = batch_size or num_timelines
 
         exes = []
-        for tmln_idx in np.r_[:num_timelines:batch_size]:
-            batch_seq = seq.flat[tmln_idx : tmln_idx + batch_size]
+        flattened_seq = seq.flatten()
+        for tmln_idx in range(0, num_timelines, batch_size):
+            batch_seq = flattened_seq[tmln_idx : tmln_idx + batch_size]
             circuit, reads_per_timeline = self.construct_circuit(
                 batch_seq,
                 reset_delay,

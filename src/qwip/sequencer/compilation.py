@@ -659,12 +659,13 @@ class QWiPCompiler:
         num_timelines = len(seq.flat)
         batch_size = batch_size or num_timelines
 
-        for tmln_idx in np.r_[:num_timelines:batch_size]:
+        flattened_seq = seq.flatten()
+        for tmln_idx in range(0, num_timelines, batch_size):
             exe = QWiPExecutable.from_devices(
                 sequence=None, devices=self.devices.values(), timeline_index=tmln_idx
             )
 
-            exe.sequence = batch_seq = seq.flat[tmln_idx : tmln_idx + batch_size]
+            exe.sequence = batch_seq = flattened_seq[tmln_idx : tmln_idx + batch_size]
             for tmln in batch_seq:
                 exe.num_reads.append(0)
                 self.compile_timeline(exe, tmln, substitutions, instruction_cache)

@@ -41,7 +41,23 @@ from qwip.sequencer.compilation import (
 from qwip.sequencer.phase_tracker import Frame
 from qwip.utils import deprecated
 
-Program = Sequence | QuantumExecutable | Sequence[QuantumExecutable] | None
+Program = Sequence | QuantumExecutable | TSequence[QuantumExecutable] | None
+
+
+def get_combined_labels(exes: tuple[QuantumExecutable]) -> pd.Index | None:
+    if not exes:
+        return None
+
+    try:
+        labels = [exe.sequence.flatten().labels[0] for exe in exes]
+    except AttributeError:
+        return None
+
+    label = labels[0]
+    for lb in labels[1:]:
+        label = label.append(lb)
+
+    return label
 
 
 @qdefine
@@ -224,9 +240,7 @@ class QPU:
             if angle := register["classification"]["rotation"]:
                 processors.append(IQRotation(measurement_key=k, angle=angle))
 
-        return ReadoutPipeline(
-            name=readout_config, processors=processors, default_processor=BatchReindex
-        )
+        return ReadoutPipeline(name=readout_config, processors=processors)
 
     def save_pipeline(self):
         with self.db.session.begin():
@@ -351,14 +365,14 @@ class QPU:
         self, program: Program, compilation: dict = {}
     ) -> tuple[QuantumExecutable, ...]:
         match program:
-            case Sequence(seq):
-                exes = tuple(self.compiler.compile(seq, **compilation))
+            case Sequence():
+                exes = tuple(self.compiler.compile(program, **compilation))
             case QuantumExecutable():
                 exes = (program,)
             case (*exes,):
                 exes = tuple(exes)
             case None:
-                exes = self.backend.uploaded
+                exes = (self.backend.uploaded,)
             case _:
                 raise NotImplementedError(
                     f"Only 'Sequence' and 'CompiledSequence' programs are currently "
@@ -404,7 +418,7 @@ class QPU:
         exes = self.program_to_exes(program, compilation=compilation)
 
         repetition_size = compilation.pop("repetitions_per_batch", repetitions)
-        # label = program.flatten().labels[0] if isinstance(program, Sequence) else None
+        label = get_combined_labels(exes)
 
         if self.datastore and save:
             data = dict(config_db=self.db) | data
@@ -412,14 +426,14 @@ class QPU:
 
         results = defaultdict(list)
         num_batches = len(exes)
-        last_uploaded = None
-        for rep_idx in np.r_[:repetitions:repetition_size]:
+        for rep_idx in range(0, repetitions, repetition_size):
             for batch_no, exe in enumerate(exes):
                 logger.debug(f"Starting batch {batch_no + 1} of {num_batches}.")
 
-                if exe is not last_uploaded:
-                    self.backend.upload(exe)
-                exe.repetition_index = rep_idx
+                if rep_idx:
+                    exe = attrs.evolve(exe, repetition_index=rep_idx)
+
+                self.backend.upload(exe)
                 batch_reps = min(repetitions - rep_idx, repetition_size)
                 raw_data = self.backend.acquire(repetitions=batch_reps, **backend)
 
@@ -452,7 +466,7 @@ class QPU:
             data = pd.concat([r.d for r in rlist])
             result[k] = attrs.evolve(rlist[0], data=data)
 
-        result = self.process_results(result, processor)
+        result = self.process_results(result, processor, label=label)
 
         if self.datastore and save:
             with self.datastore.begin():
