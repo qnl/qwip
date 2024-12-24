@@ -609,7 +609,7 @@ class QubicCompiler(QWiPCompiler):
         waveform_cache = {}
 
         reads_per_timeline = []
-        circuit = preamble or []
+        circuit = preamble.copy() or []
         for i, tmln in enumerate(seq.flat):
             instructions, reads = self.compile_timeline(
                 tmln,
@@ -638,6 +638,7 @@ class QubicCompiler(QWiPCompiler):
     def compile(
         self,
         seq: Sequence,
+        batch_size: int | None = None,
         substitutions: dict = {},
         frame_scopes: dict = {},
         proc_grouping: list | None = None,
@@ -654,17 +655,11 @@ class QubicCompiler(QWiPCompiler):
         Returns:
             The resulting compiled `QubicExecutable` that can then be run on hardware.
         """
+
+        # Pre-compilation
         reset_delay = reset_delay or self.reset_delay
         frame_declarations = self.get_frame_declarations(
             frame_scopes or self.frame_scopes
-        )
-
-        circuit, reads_per_timeline = self.construct_circuit(
-            seq,
-            reset_delay,
-            frame_declarations,
-            substitutions,
-            **kwargs,
         )
 
         channel_config = self.get_channel_config()
@@ -678,18 +673,40 @@ class QubicCompiler(QWiPCompiler):
             proc_grouping=proc_grouping,
         )
         passes = kwargs.get("passes", default_passes)
-        qubic_compiler = _QubicInternalCompiler(circuit, proc_grouping=proc_grouping)
-        qubic_compiler.run_ir_passes(passes)
 
-        prog = qubic_compiler.compile()
-        asm = tc.run_assemble_stage(prog, channel_config)
-        return QubicExecutable(
-            sequence=seq,
-            program=prog,
-            assembly=asm,
-            repetition_delay=len(seq.flat) * reset_delay,
-            reads_per_timeline=reads_per_timeline,
-        )
+        num_timelines = len(seq.flat)
+        batch_size = batch_size or num_timelines
+
+        exes = []
+        flattened_seq = seq.flatten()
+        for tmln_idx in range(0, num_timelines, batch_size):
+            batch_seq = flattened_seq[tmln_idx : tmln_idx + batch_size]
+            circuit, reads_per_timeline = self.construct_circuit(
+                batch_seq,
+                reset_delay,
+                frame_declarations,
+                substitutions,
+                **kwargs,
+            )
+
+            qubic_compiler = _QubicInternalCompiler(
+                circuit, proc_grouping=proc_grouping
+            )
+            qubic_compiler.run_ir_passes(passes)
+
+            prog = qubic_compiler.compile()
+            asm = tc.run_assemble_stage(prog, channel_config)
+            exe = QubicExecutable(
+                sequence=batch_seq,
+                timeline_index=tmln_idx,
+                program=prog,
+                assembly=asm,
+                repetition_delay=len(batch_seq) * reset_delay,
+                reads_per_timeline=reads_per_timeline,
+            )
+            exes.append(exe)
+
+        return exes
 
     def get_qchip(self) -> QChip:
         """Returns a Qubic QChip object with the named modulation frequencies.
@@ -811,10 +828,13 @@ class QubicBackend(QuantumBackend):
         )
 
         tmlns = np.r_[
-            tuple(np.repeat(i, n) for i, n in enumerate(exe.reads_per_timeline))
+            tuple(
+                np.repeat(i + exe.timeline_index, n)
+                for i, n in enumerate(exe.reads_per_timeline)
+            )
         ]
         reads = np.r_[tuple(np.arange(n) for n in exe.reads_per_timeline)]
-        shots = np.arange(repetitions)
+        shots = exe.repetition_index + np.arange(repetitions)
 
         index = pd.MultiIndex.from_arrays(
             [

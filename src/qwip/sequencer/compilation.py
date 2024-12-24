@@ -261,6 +261,8 @@ class QuantumExecutable(metaclass=ABCMeta):
     """An abstract base class for hardware-specific executables."""
 
     sequence: Sequence | None = field(eq=id, default=None)
+    timeline_index: int = 0
+    repetition_index: int = 0
 
     @property
     def seq(self) -> Sequence | None:
@@ -634,6 +636,7 @@ class QWiPCompiler:
     def compile(
         self,
         seq: Sequence,
+        batch_size: int | None = None,
         substitutions: dict = {},
     ) -> QWiPExecutable:
         """Compiles a sequence.
@@ -649,21 +652,33 @@ class QWiPCompiler:
         Returns:
             A `QWiPExecutable` instance.
         """
-        exe = QWiPExecutable.from_devices(sequence=seq, devices=self.devices.values())
+        exes = []
 
         instruction_cache = dict()
 
-        for tmln in seq.flat:
-            exe.num_reads.append(0)
-            self.compile_timeline(exe, tmln, substitutions, instruction_cache)
+        num_timelines = len(seq.flat)
+        batch_size = batch_size or num_timelines
 
-        for dev, program in exe.programs.items():
-            if dev in self.subcompilers:
-                exe.programs[dev] = self.subcompilers[dev].compile(
-                    program, device=self.devices[dev]
-                )
+        flattened_seq = seq.flatten()
+        for tmln_idx in range(0, num_timelines, batch_size):
+            exe = QWiPExecutable.from_devices(
+                sequence=None, devices=self.devices.values(), timeline_index=tmln_idx
+            )
 
-        return exe
+            exe.sequence = batch_seq = flattened_seq[tmln_idx : tmln_idx + batch_size]
+            for tmln in batch_seq:
+                exe.num_reads.append(0)
+                self.compile_timeline(exe, tmln, substitutions, instruction_cache)
+
+            for dev, program in exe.programs.items():
+                if dev in self.subcompilers:
+                    exe.programs[dev] = self.subcompilers[dev].compile(
+                        program, device=self.devices[dev]
+                    )
+
+            exes.append(exe)
+
+        return exes
 
 
 register_compiler(QWiPCompiler)

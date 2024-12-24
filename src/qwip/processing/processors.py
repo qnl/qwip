@@ -20,6 +20,7 @@ from qwip.processing.data_processor import (
 )
 from qwip.sequencer.compilation import BatchedExecutable, QuantumExecutable
 from qwip.sequencer.sequence import Sequence
+from qwip.utils import deprecated
 
 M = TypeVar("M", bound=MeasurementResult)
 
@@ -422,7 +423,7 @@ class HeterodyneDemodulation(DataProcessor):
         return {...}
 
 
-@DATA_PROCESSORS.register
+@deprecated(version="24.12.0", removed="25.6.0")
 @qdefine
 class BatchReindex(DataProcessor):
     """A data processor for updating timeline/shot indices based on batch information.
