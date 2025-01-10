@@ -208,7 +208,7 @@ class Database:
             with self.session.begin() as s:
                 yield s
 
-    def connect(self, test: bool = True, timeout: int = 2):
+    def connect(self, test: bool = True, timeout: int = 2, **kwargs):
         """Connect to the database.
 
         Args:
