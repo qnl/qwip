@@ -258,6 +258,7 @@ class OfflineDatastore(Database):
         commit: str | None = None,
         sample_id: str | None = None,
         cooldown_id: str | None = None,
+        protocol: str | None = None,
         comments: str | None = None,
         limit: int = 50,
         offset: int | None = None,
@@ -281,6 +282,7 @@ class OfflineDatastore(Database):
             commit: The configdb commit at the time the dataset was taken.
             sample_id: The sample id associated with the dataset.
             cooldown_id: The cooldown id associated with the dataset.
+            protocol: A measurement protocol name.
             comments: A substring to search for in the comments field of the dataset.
             limit: The maximum number of dataset entries to return.
             offset: The offset number to start searching from. Used for pagination in
