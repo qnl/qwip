@@ -357,7 +357,12 @@ class QubicCompiler(QWiPCompiler):
                     freqname = frame.offset
 
                 instructions.append(
-                    VirtualZ(qubit=qubit, phase=phase * np.pi / 180, freq=freqname)
+                    VirtualZ(
+                        qubit=qubit,
+                        phase=phase * np.pi / 180,
+                        freq=freqname,
+                        scope=wave.channel,
+                    )
                 )
 
             case DCWaveform():
@@ -825,7 +830,7 @@ class QubicBackend(QuantumBackend):
             [exe.assembly],
             repetitions,
             reads_per_shot=exe.total_reads,
-        )
+        )[0]
 
         tmlns = np.r_[
             tuple(
@@ -847,7 +852,9 @@ class QubicBackend(QuantumBackend):
 
         iq_results = {}
         for k, data in result.items():
-            df = pd.DataFrame(data[0].flatten().conj(), index=index, columns=["IQ"])
+            df = pd.DataFrame(
+                np.array(data).flatten().conj(), index=index, columns=["IQ"]
+            )
 
             name = self.result_map.get(k, k)
             iq_results[name] = IQResult(name=name, data=df)
