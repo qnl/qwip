@@ -529,7 +529,7 @@ class DCWaveform(InfiniteWaveform):
     ) -> Figure:
         wave = self.resolve(**variables)
 
-        if isinstance(wave.amplitude, Real):
+        if not isinstance(wave.amplitude, Real):
             raise ValueError(
                 f"Cannot plot DCWaveform with amplitude = {self.ampllitude}"
             )
