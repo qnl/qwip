@@ -258,6 +258,7 @@ class OfflineDatastore(Database):
         commit: str | None = None,
         sample_id: str | None = None,
         cooldown_id: str | None = None,
+        protocol: str | None = None,
         comments: str | None = None,
         limit: int = 50,
         offset: int | None = None,

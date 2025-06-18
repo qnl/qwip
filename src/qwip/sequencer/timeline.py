@@ -743,7 +743,8 @@ class Timeline:
 
         for loc, wave in locations:
             if wave.channel in channel_map:
-                channel_map[wave.channel].append((loc, wave))
+                # channel_map[wave.channel].append((loc, wave))
+                channel_map[wave.channel].append((float(loc), wave))    # Wim diff
 
         return channel_map
 
@@ -963,7 +964,8 @@ class TimelinePlotter:
 
             def get_name(maybe_channel):
                 if maybe_channel:
-                    return maybe_channel.name
+                    # return maybe_channel.name
+                    return maybe_channel    # Wim diff
                 return ""
 
             channels = sorted(channels, key=get_name)
@@ -1009,7 +1011,8 @@ class TimelinePlotter:
                 wave = wave.resolve(**pulse_vars)
                 self.add_waveform_to_axes(wave, loc, ax, **props)
 
-        ax.set_ylabel("\n".join(ch.name for ch in channel_map if ch))
+        # ax.set_ylabel("\n".join(ch.name for ch in channel_map if ch))
+        ax.set_ylabel("\n".join(ch for ch in channel_map if ch))    # Wim diff
 
     def plot(
         self,
@@ -1021,7 +1024,8 @@ class TimelinePlotter:
         fig_props: dict = {},
         pulse_vars: dict = {},
     ) -> Figure:
-        locations = tmln.resolve_locations(**constraints)
+        # locations = tmln.resolve_locations(**constraints)
+        locations = tmln.resolve(**constraints) # Wim diff
         channel_map = Timeline.locations_to_channel_map(locations, *tmln.channels, None)
 
         channels = self.group_channels(channels, channel_map)
@@ -1066,7 +1070,8 @@ class TimelinePlotter:
     def add_waveform_to_axes(
         self, wave: Waveform, loc: Location, ax: Axes, **props
     ) -> None:
-        start, end = loc.offset, loc.offset + wave.width.offset
+        # start, end = loc.offset, loc.offset + wave.width.offset
+        start, end = loc, loc + wave.width # Wim diff
         wfunc = CosineRampWaveform(amplitude=wave.amplitude, width=(end - start))
 
         ts = np.linspace(start, end)
