@@ -648,6 +648,7 @@ class QubicCompiler(QWiPCompiler):
         frame_scopes: dict = {},
         proc_grouping: list | None = None,
         reset_delay: float | None = None,
+        channel_config: QubicChannelConfig | dict = {},
         **kwargs,
     ) -> QubicExecutable:
         """Compiles a sequence to a Qubic executable format.
@@ -667,7 +668,7 @@ class QubicCompiler(QWiPCompiler):
             frame_scopes or self.frame_scopes
         )
 
-        channel_config = self.get_channel_config()
+        channel_config = channel_config or self.get_channel_config()
         proc_grouping = proc_grouping or self.get_proc_grouping()
         qb_grouping = list(it.chain(*proc_grouping))
 
