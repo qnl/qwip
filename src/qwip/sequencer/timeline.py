@@ -1079,7 +1079,8 @@ class TimelinePlotter:
 
     @add_waveform_to_axes.register(Marker)
     def _(self, wave: Waveform, loc: Location, ax: Axes, **props) -> None:
-        start = loc.offset
+        # start = loc.offset    # Wim
+        start = loc             # Wim
         ax.axvline(start, **props)
 
 
