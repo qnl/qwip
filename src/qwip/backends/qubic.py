@@ -172,6 +172,7 @@ class QubicCompiler(QWiPCompiler):
     frame_scopes: dict[str, str] = field(factory=dict)
     reset_delay: float = 500e-6
     start_offset: int = 5
+    rf_mix: bool = False
 
     def envelope_to_pulses(
         self,
@@ -636,7 +637,7 @@ class QubicCompiler(QWiPCompiler):
                 )
 
             circuit.extend(instructions)
-            reads_per_timeline.append(max(reads_per_channel))
+            reads_per_timeline.append(max(reads_per_channel | {0}))
 
         return circuit, reads_per_timeline
 
@@ -674,7 +675,9 @@ class QubicCompiler(QWiPCompiler):
 
         default_passes = get_passes(
             self.fpga_config,
-            compiler_flags=CompilerFlags(schedule=False, resolve_gates=False),
+            compiler_flags=CompilerFlags(
+                schedule=False, resolve_gates=False, multi_board=True
+            ),
             qubit_grouping=qb_grouping,
             proc_grouping=proc_grouping,
         )
@@ -762,7 +765,7 @@ class QubicCompiler(QWiPCompiler):
             sample_rate = devinfo.sample_rate
             env_sample_rate = devinfo.envelope_sample_rate
 
-            board, core, _ = _get_board_and_core(devname)
+            board, core, siggen = _get_board_and_core(devname)
 
             for ch in devinfo.channels:
                 if sample_rate == 0:
@@ -778,7 +781,11 @@ class QubicCompiler(QWiPCompiler):
                     elem_params = dict(
                         samples_per_clk=samples_per_clk, interp_ratio=interp_ratio
                     )
-                    elem_type = "rf"
+
+                    if siggen == "rdlo" and self.rf_mix:
+                        elem_type = "rf_mix"
+                    else:
+                        elem_type = "rf"
 
                     memory = _get_memory_name(ch)
 
