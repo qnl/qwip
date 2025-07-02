@@ -11,6 +11,7 @@ import attrs
 import sympy as sym
 from attrs import field
 from loguru import logger
+from sympy.abc import _clash
 from sympy.parsing.sympy_parser import standard_transformations
 
 import qwip
@@ -75,7 +76,9 @@ def ignore_attribute_access(
 
 
 QWIP_SYMPY_TRANSFORMATIONS = (ignore_attribute_access, *standard_transformations)
-parse_expr = partial(sym.parse_expr, transformations=QWIP_SYMPY_TRANSFORMATIONS)
+parse_expr = partial(
+    sym.parse_expr, transformations=QWIP_SYMPY_TRANSFORMATIONS, local_dict=_clash
+)
 
 # LinearExpression
 
