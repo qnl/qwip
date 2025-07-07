@@ -11,6 +11,7 @@ from numpy.random import default_rng
 from numpy.testing import assert_array_equal
 
 import qwip
+from qwip.attrs import qdefine
 from qwip.flatdict import FlatDict
 from qwip.testing import ignore_order
 from qwip.typing import NDArray
@@ -188,11 +189,9 @@ class TestNumpy:
         np.int16,
         np.int32,
         np.int64,
-        np.float_,
         np.float16,
         np.float32,
         np.float64,
-        np.complex_,
         np.complex64,
         np.complex128,
         np.bool_,

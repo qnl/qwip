@@ -318,7 +318,7 @@ class LinearExpression:
 
         if isinstance(self.offset, str):
             offset = 0
-            return cls(0, frozenset({(self, -1)}))
+            return cls(0, frozenset({(self, -1.0)}))
 
         offset = -self.offset
 

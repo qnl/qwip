@@ -85,7 +85,7 @@ converter.register_structure_hook(GenericAlias, lambda v, cls: locate_cls(v))
 
 def make_forward_ref_structure_fn(cls):
     def forward_ref_structure_fn(obj, cls):
-        cls = cls._evaluate(None, None, set())
+        cls = cls._evaluate(None, None, set(), recursive_guard=set())
         return converter.structure(obj, cls)
 
     return forward_ref_structure_fn
