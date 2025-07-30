@@ -1,11 +1,10 @@
 import itertools as it
-from functools import singledispatchmethod, lru_cache
+from functools import lru_cache, singledispatchmethod
 
 import cirq
-
+from attrs import field
 from loguru import logger
 
-from attrs import field
 from qwip.attrs import qdefine, qfrozen
 from qwip.config.interface import ConfigDB
 from qwip.sequencer import Sequence, Timeline, Waveform
@@ -14,11 +13,11 @@ from qwip.sequencer import Sequence, Timeline, Waveform
 @qdefine
 class CirqTranspiler:
     gate_map: dict = field(factory=dict)
-    
+
     def transpile(self, circuit: cirq.Circuit, clear_cache: bool = True) -> Timeline:
         if clear_cache:
             for mapper in self.gate_map.values():
-                mapper.
+                mapper
 
         layers = []
 
@@ -33,7 +32,7 @@ class CirqTranspiler:
 
             for layer in it.zip_longest(*new_layers):
                 layers.append([o for o in layer if o is not None])
-        
+
         return Timeline.from_layers(layers)
 
     @singledispatchmethod
@@ -43,7 +42,7 @@ class CirqTranspiler:
         logger.debug(f"{m_index} ({type(op)}): {op}")
         return None
 
-    @convert_operation.register(cirq.GateOperation) 
+    @convert_operation.register(cirq.GateOperation)
     def _(self, op: cirq.Operation, m_index: int) -> Timeline | Waveform | None:
         return self.gate_to_pulse(op.gate, tuple(q.col for q in op.qubits))
 
@@ -79,6 +78,7 @@ class CirqTranspiler:
     ) -> Timeline | Waveform | None:
         return readout
 
+
 @qfrozen
 class GateMapper:
     db: ConfigDB = field(eq=id)
@@ -92,7 +92,7 @@ class GateMapper:
             fname = getattr(self, f.name)
             if fname in variables:
                 varmap[fname] = f.name
-        
+
         return self.db.load_pulse(name, variables=varmap)
 
     def transform_variables(self, variables):
@@ -101,7 +101,9 @@ class GateMapper:
     def __call__(self, qubits, **kwargs):
         kwargs = self.transform_variables(kwargs)
 
-        name = self.name.format(*qubits, **{getattr(self, k, k): v for k, v in kwargs.items()})
+        name = self.name.format(
+            *qubits, **{getattr(self, k, k): v for k, v in kwargs.items()}
+        )
         tmln = self.pulse_from_db(name).copy()
         tmln.rename_variables(lambda v: kwargs.get(v, v))
         return tmln
@@ -120,7 +122,8 @@ class PhasedXMapper(GateMapper):
             raise ValueError("Only 90 degree X rotations are allowed.")
 
         return variables
-        
+
+
 @qfrozen
 class iSWAPMapper(GateMapper):
     name: str = "Q{0}_Q{1}_{rotation}"
@@ -133,6 +136,7 @@ class iSWAPMapper(GateMapper):
 
         return variables
 
+
 @qfrozen
 class VirtualZMapper(GateMapper):
     name: str = "mod_Q{0}_{subspace}"
@@ -142,9 +146,9 @@ class VirtualZMapper(GateMapper):
     def __call__(self, qubits, subspace="GE", **kwargs):
         kwargs = kwargs | dict(subspace=subspace)
 
-        frame = self.name.format(*qubits, **{getattr(self, k, k): v for k, v in kwargs.items()})
+        frame = self.name.format(
+            *qubits, **{getattr(self, k, k): v for k, v in kwargs.items()}
+        )
         return VirtualZWaveform(
-            name="Q{0}".format(*qubits), 
-            frame=frame,
-            phase=kwargs.get(self.phase, 0)
+            name="Q{0}".format(*qubits), frame=frame, phase=kwargs.get(self.phase, 0)
         )
