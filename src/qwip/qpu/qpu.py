@@ -330,6 +330,7 @@ class QPU:
                         f"`timelines_per_batch` = {timelines_per_batch} will be ignored."
                     )
 
+                timelines_per_batch = 1
                 exes = [program]
             case None:
                 exes = [self.backend.uploaded]
