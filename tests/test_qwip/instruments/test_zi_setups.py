@@ -3,14 +3,14 @@ import pytest
 """
 _canonical_setup_name = {
     "shfqcsingle"    : "SHFQCSingle",
-        "multiqubitbasic": "MultiQubitBasic",
-            "blizzardpqsc"   : "BlizzardPQSC",
-            }
+    "multiqubitbasic": "MultiQubitBasic",
+    "blizzardpqsc"   : "BlizzardPQSC",
+}
 
 def create_setup(devices: Dict[str, list],
                  exptype: str|None = None,
-                                  server_host: str = "localhost",
-                                                   server_port: int = 8004):
+                 server_host: str = "localhost",
+                 server_port: int = 8004):
 
 """
 
