@@ -191,6 +191,7 @@ class Database:
                     f"Backend {backend} is not supported. Must be mysql or sqlite."
                 )
 
+        connect_args["password"] = "55isIt##"
         engine = sa.create_engine(url, connect_args=connect_args)
 
         match url.get_backend_name():
