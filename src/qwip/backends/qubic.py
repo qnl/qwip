@@ -19,6 +19,7 @@ try:
     from distproc.ir.instructions import BranchFproc, DeclareFreq, Idle, Pulse, VirtualZ
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
+    from distproc.hwconfig import load_channel_configs
 except ImportError as e:
     logger.warning("Unable to import qubic dependencies.")
     raise e
@@ -322,7 +323,7 @@ class QubicCompiler(QWiPCompiler):
         width = _to_python_number(wave.width)
         start = _to_python_number(loc)
         end = start + width
-
+        # print(self.get_channel_info)
         if (ch_info := self.get_channel_info(wave.channel)) is None:
             raise ValueError(f"Channel {wave.channel} is not a valid channel.")
 
@@ -383,12 +384,15 @@ class QubicCompiler(QWiPCompiler):
                 if env in waveform_cache:
                     w_t = waveform_cache[env, int(sample_rate)]
                 else:
-                    N = np.ceil(width * sample_rate).astype(int)
+                    N = np.round(width * sample_rate)
+                    # N = np.ceil(width * sample_rate).astype(int)
+                    # if N%100==1:
+                    #     print('N_o', width * sample_rate)
+                    #     print('N=', N)
                     ts_wave = np.arange(N) / sample_rate
                     w_t = wave(ts_wave, frames=self.frames)
-
                     waveform_cache[env, int(sample_rate)] = w_t
-
+                print(env)
                 if mod.hardware_modulation:
                     if mod.frequency.references:
                         raise ValueError(
@@ -426,6 +430,7 @@ class QubicCompiler(QWiPCompiler):
                     ch_info = self.get_channel_info(wave.channel)
 
                     N = np.ceil(width * sample_rate).astype(int)
+                    # print('N =',N)
                     ts_wave = np.arange(N) / sample_rate
                     w_t = wave(ts_wave, frames=self.frames)
 
@@ -699,9 +704,15 @@ class QubicCompiler(QWiPCompiler):
                 circuit, proc_grouping=proc_grouping
             )
             qubic_compiler.run_ir_passes(passes)
+            #modified on 06/20
+            channel_configs = load_channel_configs(channel_config)
+
 
             prog = qubic_compiler.compile()
-            asm = tc.run_assemble_stage(prog, channel_config)
+            asm = tc.run_assemble_stage(prog, channel_configs)# s added
+            # print(asm.to_dict())
+            # print(prog)
+
             exe = QubicExecutable(
                 sequence=batch_seq,
                 timeline_index=tmln_idx,

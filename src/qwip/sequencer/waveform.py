@@ -284,9 +284,12 @@ class Waveform(Operation):
 
     def __call__(self, ts: np.ndarray, **kwargs) -> np.ndarray:
         kwargs = self._update_fields(**kwargs)
-
+        # ts = np.round(ts, 12)  # Round ts to match time resolution of 0.5 ns
+        # print('ts0 = ', ts)
         try:
             wave = self.evaluate_timepoints(ts.astype(np.float32), **kwargs)
+            # wave = self.evaluate_timepoints(ts.astype(np.float64), **kwargs)
+            # print('wave = ', len(wave))
             return wave
         except TypeError as e:
             variables = set()
@@ -335,6 +338,9 @@ class Waveform(Operation):
             sample_rate = sample_rate or 101 / wave.width
             N = int(sample_rate * wave.width)
             ts = wave.t0 + np.r_[: N + 1] / sample_rate
+            # ts[-1] = np.round(wave.t0 + wave.width, 12)  # Force correct last point
+            # ts = np.round(ts, 12)  # Ensure ts values are rounded for consistency
+            # print('ts1 = ', ts)
 
         if ax is None:
             fig, ax = plt.subplots(**fig_kwargs)
@@ -348,9 +354,37 @@ class Waveform(Operation):
 
         return fig
 
+    def wave_data(
+        self,
+        *,
+        ts: np.ndarray | None = None,
+        variables: dict[str, float] = {},
+        sample_rate: float | None = None,
+    ) -> Figure:
+        wave = self.resolve(**variables)
+
+        if wvars := wave.variables():
+            raise ValueError(
+                f"Cannot plot wave without concrete values for: {", ".join(wvars)}"
+            )
+
+        if ts is None:
+            sample_rate = sample_rate or 101 / wave.width
+            N = int(sample_rate * wave.width)
+            ts = wave.t0 + np.r_[: N + 1] / sample_rate
+            # ts[-1] = np.round(wave.t0 + wave.width, 12)  # Force correct last point
+            # ts = np.round(ts, 12)  # Ensure ts values are rounded for consistency
+            # print('ts1 = ', ts)
+
+        w_t = wave(ts)
+
+        return ts, w_t
+
     def fft(
         self, ts: np.ndarray, variables: dict[str, float] = {}
     ) -> tuple[np.ndarray, np.ndarray]:
+        # ts = np.round(ts, 12)  # Round ts to match time resolution of 0.5 ns
+        # print('ts2 = ', len(ts))
         wave = self(ts, **variables)
 
         if len(wave.shape) > 1 and wave.shape[0] == 2:
@@ -764,6 +798,246 @@ class SquareWaveform(BasicWaveform):
 
         return wave
 
+@register_operation
+@qfrozen
+class ConstantWaveform(BasicWaveform):
+    def evaluate_timepoints(
+        self,
+        ts: np.ndarray,
+        width: float,
+        amplitude: float,
+        phase: float,
+        t0: float,
+        **kwargs,
+    ) -> np.ndarray:
+        """Square waveform.
+
+        Args:
+            ts: Time values at which to evaluate the pulse.
+            width: The width of the square pulse.
+            amplitude: The amplitude of the pulse.
+            phase: The phase of the pulse.
+            t0: The starting time of the pulse.
+
+        Returns:
+            A ndarray containing the function w(t) evaluated at the specified
+            times.
+        """
+        ts = ts - t0
+        rphi = amplitude * np.exp(1j * phase * np.pi / 180)
+        wave = rphi * ((ts >= 0) & (ts <= width)).astype(np.complex64)
+        if wave[-1] == 0 and wave[-2]!= 0:
+            wave[-1] = wave[-2] # Handle rounding issue where last point is just barely outside the width due to floating point precision
+        if wave[0] == 0 and wave[1]!= 0:
+            wave[0] = wave[1] # Handle rounding issue where first point is just barely outside the width due to floating point precision
+
+        return wave
+
+
+@register_operation
+@qfrozen
+class FrequencyModulationWaveform(BasicWaveform):
+    peak_detuning: NumberOrExpression = 0
+    def evaluate_timepoints(
+            self,
+            ts: np.ndarray,
+            width: float,
+            amplitude: float,
+            peak_detuning: float,
+            phase: float,
+            t0: float,
+            **kwargs,
+        ) -> np.ndarray:
+        '''
+            frequency modulation used for kerr cat X pi/2 gate
+
+        '''
+
+        ts = ts - t0
+        T = width
+        t_split = T / 3
+        sigma = T / 4
+
+        left = (ts <= t_split) & (ts >= 0)
+        right = (ts > t_split) & (ts <= width)
+
+        # precompute normalization
+        f_mod_norm_factor = np.exp(-0.5 * (T - t_split)**2 / sigma**2)
+
+        # build shape function
+        f_mod = np.zeros_like(ts, dtype=float)
+
+        # 2. region masks (no indexing dependency)
+        left = ts <= t_split
+        right = (ts > t_split) & (ts <= width)
+
+        # 3. left side: sinusoidal ramp
+        f_mod[left] = np.sin((np.pi / 2) * (ts[left] / t_split))
+
+        # 4. right side: gaussian decay
+        raw = np.exp(-0.5 * (ts[right] - t_split)**2 / sigma**2)
+
+        f_mod[right] = (raw - f_mod_norm_factor) / (1 - f_mod_norm_factor)
+        # instantaneous frequency
+        f = peak_detuning * f_mod
+        
+        phi = 2 * np.pi * ts * f + phase
+
+        wave = amplitude * np.exp(1j * phi)
+
+        if wave[-1] == 0 and wave[-2]!= 0:
+            wave[-1] = wave[-2] # Handle rounding issue where last point is just barely outside the width due to floating point precision
+        if wave[0] == 0 and wave[1]!= 0:
+            wave[0] = wave[1] # Handle rounding issue where first point is just barely outside the width due to floating point precision
+        return wave
+
+
+@register_operation
+@qfrozen
+class CosineRampUpSharpDownWaveform(BasicWaveform):
+    ramp: NumberOrExpression | None = None
+    ramp_fraction: NumberOrExpression | None = field(
+        default=0.1, validator=[validators.le(0.5), validators.gt(0)]
+    )
+
+    def evaluate_timepoints(
+        self,
+        ts: np.ndarray,
+        width: float,
+        amplitude: float,
+        phase: float,
+        t0: float,
+        ramp: float = None,
+        ramp_fraction: float = 0.1,
+        **kwargs,
+    ) -> np.ndarray:
+        """Square pulse with cosine ramps.
+
+        Args:
+            ts: Time values at which to evaluate the pulse.
+            width: The total width of the cosine ramp pulse, including ramp times.
+            amplitude: The amplitude of the pulse.
+            phase: The phase of the pulse.
+            t0: The starting time of the pulse.
+            ramp: The ramp fraction. The pulse will be smoothly varied from 0 to
+                amplitude and vice versa over a time (width * ramp) at the
+                beginning and end of the pulse.
+
+        Returns:
+            A ndarray containing the function w(t) evaluated at the specifieds
+            times.
+        """
+        # print('ts1 =',ts)
+        ts = ts - t0
+        # print('ts2 =',ts)
+        ts = np.round(ts, 12)        
+        width = np.round(width, 11)
+
+        if ramp is not None:
+            rlen = min(ramp, 0.5 * width)
+        elif ramp_fraction is not None:
+            rlen = ramp_fraction * width
+        else:
+            raise ValueError("One of ramp or ramp_fraction must be specified!")
+        wave = np.zeros_like(ts, dtype=np.complex64)
+              
+        # print(t0)
+        rphi = amplitude * np.exp(1j * phase * np.pi / 180)
+
+        ramp_up = (0 <= ts) & (ts < rlen)
+        wave[ramp_up] = 0.5 * rphi * (1 - np.cos(np.pi / rlen * ts[ramp_up]))
+
+        const = (rlen <= ts) & (ts <= width)
+        wave[const] = rphi
+
+        if wave[-1] == 0 and wave[-2]!= 0:
+            wave[-1] = wave[-2] # Handle rounding issue where last point is just barely outside the width due to floating point precision
+
+        return wave
+
+@register_operation
+@qfrozen
+class CosineRampDownSharpUpWaveform(BasicWaveform):
+    ramp: NumberOrExpression | None = None
+    ramp_fraction: NumberOrExpression | None = field(
+        default=0.1, validator=[validators.le(0.5), validators.gt(0)]
+    )
+
+    def evaluate_timepoints(
+        self,
+        ts: np.ndarray,
+        width: float,
+        amplitude: float,
+        phase: float,
+        t0: float,
+        ramp: float = None,
+        ramp_fraction: float = 0.1,
+        **kwargs,
+    ) -> np.ndarray:
+        """Square pulse with cosine ramps.
+
+        Args:
+            ts: Time values at which to evaluate the pulse.
+            width: The total width of the cosine ramp pulse, including ramp times.
+            amplitude: The amplitude of the pulse.
+            phase: The phase of the pulse.
+            t0: The starting time of the pulse.
+            ramp: The ramp fraction. The pulse will be smoothly varied from 0 to
+                amplitude and vice versa over a time (width * ramp) at the
+                beginning and end of the pulse.
+
+        Returns:
+            A ndarray containing the function w(t) evaluated at the specifieds
+            times.
+        """
+        # print('ts1 =',ts)
+        ts = ts - t0
+        # print('ts2 =',ts)
+        ts = np.round(ts, 12)        
+        width = np.round(width, 11)
+
+        if ramp is not None:
+            rlen = min(ramp, 0.5 * width)
+        elif ramp_fraction is not None:
+            rlen = ramp_fraction * width
+        else:
+            raise ValueError("One of ramp or ramp_fraction must be specified!")
+        wave = np.zeros_like(ts, dtype=np.complex64)
+              
+        # print(t0)
+        rphi = amplitude * np.exp(1j * phase * np.pi / 180)
+
+        ramp_up = (0 <= ts) & (ts < rlen)
+        wave[ramp_up] = 0.5 * rphi * (1 - np.cos(np.pi / rlen * ts[ramp_up]))
+
+        const = (rlen <= ts) & (ts < width - rlen)
+        wave[const] = rphi
+
+        #ramp_down = (width - rlen <= ts+1e-12) & (ts <= width + 1e-12)
+        #Modified to match the lens alignment by ke wang
+        ramp_down = ramp_up[::-1]
+
+        # print('ramp_up=',sum(ramp_up))
+        # print('ramp_down=',sum(ramp_down))
+        # print('ramp_up_len=',len(ramp_up))
+        # print('ramp_down_len=',len(ramp_down))
+
+        # print(sum(ramp_down))
+        # if sum(ramp_down)%100 == 1:
+        #     print(sum(ramp_down),'w=',width,'r=',rlen, 'lens of ts=',len(ts),'ts=',ts)
+        # if sum(ramp_down) == 2000:
+        #     print('2000','w=',width,'r=',rlen, 'lens of ts=',len(ts),'ts=',ts)
+
+        wave[ramp_down] = (
+            # 0.5 * rphi * (1 + np.cos(np.pi / rlen * (ts[ramp_down] - width + rlen)))   
+            # Ke and Bingcheng changed this to use ramp_up timing coordinate to deal with the rounding issue
+            # 0.5 * rphi * (1 + np.cos(np.pi / rlen * ts[ramp_up]))
+            wave[ramp_up][::-1]
+        )
+
+        wave[ramp_up] = rphi # Make the ramp up sharp, for it to be the same as the amplitude. 
+
+        return wave
 
 @register_operation
 @qfrozen
@@ -840,19 +1114,24 @@ class CosineRampWaveform(BasicWaveform):
                 beginning and end of the pulse.
 
         Returns:
-            A ndarray containing the function w(t) evaluated at the specified
+            A ndarray containing the function w(t) evaluated at the specifieds
             times.
         """
+        # print('ts1 =',ts)
         ts = ts - t0
+        # print('ts2 =',ts)
+        ts = np.round(ts, 12)        
+        width = np.round(width, 11)
+
         if ramp is not None:
             rlen = min(ramp, 0.5 * width)
         elif ramp_fraction is not None:
             rlen = ramp_fraction * width
         else:
             raise ValueError("One of ramp or ramp_fraction must be specified!")
-
         wave = np.zeros_like(ts, dtype=np.complex64)
-
+              
+        # print(t0)
         rphi = amplitude * np.exp(1j * phase * np.pi / 180)
 
         ramp_up = (0 <= ts) & (ts < rlen)
@@ -861,10 +1140,28 @@ class CosineRampWaveform(BasicWaveform):
         const = (rlen <= ts) & (ts < width - rlen)
         wave[const] = rphi
 
-        ramp_down = (width - rlen <= ts) & (ts < width)
+        #ramp_down = (width - rlen <= ts+1e-12) & (ts <= width + 1e-12)
+        #Modified to match the lens alignment by ke wang
+        ramp_down = ramp_up[::-1]
+
+        # print('ramp_up=',sum(ramp_up))
+        # print('ramp_down=',sum(ramp_down))
+        # print('ramp_up_len=',len(ramp_up))
+        # print('ramp_down_len=',len(ramp_down))
+
+        # print(sum(ramp_down))
+        # if sum(ramp_down)%100 == 1:
+        #     print(sum(ramp_down),'w=',width,'r=',rlen, 'lens of ts=',len(ts),'ts=',ts)
+        # if sum(ramp_down) == 2000:
+        #     print('2000','w=',width,'r=',rlen, 'lens of ts=',len(ts),'ts=',ts)
+
         wave[ramp_down] = (
-            0.5 * rphi * (1 + np.cos(np.pi / rlen * (ts[ramp_down] - width + rlen)))
+            # 0.5 * rphi * (1 + np.cos(np.pi / rlen * (ts[ramp_down] - width + rlen)))   
+            # Ke and Bingcheng changed this to use ramp_up timing coordinate to deal with the rounding issue
+            # 0.5 * rphi * (1 + np.cos(np.pi / rlen * ts[ramp_up]))
+            wave[ramp_up][::-1]
         )
+
 
         return wave
 
@@ -1004,6 +1301,10 @@ __all__ = [
     "SquareWaveform",
     "GaussianWaveform",
     "CosineRampWaveform",
+    "CosineRampUpSharpDownWaveform",
+    "CosineRampDownSharpUpWaveform",
+    "FrequencyModulationWaveform",
+    "ConstantWaveform",
     "PhaseResetWaveform",
     "DRAG",
 ]

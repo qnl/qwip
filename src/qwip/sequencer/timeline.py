@@ -1005,7 +1005,8 @@ class TimelinePlotter:
                 props = dict(
                     color=f"C{pulses[wave]}",
                     label=label,
-                    alpha=0.5,
+                    alpha=0.8,
+                    marker = 'o'
                 )
 
                 wave = wave.resolve(**pulse_vars)
@@ -1061,10 +1062,21 @@ class TimelinePlotter:
             borderaxespad=0,
         )
 
-        axes[0].set_ylim(0, 1)
+        axes[0].set_ylim(None, 1)
         axes[-1].set_xlabel("Time (s)")
 
         return fig
+
+    # @singledispatchmethod
+    # def add_waveform_to_axes(
+    #     self, wave: Waveform, loc: Location, ax: Axes, **props
+    # ) -> None:
+    #     # start, end = loc.offset, loc.offset + wave.width.offset
+    #     start, end = loc, loc + wave.width # Wim diff
+    #     wfunc = CosineRampWaveform(amplitude=wave.amplitude, width=(end - start))
+
+    #     ts = np.linspace(start, end)
+    #     ax.fill_between(ts, y1=wfunc(ts, t0=start), **props)
 
     @singledispatchmethod
     def add_waveform_to_axes(
@@ -1072,15 +1084,18 @@ class TimelinePlotter:
     ) -> None:
         # start, end = loc.offset, loc.offset + wave.width.offset
         start, end = loc, loc + wave.width # Wim diff
-        wfunc = CosineRampWaveform(amplitude=wave.amplitude, width=(end - start))
+        ts, w_data = wave.wave_data()
+        ts = ts + start
 
-        ts = np.linspace(start, end)
-        ax.fill_between(ts, y1=wfunc(ts, t0=start), **props)
+        # ts = np.linspace(start, end)
+        ax.plot(ts, w_data.real*wave.amplitude, linewidth = 1.5, **props)
+
 
     @add_waveform_to_axes.register(Marker)
     def _(self, wave: Waveform, loc: Location, ax: Axes, **props) -> None:
         start = loc.offset
         ax.axvline(start, **props)
+
 
 
 __all__ = ["Timeline", "TimelinePlotter"]

@@ -367,6 +367,7 @@ class QPU:
         match program:
             case Sequence():
                 exes = tuple(self.compiler.compile(program, **compilation))
+
             case QuantumExecutable():
                 exes = (program,)
             case (*exes,):

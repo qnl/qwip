@@ -595,7 +595,10 @@ class GMMClassification(DataProcessor):
         model.means_init = kwargs.get("init_means", self.means)
         model.fit(IQ.reshape(-1, 2))
 
-        return model.means_, model.covariances_
+        self.means = model.means_
+        self.covariances = model.covariances_
+
+        return self.means, self.covariances
 
     def run(self, result: IQResult, **kwargs) -> ClassifiedResult:
         """Classifies IQData according to the GMM model.

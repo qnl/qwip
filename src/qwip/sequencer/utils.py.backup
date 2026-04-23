@@ -614,13 +614,6 @@ qwip.converter.register_unstructure_hook_factory(
 
 # ========== Sympy Expression converters ========== #
 
-def _extract_value_from_numpy_string(s):
-    """Extract the actual value from numpy type strings like 'np.float64(2e-08)'"""
-    import re
-    match = re.match(r'np\.\w+\(([^)]+)\)', s)
-    if match:
-        return match.group(1)
-    return s
 
 def structure_sympy_expression(obj, cls):
     match obj:
@@ -635,17 +628,8 @@ def structure_sympy_expression(obj, cls):
             return parse_expr(str(obj))
         case str():
             return parse_expr(obj)
-            # # Handle numpy type strings like 'np.float64(2e-08)'
-            # if obj.startswith('np.'):
-            #     value_str = _extract_value_from_numpy_string(obj)
-            #     try:
-            #         return sym.Float(float(value_str))
-            #     except Exception:
-            #         return parse_expr(value_str)
-            # else:
-            #     return parse_expr(obj)
-    return obj
 
+    return obj
 
 
 def unstructure_sympy_expression(obj):

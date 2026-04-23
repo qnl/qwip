@@ -505,33 +505,6 @@ class Sequence(np.ndarray):
             #    print(f"{k}1: {v} ({type(v)})")
 
             update = excluded_params | update
-
-
-            # # DEBUG: Print all values and their types before substitution
-            # print("=== Sequence.product DEBUG ===")
-            # print(f"Processing index: {idx}")
-            # for k, v in update.items():
-            #     print(f"  {k}: {v} (type: {type(v)})")
-            #     # Check for problematic numpy string representations
-            #     if isinstance(v, str) and v.startswith('np.'):
-            #         print(f"    WARNING: Found numpy string: {v}")
-            # print('=== End DEBUG ===')
-
-
-            # Sanitize values: cast np.float64, np.int64, etc. to native Python types
-            # for k, v in update.items():
-            #     if isinstance(v, (np.generic, np.ndarray)):
-            #         update[k] = v.item()  # Convert np.float64 -> float
-            #     elif isinstance(v, list) and v and isinstance(v[0], np.generic):
-            #         update[k] = [x.item() for x in v]
-            #     elif isinstance(v, str) and v.startswith('np.'):
-            #         # Handle numpy string representations
-            #         import re
-            #         match = re.match(r'np\.\w+\(([^)]+)\)', v)
-            #         if match:
-            #             update[k] = float(match.group(1))
-
-
             seq[idx] = new_tmln.substitute(**update)
 
         return seq
@@ -894,6 +867,3 @@ qwip.converter.register_unstructure_hook_factory(
 
 
 __all__ = ["Sequence"]
-
-
-
