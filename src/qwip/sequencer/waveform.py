@@ -253,6 +253,31 @@ class BranchOperation(TimedOperation):
     )
 
 
+@register_operation
+@qfrozen
+class ResetOperation(TimedOperation):
+    """High-level active-reset gate.
+
+    Lowered by hardware backends into a sequence of measurement +
+    measurement-conditioned X pulses. `channel` must be the readout
+    acquisition channel (e.g. ``Q1.rdlo``); its ``ChannelInfo.index``
+    becomes the FPROC ``func_id`` that the conditional branch reads.
+
+    When ``measure_first`` is False, the first round skips its measurement
+    and reuses the discrimination result latched by an earlier measurement
+    in the parent timeline.
+    """
+
+    measurement: "qwip.sequencer.timeline.Timeline | None" = field(
+        default=None, eq=id, metadata=dict(allow_override=False)
+    )
+    x_pulse: "qwip.sequencer.timeline.Timeline | None" = field(
+        default=None, eq=id, metadata=dict(allow_override=False)
+    )
+    n_resets: int = field(default=2, metadata=dict(allow_override=False))
+    measure_first: bool = field(default=True, metadata=dict(allow_override=False))
+
+
 @qfrozen
 class Waveform(Operation):
     def _update_fields(self, **kwargs) -> dict[str, Number]:
@@ -992,6 +1017,7 @@ __all__ = [
     "Waveform",
     "BasicWaveform",
     "BranchOperation",
+    "ResetOperation",
     "ConvolvedWaveform",
     "InfiniteWaveform",
     "Marker",

@@ -43,6 +43,7 @@ from qwip.sequencer.waveform import (
     Marker,
     ModulatedWaveform,
     Operation,
+    ResetOperation,
     VirtualZWaveform,
     Waveform,
 )
@@ -170,7 +171,6 @@ class QubicCompiler(QWiPCompiler):
 
     fpga_config: FPGAConfig = field(factory=FPGAConfig)
     frame_scopes: dict[str, str] = field(factory=dict)
-    reset_delay: float = 500e-6
     start_offset: int = 5
     rf_mix: bool = False
 
@@ -480,6 +480,36 @@ class QubicCompiler(QWiPCompiler):
 
                 instructions.extend([idle, branch])
 
+            case ResetOperation():
+                # Cancel the spurious +1 from the read-channel check above; the
+                # measurements happen inside the expanded sub-timeline and any
+                # user-visible read accounting belongs to the outer measurement
+                # at the end of the parent timeline (matches BranchOperation).
+                reads[wave.channel] -= 1
+
+                layers = []
+                for n in range(wave.n_resets):
+                    if n > 0 or wave.measure_first:
+                        layers.append(wave.measurement)
+                    layers.append(
+                        BranchOperation(
+                            name=f"{wave.name}_branch{n}",
+                            channel=wave.channel,
+                            left=wave.x_pulse,
+                            right=None,
+                            width=wave.x_pulse.width,
+                        )
+                    )
+                expanded = Timeline.from_layers(layers)
+                sub_ins, _ = self.compile_timeline(
+                    expanded,
+                    waveform_cache=waveform_cache,
+                    t0=start_cycle,
+                    reset_delay=np.inf,
+                    zero_dc=False,
+                )
+                instructions.extend(sub_ins)
+
         return instructions
 
     def compile_timeline(
@@ -509,13 +539,6 @@ class QubicCompiler(QWiPCompiler):
             channel.
         """
         tmln.resolve(inplace=True, sort=_sort_virtual_z, **substitutions)
-
-        t_end = _to_python_number(tmln.width)
-        if t_end > reset_delay:
-            raise ValueError(
-                f"Timeline length {t_end} is greater than reset delay "
-                f"{reset_delay}."
-            )
 
         phase_tracker = self.compile_phases(tmln)
 
@@ -591,55 +614,62 @@ class QubicCompiler(QWiPCompiler):
         preamble: list = [],
         substitutions: dict = {},
         **kwargs,
-    ) -> tuple[list, list[int]]:
+    ) -> tuple[list, list[int], float]:
         """Constructs a Qubic instruction list from a sequence.
 
-        This method makes a pass through the sequence, compiling each pulse timeline
-        to a list of qubic instructions. These instruction lists are then concatenated
-        with a specified reset delay in between. The number of reads per timeline is
-        also returned.
+        Timelines are packed back-to-back: each timeline's slot is `max(width,
+        reset_delay)` cycles, and the next timeline starts immediately after.
+        This means short timelines no longer have to share the longest timeline's
+        slot size — useful for swept experiments where the timeline duration
+        varies dramatically across sweep points.
 
         Args:
             seq: The sequence to compile into a circuit.
-            reset_delay: The delay time in seconds between the start times of
-                consecutive timelines.
-            location_kwargs: Any extra constraints to pass to the location resolver.
-            pulse_kwargs: Any extra constraints to pass to waveforms when resolving them
-                into timepoints.
+            reset_delay: The minimum per-shot period in seconds. Each timeline's
+                slot is `max(timeline.width, reset_delay)`. Pass 0 for tight
+                packing (e.g. when each timeline already includes its own active
+                reset). Pass a positive value to enforce passive-decay headroom
+                (e.g. `5*T1`) without manually computing it.
+            preamble: Instructions to prepend to the circuit.
+            substitutions: Variable substitutions passed to timeline resolution.
             **kwargs: Additional keyword arguments are passed to the `compile_timeline`
                 method.
 
         Returns:
-            A tuple `(circuit, reads_per_timeline)`.
+            A tuple `(circuit, reads_per_timeline, total_duration)` where
+            `total_duration` is the sum of all timeline slots in seconds.
         """
         waveform_cache = {}
 
         reads_per_timeline = []
         circuit = preamble.copy() or []
-        for i, tmln in enumerate(seq.flat):
+        clk = self.fpga_config.fpga_clk_period
+        t0_cycles = self.start_offset
+        for tmln in seq.flat:
             instructions, reads = self.compile_timeline(
                 tmln,
                 substitutions,
                 waveform_cache=waveform_cache,
-                t0=self.start_offset
-                + int(
-                    np.round((i + 1) * reset_delay / self.fpga_config.fpga_clk_period)
-                ),
-                reset_delay=reset_delay,
+                t0=t0_cycles,
+                reset_delay=np.inf,
                 **kwargs,
             )
+
+            slot = max(_to_python_number(tmln.width), reset_delay)
+            t0_cycles += int(np.round(slot / clk))
 
             reads_per_channel = set(cts[1] for cts in reads.most_common())
             if len(reads_per_channel) > 1:
                 logger.warning(
-                    f"Timeline {i} has an unequal number of reads accross channels. "
-                    f"{reads}"
+                    f"Timeline {len(reads_per_timeline)} has an unequal number of "
+                    f"reads accross channels. {reads}"
                 )
 
             circuit.extend(instructions)
             reads_per_timeline.append(max(reads_per_channel | {0}))
 
-        return circuit, reads_per_timeline
+        total_duration = (t0_cycles - self.start_offset) * clk
+        return circuit, reads_per_timeline, total_duration
 
     def compile(
         self,
@@ -648,7 +678,7 @@ class QubicCompiler(QWiPCompiler):
         substitutions: dict = {},
         frame_scopes: dict = {},
         proc_grouping: list | None = None,
-        reset_delay: float | None = None,
+        reset_delay: float = 0,
         channel_config: QubicChannelConfig | dict = {},
         **kwargs,
     ) -> QubicExecutable:
@@ -656,15 +686,17 @@ class QubicCompiler(QWiPCompiler):
 
         Args:
             seq: The sequence to compile.
-            location_kwargs: A mapping of location variables to concrete values. This is
-                passed to `Timeline.resolve_locations`.
+            reset_delay: Minimum per-shot period in seconds. Each timeline gets
+                a slot of `max(timeline.width, reset_delay)`. Default 0 packs
+                timelines tightly back-to-back — appropriate when each timeline
+                already includes its own active reset. Pass a positive value
+                (e.g. `5*T1`) to leave passive-decay headroom.
 
         Returns:
             The resulting compiled `QubicExecutable` that can then be run on hardware.
         """
 
         # Pre-compilation
-        reset_delay = reset_delay or self.reset_delay
         frame_declarations = self.get_frame_declarations(
             frame_scopes or self.frame_scopes
         )
@@ -688,9 +720,10 @@ class QubicCompiler(QWiPCompiler):
 
         exes = []
         flattened_seq = seq.flatten()
+
         for tmln_idx in range(0, num_timelines, batch_size):
             batch_seq = flattened_seq[tmln_idx : tmln_idx + batch_size]
-            circuit, reads_per_timeline = self.construct_circuit(
+            circuit, reads_per_timeline, batch_duration = self.construct_circuit(
                 batch_seq,
                 reset_delay,
                 frame_declarations,
@@ -710,7 +743,7 @@ class QubicCompiler(QWiPCompiler):
                 timeline_index=tmln_idx,
                 program=prog,
                 assembly=asm,
-                repetition_delay=len(batch_seq) * reset_delay,
+                repetition_delay=batch_duration,
                 reads_per_timeline=reads_per_timeline,
             )
             exes.append(exe)
