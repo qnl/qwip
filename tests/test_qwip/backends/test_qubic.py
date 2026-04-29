@@ -8,7 +8,7 @@ from numpy.testing import assert_almost_equal, assert_equal
 try:
     from distproc.compiler import CompiledProgram
     from distproc.executable import Executable
-    from distproc.ir.instructions import Pulse, VirtualZ
+    from distproc.ir.instructions import BranchFproc, Idle, Pulse, VirtualZ
 
     from qwip.backends.qubic import (
         QubicCompiler,
@@ -26,10 +26,12 @@ from qwip.sequencer import (
     Frame,
     GaussianWaveform,
     ModulatedWaveform,
+    ResetOperation,
     Sequence,
     SquareWaveform,
     Timeline,
     VirtualZWaveform,
+    active_reset,
 )
 from qwip.sequencer.compilation import ChannelInfo, DeviceInfo
 
@@ -413,6 +415,132 @@ class TestQubicCompiler:
 
         assert instructions == expected
         assert reads == Counter({"Q0.rdlo": 1})
+
+    def test_reset_operation_lowering(self, compiler, gates):
+        """A `ResetOperation` lowers to one BranchFproc per round, each conditioned
+        on the rdlo channel's `func_id`, with the X pulse in the `true` arm."""
+
+        class FakeDB:
+            def __init__(self, mapping):
+                self._mapping = mapping
+
+            def load_pulse(self, name):
+                return self._mapping[name].copy()
+
+        db = FakeDB(
+            {"Q0_X90": gates["Q0_X90"], "Q0_measure": gates["Q0_RO"]}
+        )
+        reset = active_reset(db, "Q0", n_resets=2)
+
+        tmln = Timeline()
+        tmln.add(reset)
+        tmln.width = reset.width
+        tmln.resolve()
+
+        instructions, reads = compiler.compile_timeline(
+            tmln, waveform_cache={}, cw_threshold=None
+        )
+
+        branches = [ins for ins in instructions if isinstance(ins, BranchFproc)]
+        assert len(branches) == 2, "expected one BranchFproc per reset round"
+
+        # Q0.rdlo has index=0 in the compiler fixture, so func_id should be 0.
+        for br in branches:
+            assert br.cond_lhs == 1
+            assert br.alu_cond == "eq"
+            assert br.func_id == 0
+            assert br.false == []
+            # `true` arm contains the X180 — at minimum a Pulse on Q0.qdrv.
+            qdrv_pulses_in_true = [
+                ins
+                for ins in br.true
+                if isinstance(ins, Pulse) and ins.dest == "Q0.qdrv"
+            ]
+            assert len(qdrv_pulses_in_true) >= 1
+
+        # Two measurement rounds => two rdlo pulses at the top level.
+        rdlo_pulses = [
+            ins
+            for ins in instructions
+            if isinstance(ins, Pulse) and ins.dest == "Q0.rdlo"
+        ]
+        assert len(rdlo_pulses) == 2
+
+        # The internal measurements should NOT contribute to the user-visible
+        # read counter (matches BranchOperation semantics).
+        assert reads.get("Q0.rdlo", 0) == 0
+
+    def test_reset_operation_measure_first_false(self, compiler, gates):
+        """With `measure_first=False`, the first round skips its measurement,
+        so only n_resets-1 internal measurements are emitted (the first
+        BranchFproc reuses a measurement from the parent timeline)."""
+
+        class FakeDB:
+            def __init__(self, mapping):
+                self._mapping = mapping
+
+            def load_pulse(self, name):
+                return self._mapping[name].copy()
+
+        db = FakeDB(
+            {"Q0_X90": gates["Q0_X90"], "Q0_measure": gates["Q0_RO"]}
+        )
+        reset = active_reset(db, "Q0", n_resets=2, measure_first=False)
+
+        tmln = Timeline()
+        tmln.add(reset)
+        tmln.width = reset.width
+        tmln.resolve()
+
+        instructions, _ = compiler.compile_timeline(
+            tmln, waveform_cache={}, cw_threshold=None
+        )
+
+        branches = [ins for ins in instructions if isinstance(ins, BranchFproc)]
+        rdlo_pulses = [
+            ins
+            for ins in instructions
+            if isinstance(ins, Pulse) and ins.dest == "Q0.rdlo"
+        ]
+        assert len(branches) == 2
+        # n_resets=2, measure_first=False: skip round 0's measurement, keep round 1's.
+        assert len(rdlo_pulses) == 1
+
+    def test_compile_tight_packs_timelines(self, compiler, gates):
+        """With default `reset_delay=0`, timelines pack back-to-back: the batch's
+        total duration is the sum of timeline widths, not n * max."""
+        short = Timeline()
+        short.add(gates["Q0_RO"])
+        short.width = 2.5e-6
+
+        long_ = Timeline()
+        long_.add(gates["Q0_X90"])
+        long_.add(gates["Q0_X90"], gates["Q0_X90"].width)
+        long_.add(gates["Q0_RO"], 2 * gates["Q0_X90"].width)
+        long_.width = 2 * 30e-9 + 2.5e-6
+
+        seq = Sequence([short, long_])
+        exe = compiler.compile(seq, cw_threshold=None)
+
+        # Both timelines in one batch; each gets a slot equal to its own width
+        # (reset_delay=0 imposes no floor). Allow a clk-period of rounding slack.
+        clk = compiler.fpga_config.fpga_clk_period
+        expected = short.width + long_.width
+        assert abs(exe[0].repetition_delay - expected) <= clk
+
+    def test_compile_reset_delay_as_min_period(self, compiler, gates):
+        """An explicit `reset_delay` acts as a floor: any timeline shorter than
+        `reset_delay` gets padded up to it; longer timelines keep their width."""
+        short = Timeline()
+        short.add(gates["Q0_RO"])
+        short.width = 2.5e-6
+
+        seq = Sequence([short, short])
+        exe = compiler.compile(seq, reset_delay=10e-6, cw_threshold=None)
+
+        clk = compiler.fpga_config.fpga_clk_period
+        # Each timeline (2.5us) gets padded to the 10us floor.
+        assert abs(exe[0].repetition_delay - 2 * 10e-6) <= clk
 
     def test_compile(self, compiler, gates):
         pi = Timeline()
