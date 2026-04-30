@@ -507,7 +507,7 @@ class TestQubicCompiler:
         assert len(rdlo_pulses) == 1
 
     def test_compile_tight_packs_timelines(self, compiler, gates):
-        """With default `reset_delay=0`, timelines pack back-to-back: the batch's
+        """With default `reset_delay=None`, timelines pack back-to-back: the batch's
         total duration is the sum of timeline widths, not n * max."""
         short = Timeline()
         short.add(gates["Q0_RO"])
@@ -528,9 +528,8 @@ class TestQubicCompiler:
         expected = short.width + long_.width
         assert abs(exe[0].repetition_delay - expected) <= clk
 
-    def test_compile_reset_delay_as_min_period(self, compiler, gates):
-        """An explicit `reset_delay` acts as a floor: any timeline shorter than
-        `reset_delay` gets padded up to it; longer timelines keep their width."""
+    def test_compile_reset_delay_as_uniform_period(self, compiler, gates):
+        """An explicit `reset_delay` gives every timeline a uniform slot."""
         short = Timeline()
         short.add(gates["Q0_RO"])
         short.width = 2.5e-6
@@ -539,8 +538,18 @@ class TestQubicCompiler:
         exe = compiler.compile(seq, reset_delay=10e-6, cw_threshold=None)
 
         clk = compiler.fpga_config.fpga_clk_period
-        # Each timeline (2.5us) gets padded to the 10us floor.
+        # Each 2.5us timeline gets a 10us slot.
         assert abs(exe[0].repetition_delay - 2 * 10e-6) <= clk
+
+    def test_construct_circuit_reset_delay_too_short_raises(self, compiler, gates):
+        """An explicit `reset_delay` shorter than the longest timeline raises."""
+        long_ = Timeline()
+        long_.add(gates["Q0_RO"])
+        long_.width = 5e-6
+
+        seq = Sequence([long_])
+        with pytest.raises(ValueError, match="reset_delay"):
+            compiler.construct_circuit(seq, reset_delay=1e-6, cw_threshold=None)
 
     def test_compile(self, compiler, gates):
         pi = Timeline()
