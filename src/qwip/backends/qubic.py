@@ -610,26 +610,28 @@ class QubicCompiler(QWiPCompiler):
     def construct_circuit(
         self,
         seq: Sequence,
-        reset_delay: float,
+        reset_delay: float | None,
         preamble: list = [],
         substitutions: dict = {},
         **kwargs,
     ) -> tuple[list, list[int], float]:
         """Constructs a Qubic instruction list from a sequence.
 
-        Timelines are packed back-to-back: each timeline's slot is `max(width,
-        reset_delay)` cycles, and the next timeline starts immediately after.
-        This means short timelines no longer have to share the longest timeline's
-        slot size — useful for swept experiments where the timeline duration
-        varies dramatically across sweep points.
+        Timelines are packed back-to-back: each timeline's slot is its own
+        `width` (when `reset_delay is None`) or `reset_delay` (when an explicit
+        value is given). This means short timelines no longer have to share the
+        longest timeline's slot size — useful for swept experiments where the
+        timeline duration varies dramatically across sweep points.
 
         Args:
             seq: The sequence to compile into a circuit.
-            reset_delay: The minimum per-shot period in seconds. Each timeline's
-                slot is `max(timeline.width, reset_delay)`. Pass 0 for tight
-                packing (e.g. when each timeline already includes its own active
-                reset). Pass a positive value to enforce passive-decay headroom
-                (e.g. `5*T1`) without manually computing it.
+            reset_delay: The per-shot period in seconds. If `None`, each
+                timeline's slot equals its own `width` (tight pack — appropriate
+                when each timeline includes its own active reset, or when the
+                timeline already accounts for passive decay). If a float, every
+                timeline gets a uniform slot of `reset_delay` seconds, and
+                construction raises `ValueError` if any timeline is longer than
+                this value.
             preamble: Instructions to prepend to the circuit.
             substitutions: Variable substitutions passed to timeline resolution.
             **kwargs: Additional keyword arguments are passed to the `compile_timeline`
@@ -639,6 +641,18 @@ class QubicCompiler(QWiPCompiler):
             A tuple `(circuit, reads_per_timeline, total_duration)` where
             `total_duration` is the sum of all timeline slots in seconds.
         """
+        if reset_delay is not None:
+            max_width = max(
+                (_to_python_number(tmln.width) for tmln in seq.flat), default=0
+            )
+            if reset_delay < max_width:
+                raise ValueError(
+                    f"reset_delay ({reset_delay:g} s) is shorter than the longest "
+                    f"timeline width ({max_width:g} s). Pass a larger value, or "
+                    f"pass reset_delay=None to tight-pack timelines using each "
+                    f"timeline's own width."
+                )
+
         waveform_cache = {}
 
         reads_per_timeline = []
@@ -655,7 +669,7 @@ class QubicCompiler(QWiPCompiler):
                 **kwargs,
             )
 
-            slot = max(_to_python_number(tmln.width), reset_delay)
+            slot = reset_delay if reset_delay is not None else _to_python_number(tmln.width)
             t0_cycles += int(np.round(slot / clk))
 
             reads_per_channel = set(cts[1] for cts in reads.most_common())
@@ -678,7 +692,7 @@ class QubicCompiler(QWiPCompiler):
         substitutions: dict = {},
         frame_scopes: dict = {},
         proc_grouping: list | None = None,
-        reset_delay: float = 0,
+        reset_delay: float | None = None,
         channel_config: QubicChannelConfig | dict = {},
         **kwargs,
     ) -> QubicExecutable:
@@ -686,11 +700,13 @@ class QubicCompiler(QWiPCompiler):
 
         Args:
             seq: The sequence to compile.
-            reset_delay: Minimum per-shot period in seconds. Each timeline gets
-                a slot of `max(timeline.width, reset_delay)`. Default 0 packs
-                timelines tightly back-to-back — appropriate when each timeline
-                already includes its own active reset. Pass a positive value
-                (e.g. `5*T1`) to leave passive-decay headroom.
+            reset_delay: Per-shot period in seconds. If `None` (default), each
+                timeline's slot equals its own `width` — appropriate when each
+                timeline already includes its own active reset, or when the
+                timeline already accounts for passive decay. If a float, every
+                timeline gets a uniform slot of `reset_delay` seconds, and
+                compilation raises `ValueError` if any timeline is longer than
+                this value.
 
         Returns:
             The resulting compiled `QubicExecutable` that can then be run on hardware.
