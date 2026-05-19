@@ -643,7 +643,14 @@ class QubicCompiler(QWiPCompiler):
         """
         if reset_delay is not None:
             max_width = max(
-                (_to_python_number(tmln.width) for tmln in seq.flat), default=0
+                (
+                    w
+                    for w in (
+                        _to_python_number(tmln.width) for tmln in seq.flat
+                    )
+                    if w is not None
+                ),
+                default=0,
             )
             if reset_delay < max_width:
                 raise ValueError(
