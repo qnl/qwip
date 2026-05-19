@@ -18,9 +18,9 @@ from qwip._cattr import make_attrs_structure_fn
 from qwip.attrs import qdefine
 from qwip.sequencer.utils import _variable_substitution
 from qwip.sequencer.waveform import (
-    CosineRampWaveform,
     InfiniteWaveform,
     Marker,
+    ModulatedWaveform,
     Operation,
     Waveform,
 )
@@ -743,8 +743,7 @@ class Timeline:
 
         for loc, wave in locations:
             if wave.channel in channel_map:
-                # channel_map[wave.channel].append((loc, wave))
-                channel_map[wave.channel].append((float(loc), wave))    # Wim diff
+                channel_map[wave.channel].append((float(loc), wave))
 
         return channel_map
 
@@ -964,8 +963,7 @@ class TimelinePlotter:
 
             def get_name(maybe_channel):
                 if maybe_channel:
-                    # return maybe_channel.name
-                    return maybe_channel    # Wim diff
+                    return maybe_channel
                 return ""
 
             channels = sorted(channels, key=get_name)
@@ -1011,8 +1009,7 @@ class TimelinePlotter:
                 wave = wave.resolve(**pulse_vars)
                 self.add_waveform_to_axes(wave, loc, ax, **props)
 
-        # ax.set_ylabel("\n".join(ch.name for ch in channel_map if ch))
-        ax.set_ylabel("\n".join(ch for ch in channel_map if ch))    # Wim diff
+        ax.set_ylabel("\n".join(ch for ch in channel_map if ch))
 
     def plot(
         self,
@@ -1024,8 +1021,7 @@ class TimelinePlotter:
         fig_props: dict = {},
         pulse_vars: dict = {},
     ) -> Figure:
-        # locations = tmln.resolve_locations(**constraints)
-        locations = tmln.resolve(**constraints) # Wim diff
+        locations = tmln.resolve(**constraints)
         channel_map = Timeline.locations_to_channel_map(locations, *tmln.channels, None)
 
         channels = self.group_channels(channels, channel_map)
@@ -1061,7 +1057,6 @@ class TimelinePlotter:
             borderaxespad=0,
         )
 
-        axes[0].set_ylim(0, 1)
         axes[-1].set_xlabel("Time (s)")
 
         return fig
@@ -1070,18 +1065,37 @@ class TimelinePlotter:
     def add_waveform_to_axes(
         self, wave: Waveform, loc: Location, ax: Axes, **props
     ) -> None:
-        # start, end = loc.offset, loc.offset + wave.width.offset
-        start, end = loc, loc + wave.width # Wim diff
-        wfunc = CosineRampWaveform(amplitude=wave.amplitude, width=(end - start))
+        width = float(wave.width)
+        if width <= 0 or not np.isfinite(width):
+            return
 
-        ts = np.linspace(start, end)
-        ax.fill_between(ts, y1=wfunc(ts, t0=start), **props)
+        start = float(loc)
+        sample_rate = 101 / width
+        if isinstance(wave, ModulatedWaveform):
+            try:
+                carrier = abs(float(wave.modulation.frequency))
+            except (TypeError, ValueError):
+                carrier = 0
+            if carrier:
+                sample_rate = max(sample_rate, 10 * carrier)
+        N = int(sample_rate * width)
+        ts = start + np.arange(N + 1) / sample_rate
+        w_t = wave(ts, t0=start)
+
+        if np.any(w_t.imag):
+            color = props.pop("color", None)
+            label = props.pop("label", None)
+            alpha = props.pop("alpha", 1.0)
+            ax.plot(ts, w_t.real, color=color, label=label, alpha=alpha, **props)
+            ax.plot(
+                ts, w_t.imag, color=color, alpha=alpha * 0.6, linestyle="--", **props
+            )
+        else:
+            ax.fill_between(ts, y1=w_t.real, **props)
 
     @add_waveform_to_axes.register(Marker)
     def _(self, wave: Waveform, loc: Location, ax: Axes, **props) -> None:
-        # start = loc.offset    # Wim
-        start = loc             # Wim
-        ax.axvline(start, **props)
+        ax.axvline(float(loc), **props)
 
 
 __all__ = ["Timeline", "TimelinePlotter"]
