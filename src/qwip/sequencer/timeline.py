@@ -911,6 +911,7 @@ class TimelinePlotter:
     axsize: tuple[float, float] = (8, 1)
     sort_channels: bool = True
     separate_none: bool = False
+    hide_unused: bool = True
     channel_grouper: Callable[[Self, Collection[str]], list[tuple[str, ...]]] | None = (
         None
     )
@@ -953,10 +954,21 @@ class TimelinePlotter:
         if channels:
             return channels
 
-        if self.channel_grouper:
-            return self.channel_grouper(self, channel_map.keys())
+        keys = channel_map.keys()
+        if self.hide_unused:
+            # Keep channels that carry waveforms. None must survive as long as
+            # it is paired onto every panel (the non-separate case) so
+            # plot_panel can index it.
+            keys = [
+                ch
+                for ch in keys
+                if channel_map[ch] or (ch is None and not self.separate_none)
+            ]
 
-        return self.default_channel_grouper(channel_map.keys())
+        if self.channel_grouper:
+            return self.channel_grouper(self, keys)
+
+        return self.default_channel_grouper(keys)
 
     def default_channel_grouper(self, channels):
         if self.sort_channels:
