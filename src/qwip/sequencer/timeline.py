@@ -3,7 +3,7 @@ from collections.abc import Callable, Collection, Iterable, Iterator
 from copy import copy, deepcopy
 from functools import singledispatchmethod
 from numbers import Real
-from typing import Literal, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -26,6 +26,9 @@ from qwip.sequencer.waveform import (
 )
 from qwip.utils import deprecated
 from qwip.visualization.utils import all_legend_handles_labels
+
+if TYPE_CHECKING:
+    from qwip.sequencer.compilation import QWiPCompiler
 
 Location = sym.Expr
 LocationLike = Location | str | Real
@@ -915,6 +918,7 @@ class TimelinePlotter:
     channel_grouper: Callable[[Self, Collection[str]], list[tuple[str, ...]]] | None = (
         None
     )
+    compiler: "QWiPCompiler | None" = None
 
     def make_axes(
         self,
@@ -1092,7 +1096,8 @@ class TimelinePlotter:
                 sample_rate = max(sample_rate, 10 * carrier)
         N = int(sample_rate * width)
         ts = start + np.arange(N + 1) / sample_rate
-        w_t = wave(ts, t0=start)
+        frames = self.compiler.frames if self.compiler else {}
+        w_t = wave(ts, t0=start, frames=frames)
 
         if np.any(w_t.imag):
             color = props.pop("color", None)
