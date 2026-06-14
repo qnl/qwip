@@ -1,7 +1,34 @@
 """Helpers for constructing measurement-conditioned reset operations."""
 
 from qwip.sequencer.timeline import Timeline
-from qwip.sequencer.waveform import ResetOperation
+from qwip.sequencer.waveform import ResetOperation, VirtualZWaveform
+
+
+def _make_phase_neutral(pulse: Timeline) -> Timeline:
+    """Append compensating virtual-Z markers so ``pulse`` nets zero z-phase.
+
+    The conditional X pulse in active reset is applied on only one branch of a
+    measurement-conditioned fork. Calibrated single-qubit gates carry virtual-Z
+    phase updates (DRAG corrections, frame tracking on ``freq_01``/``freq_12``),
+    so the branch that plays the pulse accumulates z-phase the fall-through
+    branch does not. The downstream (distproc) compiler rejects conditional
+    virtual-Z that isn't bound to a hardware register, raising a phase-mismatch
+    error where the branches merge.
+
+    The pulse only ever fires to drive a (residually excited) qubit back to
+    |0>, after which the frame phase carries no information, so the correct fix
+    is to make the pulse phase-neutral: for every virtual-Z it contains, add an
+    equal-and-opposite marker at the end. Both branches then leave every frame
+    at the same accumulated phase and the merge is consistent.
+    """
+    compensations = [
+        (pulse.width, vz.evolve(phase=-vz.phase))
+        for vz in pulse.operations
+        if isinstance(vz, VirtualZWaveform)
+    ]
+    for loc, vz in compensations:
+        pulse.add(vz, location=loc)
+    return pulse
 
 
 def active_reset(
@@ -31,7 +58,7 @@ def active_reset(
     """
     meas = db.load_pulse(f"{qubit}_measure")
     x90 = db.load_pulse(f"{qubit}_X90")
-    x180 = Timeline.from_layers([x90, x90])
+    x180 = _make_phase_neutral(Timeline.from_layers([x90, x90]))
 
     rdlo_channels = [c for c in meas.channels if c.endswith(".rdlo")]
     if len(rdlo_channels) != 1:
