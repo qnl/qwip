@@ -36,6 +36,7 @@ def active_reset(
     qubit: str,
     n_resets: int = 2,
     measure_first: bool = True,
+    fproc_delay: float = 128e-9,
 ) -> ResetOperation:
     """Build a `ResetOperation` for ``qubit`` from calibrated pulses in ``db``.
 
@@ -52,6 +53,13 @@ def active_reset(
         measure_first: If False, the first round skips its measurement and reuses the
             discrimination result from a measurement that occurred earlier in the parent
             timeline. Useful when chaining reset onto an existing end-of-circuit readout.
+        fproc_delay: Per-round FPROC settling estimate, used *only* to budget the
+            returned operation's ``width`` (the size of its slot in the parent
+            timeline). The actual hardware wait is reserved at compile time by the
+            FPROC Hold the backend inserts before each branch (keyed off the live
+            readout end), so this value does not affect reset correctness; it only
+            needs to be close enough that following operations are not laid out too
+            early. Defaults to ~``fproc_meas_clks`` at the default 2 ns clock.
 
     Returns:
         A `ResetOperation` ready to drop into a `Timeline`.
@@ -75,7 +83,7 @@ def active_reset(
         n_resets=n_resets,
         measure_first=measure_first,
         channel=rdlo,
-        width=n_resets * (meas.width + x180.width),
+        width=n_resets * (meas.width + fproc_delay + x180.width),
     )
 
 
