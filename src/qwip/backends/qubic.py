@@ -172,7 +172,6 @@ class QubicCompiler(QWiPCompiler):
     fpga_config: FPGAConfig = field(factory=FPGAConfig)
     frame_scopes: dict[str, str] = field(factory=dict)
     start_offset: int = 5
-    rf_mix: bool = False
 
     def __attrs_post_init__(self):
         self._register_readout_fproc_channels()
@@ -215,6 +214,7 @@ class QubicCompiler(QWiPCompiler):
         start_cycle,
         sample_rate,
         cw_threshold: int | None = 16,
+        save_result: bool | None = None,
     ):
         """Compiles a single envelope into a list of Qubic pulse instructions.
 
@@ -251,6 +251,7 @@ class QubicCompiler(QWiPCompiler):
                     amp=amplitude,
                     twidth=pulse_width,
                     start_time=start_cycle,
+                    save_result=save_result,
                 )
             ]
 
@@ -293,6 +294,7 @@ class QubicCompiler(QWiPCompiler):
                     amp=amplitude,
                     twidth=(cw_s - prev_cw_e) / sample_rate,
                     start_time=start_cycle + int(prev_cw_e / clock_multiplier),
+                    save_result=save_result,
                 )
                 instructions.append(ins)
 
@@ -304,6 +306,7 @@ class QubicCompiler(QWiPCompiler):
                 amp=amplitude * np.abs(env_amp),
                 twidth=(cw_e - cw_s) / sample_rate,
                 start_time=start_cycle + int(cw_s / clock_multiplier),
+                save_result=save_result,
             )
             instructions.append(ins)
 
@@ -318,6 +321,7 @@ class QubicCompiler(QWiPCompiler):
                 amp=amplitude,
                 twidth=(len(w_t) - prev_cw_e) / sample_rate,
                 start_time=start_cycle + int(prev_cw_e / clock_multiplier),
+                save_result=save_result,
             )
             instructions.append(ins)
 
@@ -331,6 +335,7 @@ class QubicCompiler(QWiPCompiler):
         waveform_cache: dict[tuple[Waveform, int], np.ndarray],
         reads: Counter[str],
         t0: int = 0,
+        _in_reset: bool = False,
         **kwargs,
     ) -> list:
         """Compiles a single waveform into a list of qubic instructions
@@ -359,6 +364,12 @@ class QubicCompiler(QWiPCompiler):
 
         if ch_info.read:
             reads[wave.channel] += 1
+
+        # Active-reset measurements are demodulated for the conditional branch's
+        # discrimination but must not be stored to the acc buffer (the runner would
+        # otherwise misalign its reshape). save_result=False makes the gateware run
+        # the demod without storing the IQ value or advancing the write pointer.
+        save_result = False if (ch_info.read and _in_reset) else None
 
         devinfo = self.devices[ch_info.device]
         dtype = devinfo.dtype
@@ -443,6 +454,7 @@ class QubicCompiler(QWiPCompiler):
                     pulse_width=width,
                     start_cycle=start_cycle,
                     sample_rate=sample_rate,
+                    save_result=save_result,
                     **kwargs,
                 )
                 instructions.extend(ins)
@@ -471,6 +483,7 @@ class QubicCompiler(QWiPCompiler):
                     pulse_width=width,
                     start_cycle=start_cycle,
                     sample_rate=sample_rate,
+                    save_result=save_result,
                     **kwargs,
                 )
                 instructions.extend(ins)
@@ -561,6 +574,7 @@ class QubicCompiler(QWiPCompiler):
                     t0=start_cycle,
                     reset_delay=np.inf,
                     zero_dc=False,
+                    _in_reset=True,
                 )
                 instructions.extend(sub_ins)
 
@@ -575,6 +589,7 @@ class QubicCompiler(QWiPCompiler):
         t0: int = 0,
         reset_delay: float = 0,
         zero_dc: bool = True,
+        _in_reset: bool = False,
         **kwargs,
     ) -> tuple[list, Counter[str]]:
         """Compiles a single pulse timeline.
@@ -607,6 +622,7 @@ class QubicCompiler(QWiPCompiler):
                 waveform_cache=waveform_cache,
                 reads=reads,
                 t0=t0,
+                _in_reset=_in_reset,
                 **kwargs,
             )
 
@@ -893,7 +909,7 @@ class QubicCompiler(QWiPCompiler):
                         samples_per_clk=samples_per_clk, interp_ratio=interp_ratio
                     )
 
-                    if siggen == "rdlo" and self.rf_mix:
+                    if ch.read:
                         elem_type = "rf_mix"
                     else:
                         elem_type = "rf"
