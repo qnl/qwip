@@ -14,9 +14,9 @@ try:
     from distproc.compiler import CompilerFlags, get_passes
     from distproc.executable import Executable
     from distproc.hwconfig import ChannelConfig as QubicChannelConfig
-    from distproc.hwconfig import FPGAConfig
+    from distproc.hwconfig import FPGAConfig, FPROCChannel
     from distproc.ir import passes
-    from distproc.ir.instructions import BranchFproc, DeclareFreq, Idle, Pulse, VirtualZ
+    from distproc.ir.instructions import BranchFproc, DeclareFreq, Pulse, VirtualZ
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
 except ImportError as e:
@@ -173,6 +173,36 @@ class QubicCompiler(QWiPCompiler):
     frame_scopes: dict[str, str] = field(factory=dict)
     start_offset: int = 5
     rf_mix: bool = False
+
+    def __attrs_post_init__(self):
+        self._register_readout_fproc_channels()
+
+    def _register_readout_fproc_channels(self) -> None:
+        """Register an FPROC channel for every readout channel on this device.
+
+        A measurement-conditioned branch reads its discrimination result, and
+        anchors its settling Hold, through an FPROC channel that references the
+        readout channel. distproc's default ``FPGAConfig`` only describes the
+        ``Q{i}.rdlo`` naming convention, so a device that names readout channels
+        differently (e.g. ``CH7.rdlo``) would have no FPROC channel for them.
+        For each readout (``read=True``) channel not already referenced by an
+        existing FPROC channel, add one anchored on that channel.
+        """
+        referenced = {
+            chan_name
+            for fproc in self.fpga_config.fproc_channels.values()
+            for chan_name in fproc.hold_after_chans
+        }
+        for device in self.devices.values():
+            for ch in device.channels:
+                if not ch.read or ch.name in referenced:
+                    continue
+                prefix = ch.name.rsplit(".", 1)[0]
+                self.fpga_config.fproc_channels[f"{prefix}.meas"] = FPROCChannel(
+                    id=(ch.name, "core_ind"),
+                    hold_after_chans=[ch.name],
+                    hold_nclks=self.fpga_config.fproc_meas_clks,
+                )
 
     def envelope_to_pulses(
         self,
@@ -447,38 +477,57 @@ class QubicCompiler(QWiPCompiler):
 
             case BranchOperation():
                 reads[wave.channel] -= 1
-                end_cycle = t0 + int(np.round(end / self.fpga_config.fpga_clk_period))
                 left = wave.left or Timeline(width=0)
                 right = wave.right or Timeline(width=0)
-                idle = Idle(
-                    end_time=start_cycle, scope=list(left.channels | right.channels)
-                )
 
+                # The conditional body plays starting at the branch's own start
+                # (start_cycle). Its real start is then pushed later by the FPROC
+                # Hold inserted below; we don't pre-pad here.
                 left_ins, _ = self.compile_timeline(
                     left,
                     waveform_cache=waveform_cache,
-                    t0=end_cycle,
+                    t0=start_cycle,
                     reset_delay=np.inf,
                     zero_dc=False,
                 )
                 right_ins, _ = self.compile_timeline(
                     right,
                     waveform_cache=waveform_cache,
-                    t0=end_cycle,
+                    t0=start_cycle,
                     reset_delay=np.inf,
                     zero_dc=False,
                 )
 
+                # Find the FPROC channel that reads this readout channel. distproc
+                # uses it to insert a wait (a Hold) before the branch, so the branch
+                # does not run until the measurement has finished and its result is
+                # ready. That wait is measured from the end of the most recent pulse
+                # on the readout channel, so it stays correct even if the measure
+                # pulse's declared width is shorter than its real duration.
+                func_ids = [
+                    name
+                    for name, chan in self.fpga_config.fproc_channels.items()
+                    if wave.channel in chan.hold_after_chans
+                ]
+                if len(func_ids) != 1:
+                    raise ValueError(
+                        f"Expected exactly one FPROC channel referencing "
+                        f"{wave.channel!r} in hold_after_chans, found {sorted(func_ids)}; "
+                        f"cannot compile a measurement-conditioned branch on "
+                        f"{wave.channel!r}. Configured FPROC channels: "
+                        f"{sorted(self.fpga_config.fproc_channels)}"
+                    )
+                func_id = func_ids[0]
+
                 branch = BranchFproc(
                     cond_lhs=1,  # left half plane
                     alu_cond="eq",
-                    func_id=ch_info.index,
+                    func_id=func_id,
                     scope=list(left.channels | right.channels),
                     true=left_ins,
                     false=right_ins,
                 )
-
-                instructions.extend([idle, branch])
+                instructions.append(branch)
 
             case ResetOperation():
                 # Cancel the spurious +1 from the read-channel check above; the
@@ -487,6 +536,11 @@ class QubicCompiler(QWiPCompiler):
                 # at the end of the parent timeline (matches BranchOperation).
                 reads[wave.channel] -= 1
 
+                # The measurement-settling wait between each readout and the
+                # branch that reads its discrimination result is reserved by the
+                # FPROC Hold that distproc inserts (see the BranchOperation case,
+                # which names the "{qubit}.meas" FPROC channel), so no explicit gap
+                # is added here.
                 layers = []
                 for n in range(wave.n_resets):
                     if n > 0 or wave.measure_first:
@@ -730,6 +784,7 @@ class QubicCompiler(QWiPCompiler):
 
         default_passes = get_passes(
             self.fpga_config,
+            qchip=self.get_qchip(),
             compiler_flags=CompilerFlags(
                 schedule=False, resolve_gates=False, multi_board=True
             ),
