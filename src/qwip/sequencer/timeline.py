@@ -776,6 +776,8 @@ class Timeline:
         axes: Collection[Axes] = None,
         fig_props: dict = {},
         pulse_vars: dict = {},
+        compiler: "QWiPCompiler | None" = None,
+        display_dc: bool = False,
     ) -> Figure:
         """Plots the pulse timeline.
 
@@ -798,11 +800,17 @@ class Timeline:
                 used to plot the pulse timeline on an existing figure. If
                 None, a new figure is created.
             fig_props: Optional arguments passed to TimelinePlotter.make_axes
+            compiler: An optional compiler used to resolve modulation frames when
+                rendering waveforms. Required for pulses whose frames are only
+                known to the compiler (e.g. those loaded from a database).
+            display_dc: If True, also show channels that carry only DC/CW
+                offsets (e.g. coupler idle pulses). These are hidden by default
+                since they render as blank panels.
 
         Returns:
             The matplotlib figure containing the plot axes.
         """
-        return TimelinePlotter().plot(
+        return TimelinePlotter(compiler=compiler).plot(
             self,
             channels,
             constraints,
@@ -810,6 +818,7 @@ class Timeline:
             axes,
             fig_props,
             pulse_vars,
+            display_dc=display_dc,
         )
 
     @deprecated(
@@ -914,10 +923,10 @@ class TimelinePlotter:
     axsize: tuple[float, float] = (8, 1)
     sort_channels: bool = True
     separate_none: bool = False
-    hide_unused: bool = True
     channel_grouper: Callable[[Self, Collection[str]], list[tuple[str, ...]]] | None = (
         None
     )
+    channel_labeler: Callable[[str], str] | None = None
     compiler: "QWiPCompiler | None" = None
 
     def make_axes(
@@ -952,22 +961,21 @@ class TimelinePlotter:
         return fig
 
     def group_channels(
-        self, channels: list[tuple[str, ...]] | None, channel_map: TChannelMap
+        self,
+        channels: list[tuple[str, ...]] | None,
+        channel_map: TChannelMap,
+        display_dc: bool = False,
     ) -> list[tuple[str, ...]]:
         # TODO: this can probably be removed since Channels are now just strings.
         if channels:
             return channels
 
         keys = channel_map.keys()
-        if self.hide_unused:
-            # Keep channels that carry waveforms. None must survive as long as
-            # it is paired onto every panel (the non-separate case) so
-            # plot_panel can index it.
-            keys = [
-                ch
-                for ch in keys
-                if channel_map[ch] or (ch is None and not self.separate_none)
-            ]
+        if not display_dc:
+            # Hide channels carrying only DC/CW offsets (e.g. coupler idle
+            # pulses). These have infinite width and render as blank panels, so
+            # they are omitted unless explicitly requested via display_dc.
+            keys = [ch for ch in keys if not self._is_dc_channel(channel_map[ch])]
 
         if self.channel_grouper:
             return self.channel_grouper(self, keys)
@@ -998,6 +1006,7 @@ class TimelinePlotter:
         filter_func: Callable[[Location, Waveform], bool] = None,
         pulses: dict[Waveform, int] | None = None,
         pulse_vars: dict = {},
+        extent: float | None = None,
     ) -> None:
         seen = set()
         for loc_waves in channel_map.values():
@@ -1023,9 +1032,15 @@ class TimelinePlotter:
                 )
 
                 wave = wave.resolve(**pulse_vars)
-                self.add_waveform_to_axes(wave, loc, ax, **props)
+                self.add_waveform_to_axes(wave, loc, ax, extent=extent, **props)
 
-        ax.set_ylabel("\n".join(ch for ch in channel_map if ch))
+        labeler = self.channel_labeler or (lambda ch: ch)
+        ax.set_ylabel(
+            "\n".join(labeler(ch) for ch in channel_map if ch),
+            rotation="horizontal",
+            ha="right",
+            va="center",
+        )
 
     def plot(
         self,
@@ -1036,11 +1051,18 @@ class TimelinePlotter:
         axes: Collection[Axes] = None,
         fig_props: dict = {},
         pulse_vars: dict = {},
+        display_dc: bool = False,
     ) -> Figure:
         locations = tmln.resolve(**constraints)
         channel_map = Timeline.locations_to_channel_map(locations, *tmln.channels, None)
 
-        channels = self.group_channels(channels, channel_map)
+        channels = self.group_channels(channels, channel_map, display_dc)
+
+        # Finite extent of the timeline, used to clip infinite-width (DC/CW)
+        # waveforms so they render as a constant level rather than being skipped.
+        extent = None if tmln.width is None else float(tmln.width)
+        if extent is not None and not np.isfinite(extent):
+            extent = None
 
         if axes is None:
             fig = self.make_axes(len(channels), **fig_props)
@@ -1058,6 +1080,7 @@ class TimelinePlotter:
                 filter_func=filter_func,
                 pulses=pulses,
                 pulse_vars=pulse_vars,
+                extent=extent,
             )
 
         figwidth, _ = fig.get_size_inches()
@@ -1079,7 +1102,12 @@ class TimelinePlotter:
 
     @singledispatchmethod
     def add_waveform_to_axes(
-        self, wave: Waveform, loc: Location, ax: Axes, **props
+        self,
+        wave: Waveform,
+        loc: Location,
+        ax: Axes,
+        extent: float | None = None,
+        **props,
     ) -> None:
         width = float(wave.width)
         if width <= 0 or not np.isfinite(width):
@@ -1110,9 +1138,62 @@ class TimelinePlotter:
         else:
             ax.fill_between(ts, y1=w_t.real, **props)
 
+    @add_waveform_to_axes.register(InfiniteWaveform)
+    def _(
+        self,
+        wave: Waveform,
+        loc: Location,
+        ax: Axes,
+        extent: float | None = None,
+        **props,
+    ) -> None:
+        # DC/CW offsets have no envelope, so draw the held level as a line
+        # (clipped to the timeline extent) rather than a filled envelope.
+        if extent is None:
+            return
+        start = float(loc)
+        width = float(extent) - start
+        if width <= 0:
+            return
+
+        sample_rate = 101 / width
+        try:
+            carrier = abs(float(wave.frequency))
+        except (AttributeError, TypeError, ValueError):
+            carrier = 0
+        if carrier:
+            sample_rate = max(sample_rate, 10 * carrier)
+        N = int(sample_rate * width)
+        ts = start + np.arange(N + 1) / sample_rate
+        frames = self.compiler.frames if self.compiler else {}
+        w_t = wave(ts, t0=start, frames=frames)
+
+        color = props.pop("color", None)
+        label = props.pop("label", None)
+        alpha = props.pop("alpha", 1.0)
+        ax.plot(ts, w_t.real, color=color, label=label, alpha=alpha, **props)
+        if np.any(w_t.imag):
+            ax.plot(
+                ts, w_t.imag, color=color, alpha=alpha * 0.6, linestyle="--", **props
+            )
+
     @add_waveform_to_axes.register(Marker)
-    def _(self, wave: Waveform, loc: Location, ax: Axes, **props) -> None:
+    def _(
+        self,
+        wave: Waveform,
+        loc: Location,
+        ax: Axes,
+        extent: float | None = None,
+        **props,
+    ) -> None:
         ax.axvline(float(loc), **props)
+
+    @staticmethod
+    def _is_dc_channel(loc_waves: list[tuple[Location, Waveform]]) -> bool:
+        """Whether a channel carries only infinite-width (DC/CW) waveforms."""
+        return bool(loc_waves) and all(
+            isinstance(wave, InfiniteWaveform) for _, wave in loc_waves
+        )
 
 
 __all__ = ["Timeline", "TimelinePlotter"]

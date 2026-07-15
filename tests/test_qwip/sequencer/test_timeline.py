@@ -6,7 +6,7 @@ import sympy as sym
 
 import qwip
 from qwip.sequencer.phase_tracker import Frame
-from qwip.sequencer.timeline import Timeline
+from qwip.sequencer.timeline import Timeline, TimelinePlotter
 from qwip.sequencer.utils import Location
 from qwip.sequencer.waveform import (
     CosineRampWaveform,
@@ -700,3 +700,85 @@ class TestTimeline:
     def test_legacy_serialization(self, tmln_dict, tmln):
         structured = qwip.converter.structure(tmln_dict, Timeline)
         assert tmln == structured
+
+
+class TestTimelinePlotter:
+    """A drive pulse, a readout pulse, and a DC (idle) offset channel."""
+
+    def build_timeline(self) -> Timeline:
+        drive = ModulatedWaveform(
+            envelope=CosineRampWaveform(amplitude=0.5, width=30e-9, ramp=5e-9),
+            modulation=CWWaveform(frequency=5e9, channel="CH0.qdrv"),
+        ).resolve()
+        readout = SquareWaveform(amplitude=0.1, width=1e-6, channel="CH0.rdrv")
+        idle = DCWaveform(amplitude=0.05, channel="CH0.dc")
+
+        tmln = Timeline.from_layers([drive, readout])
+        tmln.add(idle, location=0)
+        tmln.resolve()
+        return tmln
+
+    @staticmethod
+    def _ylabels(fig) -> list[str]:
+        return [ax.get_ylabel() for ax in fig.axes]
+
+    @pytest.mark.parametrize(
+        "waves,expect",
+        [
+            # Only DC/CW (infinite-width) content -> DC channel.
+            ([DCWaveform(channel="c")], True),
+            ([CWWaveform(frequency=5e9, channel="c")], True),
+            # A finite-width waveform anywhere -> not a DC channel.
+            ([SquareWaveform(width=1e-9, channel="c")], False),
+            ([DCWaveform(channel="c"), SquareWaveform(width=1e-9, channel="c")], False),
+            # A marker (e.g. virtual Z) is not DC content.
+            ([VirtualZWaveform(frame="f", phase=90, channel="c")], False),
+            # Empty (e.g. the implicit None channel) is not DC.
+            ([], False),
+        ],
+    )
+    def test_is_dc_channel(self, waves, expect):
+        loc_waves = [(0.0, w) for w in waves]
+        assert TimelinePlotter._is_dc_channel(loc_waves) is expect
+
+    def test_display_dc_hidden_by_default(self):
+        fig = TimelinePlotter().plot(self.build_timeline())
+        labels = self._ylabels(fig)
+        assert "CH0.dc" not in labels
+        assert "CH0.qdrv" in labels
+        assert "CH0.rdrv" in labels
+
+    def test_display_dc_shown_when_requested(self):
+        fig = TimelinePlotter().plot(self.build_timeline(), display_dc=True)
+        assert "CH0.dc" in self._ylabels(fig)
+
+    def test_timeline_plot_forwards_display_dc(self):
+        tmln = self.build_timeline()
+        assert "CH0.dc" not in self._ylabels(tmln.plot())
+        assert "CH0.dc" in self._ylabels(tmln.plot(display_dc=True))
+
+    def test_display_dc_renders_level(self):
+        """The DC panel shows the actual offset as a flat line, not a fill."""
+        fig = TimelinePlotter().plot(self.build_timeline(), display_dc=True)
+        dc_ax = next(ax for ax in fig.axes if ax.get_ylabel() == "CH0.dc")
+
+        # A DC offset has no envelope, so it is drawn as a line, not filled.
+        assert dc_ax.lines, "DC channel rendered as a blank panel"
+        assert not dc_ax.collections, "DC channel should not be filled"
+        ys = np.concatenate([line.get_ydata() for line in dc_ax.lines])
+        assert np.allclose(ys, 0.05)
+
+    def test_infinite_waveform_needs_extent(self):
+        """An infinite-width waveform draws only when an extent is supplied."""
+        import matplotlib.pyplot as plt
+
+        plotter = TimelinePlotter()
+        wave = DCWaveform(amplitude=0.05, channel="c")
+
+        _, ax = plt.subplots()
+        plotter.add_waveform_to_axes(wave, 0.0, ax, extent=None)
+        assert not ax.lines  # nothing to clip against -> skipped
+
+        _, ax = plt.subplots()
+        plotter.add_waveform_to_axes(wave, 0.0, ax, extent=1e-6)
+        assert ax.lines  # clipped to [0, extent] and drawn
