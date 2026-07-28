@@ -18,6 +18,8 @@ dependencies = [
     "attrs>=24.2.0",
     "cattrs>=24.1.0",
     "httpx",
+    "ipython",
+    "lbl-qubic",
     "loguru>=0.7.2,<0.8",
     "lmfit",
     "matplotlib",
@@ -51,6 +53,7 @@ dev = [
     "mkdocs-git-authors-plugin",
     "pydantic-settings",
     "pytest",
+    "qcodes",
     "ruff",
     "typer"
 ]
