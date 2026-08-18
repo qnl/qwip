@@ -768,6 +768,52 @@ class TestTimelinePlotter:
         ys = np.concatenate([line.get_ydata() for line in dc_ax.lines])
         assert np.allclose(ys, 0.05)
 
+    def test_square_edges_are_vertical(self):
+        """A square pulse renders flat-topped, not as a ramp one sample wide.
+
+        SquareWaveform is 0 exactly at t0 and t0 + width, so a uniform sampling
+        grid puts its only non-zero samples one full sample inside each edge,
+        and the fill interpolates a visible ramp between them.
+        """
+        import matplotlib.pyplot as plt
+
+        width, start, amplitude = 200e-9, 0.0, 0.3
+        wave = SquareWaveform(amplitude=amplitude, width=width, channel="c")
+
+        _, ax = plt.subplots()
+        TimelinePlotter().add_waveform_to_axes(wave, start, ax)
+
+        (fill,) = ax.collections
+        xy = fill.get_paths()[0].vertices
+        rise = xy[np.argmax(xy[:, 1] >= amplitude), 0] - start
+
+        assert rise < width / 1000, f"square edge ramps over {rise:.3g} s"
+
+    def test_hardware_modulation_uses_modulation_amplitude(self):
+        """A hardware-modulated pulse plots at the amplitude it plays at.
+
+        The carrier (and its amplitude) is applied by the instrument, so the
+        sampled envelope alone is unit-scaled and would otherwise be drawn at
+        full scale regardless of the pulse amplitude.
+        """
+        import matplotlib.pyplot as plt
+
+        wave = ModulatedWaveform(
+            envelope=SquareWaveform(amplitude=1.0, width=100e-9),
+            modulation=CWWaveform(
+                amplitude=0.0625,
+                frequency=100e6,
+                hardware_modulation=True,
+                channel="c",
+            ),
+        ).resolve()
+
+        _, ax = plt.subplots()
+        TimelinePlotter().add_waveform_to_axes(wave, 0.0, ax)
+
+        (fill,) = ax.collections
+        assert np.isclose(fill.get_paths()[0].vertices[:, 1].max(), 0.0625)
+
     def test_infinite_waveform_needs_extent(self):
         """An infinite-width waveform draws only when an extent is supplied."""
         import matplotlib.pyplot as plt

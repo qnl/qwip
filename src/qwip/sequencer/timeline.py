@@ -1114,18 +1114,17 @@ class TimelinePlotter:
             return
 
         start = float(loc)
-        sample_rate = 101 / width
-        if isinstance(wave, ModulatedWaveform):
-            try:
-                carrier = abs(float(wave.modulation.frequency))
-            except (TypeError, ValueError):
-                carrier = 0
-            if carrier:
-                sample_rate = max(sample_rate, 10 * carrier)
-        N = int(sample_rate * width)
-        ts = start + np.arange(N + 1) / sample_rate
         frames = self.compiler.frames if self.compiler else {}
-        w_t = wave(ts, t0=start, frames=frames)
+
+        scale = 1
+        if isinstance(wave, ModulatedWaveform) and wave.modulation.hardware_modulation:
+            # The carrier is applied by the hardware, so the sampled waveform is
+            # just the (unit-scaled) envelope. Scale it by the modulation
+            # amplitude so the plotted level matches what the instrument plays.
+            scale = self._as_float(wave.modulation.amplitude, default=1)
+
+        ts = self._sample_times(start, width)
+        w_t = scale * wave(ts, t0=start, frames=frames)
 
         if np.any(w_t.imag):
             color = props.pop("color", None)
@@ -1156,16 +1155,8 @@ class TimelinePlotter:
         if width <= 0:
             return
 
-        sample_rate = 101 / width
-        try:
-            carrier = abs(float(wave.frequency))
-        except (AttributeError, TypeError, ValueError):
-            carrier = 0
-        if carrier:
-            sample_rate = max(sample_rate, 10 * carrier)
-        N = int(sample_rate * width)
-        ts = start + np.arange(N + 1) / sample_rate
         frames = self.compiler.frames if self.compiler else {}
+        ts = self._sample_times(start, width)
         w_t = wave(ts, t0=start, frames=frames)
 
         color = props.pop("color", None)
@@ -1187,6 +1178,32 @@ class TimelinePlotter:
         **props,
     ) -> None:
         ax.axvline(float(loc), **props)
+
+    @staticmethod
+    def _as_float(value, default: float = 0) -> float:
+        """Converts a waveform parameter to a float, or `default` if it can't be."""
+        try:
+            return float(value)
+        except (AttributeError, TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _sample_times(start: float, width: float) -> np.ndarray:
+        """Times at which to sample a waveform spanning `[start, start + width]`.
+
+        The grid is uniform, with extra samples just inside both edges so that
+        waveforms which are discontinuous there (e.g. SquareWaveform, which
+        evaluates to 0 exactly at t0 and t0 + width) are drawn with vertical
+        edges instead of a ramp one sample wide.
+        """
+        N = 101
+        ts = start + width * np.arange(N + 1) / N
+
+        # Waveform.__call__ evaluates in single precision, so the edge samples
+        # have to be nudged by more than a float32 ulp to land inside the pulse.
+        eps = max(width / N * 1e-3, 4 * np.spacing(np.float32(start + width)))
+
+        return np.unique(np.r_[ts, start + eps, start + width - eps])
 
     @staticmethod
     def _is_dc_channel(loc_waves: list[tuple[Location, Waveform]]) -> bool:
