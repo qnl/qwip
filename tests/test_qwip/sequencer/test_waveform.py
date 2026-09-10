@@ -19,6 +19,7 @@ from qwip.sequencer.waveform import (  # update_fields,
     CWWaveform,
     DCWaveform,
     GaussianWaveform,
+    IntegratedSlepianWaveform,
     Marker,
     ModulatedWaveform,
     Operation,
@@ -588,6 +589,83 @@ class TestModulatedWaveform:
         assert new_wave.channel == "I_Q"
         assert new_wave.modulation.channel == "I_Q"
         assert new_wave.envelope.channel == ""
+
+
+class TestIntegratedSlepianWaveform:
+    def test_shape_and_normalization(self):
+        width = float(np.float32(80e-9))
+        ts = np.linspace(0, width, 801, dtype=np.float32)
+        wave = IntegratedSlepianWaveform(
+            width=width,
+            amplitude=-0.25,
+            rounding=10e-9,
+        )(ts)
+
+        assert wave.dtype == np.complex64
+        assert wave[0] == 0
+        assert wave[-1] == 0
+        assert_allclose(wave.imag, 0, atol=1e-7)
+        assert_allclose(wave.real, wave.real[::-1], atol=2e-5)
+        assert np.min(wave.real) == pytest.approx(-0.25, abs=2e-5)
+
+    def test_phase_and_support(self):
+        width = float(np.float32(100e-9))
+        ts = np.linspace(-20e-9, 120e-9, 1401, dtype=np.float32)
+        wave = IntegratedSlepianWaveform(
+            width=width,
+            amplitude=0.2,
+            phase=90,
+            rounding=10e-9,
+        )(ts)
+
+        outside = (ts < 0) | (ts > width)
+        assert_allclose(wave[outside], 0, atol=1e-7)
+        assert_allclose(wave.real, 0, atol=1e-6)
+        assert np.max(wave.imag) == pytest.approx(0.2, abs=2e-5)
+
+    def test_symbolic_resolution(self):
+        width = float(np.float32(80e-9))
+        ts = np.linspace(0, width, 401, dtype=np.float32)
+        wave = IntegratedSlepianWaveform(
+            width="duration",
+            amplitude="amp",
+            rounding="edge",
+            time_bandwidth="nw",
+        )
+
+        values = wave(ts, duration=width, amp=-0.2, edge=10e-9, nw=2.3)
+        assert np.min(values.real) == pytest.approx(-0.2, abs=2e-5)
+
+    def test_serialization(self):
+        wave = IntegratedSlepianWaveform(
+            width=80e-9,
+            amplitude=-0.2,
+            time_bandwidth=2.3,
+            rounding=10e-9,
+            channel="flux",
+        )
+
+        unstructured = qwip.converter.unstructure(wave)
+        restructured = qwip.converter.structure(unstructured, Waveform)
+
+        assert unstructured["__class__"] == "IntegratedSlepianWaveform"
+        assert restructured == wave
+
+    @pytest.mark.parametrize(
+        "updates",
+        [
+            dict(width=0),
+            dict(time_bandwidth=0),
+            dict(rounding=-1e-9),
+        ],
+    )
+    def test_invalid_parameters(self, updates):
+        parameters = dict(width=80e-9, time_bandwidth=2.3, rounding=10e-9)
+        parameters.update(updates)
+        wave = IntegratedSlepianWaveform(**parameters)
+
+        with pytest.raises(ValueError):
+            wave(np.linspace(0, 80e-9, 101))
 
 
 class TestDRAGWaveform:

@@ -17,6 +17,7 @@ from matplotlib.ticker import EngFormatter
 from matplotlib.transforms import ScaledTranslation
 from scipy.fft import fft, fftfreq, fftshift
 from scipy.signal import convolve
+from scipy.signal.windows import dpss
 
 import qwip
 from qwip._cattr import make_attrs_structure_fn, make_attrs_unstructure_fn
@@ -869,6 +870,126 @@ class CosineRampWaveform(BasicWaveform):
         return wave
 
 
+@lru_cache(maxsize=512)
+def _integrated_slepian_trajectory(
+    sample_count: int,
+    time_bandwidth: float,
+    rounding_fraction: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Return a normalized, rounded, integrated second-DPSS trajectory."""
+    minimum_count = int(np.floor(2 * time_bandwidth)) + 2
+    sample_count = max(int(sample_count), minimum_count, 3)
+
+    x = np.linspace(0.0, 1.0, sample_count)
+    derivative = dpss(
+        sample_count,
+        time_bandwidth,
+        Kmax=2,
+        sym=True,
+        norm=2,
+    )[1]
+
+    # Trapezoidal integration without importing another SciPy namespace.
+    dx = np.diff(x)
+    trajectory = np.empty(sample_count, dtype=float)
+    trajectory[0] = 0.0
+    trajectory[1:] = np.cumsum(0.5 * (derivative[:-1] + derivative[1:]) * dx)
+
+    # The k=1 DPSS is antisymmetric in exact arithmetic. Remove the small
+    # numerical endpoint drift before normalizing the out-and-back excursion.
+    trajectory -= x * trajectory[-1]
+    if trajectory[sample_count // 2] < 0:
+        trajectory *= -1
+
+    if rounding_fraction > 0:
+        rounding_fraction = min(float(rounding_fraction), 0.5)
+        edge = np.ones_like(x)
+        rising = x < rounding_fraction
+        falling = x > 1 - rounding_fraction
+        edge[rising] = 0.5 * (
+            1 - np.cos(np.pi * x[rising] / rounding_fraction)
+        )
+        edge[falling] = 0.5 * (
+            1 - np.cos(np.pi * (1 - x[falling]) / rounding_fraction)
+        )
+        trajectory *= edge
+
+    trajectory[[0, -1]] = 0.0
+    peak = np.max(np.abs(trajectory))
+    if not np.isfinite(peak) or peak == 0:
+        raise ValueError("Could not normalize the integrated Slepian trajectory.")
+
+    trajectory /= peak
+    return x, trajectory
+
+
+@register_operation
+@qfrozen
+class IntegratedSlepianWaveform(BasicWaveform):
+    """Rounded, integrated second-DPSS waveform for an out-and-back excursion.
+
+    The antisymmetric order-one DPSS is interpreted as the derivative of the
+    control trajectory. Integrating it produces a symmetric excursion from
+    zero to ``amplitude`` and back to zero. ``rounding`` applies an additional
+    cosine taper to the start and end of that trajectory so the physical
+    envelope has exact zero endpoints and reduced sensitivity to finite control
+    bandwidth.
+
+    This class generates a normalized control envelope. Mapping that envelope
+    through a device-specific frequency-versus-flux curve and applying line
+    predistortion remain calibration-layer responsibilities.
+    """
+
+    time_bandwidth: NumberOrExpression = 2.3
+    rounding: NumberOrExpression = 0
+
+    def evaluate_timepoints(
+        self,
+        ts: np.ndarray,
+        width: float,
+        amplitude: float,
+        phase: float,
+        t0: float,
+        time_bandwidth: float,
+        rounding: float,
+        **kwargs,
+    ) -> np.ndarray:
+        if width <= 0:
+            raise ValueError("IntegratedSlepianWaveform width must be positive.")
+        if time_bandwidth <= 0:
+            raise ValueError("time_bandwidth must be positive.")
+        if rounding < 0:
+            raise ValueError("rounding must be non-negative.")
+
+        local_ts = np.asarray(ts, dtype=float) - t0
+        wave = np.zeros_like(local_ts, dtype=np.complex64)
+        inside = (0 <= local_ts) & (local_ts <= width)
+        if not np.any(inside):
+            return wave
+
+        if len(local_ts) > 1:
+            positive_steps = np.diff(local_ts)
+            positive_steps = positive_steps[positive_steps > 0]
+            dt = float(np.median(positive_steps)) if len(positive_steps) else width
+        else:
+            dt = width
+
+        sample_count = int(np.ceil(width / dt)) + 1
+        rounding_fraction = min(float(rounding) / width, 0.5)
+        x, trajectory = _integrated_slepian_trajectory(
+            sample_count,
+            float(time_bandwidth),
+            rounding_fraction,
+        )
+
+        normalized_time = np.clip(local_ts[inside] / width, 0.0, 1.0)
+        envelope = np.interp(normalized_time, x, trajectory)
+        complex_amplitude = amplitude * np.exp(1j * phase * np.pi / 180)
+        wave[inside] = complex_amplitude * envelope
+
+        return wave
+
+
 @register_operation
 @qfrozen
 class DRAG(Waveform):
@@ -1004,6 +1125,7 @@ __all__ = [
     "SquareWaveform",
     "GaussianWaveform",
     "CosineRampWaveform",
+    "IntegratedSlepianWaveform",
     "PhaseResetWaveform",
     "DRAG",
 ]
