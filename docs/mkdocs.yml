@@ -97,6 +97,7 @@ nav:
           - user-guide/sequences/sequences.md
           - user-guide/sequences/frame-tracking.md
       - user-guide/workflow.md
+      - Datastore Explorer: user-guide/datastore-explorer.md
   - Developer Guide:
       - developer-guide/index.md
       - developer-guide/roadmap.md
