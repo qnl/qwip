@@ -14,9 +14,9 @@ try:
     from distproc.compiler import CompilerFlags, get_passes
     from distproc.executable import Executable
     from distproc.hwconfig import ChannelConfig as QubicChannelConfig
-    from distproc.hwconfig import FPGAConfig
+    from distproc.hwconfig import FPGAConfig, FPROCChannel
     from distproc.ir import passes
-    from distproc.ir.instructions import BranchFproc, DeclareFreq, Idle, Pulse, VirtualZ
+    from distproc.ir.instructions import BranchFproc, DeclareFreq, Pulse, VirtualZ
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
 except ImportError as e:
@@ -43,6 +43,7 @@ from qwip.sequencer.waveform import (
     Marker,
     ModulatedWaveform,
     Operation,
+    ResetOperation,
     VirtualZWaveform,
     Waveform,
 )
@@ -170,9 +171,37 @@ class QubicCompiler(QWiPCompiler):
 
     fpga_config: FPGAConfig = field(factory=FPGAConfig)
     frame_scopes: dict[str, str] = field(factory=dict)
-    reset_delay: float = 500e-6
     start_offset: int = 5
-    rf_mix: bool = False
+
+    def __attrs_post_init__(self):
+        self._register_readout_fproc_channels()
+
+    def _register_readout_fproc_channels(self) -> None:
+        """Register an FPROC channel for every readout channel on this device.
+
+        A measurement-conditioned branch reads its discrimination result, and
+        anchors its settling Hold, through an FPROC channel that references the
+        readout channel. distproc's default ``FPGAConfig`` only describes the
+        ``Q{i}.rdlo`` naming convention, so a device that names readout channels
+        differently (e.g. ``CH7.rdlo``) would have no FPROC channel for them.
+        For each readout (``read=True``) channel not already referenced by an
+        existing FPROC channel, add one anchored on that channel.
+        """
+        referenced = {
+            chan_name
+            for fproc in self.fpga_config.fproc_channels.values()
+            for chan_name in fproc.hold_after_chans
+        }
+        for device in self.devices.values():
+            for ch in device.channels:
+                if not ch.read or ch.name in referenced:
+                    continue
+                prefix = ch.name.rsplit(".", 1)[0]
+                self.fpga_config.fproc_channels[f"{prefix}.meas"] = FPROCChannel(
+                    id=(ch.name, "core_ind"),
+                    hold_after_chans=[ch.name],
+                    hold_nclks=self.fpga_config.fproc_meas_clks,
+                )
 
     def envelope_to_pulses(
         self,
@@ -185,6 +214,7 @@ class QubicCompiler(QWiPCompiler):
         start_cycle,
         sample_rate,
         cw_threshold: int | None = 16,
+        save_result: bool | None = None,
     ):
         """Compiles a single envelope into a list of Qubic pulse instructions.
 
@@ -221,6 +251,7 @@ class QubicCompiler(QWiPCompiler):
                     amp=amplitude,
                     twidth=pulse_width,
                     start_time=start_cycle,
+                    save_result=save_result,
                 )
             ]
 
@@ -263,6 +294,7 @@ class QubicCompiler(QWiPCompiler):
                     amp=amplitude,
                     twidth=(cw_s - prev_cw_e) / sample_rate,
                     start_time=start_cycle + int(prev_cw_e / clock_multiplier),
+                    save_result=save_result,
                 )
                 instructions.append(ins)
 
@@ -274,6 +306,7 @@ class QubicCompiler(QWiPCompiler):
                 amp=amplitude * np.abs(env_amp),
                 twidth=(cw_e - cw_s) / sample_rate,
                 start_time=start_cycle + int(cw_s / clock_multiplier),
+                save_result=save_result,
             )
             instructions.append(ins)
 
@@ -288,6 +321,7 @@ class QubicCompiler(QWiPCompiler):
                 amp=amplitude,
                 twidth=(len(w_t) - prev_cw_e) / sample_rate,
                 start_time=start_cycle + int(prev_cw_e / clock_multiplier),
+                save_result=save_result,
             )
             instructions.append(ins)
 
@@ -301,6 +335,7 @@ class QubicCompiler(QWiPCompiler):
         waveform_cache: dict[tuple[Waveform, int], np.ndarray],
         reads: Counter[str],
         t0: int = 0,
+        _in_reset: bool = False,
         **kwargs,
     ) -> list:
         """Compiles a single waveform into a list of qubic instructions
@@ -329,6 +364,12 @@ class QubicCompiler(QWiPCompiler):
 
         if ch_info.read:
             reads[wave.channel] += 1
+
+        # Active-reset measurements are demodulated for the conditional branch's
+        # discrimination but must not be stored to the acc buffer (the runner would
+        # otherwise misalign its reshape). save_result=False makes the gateware run
+        # the demod without storing the IQ value or advancing the write pointer.
+        save_result = False if (ch_info.read and _in_reset) else None
 
         devinfo = self.devices[ch_info.device]
         dtype = devinfo.dtype
@@ -413,6 +454,7 @@ class QubicCompiler(QWiPCompiler):
                     pulse_width=width,
                     start_cycle=start_cycle,
                     sample_rate=sample_rate,
+                    save_result=save_result,
                     **kwargs,
                 )
                 instructions.extend(ins)
@@ -441,44 +483,100 @@ class QubicCompiler(QWiPCompiler):
                     pulse_width=width,
                     start_cycle=start_cycle,
                     sample_rate=sample_rate,
+                    save_result=save_result,
                     **kwargs,
                 )
                 instructions.extend(ins)
 
             case BranchOperation():
                 reads[wave.channel] -= 1
-                end_cycle = t0 + int(np.round(end / self.fpga_config.fpga_clk_period))
                 left = wave.left or Timeline(width=0)
                 right = wave.right or Timeline(width=0)
-                idle = Idle(
-                    end_time=start_cycle, scope=list(left.channels | right.channels)
-                )
 
+                # The conditional body plays starting at the branch's own start
+                # (start_cycle). Its real start is then pushed later by the FPROC
+                # Hold inserted below; we don't pre-pad here.
                 left_ins, _ = self.compile_timeline(
                     left,
                     waveform_cache=waveform_cache,
-                    t0=end_cycle,
+                    t0=start_cycle,
                     reset_delay=np.inf,
                     zero_dc=False,
                 )
                 right_ins, _ = self.compile_timeline(
                     right,
                     waveform_cache=waveform_cache,
-                    t0=end_cycle,
+                    t0=start_cycle,
                     reset_delay=np.inf,
                     zero_dc=False,
                 )
 
+                # Find the FPROC channel that reads this readout channel. distproc
+                # uses it to insert a wait (a Hold) before the branch, so the branch
+                # does not run until the measurement has finished and its result is
+                # ready. That wait is measured from the end of the most recent pulse
+                # on the readout channel, so it stays correct even if the measure
+                # pulse's declared width is shorter than its real duration.
+                func_ids = [
+                    name
+                    for name, chan in self.fpga_config.fproc_channels.items()
+                    if wave.channel in chan.hold_after_chans
+                ]
+                if len(func_ids) != 1:
+                    raise ValueError(
+                        f"Expected exactly one FPROC channel referencing "
+                        f"{wave.channel!r} in hold_after_chans, found {sorted(func_ids)}; "
+                        f"cannot compile a measurement-conditioned branch on "
+                        f"{wave.channel!r}. Configured FPROC channels: "
+                        f"{sorted(self.fpga_config.fproc_channels)}"
+                    )
+                func_id = func_ids[0]
+
                 branch = BranchFproc(
                     cond_lhs=1,  # left half plane
                     alu_cond="eq",
-                    func_id=ch_info.index,
+                    func_id=func_id,
                     scope=list(left.channels | right.channels),
                     true=left_ins,
                     false=right_ins,
                 )
+                instructions.append(branch)
 
-                instructions.extend([idle, branch])
+            case ResetOperation():
+                # Cancel the spurious +1 from the read-channel check above; the
+                # measurements happen inside the expanded sub-timeline and any
+                # user-visible read accounting belongs to the outer measurement
+                # at the end of the parent timeline (matches BranchOperation).
+                reads[wave.channel] -= 1
+
+                # The measurement-settling wait between each readout and the
+                # branch that reads its discrimination result is reserved by the
+                # FPROC Hold that distproc inserts (see the BranchOperation case,
+                # which names the "{qubit}.meas" FPROC channel), so no explicit gap
+                # is added here.
+                layers = []
+                for n in range(wave.n_resets):
+                    if n > 0 or wave.measure_first:
+                        layers.append(wave.measurement)
+                    layers.append(
+                        BranchOperation(
+                            name=f"{wave.name}_branch{n}",
+                            channel=wave.channel,
+                            left=wave.x_pulse,
+                            right=None,
+                            width=wave.x_pulse.width,
+                        )
+                    )
+                expanded = Timeline.from_layers(layers)
+                sub_ins, _ = self.compile_timeline(
+                    expanded,
+                    waveform_cache=waveform_cache,
+                    t0=start_cycle,
+                    reset_delay=np.inf,
+                    zero_dc=False,
+                    _in_reset=True,
+                )
+                instructions.extend(sub_ins)
 
         return instructions
 
@@ -491,6 +589,7 @@ class QubicCompiler(QWiPCompiler):
         t0: int = 0,
         reset_delay: float = 0,
         zero_dc: bool = True,
+        _in_reset: bool = False,
         **kwargs,
     ) -> tuple[list, Counter[str]]:
         """Compiles a single pulse timeline.
@@ -510,13 +609,6 @@ class QubicCompiler(QWiPCompiler):
         """
         tmln.resolve(inplace=True, sort=_sort_virtual_z, **substitutions)
 
-        t_end = _to_python_number(tmln.width)
-        if t_end > reset_delay:
-            raise ValueError(
-                f"Timeline length {t_end} is greater than reset delay "
-                f"{reset_delay}."
-            )
-
         phase_tracker = self.compile_phases(tmln)
 
         instructions = []
@@ -530,6 +622,7 @@ class QubicCompiler(QWiPCompiler):
                 waveform_cache=waveform_cache,
                 reads=reads,
                 t0=t0,
+                _in_reset=_in_reset,
                 **kwargs,
             )
 
@@ -587,59 +680,87 @@ class QubicCompiler(QWiPCompiler):
     def construct_circuit(
         self,
         seq: Sequence,
-        reset_delay: float,
+        reset_delay: float | None,
         preamble: list = [],
         substitutions: dict = {},
         **kwargs,
-    ) -> tuple[list, list[int]]:
+    ) -> tuple[list, list[int], float]:
         """Constructs a Qubic instruction list from a sequence.
 
-        This method makes a pass through the sequence, compiling each pulse timeline
-        to a list of qubic instructions. These instruction lists are then concatenated
-        with a specified reset delay in between. The number of reads per timeline is
-        also returned.
+        Timelines are packed back-to-back: each timeline's slot is its own
+        `width` (when `reset_delay is None`) or `reset_delay` (when an explicit
+        value is given). This means short timelines no longer have to share the
+        longest timeline's slot size — useful for swept experiments where the
+        timeline duration varies dramatically across sweep points.
 
         Args:
             seq: The sequence to compile into a circuit.
-            reset_delay: The delay time in seconds between the start times of
-                consecutive timelines.
-            location_kwargs: Any extra constraints to pass to the location resolver.
-            pulse_kwargs: Any extra constraints to pass to waveforms when resolving them
-                into timepoints.
+            reset_delay: The per-shot period in seconds. If `None`, each
+                timeline's slot equals its own `width` (tight pack — appropriate
+                when each timeline includes its own active reset, or when the
+                timeline already accounts for passive decay). If a float, every
+                timeline gets a uniform slot of `reset_delay` seconds, and
+                construction raises `ValueError` if any timeline is longer than
+                this value.
+            preamble: Instructions to prepend to the circuit.
+            substitutions: Variable substitutions passed to timeline resolution.
             **kwargs: Additional keyword arguments are passed to the `compile_timeline`
                 method.
 
         Returns:
-            A tuple `(circuit, reads_per_timeline)`.
+            A tuple `(circuit, reads_per_timeline, total_duration)` where
+            `total_duration` is the sum of all timeline slots in seconds.
         """
+        if reset_delay is not None:
+            max_width = max(
+                (
+                    w
+                    for w in (
+                        _to_python_number(tmln.width) for tmln in seq.flat
+                    )
+                    if w is not None
+                ),
+                default=0,
+            )
+            if reset_delay < max_width:
+                raise ValueError(
+                    f"reset_delay ({reset_delay:g} s) is shorter than the longest "
+                    f"timeline width ({max_width:g} s). Pass a larger value, or "
+                    f"pass reset_delay=None to tight-pack timelines using each "
+                    f"timeline's own width."
+                )
+
         waveform_cache = {}
 
         reads_per_timeline = []
         circuit = preamble.copy() or []
-        for i, tmln in enumerate(seq.flat):
+        clk = self.fpga_config.fpga_clk_period
+        t0_cycles = self.start_offset
+        for tmln in seq.flat:
             instructions, reads = self.compile_timeline(
                 tmln,
                 substitutions,
                 waveform_cache=waveform_cache,
-                t0=self.start_offset
-                + int(
-                    np.round((i + 1) * reset_delay / self.fpga_config.fpga_clk_period)
-                ),
-                reset_delay=reset_delay,
+                t0=t0_cycles,
+                reset_delay=np.inf,
                 **kwargs,
             )
+
+            slot = reset_delay if reset_delay is not None else _to_python_number(tmln.width)
+            t0_cycles += int(np.round(slot / clk))
 
             reads_per_channel = set(cts[1] for cts in reads.most_common())
             if len(reads_per_channel) > 1:
                 logger.warning(
-                    f"Timeline {i} has an unequal number of reads accross channels. "
-                    f"{reads}"
+                    f"Timeline {len(reads_per_timeline)} has an unequal number of "
+                    f"reads accross channels. {reads}"
                 )
 
             circuit.extend(instructions)
             reads_per_timeline.append(max(reads_per_channel | {0}))
 
-        return circuit, reads_per_timeline
+        total_duration = (t0_cycles - self.start_offset) * clk
+        return circuit, reads_per_timeline, total_duration
 
     def compile(
         self,
@@ -656,15 +777,19 @@ class QubicCompiler(QWiPCompiler):
 
         Args:
             seq: The sequence to compile.
-            location_kwargs: A mapping of location variables to concrete values. This is
-                passed to `Timeline.resolve_locations`.
+            reset_delay: Per-shot period in seconds. If `None` (default), each
+                timeline's slot equals its own `width` — appropriate when each
+                timeline already includes its own active reset, or when the
+                timeline already accounts for passive decay. If a float, every
+                timeline gets a uniform slot of `reset_delay` seconds, and
+                compilation raises `ValueError` if any timeline is longer than
+                this value.
 
         Returns:
             The resulting compiled `QubicExecutable` that can then be run on hardware.
         """
 
         # Pre-compilation
-        reset_delay = reset_delay or self.reset_delay
         frame_declarations = self.get_frame_declarations(
             frame_scopes or self.frame_scopes
         )
@@ -675,6 +800,7 @@ class QubicCompiler(QWiPCompiler):
 
         default_passes = get_passes(
             self.fpga_config,
+            qchip=self.get_qchip(),
             compiler_flags=CompilerFlags(
                 schedule=False, resolve_gates=False, multi_board=True
             ),
@@ -688,9 +814,10 @@ class QubicCompiler(QWiPCompiler):
 
         exes = []
         flattened_seq = seq.flatten()
+
         for tmln_idx in range(0, num_timelines, batch_size):
             batch_seq = flattened_seq[tmln_idx : tmln_idx + batch_size]
-            circuit, reads_per_timeline = self.construct_circuit(
+            circuit, reads_per_timeline, batch_duration = self.construct_circuit(
                 batch_seq,
                 reset_delay,
                 frame_declarations,
@@ -710,7 +837,7 @@ class QubicCompiler(QWiPCompiler):
                 timeline_index=tmln_idx,
                 program=prog,
                 assembly=asm,
-                repetition_delay=len(batch_seq) * reset_delay,
+                repetition_delay=batch_duration,
                 reads_per_timeline=reads_per_timeline,
             )
             exes.append(exe)
@@ -782,7 +909,7 @@ class QubicCompiler(QWiPCompiler):
                         samples_per_clk=samples_per_clk, interp_ratio=interp_ratio
                     )
 
-                    if siggen == "rdlo" and self.rf_mix:
+                    if ch.read:
                         elem_type = "rf_mix"
                     else:
                         elem_type = "rf"
