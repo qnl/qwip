@@ -355,13 +355,13 @@ class LinearExpression:
         offset = 0
         coeff_map = {}
         if isinstance(self.offset, str):
-            coeff_map[self] = 1
+            coeff_map[self] = 1.0
         else:
             offset += self.offset
             coeff_map = {loc: c for loc, c in self.references}
 
         if isinstance(other.offset, str):
-            coeff_map[other] = coeff_map.get(other, 0) + 1
+            coeff_map[other] = coeff_map.get(other, 0.0) + 1.0
         else:
             offset += other.offset
             for loc, c in other.references:
@@ -400,13 +400,13 @@ class LinearExpression:
         offset = 0
         coeff_map = {}
         if isinstance(self.offset, str):
-            coeff_map[self] = 1
+            coeff_map[self] = 1.0
         else:
             offset += self.offset
             coeff_map = {loc: c for loc, c in self.references}
 
         if isinstance(other.offset, str):
-            coeff_map[other] = coeff_map.get(other, 0) - 1
+            coeff_map[other] = coeff_map.get(other, 0.0) - 1.0
         else:
             offset -= other.offset
             for loc, c in other.references:
@@ -430,6 +430,7 @@ class LinearExpression:
         """Scalar multiplication of a location."""
         if not isinstance(other, Real):
             raise TypeError(_type_error_text(self, other, "*"))
+        other = float(other)
 
         cls = type(self)
 
