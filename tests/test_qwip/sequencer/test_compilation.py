@@ -111,6 +111,17 @@ class TestDeviceInfo:
 
 
 class TestQWiPCompiler:
+    def test_compile_without_sample_rate_raises(self):
+        dac = DeviceInfo.from_channels(
+            channels=(ChannelInfo("Q0_IQ", 0),), dtype=np.complex64, name="seq"
+        )
+        compiler = QWiPCompiler.from_devices([dac])
+        tmln = Timeline()
+        tmln.add(SquareWaveform(width=10e-9, channel="Q0_IQ"))
+
+        with pytest.raises(ValueError, match="no sample rate"):
+            compiler.compile(Sequence([tmln]))
+
     @pytest.fixture
     def compiler(self):
         dac = DeviceInfo.from_channels(

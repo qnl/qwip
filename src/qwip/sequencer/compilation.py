@@ -86,14 +86,15 @@ class DeviceInfo:
     Attributes:
         name: The name of the device.
         channels: A tuple of all channels that belong to this device.
-        sample_rate: The sampling rate of the device in samples/second.
+        sample_rate: The sampling rate of the device in samples/second, or
+            `None` until a backend supplies it.
     """
 
     name: str
     channels: tuple[ChannelInfo, ...] = field(
         repr=lambda channels: repr(tuple(ch.name for ch in channels))
     )
-    sample_rate: float
+    sample_rate: float | None = None
     envelope_sample_rate: float | None = None
     dtype: type = np.float32
     trigger: TriggerInfo | None = None
@@ -134,7 +135,7 @@ class DeviceInfo:
     def from_channels(
         cls,
         channels: Iterable[ChannelInfo],
-        sample_rate: float,
+        sample_rate: float | None = None,
         name: str | None = None,
         **kwargs,
     ) -> Self:
@@ -144,7 +145,8 @@ class DeviceInfo:
             channels: The channels that belong to the device. They must all have unique names,
                 and should not have conflicting devices. If the device attribute for all the
                 channels is None, then name must be provided.
-            sample_rate: The sampling rate for the device.
+            sample_rate: The sampling rate for the device, or `None` if a
+                backend supplies it.
             name: The name of the device. This can be inferred from the channels if
                 they specify a device. Otherwise, name must be provided.
 
@@ -592,6 +594,8 @@ class QWiPCompiler:
         for name, device in self.devices.items():
             program = exe.programs[name]
             sample_rate = device.sample_rate
+            if sample_rate is None:
+                raise ValueError(f"Device {name} has no sample rate.")
             num_timepoints = int(t_end * sample_rate)
 
             # Skip compilation for device if no waveforms on channel

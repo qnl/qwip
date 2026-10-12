@@ -1,10 +1,11 @@
+import contextlib
 import itertools as it
 from collections import Counter, defaultdict
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pandas as pd
-from attrs import field
+from attrs import evolve, field
 from loguru import logger
 
 try:
@@ -12,7 +13,7 @@ try:
     from distproc.compiler import CompiledProgram
     from distproc.compiler import Compiler as _QubicInternalCompiler
     from distproc.compiler import CompilerFlags, get_passes
-    from distproc.executable import Executable
+    from distproc.executable import Executable, ResultChannel
     from distproc.hwconfig import ChannelConfig as QubicChannelConfig
     from distproc.hwconfig import FPGAConfig, FPROCChannel
     from distproc.ir import passes
@@ -23,6 +24,7 @@ try:
         Pulse,
         VirtualZ,
     )
+    from qubic.results.primitives import get_result_class
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
 except ImportError as e:
@@ -156,18 +158,112 @@ def _get_board_and_core(devname: str) -> tuple[str, str]:
             raise ValueError(f"Malformed QubiC device name: {devname}")
 
 
-def _get_memory_name(channel: ChannelInfo) -> dict[str, str]:
-    board, core, sig_gen = _get_board_and_core(channel.device)
+def _board_configs(hw_config: dict) -> dict[str | None, dict]:
+    """Splits `CircuitRunnerClient.get_hw_config` output into per-board
+    configurations.
 
-    memory = dict(
-        env_mem_name=f"{core}_{sig_gen}_env{channel.index}",
-        freq_mem_name=f"{core}_{sig_gen}_freq{channel.index}",
-    )
+    Args:
+        hw_config: One board's configuration, or a mapping from board name to
+            configuration as returned by a multi-board job server.
 
-    if channel.read:
-        memory["acc_mem_name"] = f"{core}_accbuf{channel.index}"
+    Returns:
+        A mapping from board name to configuration. A single-board
+        configuration is keyed by `None`.
+    """
+    if "fpga_clk_freq" in hw_config:
+        return {None: hw_config}
+    return dict(hw_config)
 
-    return memory
+
+_SNAPSHOT_KEYS = ("fpga_clk_freq", "channels", "mems")
+
+
+def hw_config_snapshot(hw_config: dict) -> dict:
+    """Returns the part of `hw_config` that compilation uses.
+
+    Args:
+        hw_config: Output of `CircuitRunnerClient.get_hw_config`, in either
+            the single-board or the per-board form.
+
+    Returns:
+        `fpga_clk_freq`, `channels` and `mems` of each board, in the same form
+        as `hw_config`.
+    """
+    boards = {
+        board: {key: cfg.get(key) for key in _SNAPSHOT_KEYS}
+        for board, cfg in _board_configs(hw_config).items()
+    }
+    return boards[None] if None in boards else boards
+
+
+def _select_board(boards: dict[str | None, dict], board: str) -> dict:
+    """Returns the configuration for `board` from `_board_configs` output.
+
+    A single-board configuration is returned for any `board`.
+
+    Raises:
+        ValueError: If `board` is not among the configured boards.
+    """
+    if None in boards:
+        return boards[None]
+    try:
+        return boards[board]
+    except KeyError:
+        raise ValueError(
+            f"Board {board!r} is not among the hardware boards {sorted(boards)}."
+        )
+
+
+def _find_hw_channel(board_config: dict, core: str, channel: ChannelInfo) -> dict:
+    """Returns the gateware channel entry matching `channel`.
+
+    Args:
+        board_config: One board's hardware configuration.
+        core: Gateware core name from the channel's device name.
+        channel: Matched on `core`, `channel.index` (core index) and
+            `channel.subchannel` (element index).
+
+    Raises:
+        ValueError: If the board reports no channels or the match is not
+            unique.
+    """
+    channels = board_config.get("channels")
+    if not channels:
+        raise ValueError("The hardware reports no channel configuration.")
+
+    matches = [
+        entry
+        for entry in channels.values()
+        if entry.get("core_name") == core
+        and entry.get("core_ind") == channel.index
+        and entry.get("elem_ind") == channel.subchannel
+    ]
+    if len(matches) != 1:
+        raise ValueError(
+            f"Channel {channel.name} (core {core!r}, core index {channel.index}, "
+            f"element index {channel.subchannel}) matches {len(matches)} gateware "
+            f"channels."
+        )
+    return matches[0]
+
+
+def _channel_rates(entry: dict, fpga_clk_freq: float) -> tuple[float, float | None]:
+    """Returns `(sample_rate, envelope_sample_rate)` in samples per second for a
+    gateware channel entry. A DC channel has sample rate 0 and no envelope
+    rate.
+
+    Raises:
+        ValueError: If an RF entry lacks `samples_per_clk` or `interp_ratio`.
+    """
+    if entry.get("elem_type") == "dc":
+        return 0.0, None
+
+    params = entry.get("elem_params") or {}
+    try:
+        sample_rate = fpga_clk_freq * params["samples_per_clk"]
+        return sample_rate, sample_rate / params["interp_ratio"]
+    except KeyError as e:
+        raise ValueError(f"Gateware channel entry {entry} lacks {e}.")
 
 
 # distproc's Schedule pass starts the first basic block at this clock.
@@ -202,14 +298,152 @@ class _TimedBranch:
 @register_compiler
 @qdefine
 class QubicCompiler(QWiPCompiler):
-    """Qubic-specific compiler"""
+    """Qubic-specific compiler.
+
+    Attributes:
+        hw_config: Hardware configuration from
+            `CircuitRunnerClient.get_hw_config`, applied by `apply_hw_config`.
+            `QubicBackend.update_parameters` sets it from the runner.
+    """
 
     fpga_config: FPGAConfig = field(factory=FPGAConfig)
     frame_scopes: dict[str, str] = field(factory=dict)
     start_offset: int = 5
+    hw_config: dict | None = None
+    _hw_channels: dict[str, tuple[str, dict]] = field(
+        factory=dict, init=False, repr=False
+    )
 
     def __attrs_post_init__(self):
         self._register_readout_fproc_channels()
+        if self.hw_config is not None:
+            self.apply_hw_config(self.hw_config)
+
+    def apply_hw_config(self, hw_config: dict) -> None:
+        """Takes the FPGA clock, channel parameters and memory sizes from the
+        hardware.
+
+        Each channel is matched to the gateware channel with the same core
+        name, core index and element index, and every device's sample rates
+        are set from the gateware.
+
+        Args:
+            hw_config: Output of `CircuitRunnerClient.get_hw_config`: one
+                board's configuration, or a mapping from board name to
+                configuration for a multi-board job server.
+
+        Raises:
+            ValueError: If a device has a configured sample rate that differs
+                from the hardware, if boards report different FPGA clocks, if
+                a channel has no unique gateware counterpart, or if the
+                channels of one device have different sample rates.
+        """
+        boards = _board_configs(hw_config)
+        clocks = {cfg.get("fpga_clk_freq") for cfg in boards.values()}
+        if len(clocks) != 1 or None in clocks:
+            raise ValueError(f"Boards report FPGA clocks {clocks}; expected one.")
+        fpga_clk_freq = clocks.pop()
+
+        hw_channels = {}
+        devices = {}
+        for devname, devinfo in self.devices.items():
+            board, core, _ = _get_board_and_core(devname)
+            board_config = _select_board(boards, board)
+
+            rates = set()
+            for ch in devinfo.channels:
+                entry = _find_hw_channel(board_config, core, ch)
+                hw_channels[ch.name] = (board, entry)
+                rates.add(_channel_rates(entry, fpga_clk_freq))
+
+            if len(rates) != 1:
+                raise ValueError(
+                    f"Channels of device {devname} have different sample rates: "
+                    f"{sorted(rates, key=str)}"
+                )
+            sample_rate, envelope_sample_rate = rates.pop()
+
+            for attr, hw_value in (
+                ("sample_rate", sample_rate),
+                ("envelope_sample_rate", envelope_sample_rate),
+            ):
+                value = getattr(devinfo, attr)
+                if value is None:
+                    continue
+                if hw_value is None or not np.isclose(value, hw_value):
+                    raise ValueError(
+                        f"Device {devname} is configured with {attr}={value} but "
+                        f"the hardware reports {hw_value}."
+                    )
+
+            devices[devname] = evolve(
+                devinfo,
+                sample_rate=sample_rate,
+                envelope_sample_rate=envelope_sample_rate,
+            )
+
+        self.fpga_config.fpga_clk_period = 1 / fpga_clk_freq
+        self.devices.update(devices)
+        self._hw_channels = hw_channels
+        self.hw_config = hw_config
+
+    def _mem_length(self, board: str, name: str) -> int:
+        """Returns the length in 32-bit words of memory `name` on `board`.
+
+        Raises:
+            ValueError: If the hardware configuration does not list the memory.
+        """
+        board_config = _select_board(_board_configs(self.hw_config), board)
+        try:
+            return int(board_config["mems"][name]["length"])
+        except KeyError:
+            raise ValueError(
+                f"Memory {name!r} is not in the hardware configuration of board "
+                f"{board!r}."
+            )
+
+    def _max_reads_per_shot(self) -> int | None:
+        """Returns the largest number of results per shot that fits every
+        readout channel's accumulation buffer, or `None` if no channel has
+        one."""
+        word_size = get_result_class(ResultChannel("").dtype).word_size()
+        limits = [
+            self._mem_length(cfg.board_name, cfg.acc_mem_name) // word_size
+            for name, cfg in self.get_channel_config().items()
+            if name != "fpga_clk_freq" and cfg.acc_mem_name is not None
+        ]
+        return min(limits) if limits else None
+
+    def _check_memory(self, asm: Executable, reads_per_shot: int) -> None:
+        """Checks that `asm` fits the hardware memories.
+
+        Args:
+            asm: Assembled executable.
+            reads_per_shot: Results stored per shot in each accumulation buffer.
+
+        Raises:
+            ValueError: If a written memory or an accumulation buffer is too
+                small.
+        """
+        for key, data in asm.program_binaries.items():
+            board, _, name = key.partition(":")
+            words = len(data) // 4
+            length = self._mem_length(board, name)
+            if words > length:
+                raise ValueError(
+                    f"Memory {name} on board {board!r} holds {length} words; the "
+                    f"program needs {words}."
+                )
+
+        for chan in asm.result_channels.values():
+            words = reads_per_shot * get_result_class(chan.dtype).word_size()
+            length = self._mem_length(chan.board, chan.mem_name)
+            if words > length:
+                raise ValueError(
+                    f"Accumulation buffer {chan.mem_name} on board {chan.board!r} "
+                    f"holds {length} words; {reads_per_shot} results per shot need "
+                    f"{words}. Reduce `batch_size`."
+                )
 
     def _register_readout_fproc_channels(self) -> None:
         """Register an FPROC channel for every readout channel on this device.
@@ -295,8 +529,8 @@ class QubicCompiler(QWiPCompiler):
         cw_segments = np.stack([locs[cw_idx], locs[cw_idx] + lengths[cw_idx]]).T
 
         # Round to closest time that aligns with a clock cycle and ensure that no
-        # instructions will have start times within 3 clock cycles of each other
-        min_clk_cycles = 3
+        # instructions will have start times within `pulse_load_clks` of each other
+        min_clk_cycles = self.fpga_config.pulse_load_clks
         cw_segments[:, 0] = np.ceil(cw_segments[:, 0] / clock_multiplier).astype(int)
         cw_segments[:, 1] = np.floor(cw_segments[:, 1] / clock_multiplier).astype(int)
 
@@ -748,6 +982,7 @@ class QubicCompiler(QWiPCompiler):
         reset_delay: float | None,
         preamble: list = [],
         substitutions: dict = {},
+        max_reads: int | None = None,
         **kwargs,
     ) -> tuple[list, list[int], float]:
         """Constructs a Qubic instruction list from a sequence.
@@ -769,12 +1004,20 @@ class QubicCompiler(QWiPCompiler):
                 this value.
             preamble: Instructions to prepend to the circuit.
             substitutions: Variable substitutions passed to timeline resolution.
+            max_reads: If given, the circuit stops before the timeline that
+                would raise the summed reads per shot above this value, and the
+                returned values cover only the timelines included.
             **kwargs: Additional keyword arguments are passed to the `compile_timeline`
                 method.
 
         Returns:
             A tuple `(circuit, reads_per_timeline, total_duration)` where
-            `total_duration` is the sum of all timeline slots in seconds.
+            `total_duration` is the sum of the included timeline slots in
+            seconds.
+
+        Raises:
+            ValueError: If `reset_delay` is shorter than a timeline, or if the
+                first timeline alone has more than `max_reads` reads.
         """
         if reset_delay is not None:
             max_width = max(
@@ -811,18 +1054,30 @@ class QubicCompiler(QWiPCompiler):
                 **kwargs,
             )
 
-            slot = reset_delay if reset_delay is not None else _to_python_number(tmln.width)
-            t0_cycles += int(np.round(slot / clk))
-
             reads_per_channel = set(cts[1] for cts in reads.most_common())
             if len(reads_per_channel) > 1:
                 logger.warning(
                     f"Timeline {len(reads_per_timeline)} has an unequal number of "
                     f"reads accross channels. {reads}"
                 )
+            num_reads = max(reads_per_channel | {0})
+
+            if (
+                max_reads is not None
+                and sum(reads_per_timeline) + num_reads > max_reads
+            ):
+                if not reads_per_timeline:
+                    raise ValueError(
+                        f"A timeline has {num_reads} reads per shot but the "
+                        f"accumulation buffers hold at most {max_reads}."
+                    )
+                break
+
+            slot = reset_delay if reset_delay is not None else _to_python_number(tmln.width)
+            t0_cycles += int(np.round(slot / clk))
 
             circuit.extend(instructions)
-            reads_per_timeline.append(max(reads_per_channel | {0}))
+            reads_per_timeline.append(num_reads)
 
         circuit.extend(self._end_of_batch_hold(circuit, t0_cycles))
         circuit = self._rebase_blocks(circuit)
@@ -1164,6 +1419,8 @@ class QubicCompiler(QWiPCompiler):
 
         Args:
             seq: The sequence to compile.
+            batch_size: Timelines per executable. If `None`, batches are as
+                large as the accumulation buffers allow.
             reset_delay: Per-shot period in seconds. If `None` (default), each
                 timeline's slot equals its own `width` — appropriate when each
                 timeline already includes its own active reset, or when the
@@ -1171,9 +1428,16 @@ class QubicCompiler(QWiPCompiler):
                 timeline gets a uniform slot of `reset_delay` seconds, and
                 compilation raises `ValueError` if any timeline is longer than
                 this value.
+            channel_config: distproc channel configuration. Defaults to
+                `get_channel_config`.
 
         Returns:
-            The resulting compiled `QubicExecutable` that can then be run on hardware.
+            A list of `QubicExecutable`, one per batch.
+
+        Raises:
+            ValueError: If no hardware configuration is available and
+                `channel_config` is not given, or if a batch does not fit the
+                hardware memories.
         """
 
         # Pre-compilation
@@ -1197,20 +1461,26 @@ class QubicCompiler(QWiPCompiler):
         passes = kwargs.get("passes", default_passes)
 
         num_timelines = len(seq.flat)
+        has_hw = self.hw_config is not None
+        max_reads = (
+            self._max_reads_per_shot() if has_hw and batch_size is None else None
+        )
         batch_size = batch_size or num_timelines
 
         exes = []
         flattened_seq = seq.flatten()
 
-        for tmln_idx in range(0, num_timelines, batch_size):
-            batch_seq = flattened_seq[tmln_idx : tmln_idx + batch_size]
+        tmln_idx = 0
+        while tmln_idx < num_timelines:
             circuit, reads_per_timeline, batch_duration = self.construct_circuit(
-                batch_seq,
+                flattened_seq[tmln_idx : tmln_idx + batch_size],
                 reset_delay,
                 frame_declarations,
                 substitutions,
+                max_reads=max_reads,
                 **kwargs,
             )
+            batch_seq = flattened_seq[tmln_idx : tmln_idx + len(reads_per_timeline)]
 
             qubic_compiler = _QubicInternalCompiler(
                 circuit, proc_grouping=proc_grouping
@@ -1222,6 +1492,8 @@ class QubicCompiler(QWiPCompiler):
             for channel, value in self._state_thresholds(batch_seq).items():
                 board, register = self._threshold_register(channel)
                 asm.write_registers[f"{board}:{register}"] = int(value)
+            if has_hw:
+                self._check_memory(asm, sum(reads_per_timeline))
             exe = QubicExecutable(
                 sequence=batch_seq,
                 timeline_index=tmln_idx,
@@ -1231,6 +1503,7 @@ class QubicCompiler(QWiPCompiler):
                 reads_per_timeline=reads_per_timeline,
             )
             exes.append(exe)
+            tmln_idx += len(reads_per_timeline)
 
         return exes
 
@@ -1318,50 +1591,33 @@ class QubicCompiler(QWiPCompiler):
         return [tuple(grp) for grp in cores.values()]
 
     def get_channel_config(self) -> dict:
-        """Return a QubicChannelConfig with the channel information.
+        """Returns the distproc channel configuration taken from the hardware.
 
         Returns:
-            A Qubic `QubicChannelConfig` instance.
+            A dict with `fpga_clk_freq` and a `QubicChannelConfig` per channel.
+
+        Raises:
+            ValueError: If no hardware configuration has been applied.
         """
+        if not self._hw_channels:
+            raise ValueError(
+                "No hardware configuration. Pass `hw_config` or run through a "
+                "`QubicBackend`."
+            )
+
         channel_config = dict(fpga_clk_freq=self.fpga_config.fpga_clk_freq)
-
-        for devname, devinfo in self.devices.items():
-            sample_rate = devinfo.sample_rate
-            env_sample_rate = devinfo.envelope_sample_rate
-
-            board, core, siggen = _get_board_and_core(devname)
-
-            for ch in devinfo.channels:
-                if sample_rate == 0:
-                    elem_params = {}
-                    elem_type = "dc"
-                    memory = {}
-                else:
-                    samples_per_clk = round(
-                        sample_rate * self.fpga_config.fpga_clk_period
-                    )
-                    interp_ratio = round(sample_rate / env_sample_rate)
-
-                    elem_params = dict(
-                        samples_per_clk=samples_per_clk, interp_ratio=interp_ratio
-                    )
-
-                    if ch.read:
-                        elem_type = "rf_mix"
-                    else:
-                        elem_type = "rf"
-
-                    memory = _get_memory_name(ch)
-
-                channel_config[ch.name] = QubicChannelConfig(
-                    core_ind=ch.index,
-                    elem_type=elem_type,
-                    elem_ind=ch.subchannel,
-                    elem_params=elem_params,
-                    core_name=core,
-                    board_name=board,
-                    **memory,
-                )
+        for name, (board, entry) in self._hw_channels.items():
+            channel_config[name] = QubicChannelConfig(
+                core_ind=entry["core_ind"],
+                elem_ind=entry["elem_ind"],
+                elem_type=entry["elem_type"],
+                elem_params=dict(entry.get("elem_params") or {}),
+                core_name=entry.get("core_name"),
+                env_mem_name=entry.get("env_mem_name"),
+                freq_mem_name=entry.get("freq_mem_name"),
+                acc_mem_name=entry.get("acc_mem_name"),
+                board_name=board,
+            )
 
         return channel_config
 
@@ -1436,15 +1692,47 @@ class QubicBackend(QuantumBackend):
     def update_parameters(self, qpu: "QPU", **kwargs):
         """Updates parameters from the QPU.
 
-        This method updates the mapping from readout indices to readout channels.
+        Applies the hardware configuration reported by the runner to a
+        `QubicCompiler`, stores its snapshot in the QPU's ConfigDB, and
+        updates the mapping from readout indices to readout channels.
 
         Args:
             qpu: A QPU instance.
         """
+        if isinstance(qpu.compiler, QubicCompiler):
+            hw_config = self.runner.get_hw_config()
+            if qpu.compiler.hw_config != hw_config:
+                qpu.compiler.apply_hw_config(hw_config)
+                self._store_hw_config(qpu, hw_config)
 
         ro_config = qpu.db.config.readout[qpu.pipeline.name]
         for reg_name, reg_info in ro_config.registers.items():
             self.result_map.update({reg_info.channel: reg_name})
+
+    @staticmethod
+    def _store_hw_config(qpu: "QPU", hw_config: dict) -> None:
+        """Writes `hw_config_snapshot(hw_config)` to `compilation/hardware/config`
+        in the QPU's ConfigDB.
+
+        Creates the folder and parameter if absent. Does not write when the
+        stored snapshot is already equal. The write is part of the current
+        database transaction if one is open, otherwise it is committed on its
+        own.
+        """
+        snapshot = hw_config_snapshot(hw_config)
+        compilation = qpu.config["compilation"]
+        session = qpu.db.session
+        transaction = (
+            contextlib.nullcontext() if session.in_transaction() else session.begin()
+        )
+        with transaction:
+            if "hardware" not in compilation:
+                compilation.create_folder("hardware")
+            hardware = compilation["hardware"]
+            if "config" not in hardware:
+                hardware.create_parameter("config", snapshot)
+            elif hardware["config"] != snapshot:
+                hardware["config"] = snapshot
 
         # ch_reg_mapping = {
         #     reg_info.channel: reg_name for reg_name, reg_info in ro_config.registers.items()
