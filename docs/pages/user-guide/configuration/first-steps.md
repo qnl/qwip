@@ -75,12 +75,13 @@ After create and connect to the Database, we need to configure the new Database
     from qwip.sequencer.compilation import DeviceInfo, ChannelInfo
     from qwip.backends.qubic import QubicCompiler
     
-    qubit = DeviceInfo.from_channels([ChannelInfo(name=f"CH{ch}.qdrv", index=ch, subchannel=0) for ch in range(8)], name="qubit", sample_rate=8e9, dtype=np.complex64)
-    readout = DeviceInfo.from_channels([ChannelInfo(name=f"CH{ch}.rdrv", index=ch, subchannel=1) for ch in range(8)], name="readout", sample_rate=0.5e9, dtype=np.complex64)
-    adc = DeviceInfo.from_channels([ChannelInfo(name=f"CH{ch}.rdlo", index=ch, read=True, subchannel=2) for ch in range(8)], name="adc", sample_rate=0.5e9, dtype=np.complex64)
+    qubit = DeviceInfo.from_channels([ChannelInfo(name=f"Q{ch}.qdrv", index=ch, subchannel=0) for ch in range(8)], name="qubit_qdrv", dtype=np.complex64)
+    readout = DeviceInfo.from_channels([ChannelInfo(name=f"Q{ch}.rdrv", index=ch, subchannel=1) for ch in range(8)], name="qubit_rdrv", dtype=np.complex64)
+    adc = DeviceInfo.from_channels([ChannelInfo(name=f"Q{ch}.rdlo", index=ch, read=True, subchannel=2) for ch in range(8)], name="qubit_rdlo", dtype=np.complex64)
     
     compiler = QubicCompiler.from_devices([qubit, readout, adc])
     ```
+    Device names are `<board>_<core>_<siggen>` or `<core>_<siggen>`, where `core` is the gateware core name. A channel's `index` and `subchannel` are its gateware core index and element index. Sample rates, memory names and the FPGA clock are read from the board when a `QubicBackend` acquires, and a snapshot is stored under `compilation/hardware` so that `QPU.load` can compile without a board.
 3. **Pipeline**
     ```python linenums="1"
     from qwip.processing import ReadoutPipeline

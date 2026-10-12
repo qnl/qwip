@@ -159,7 +159,14 @@ class QPU:
         except KeyError:
             raise KeyError(f"'{compiler_cls}' is not a registered compiler.")
 
-        compiler = compiler_cls.from_devices(devices, frames=frames)
+        kwargs = {}
+        hardware = compilation.get("hardware")
+        if hardware is not None and "hw_config" in attrs.fields_dict(compiler_cls):
+            snapshot = hardware.get("config")
+            if snapshot is not None:
+                kwargs["hw_config"] = snapshot
+
+        compiler = compiler_cls.from_devices(devices, frames=frames, **kwargs)
 
         return compiler
 

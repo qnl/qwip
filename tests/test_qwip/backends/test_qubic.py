@@ -3,6 +3,8 @@ from collections import Counter
 import attrs
 import numpy as np
 import pytest
+
+import qwip
 from numpy.testing import assert_almost_equal, assert_equal
 
 try:
@@ -10,13 +12,16 @@ try:
     from distproc.executable import Executable
     from distproc.ir.instructions import BranchFproc, Idle, Pulse, VirtualZ
 
+    from qubic.rpc_client import CircuitRunnerClient
+
     from qwip.backends.qubic import (
+        QubicBackend,
         QubicCompiler,
         QubicExecutable,
         _get_board_and_core,
-        _get_memory_name,
         _TimedBranch,
         find_constant_segments,
+        hw_config_snapshot,
     )
 except ImportError:
     pytest.skip("Qubic dependencies not installed.", allow_module_level=True)
@@ -34,6 +39,8 @@ from qwip.sequencer import (
     VirtualZWaveform,
     active_reset,
 )
+from qwip.processing.data_processor import ReadoutPipeline
+from qwip.qpu import QPU
 from qwip.sequencer.compilation import ChannelInfo, DeviceInfo
 
 
@@ -57,7 +64,81 @@ def assert_instructions_almost_equal(ins1, ins2):
 def test_get_board_and_core(): ...
 
 
-def test_get_memory_name(): ...
+def make_hw_config(
+    acc_length: int = 2048,
+    env_length: int = 4096,
+    freq_length: int = 4096,
+    fpga_clk_freq: float = 500e6,
+) -> dict:
+    """One board's configuration in the shape of `CircuitRunnerClient.get_hw_config`,
+    with qdrv/rdrv/rdlo channels for eight cores named `c0`. Memory lengths are
+    in 32-bit words."""
+    elem_params = {
+        "qdrv": dict(samples_per_clk=16, interp_ratio=1),
+        "rdrv": dict(samples_per_clk=16, interp_ratio=16),
+        "rdlo": dict(samples_per_clk=4, interp_ratio=4),
+    }
+    channels, mems = {}, {}
+    for i in range(8):
+        for elem_ind, siggen in enumerate(("qdrv", "rdrv", "rdlo")):
+            entry = dict(
+                core_ind=i,
+                elem_ind=elem_ind,
+                core_name="c0",
+                elem_type="rf_mix" if siggen == "rdlo" else "rf",
+                elem_params=elem_params[siggen],
+                env_mem_name=f"c0_{siggen}_env{i}",
+                freq_mem_name=f"c0_{siggen}_freq{i}",
+            )
+            if siggen == "rdlo":
+                entry["acc_mem_name"] = f"c0_accbuf{i}"
+            channels[f"Q{i}.{siggen}"] = entry
+            mems[f"c0_{siggen}_env{i}"] = dict(length=env_length)
+            mems[f"c0_{siggen}_freq{i}"] = dict(length=freq_length)
+        mems[f"c0_accbuf{i}"] = dict(length=acc_length)
+        mems[f"c0_command{i}"] = dict(length=8192)
+    return dict(fpga_clk_freq=fpga_clk_freq, channels=channels, mems=mems)
+
+
+def make_devices(**rates) -> list[DeviceInfo]:
+    """Devices `b0_c0_qdrv`, `b0_c0_rdrv` and `b0_c0_rdlo` with eight channels
+    each. `rates` maps a siggen name to `DeviceInfo` keyword arguments."""
+    qubit = [ChannelInfo(f"Q{i}.qdrv", index=i) for i in range(8)]
+    readout = [ChannelInfo(f"Q{i}.rdrv", index=i, subchannel=1) for i in range(8)]
+    adc = [
+        ChannelInfo(f"Q{i}.rdlo", index=i, subchannel=2, read=True) for i in range(8)
+    ]
+    return [
+        DeviceInfo.from_channels(
+            chans, name=f"b0_c0_{siggen}", dtype=np.complex64, **rates.get(siggen, {})
+        )
+        for siggen, chans in (("qdrv", qubit), ("rdrv", readout), ("rdlo", adc))
+    ]
+
+
+def make_frames() -> dict[str, Frame]:
+    return {f"Q{i}.freq_GE": Frame((5 + 0.1 * i) * 1e9) for i in range(8)} | {
+        f"Q{i}.readfreq": Frame((6.4 + 0.1 * i) * 1e9) for i in range(8)
+    }
+
+
+def readout_timeline(qubit: int = 0, width: float = 2e-6) -> Timeline:
+    """A readout drive pulse on `qubit` and a demodulation pulse 500 ns later."""
+    tmln = Timeline()
+    for siggen, t0 in (("rdrv", 0), ("rdlo", 500e-9)):
+        tmln.add(
+            ModulatedWaveform(
+                envelope=SquareWaveform(width=width),
+                modulation=CWWaveform(
+                    channel=f"Q{qubit}.{siggen}",
+                    frequency=f"Q{qubit}.readfreq",
+                    hardware_modulation=True,
+                ),
+            ),
+            t0,
+        )
+    tmln.width = width + 500e-9
+    return tmln
 
 
 class TestQubicExecutable:
@@ -112,41 +193,14 @@ def test_find_constant_segments(arr, locations, values, lengths):
 
 class TestQubicCompiler:
     @pytest.fixture
-    def compiler(self):
-        qubit = [ChannelInfo(f"Q{i}.qdrv", index=i) for i in range(8)]
-        readout = [ChannelInfo(f"Q{i}.rdrv", index=i, subchannel=1) for i in range(8)]
-        adc = [
-            ChannelInfo(f"Q{i}.rdlo", index=i, subchannel=2, read=True)
-            for i in range(8)
-        ]
+    def frames(self):
+        return make_frames()
 
-        qubit = DeviceInfo.from_channels(
-            qubit,
-            sample_rate=8e9,
-            envelope_sample_rate=8e9,
-            name="b0_c0_qdrv",
-            dtype=np.complex64,
+    @pytest.fixture
+    def compiler(self, frames):
+        return QubicCompiler.from_devices(
+            make_devices(), frames=frames, hw_config={"b0": make_hw_config()}
         )
-        readout = DeviceInfo.from_channels(
-            readout,
-            sample_rate=8e9,
-            envelope_sample_rate=0.5e9,
-            name="b0_c0_rdrv",
-            dtype=np.complex64,
-        )
-        adc = DeviceInfo.from_channels(
-            adc,
-            sample_rate=2e9,
-            envelope_sample_rate=0.5e9,
-            name="b0_c0_rdlo",
-            dtype=np.complex64,
-        )
-
-        frames = {f"Q{i}.freq_GE": Frame((5 + 0.1 * i) * 1e9) for i in range(8)} | {
-            f"Q{i}.readfreq": Frame((6.4 + 0.1 * i) * 1e9) for i in range(8)
-        }
-
-        return QubicCompiler.from_devices([qubit, readout, adc], frames=frames)
 
     @pytest.fixture
     def gates(self):
@@ -231,6 +285,87 @@ class TestQubicCompiler:
 
             if device == "rdlo":
                 assert ch_config.acc_mem_name == f"c0_accbuf{ch_id}"
+
+    @pytest.mark.parametrize("fpga_clk_freq", [500e6, 250e6])
+    def test_apply_hw_config_sets_rates_and_clock(self, frames, fpga_clk_freq):
+        compiler = QubicCompiler.from_devices(
+            make_devices(),
+            frames=frames,
+            hw_config=make_hw_config(fpga_clk_freq=fpga_clk_freq),
+        )
+
+        assert compiler.fpga_config.fpga_clk_period == 1 / fpga_clk_freq
+        rates = {
+            name: (dev.sample_rate, dev.envelope_sample_rate)
+            for name, dev in compiler.devices.items()
+        }
+        assert rates == {
+            "b0_c0_qdrv": (16 * fpga_clk_freq, 16 * fpga_clk_freq),
+            "b0_c0_rdrv": (16 * fpga_clk_freq, fpga_clk_freq),
+            "b0_c0_rdlo": (4 * fpga_clk_freq, fpga_clk_freq),
+        }
+
+    def test_apply_hw_config_matching_configured_rate(self, frames):
+        compiler = QubicCompiler.from_devices(
+            make_devices(qdrv=dict(sample_rate=8e9, envelope_sample_rate=8e9)),
+            frames=frames,
+            hw_config=make_hw_config(),
+        )
+        assert compiler.devices["b0_c0_qdrv"].sample_rate == 8e9
+
+    def test_apply_hw_config_mismatched_rate_raises(self, frames):
+        with pytest.raises(ValueError, match="sample_rate=1000000000.0"):
+            QubicCompiler.from_devices(
+                make_devices(qdrv=dict(sample_rate=1e9)),
+                frames=frames,
+                hw_config=make_hw_config(),
+            )
+
+    def test_apply_hw_config_unknown_board_raises(self, frames):
+        with pytest.raises(ValueError, match="Board 'b0'"):
+            QubicCompiler.from_devices(
+                make_devices(), frames=frames, hw_config={"b1": make_hw_config()}
+            )
+
+    def test_apply_hw_config_unknown_channel_raises(self, frames):
+        hw_config = make_hw_config()
+        del hw_config["channels"]["Q3.rdrv"]
+        with pytest.raises(ValueError, match="Q3.rdrv"):
+            QubicCompiler.from_devices(
+                make_devices(), frames=frames, hw_config=hw_config
+            )
+
+    def test_compile_without_hw_config_raises(self, frames):
+        compiler = QubicCompiler.from_devices(make_devices(), frames=frames)
+        with pytest.raises(ValueError, match="No hardware configuration"):
+            compiler.compile(Sequence([readout_timeline()]))
+
+    def test_compile_batches_by_accumulation_depth(self, frames):
+        # Four words hold two S11 results per shot.
+        compiler = QubicCompiler.from_devices(
+            make_devices(),
+            frames=frames,
+            hw_config={"b0": make_hw_config(acc_length=4)},
+        )
+        seq = Sequence([readout_timeline() for _ in range(5)])
+
+        exes = compiler.compile(seq)
+
+        assert [exe.reads_per_timeline for exe in exes] == [(1, 1), (1, 1), (1,)]
+        assert [exe.timeline_index for exe in exes] == [0, 2, 4]
+        assert [len(exe.sequence.flat) for exe in exes] == [2, 2, 1]
+
+        with pytest.raises(ValueError, match="Accumulation buffer c0_accbuf0"):
+            compiler.compile(seq, batch_size=5)
+
+    def test_compile_envelope_memory_overflow_raises(self, frames):
+        compiler = QubicCompiler.from_devices(
+            make_devices(),
+            frames=frames,
+            hw_config={"b0": make_hw_config(env_length=100)},
+        )
+        with pytest.raises(ValueError, match="Memory c0_rdrv_env0"):
+            compiler.compile(Sequence([readout_timeline()]), cw_threshold=None)
 
     @pytest.mark.parametrize(
         "location,wave,t0,expected",
@@ -924,3 +1059,85 @@ class TestQubicCompiler:
             "Q0.rdrv",
             "Q0.rdlo",
         ]
+
+
+class FakeRunner(CircuitRunnerClient):
+    """Runner that reports a fixed hardware configuration without a board."""
+
+    def __init__(self, hw_config: dict):
+        self._hw_config = hw_config
+
+    def get_hw_config(self, board: str = None) -> dict:
+        return self._hw_config
+
+
+def test_hw_config_snapshot():
+    hw_config = make_hw_config() | dict(regs={"a": 1}, rfdc=None)
+    expected = {k: hw_config[k] for k in ("fpga_clk_freq", "channels", "mems")}
+
+    assert hw_config_snapshot(hw_config) == expected
+    assert hw_config_snapshot({"b0": hw_config}) == {"b0": expected}
+
+
+class TestQubicBackendHardwareSnapshot:
+    @pytest.fixture
+    def qpu(self, config_db):
+        savepoint = config_db.session.begin_nested()
+        config_db.config.create_all()
+        config_db.config["readout"].create_all(default={})
+        compiler = QubicCompiler.from_devices(make_devices(), frames=make_frames())
+        yield QPU(
+            db=config_db, compiler=compiler, pipeline=ReadoutPipeline(), subsystems={}
+        )
+        savepoint.rollback()
+
+    def test_update_parameters_stores_snapshot(self, qpu):
+        hw_config = {"b0": make_hw_config()}
+        backend = QubicBackend(runner=FakeRunner(hw_config))
+
+        backend.update_parameters(qpu)
+
+        assert qpu.compiler.hw_config == hw_config
+        assert qpu.config["compilation/hardware/config"] == hw_config_snapshot(
+            hw_config
+        )
+
+    def test_update_parameters_creates_missing_folder(self, qpu):
+        # A database created before the `hardware` folder existed.
+        qpu.db.session.delete(qpu.config["compilation/hardware"].folder)
+        qpu.db.session.flush()
+        qpu.db.session.expire_all()
+        assert "hardware" not in qpu.config["compilation"]
+        backend = QubicBackend(runner=FakeRunner(make_hw_config()))
+
+        backend.update_parameters(qpu)
+
+        assert qpu.config["compilation/hardware/config"] == hw_config_snapshot(
+            make_hw_config()
+        )
+
+    @staticmethod
+    def save_compiler(qpu):
+        """`QPU.save_compiler` without its own transaction, which the test
+        fixture's savepoint does not allow."""
+        for device in qpu.compiler.devices.values():
+            info = qwip.converter.unstructure(device)
+            info["channels"] = [ch["name"] for ch in info["channels"]]
+            qpu.config["compilation/devices"].create_all(**{device.name: info})
+            for ch in device.channels:
+                qpu.config["compilation/channels"].create_all(
+                    **{ch.name: qwip.converter.unstructure(ch)}
+                )
+        qpu.config["compilation/compiler"] = dict(__class__="QubicCompiler")
+
+    def test_load_compiler_applies_snapshot(self, qpu):
+        hw_config = {"b0": make_hw_config(fpga_clk_freq=250e6)}
+        QubicBackend(runner=FakeRunner(hw_config)).update_parameters(qpu)
+        self.save_compiler(qpu)
+
+        compiler = QPU.load_compiler(qpu.config, frames=make_frames())
+
+        assert isinstance(compiler, QubicCompiler)
+        assert compiler.fpga_config.fpga_clk_period == 4e-9
+        assert compiler.devices["b0_c0_rdlo"].sample_rate == 1e9
+        assert len(compiler.compile(Sequence([readout_timeline()]))) == 1

@@ -4,7 +4,11 @@ import numpy as np
 from attrs import field
 
 import qwip
-from qwip.config.interface import ConfigFolder, ValidatedConfigFolder, configschema
+from qwip.config.interface import (
+    ConfigFolder,
+    ValidatedConfigFolder,
+    configschema,
+)
 
 Target = TypeVar("Target", bound=str)
 
@@ -111,10 +115,25 @@ class TriggerInfoSchema(ValidatedConfigFolder):
 class DeviceSchema(ValidatedConfigFolder):
     name: str
     channels: list[str] = field(factory=list)
-    sample_rate: float
+    sample_rate: float | None = None
     envelope_sample_rate: float | None = None
     trigger: TriggerInfoSchema
     dtype: str = "numpy.float32"
+
+
+@configschema
+class HardwareConfigSchema(ValidatedConfigFolder):
+    """Snapshot of the board configuration a hardware compiler needs.
+
+    Attributes:
+        config: `qwip.backends.qubic.hw_config_snapshot` of the last
+            configuration a backend reported, or `None`. Written by
+            `QubicBackend.update_parameters` and applied by
+            `QPU.load_compiler`, so a compiler loaded without a board uses the
+            last-seen hardware.
+    """
+
+    config: dict | None = None
 
 
 @configschema
@@ -122,6 +141,7 @@ class CompilationSchema(ValidatedConfigFolder):
     channels: ConfigFolder[str, ChannelInfoSchema]
     devices: ConfigFolder[str, DeviceSchema]
     compiler: dict = field(factory=lambda: dict(__class__="QWiPCompiler"))
+    hardware: HardwareConfigSchema
     X90: ConfigFolder[Target, NativeGateSchema]
     EF_X90: ConfigFolder[Target, NativeGateSchema]
     Z: ConfigFolder[Target, NativeGateSchema]
@@ -142,7 +162,7 @@ class ConfigSchema(ValidatedConfigFolder):
         processing: Processing subfolder.
         model: Model subfolder.
         pulses: Pulses subfolder.
-        compilation: Compiation subfolder.
+        compilation: Compilation subfolder.
     """
 
     version: str = qwip.qsettings["version"]
