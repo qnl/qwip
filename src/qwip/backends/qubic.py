@@ -16,7 +16,13 @@ try:
     from distproc.hwconfig import ChannelConfig as QubicChannelConfig
     from distproc.hwconfig import FPGAConfig, FPROCChannel
     from distproc.ir import passes
-    from distproc.ir.instructions import BranchFproc, DeclareFreq, Pulse, VirtualZ
+    from distproc.ir.instructions import (
+        BranchFproc,
+        DeclareFreq,
+        Idle,
+        Pulse,
+        VirtualZ,
+    )
     from qubic.rpc_client import CircuitRunnerClient
     from qubitconfig.qchip import QChip
 except ImportError as e:
@@ -162,6 +168,35 @@ def _get_memory_name(channel: ChannelInfo) -> dict[str, str]:
         memory["acc_mem_name"] = f"{core}_accbuf{channel.index}"
 
     return memory
+
+
+# distproc's Schedule pass starts the first basic block at this clock.
+_DISTPROC_START_NCLKS = 5
+
+
+class _TimedBranch:
+    """A `BranchFproc` tagged with the nominal start of its arms.
+
+    `compile_timeline` orders instructions by ``start_time``, and
+    `QubicCompiler._rebase_blocks` needs the branch's nominal start and the
+    readout channel whose FPROC result it reads. The wrapper is removed (and the
+    bare `BranchFproc` emitted) by `_rebase_blocks`.
+    """
+
+    __slots__ = ("branch", "start_time", "twidth", "channel", "name")
+
+    def __init__(self, branch, start_time: int, twidth: float, channel: str, name):
+        self.branch = branch
+        self.start_time = start_time
+        self.twidth = twidth
+        self.channel = channel
+        self.name = name
+
+    def __repr__(self):
+        return (
+            f"_TimedBranch(name={self.name!r}, start_time={self.start_time}, "
+            f"channel={self.channel!r}, branch={self.branch!r})"
+        )
 
 
 @register_compiler
@@ -336,6 +371,7 @@ class QubicCompiler(QWiPCompiler):
         reads: Counter[str],
         t0: int = 0,
         _in_reset: bool = False,
+        fold_phases: dict | None = None,
         **kwargs,
     ) -> list:
         """Compiles a single waveform into a list of qubic instructions
@@ -349,6 +385,11 @@ class QubicCompiler(QWiPCompiler):
                 incremented if the waveform is on a read channel.
             t0: The start time, in clock cycles, of the pulse timeline. The default
                 clock cycle period is 2ns on Qubic.
+            fold_phases: If given, virtual-Z waveforms are not emitted as
+                `VirtualZ` instructions; their phase is accumulated in this
+                mapping (frame -> radians) and added to the phase of later
+                hardware-modulated pulses on the same frame. Used inside the
+                arms of a reset, see `compile_timeline`.
             **kwargs: Additional keyword arguments are passed to the `envelope_to_pulse`
                 method.
         """
@@ -398,14 +439,19 @@ class QubicCompiler(QWiPCompiler):
                     qubit = None
                     freqname = frame.offset
 
-                instructions.append(
-                    VirtualZ(
-                        qubit=qubit,
-                        phase=phase * np.pi / 180,
-                        freq=freqname,
-                        scope=wave.channel,
+                if fold_phases is not None:
+                    fold_phases[frame.offset] = (
+                        fold_phases.get(frame.offset, 0.0) + phase * np.pi / 180
                     )
-                )
+                else:
+                    instructions.append(
+                        VirtualZ(
+                            qubit=qubit,
+                            phase=phase * np.pi / 180,
+                            freq=freqname,
+                            scope=wave.channel,
+                        )
+                    )
 
             case DCWaveform():
                 instructions.append(
@@ -440,6 +486,8 @@ class QubicCompiler(QWiPCompiler):
                     freq = mod.frequency.offset
                     amplitude = mod.amplitude
                     phase = mod.phase * np.pi / 180
+                    if fold_phases is not None:
+                        phase += fold_phases.get(freq, 0.0)
                 else:
                     freq = 0
                     amplitude = 1
@@ -493,23 +541,29 @@ class QubicCompiler(QWiPCompiler):
                 left = wave.left or Timeline(width=0)
                 right = wave.right or Timeline(width=0)
 
-                # The conditional body plays starting at the branch's own start
-                # (start_cycle). Its real start is then pushed later by the FPROC
-                # Hold inserted below; we don't pre-pad here.
-                left_ins, _ = self.compile_timeline(
-                    left,
+                # The arms are laid out at absolute times like everything else;
+                # `_rebase_blocks` converts them to block-relative times later.
+                #
+                # Inside a reset the arm's virtual-Z markers are folded into its
+                # pulse phases here instead of being emitted for distproc. The
+                # arm must leave every frame's phase unchanged (the qubit is
+                # being returned to |0>, so the frame phase carries no
+                # information), and distproc checks that the two arms end at
+                # exactly equal accumulated phases: adding and then subtracting
+                # the markers on top of a nonzero incoming phase can differ by
+                # one floating-point ulp and fail that check.
+                arm_kwargs = dict(
                     waveform_cache=waveform_cache,
                     t0=start_cycle,
                     reset_delay=np.inf,
                     zero_dc=False,
                 )
-                right_ins, _ = self.compile_timeline(
-                    right,
-                    waveform_cache=waveform_cache,
-                    t0=start_cycle,
-                    reset_delay=np.inf,
-                    zero_dc=False,
-                )
+                if _in_reset:
+                    left_ins, _ = self.compile_timeline(left, fold_phases={}, **arm_kwargs)
+                    right_ins, _ = self.compile_timeline(right, fold_phases={}, **arm_kwargs)
+                else:
+                    left_ins, _ = self.compile_timeline(left, **arm_kwargs)
+                    right_ins, _ = self.compile_timeline(right, **arm_kwargs)
 
                 # Find the FPROC channel that reads this readout channel. distproc
                 # uses it to insert a wait (a Hold) before the branch, so the branch
@@ -532,6 +586,9 @@ class QubicCompiler(QWiPCompiler):
                     )
                 func_id = func_ids[0]
 
+                # The scope is widened to every channel in the circuit by
+                # `_rebase_blocks`, which also converts the absolute timestamps
+                # in the arms to the block-relative form distproc expects.
                 branch = BranchFproc(
                     cond_lhs=1,  # left half plane
                     alu_cond="eq",
@@ -540,7 +597,15 @@ class QubicCompiler(QWiPCompiler):
                     true=left_ins,
                     false=right_ins,
                 )
-                instructions.append(branch)
+                instructions.append(
+                    _TimedBranch(
+                        branch,
+                        start_time=start_cycle,
+                        twidth=width,
+                        channel=wave.channel,
+                        name=wave.name,
+                    )
+                )
 
             case ResetOperation():
                 # Cancel the spurious +1 from the read-channel check above; the
@@ -549,15 +614,15 @@ class QubicCompiler(QWiPCompiler):
                 # at the end of the parent timeline (matches BranchOperation).
                 reads[wave.channel] -= 1
 
-                # The measurement-settling wait between each readout and the
-                # branch that reads its discrimination result is reserved by the
-                # FPROC Hold that distproc inserts (see the BranchOperation case,
-                # which names the "{qubit}.meas" FPROC channel), so no explicit gap
-                # is added here.
+                # Each branch needs `fproc_delay` of room after the measurement:
+                # `_rebase_blocks` holds every core until `fproc_meas_clks` after
+                # the demod window ends, and the jump itself takes
+                # `pulse_load_clks + jump_fproc_clks` before the pi pulse can start.
                 layers = []
                 for n in range(wave.n_resets):
                     if n > 0 or wave.measure_first:
                         layers.append(wave.measurement)
+                    layers.append(wave.fproc_delay)
                     layers.append(
                         BranchOperation(
                             name=f"{wave.name}_branch{n}",
@@ -759,8 +824,330 @@ class QubicCompiler(QWiPCompiler):
             circuit.extend(instructions)
             reads_per_timeline.append(max(reads_per_channel | {0}))
 
+        circuit.extend(self._end_of_batch_hold(circuit, t0_cycles))
+        circuit = self._rebase_blocks(circuit)
+
         total_duration = (t0_cycles - self.start_offset) * clk
         return circuit, reads_per_timeline, total_duration
+
+    def _end_of_batch_hold(self, circuit: list, end_cycles: int) -> list:
+        """An `Idle` that keeps the program running until `end_cycles`.
+
+        A slot works by delaying the start of the next timeline until the slot
+        is over. The last timeline has no next timeline, so without this idle
+        the program ends when its last pulse does and the next shot starts at
+        once. The idle is applied to a single core. That is enough, because
+        distproc makes every core wait for the latest instruction in the
+        program, and it avoids a distproc bug that schedules an idle applied
+        to several cores at the wrong time. Returns an empty list if the last
+        instruction already reaches `end_cycles`.
+        """
+        clk = self.fpga_config.fpga_clk_period
+        load = self.fpga_config.pulse_load_clks
+        last, last_dest = 0, None
+
+        def visit(instrs):
+            nonlocal last, last_dest
+            for ins in instrs:
+                if isinstance(ins, Pulse):
+                    width = int(np.ceil((ins.twidth or 0) / clk))
+                    end = ins.start_time + width + load
+                    if end >= last:
+                        last, last_dest = end, ins.dest
+                elif isinstance(ins, _TimedBranch):
+                    visit(ins.branch.true)
+                    visit(ins.branch.false)
+
+        visit(circuit)
+        if last_dest is None or end_cycles <= last:
+            return []
+        return [Idle(end_time=end_cycles, scope=[last_dest])]
+
+    def _rebase_blocks(self, circuit: list) -> list:
+        """Converts absolute timestamps to the block-relative ones distproc expects.
+
+        distproc's ``Schedule`` pass, as configured by `compile` (local scheduling
+        off), treats every timestamp as relative to the start of the basic block
+        it is in and starts each block where its predecessors in the control-flow
+        graph ended. A straight-line program is a single block starting at clock
+        ``_DISTPROC_START_NCLKS``, so absolute times pass through unchanged. Each
+        `BranchFproc` opens new blocks (the jump, the two arms, and the merge),
+        and absolute times inside them would be shifted by the accumulated end
+        time of everything before, so the program length grew roughly
+        quadratically with the number of branches.
+
+        This pass replays distproc's block splitting, scoping, control-flow graph
+        and schedule bookkeeping on the absolute-time ``circuit`` and subtracts
+        each block's start from the timestamps in it, so distproc's re-basing
+        puts every pulse back at its nominal time. Before each branch it inserts
+        an `Idle`, scoped to the branch's cores, that holds them until just
+        before the branch's nominal start (and at least ``fproc_meas_clks``
+        after the demod window ends), so the jump reads the state bit as late
+        as the layout allows and the hardware actually waits for the result,
+        which distproc's own Hold does not guarantee when it decides the hold
+        is already satisfied. Branches are scoped to the processor cores their
+        arms use, so branches on different cores that follow each other
+        directly (two qubits reset at once) are scheduled side by side.
+
+        distproc does not let basic blocks overlap in time, so no pulse may span
+        a branch, and nothing may be scheduled between a branch's hold and the
+        end of its longer arm. Violations raise `ValueError` with the timing
+        that would be needed.
+
+        Args:
+            circuit: The instruction list built by `construct_circuit`, with
+                `_TimedBranch` wrappers where `compile_instruction` lowered a
+                `BranchOperation`.
+
+        Returns:
+            The instruction list with bare `BranchFproc` instructions, `Idle`
+            holds before each branch, and block-relative timestamps.
+        """
+        fc = self.fpga_config
+        clk = fc.fpga_clk_period
+        load = fc.pulse_load_clks
+        start_nclks = _DISTPROC_START_NCLKS
+
+        group_of: dict[str, tuple] = {}
+        for grp in self.get_proc_grouping():
+            for ch in grp:
+                group_of[ch] = grp
+
+        def ns(t):
+            return f"{t * clk * 1e9:.0f} ns"
+
+        def nclks(twidth):
+            return int(np.ceil(twidth / clk))
+
+        def instr_scope(ins) -> set:
+            scope = getattr(ins, "scope", None)
+            return set(scope) if scope else set()
+
+        def arm_dests(instrs):
+            for ins in instrs:
+                if isinstance(ins, Pulse):
+                    yield ins.dest
+                elif isinstance(ins, _TimedBranch):
+                    yield from arm_dests(ins.branch.true)
+                    yield from arm_dests(ins.branch.false)
+                else:
+                    yield from instr_scope(ins)
+
+        if not any(isinstance(ins, _TimedBranch) for ins in circuit):
+            # A single basic block: distproc adds `start_nclks` to every time.
+            for ins in circuit:
+                if isinstance(ins, Pulse):
+                    ins.start_time -= start_nclks
+                elif isinstance(ins, Idle):
+                    ins.end_time -= start_nclks
+            return circuit
+
+        def branch_scope(tb: _TimedBranch) -> set:
+            dests = set(arm_dests(tb.branch.true)) | set(arm_dests(tb.branch.false))
+            scope = set()
+            for d in dests:
+                scope |= set(group_of[d])
+            return scope or set(group_of[tb.channel])
+
+        class Block:
+            __slots__ = (
+                "ops", "scope", "preds", "jump_to", "timed", "context",
+                "start", "end", "pulse_end",
+            )
+
+            def __init__(self, context, scope=()):
+                self.ops = []  # distproc-level operations that affect timing
+                self.scope = set(scope)
+                self.preds = set()
+                self.jump_to = None
+                self.timed = []  # Pulse/Idle objects to shift by the block start
+                self.context = context
+
+        blocks: list[Block] = []
+
+        def new_block(context, scope=()):
+            block = Block(context, scope)
+            blocks.append(block)
+            return block
+
+        def emit(instrs, cur: Block):
+            """Lays ``instrs`` out into basic blocks the way distproc's
+            FlattenProgram and MakeBasicBlocks passes would, starting in ``cur``.
+            Returns the rebuilt instruction list and the block the list ends in."""
+            out = []
+            i = 0
+            while i < len(instrs):
+                ins = instrs[i]
+                if not isinstance(ins, _TimedBranch):
+                    if isinstance(ins, Pulse):
+                        cur.ops.append(("pulse", ins))
+                        cur.scope.add(ins.dest)
+                        cur.timed.append(ins)
+                    else:
+                        cur.scope |= instr_scope(ins)
+                        if isinstance(ins, Idle):
+                            cur.ops.append(("idle", ins))
+                            cur.timed.append(ins)
+                    out.append(ins)
+                    i += 1
+                    continue
+
+                # Branches that directly follow each other (e.g. several qubits
+                # reset at once) get their holds up front, in the same block, so
+                # that each branch's control block hangs off that block rather
+                # than off the previous branch's arms.
+                run = [ins]
+                while i + len(run) < len(instrs) and isinstance(
+                    instrs[i + len(run)], _TimedBranch
+                ):
+                    run.append(instrs[i + len(run)])
+                for tb in run:
+                    scope = branch_scope(tb)
+                    idle = Idle(end_time=0, scope=sorted(scope))
+                    cur.ops.append(("hold_idle", idle, tb.channel, tb.start_time))
+                    cur.scope |= scope
+                    cur.timed.append(idle)
+                    out.append(idle)
+                for tb in run:
+                    cur = emit_branch(tb, cur, out)
+                i += len(run)
+            return out, cur
+
+        def emit_branch(tb: _TimedBranch, cur: Block, out: list) -> Block:
+            br = tb.branch
+            scope = branch_scope(tb)
+            br.scope = sorted(scope)
+            label = f"branch {tb.name!r} at {ns(tb.start_time)}"
+
+            ctrl = new_block(f"jump of {label}", scope)
+            ctrl.ops = [("hold", tb.channel, scope), ("jump_fproc", scope)]
+
+            false_block = new_block(f"false arm of {label}", scope)
+            br.false, false_end = emit(br.false, false_block)
+            false_end.ops.append(("jump_i", scope))
+            false_end.scope |= scope
+
+            if br.true:
+                true_block = new_block(f"true arm of {label}", scope)
+                br.true, _ = emit(br.true, true_block)
+                ctrl.jump_to = true_block
+
+            merge = new_block(f"after {label}", scope)
+            false_end.jump_to = merge
+            if ctrl.jump_to is None:
+                ctrl.jump_to = merge
+            out.append(br)
+            return merge
+
+        first = new_block("start of program")
+        circuit, _ = emit(circuit, first)
+        blocks = [b for b in blocks if b.ops or b.scope]
+
+        # GenerateCFG: implicit edges from the last block that touched each
+        # channel, explicit edges from jumps.
+        universe = set().union(*(b.scope for b in blocks))
+        lastblock = {d: None for d in universe}
+        for block in blocks:
+            for d in block.scope:
+                if lastblock[d] is not None:
+                    block.preds.add(lastblock[d])
+            last = block.ops[-1][0] if block.ops else None
+            if last == "jump_fproc":
+                block.jump_to.preds.add(block)
+                for d in block.scope:
+                    lastblock[d] = block
+            elif last == "jump_i":
+                block.jump_to.preds.add(block)
+                for d in block.scope:
+                    lastblock[d] = None
+            else:
+                for d in block.scope:
+                    lastblock[d] = block
+
+        # Schedule: blocks are created in program order, which is topological.
+        for block in blocks:
+            pulse_cur = {d: start_nclks for d in universe}
+            for pred in block.preds:
+                for d in pred.scope:
+                    pulse_cur[d] = max(pulse_cur[d], pred.pulse_end[d])
+            S = max((pred.end for pred in block.preds), default=start_nclks)
+            block.start = S
+
+            groups = {group_of[d] for d in block.scope}
+            issue = {g: S for g in groups}
+            busy = set()
+            cur_t = {d: S for d in block.scope}
+
+            def groups_of(scope):
+                return {group_of[d] for d in scope}
+
+            for op in block.ops:
+                match op:
+                    case ("pulse", ins):
+                        g = group_of[ins.dest]
+                        if ins.start_time < issue[g]:
+                            if g in busy:
+                                raise ValueError(
+                                    f"Pulse on {ins.dest} at {ns(ins.start_time)} "
+                                    f"is within {load} clocks of the previous "
+                                    f"instruction on its core, which is busy "
+                                    f"until {ns(issue[g])} ({block.context})."
+                                )
+                            raise ValueError(
+                                f"Pulse on {ins.dest} at {ns(ins.start_time)} "
+                                f"starts before its basic block can begin at "
+                                f"{ns(issue[g])} ({block.context}). Pulses may "
+                                f"not overlap a measurement-conditioned branch, "
+                                f"and a branch's arms cannot start until "
+                                f"fproc_meas_clks + pulse_load_clks + "
+                                f"jump_fproc_clks after its measurement ends."
+                            )
+                        busy.add(g)
+                        issue[g] = ins.start_time + load
+                        end = ins.start_time + nclks(ins.twidth)
+                        cur_t[ins.dest] = end
+                        pulse_cur[ins.dest] = end
+                    case ("hold_idle", idle, channel, branch_start):
+                        # Hold until the arms can start exactly at the branch's
+                        # nominal start: the jump then reads the state bit as
+                        # late as the layout allows, so the gap laid out before
+                        # the branch (`fproc_delay` in a reset) is the time the
+                        # measurement result has to reach the processor.
+                        # `fproc_meas_clks` after the demod window is the floor.
+                        idle_groups = groups_of(idle.scope)
+                        ready = pulse_cur[channel] + fc.fproc_meas_clks - load
+                        latest = branch_start - load - fc.jump_fproc_clks
+                        end = max([ready, latest] + [issue[g] for g in idle_groups])
+                        idle.end_time = end
+                        for g in idle_groups:
+                            busy.add(g)
+                            issue[g] = end + load
+                    case ("idle", ins):
+                        for g in groups_of(ins.scope):
+                            issue[g] = max(issue[g], ins.end_time + load)
+                    case ("hold", channel, scope):
+                        idle_end = max(pulse_cur[channel] + fc.fproc_meas_clks, S)
+                        for g in groups_of(scope):
+                            if issue[g] < idle_end:
+                                issue[g] = idle_end + load
+                    case ("jump_fproc", scope):
+                        for g in groups_of(scope):
+                            issue[g] += fc.jump_fproc_clks
+                    case ("jump_i", scope):
+                        for g in groups_of(scope):
+                            issue[g] += fc.jump_cond_clks
+
+            block.end = max([S] + list(cur_t.values()) + list(issue.values()))
+            block.pulse_end = pulse_cur
+
+        for block in blocks:
+            for ins in block.timed:
+                if isinstance(ins, Pulse):
+                    ins.start_time -= block.start
+                else:
+                    ins.end_time -= block.start
+
+        return circuit
 
     def compile(
         self,
@@ -832,6 +1219,9 @@ class QubicCompiler(QWiPCompiler):
 
             prog = qubic_compiler.compile()
             asm = tc.run_assemble_stage(prog, channel_config)
+            for channel, value in self._state_thresholds(batch_seq).items():
+                board, register = self._threshold_register(channel)
+                asm.write_registers[f"{board}:{register}"] = int(value)
             exe = QubicExecutable(
                 sequence=batch_seq,
                 timeline_index=tmln_idx,
@@ -843,6 +1233,53 @@ class QubicCompiler(QWiPCompiler):
             exes.append(exe)
 
         return exes
+
+    @staticmethod
+    def _state_thresholds(seq: Sequence) -> dict[str, int]:
+        """Gateware state thresholds requested by the resets in ``seq``.
+
+        Every `ResetOperation` with a `threshold` contributes an entry for its
+        readout channel. Timelines flatten when composed, so the resets are
+        top-level operations of each timeline.
+
+        Raises:
+            ValueError: If two resets in the batch ask for different thresholds
+                on the same channel; the register is per channel, not per
+                timeline, and holds one value for the whole program.
+        """
+        thresholds: dict[str, int] = {}
+        for tmln in seq.flat:
+            for op in tmln.operations:
+                if not isinstance(op, ResetOperation) or op.threshold is None:
+                    continue
+                value = int(op.threshold)
+                if thresholds.setdefault(op.channel, value) != value:
+                    raise ValueError(
+                        f"Resets in one batch request different state thresholds "
+                        f"on {op.channel!r}: {thresholds[op.channel]} and {value}. "
+                        f"The threshold register is per channel; use one value "
+                        f"per batch."
+                    )
+        return thresholds
+
+    def _threshold_register(self, channel: str) -> tuple[str, str]:
+        """(board, register name) of the state threshold for ``channel``.
+
+        The gateware names the register after the readout core and signal
+        generator, ``thresh_<core>_<siggen>_<index>``, matching the device
+        naming used by `get_channel_config`.
+        """
+        for devname, dev in self.devices.items():
+            for ch in dev.channels:
+                if ch.name != channel:
+                    continue
+                if not ch.read:
+                    raise ValueError(
+                        f"{channel!r} is not a readout channel; cannot set a state threshold"
+                    )
+                board, core, siggen = _get_board_and_core(devname)
+                return board, f"thresh_{core}_{siggen}_{ch.index}"
+        raise ValueError(f"No device has a channel named {channel!r}")
 
     def get_qchip(self) -> QChip:
         """Returns a Qubic QChip object with the named modulation frequencies.

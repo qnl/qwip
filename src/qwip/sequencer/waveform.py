@@ -260,7 +260,7 @@ class ResetOperation(TimedOperation):
     """High-level active-reset gate.
 
     Lowered by hardware backends into a sequence of measurement +
-    measurement-conditioned X pulses. `channel` must be the readout
+    measurement-conditioned pi pulses. `channel` must be the readout
     acquisition channel (e.g. ``Q1.rdlo``); its ``ChannelInfo.index``
     becomes the FPROC ``func_id`` that the conditional branch reads.
 
@@ -277,6 +277,18 @@ class ResetOperation(TimedOperation):
     )
     n_resets: int = field(default=2, metadata=dict(allow_override=False))
     measure_first: bool = field(default=True, metadata=dict(allow_override=False))
+    # Gap between each measurement and its conditional pi pulse, in seconds. The
+    # state bit is read just before the pi pulse, so this is the time the
+    # measurement result has to reach the processor; the floor is
+    # fproc_meas_clks + jump_fproc_clks = 72 clocks (144 ns) at the default
+    # Qubic clock.
+    fproc_delay: float = field(default=400e-9, metadata=dict(allow_override=False))
+    # Gateware state-discrimination threshold for `channel`, in accumulator
+    # units. The readout board reports state 1 when the accumulated I value is
+    # below this; the Qubic backend writes it to the channel's threshold
+    # register with every program containing this reset. None leaves the
+    # register untouched.
+    threshold: int | None = field(default=None, metadata=dict(allow_override=False))
 
 
 @qfrozen

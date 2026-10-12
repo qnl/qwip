@@ -15,6 +15,7 @@ try:
         QubicExecutable,
         _get_board_and_core,
         _get_memory_name,
+        _TimedBranch,
         find_constant_segments,
     )
 except ImportError:
@@ -120,13 +121,25 @@ class TestQubicCompiler:
         ]
 
         qubit = DeviceInfo.from_channels(
-            qubit, sample_rate=8e9, name="qubit", dtype=np.complex64
+            qubit,
+            sample_rate=8e9,
+            envelope_sample_rate=8e9,
+            name="b0_c0_qdrv",
+            dtype=np.complex64,
         )
         readout = DeviceInfo.from_channels(
-            readout, sample_rate=0.5e9, name="readout", dtype=np.complex64
+            readout,
+            sample_rate=8e9,
+            envelope_sample_rate=0.5e9,
+            name="b0_c0_rdrv",
+            dtype=np.complex64,
         )
         adc = DeviceInfo.from_channels(
-            adc, sample_rate=0.5e9, name="adc", dtype=np.complex64
+            adc,
+            sample_rate=2e9,
+            envelope_sample_rate=0.5e9,
+            name="b0_c0_rdlo",
+            dtype=np.complex64,
         )
 
         frames = {f"Q{i}.freq_GE": Frame((5 + 0.1 * i) * 1e9) for i in range(8)} | {
@@ -140,7 +153,7 @@ class TestQubicCompiler:
         gates = dict()
         for q in range(4):
             X90 = Timeline()
-            X90.add(VirtualZWaveform(frame=f"Q{q}.freq_GE"))
+            X90.add(VirtualZWaveform(frame=f"Q{q}.freq_GE", channel=f"Q{q}.qdrv"))
             X90.add(
                 ModulatedWaveform(
                     envelope=GaussianWaveform(width=30e-9),
@@ -151,7 +164,9 @@ class TestQubicCompiler:
                     ),
                 )
             )
-            X90.add(VirtualZWaveform(frame=f"Q{q}.freq_GE"), 30e-9)
+            X90.add(
+                VirtualZWaveform(frame=f"Q{q}.freq_GE", channel=f"Q{q}.qdrv"), 30e-9
+            )
             X90.width = 30e-9
 
             ro = Timeline()
@@ -210,12 +225,12 @@ class TestQubicCompiler:
             device = k[-4:]
             ch_id = ch_config.core_ind
             assert ch_config.elem_params == expected_elem_params[device]
-            assert ch_config.elem_type == "rf"
-            assert ch_config.env_mem_name == f"{device}env{ch_id}"
-            assert ch_config.freq_mem_name == f"{device}freq{ch_id}"
+            assert ch_config.elem_type == ("rf_mix" if device == "rdlo" else "rf")
+            assert ch_config.env_mem_name == f"c0_{device}_env{ch_id}"
+            assert ch_config.freq_mem_name == f"c0_{device}_freq{ch_id}"
 
             if device == "rdlo":
-                assert ch_config.acc_mem_name == f"accbuf{ch_id}"
+                assert ch_config.acc_mem_name == f"c0_accbuf{ch_id}"
 
     @pytest.mark.parametrize(
         "location,wave,t0,expected",
@@ -441,14 +456,17 @@ class TestQubicCompiler:
             tmln, waveform_cache={}, cw_threshold=None
         )
 
-        branches = [ins for ins in instructions if isinstance(ins, BranchFproc)]
+        branches = [
+            ins.branch for ins in instructions if isinstance(ins, _TimedBranch)
+        ]
         assert len(branches) == 2, "expected one BranchFproc per reset round"
 
-        # Q0.rdlo has index=0 in the compiler fixture, so func_id should be 0.
+        # The branch reads the named FPROC channel the compiler registers for
+        # Q0's readout; distproc resolves it to a core index later.
         for br in branches:
             assert br.cond_lhs == 1
             assert br.alu_cond == "eq"
-            assert br.func_id == 0
+            assert br.func_id == "Q0.meas"
             assert br.false == []
             # `true` arm contains the X180 — at minimum a Pulse on Q0.qdrv.
             qdrv_pulses_in_true = [
@@ -458,11 +476,15 @@ class TestQubicCompiler:
             ]
             assert len(qdrv_pulses_in_true) >= 1
 
-        # Two measurement rounds => two rdlo pulses at the top level.
+        # Two measurement rounds => two rdlo pulses at the top level. The square
+        # readout envelope is split into head/CW/tail pieces, so count the CW one.
         rdlo_pulses = [
             ins
             for ins in instructions
-            if isinstance(ins, Pulse) and ins.dest == "Q0.rdlo"
+            if isinstance(ins, Pulse)
+            and ins.dest == "Q0.rdlo"
+            and isinstance(ins.env, str)
+            and ins.env == "cw"
         ]
         assert len(rdlo_pulses) == 2
 
@@ -496,11 +518,16 @@ class TestQubicCompiler:
             tmln, waveform_cache={}, cw_threshold=None
         )
 
-        branches = [ins for ins in instructions if isinstance(ins, BranchFproc)]
+        branches = [
+            ins.branch for ins in instructions if isinstance(ins, _TimedBranch)
+        ]
         rdlo_pulses = [
             ins
             for ins in instructions
-            if isinstance(ins, Pulse) and ins.dest == "Q0.rdlo"
+            if isinstance(ins, Pulse)
+            and ins.dest == "Q0.rdlo"
+            and isinstance(ins.env, str)
+            and ins.env == "cw"
         ]
         assert len(branches) == 2
         # n_resets=2, measure_first=False: skip round 0's measurement, keep round 1's.
@@ -541,6 +568,25 @@ class TestQubicCompiler:
         # Each 2.5us timeline gets a 10us slot.
         assert abs(exe[0].repetition_delay - 2 * 10e-6) <= clk
 
+    def test_compile_holds_until_the_end_of_the_last_slot(self, compiler, gates):
+        """The gateware starts the next shot as soon as the last instruction
+        ends, so the wait after the last timeline must be an explicit idle."""
+        short = Timeline()
+        short.add(gates["Q0_RO"])
+        short.width = 2.5e-6
+
+        exe = compiler.compile(Sequence([short]), reset_delay=10e-6, cw_threshold=None)[0]
+
+        clk = compiler.fpga_config.fpga_clk_period
+        ends = [
+            ins["end_time"]
+            for core in exe.program.program.values()
+            for ins in core
+            if ins.get("op") == "idle"
+        ]
+        assert ends
+        assert min(ends) * clk >= 10e-6 - clk
+
     def test_construct_circuit_reset_delay_too_short_raises(self, compiler, gates):
         """An explicit `reset_delay` shorter than the longest timeline raises."""
         long_ = Timeline()
@@ -550,6 +596,297 @@ class TestQubicCompiler:
         seq = Sequence([long_])
         with pytest.raises(ValueError, match="reset_delay"):
             compiler.construct_circuit(seq, reset_delay=1e-6, cw_threshold=None)
+
+    @staticmethod
+    def _run_distproc_passes(compiler, seq):
+        """Compile-only run of distproc's IR passes on a sequence.
+
+        Returns the nominal batch length in seconds, the scheduled program
+        length in seconds, and the scheduled IR program.
+        """
+        import itertools
+
+        from distproc.compiler import Compiler as _QubicInternalCompiler
+        from distproc.compiler import CompilerFlags, get_passes
+
+        frame_declarations = compiler.get_frame_declarations(compiler.frame_scopes)
+        proc_grouping = compiler.get_proc_grouping()
+        passes = get_passes(
+            compiler.fpga_config,
+            qchip=compiler.get_qchip(),
+            compiler_flags=CompilerFlags(
+                schedule=False, resolve_gates=False, multi_board=True
+            ),
+            qubit_grouping=list(itertools.chain(*proc_grouping)),
+            proc_grouping=proc_grouping,
+        )
+        circuit, _, nominal = compiler.construct_circuit(
+            seq.flatten(), None, frame_declarations, {}, cw_threshold=None
+        )
+        qc = _QubicInternalCompiler(circuit, proc_grouping=proc_grouping)
+        qc.run_ir_passes(passes)
+        end = max(b.get("end_time", 0) for b in qc.ir_prog.blocks.values())
+        return nominal, end * compiler.fpga_config.fpga_clk_period, qc.ir_prog
+
+    @staticmethod
+    def _reset_db(gates):
+        class FakeDB:
+            def __init__(self, mapping):
+                self._mapping = mapping
+
+            def load_pulse(self, name):
+                return self._mapping[name].copy()
+
+        return FakeDB({"Q0_X90": gates["Q0_X90"], "Q0_measure": gates["Q0_RO"]})
+
+    @pytest.mark.parametrize("n_timelines", [1, 2, 4])
+    def test_active_reset_schedules_to_nominal_length(
+        self, compiler, gates, n_timelines
+    ):
+        """distproc re-bases every basic block by its predecessor's end. With
+        absolute timestamps that made actively reset programs grow roughly
+        quadratically with the number of branches; `_rebase_blocks` must make the
+        scheduled length equal the nominal length (plus distproc's 5-clock start
+        offset) regardless of how many timelines share a batch."""
+        db = self._reset_db(gates)
+
+        def proto():
+            return Timeline.from_layers(
+                [active_reset(db, "Q0", n_resets=2), gates["Q0_X90"], gates["Q0_RO"]]
+            )
+
+        seq = Sequence([proto() for _ in range(n_timelines)])
+        nominal, scheduled, ir_prog = self._run_distproc_passes(compiler, seq)
+
+        clk = compiler.fpga_config.fpga_clk_period
+        assert abs(scheduled - nominal) <= 8 * clk
+
+        # The first conditional X pulse sits exactly `fproc_delay` after the
+        # first measurement: 5 (start) + 1250 (2.5 us readout) + 200 (400 ns).
+        qdrv = [
+            ins
+            for block in ir_prog.blocks.values()
+            for ins in block.get("instructions", [])
+            if isinstance(ins, Pulse) and ins.dest == "Q0.qdrv"
+        ]
+        assert min(ins.start_time for ins in qdrv) == 5 + 1250 + 200
+
+    @staticmethod
+    def _nominal_pulses(compiler, seq):
+        """(dest, start clock, twidth) of every pulse, at the absolute times
+        `construct_circuit` lays out before `_rebase_blocks` runs."""
+        import unittest.mock as mock
+
+        def walk(instrs):
+            for ins in instrs:
+                if isinstance(ins, Pulse):
+                    yield (ins.dest, ins.start_time, ins.twidth)
+                elif isinstance(ins, _TimedBranch):
+                    yield from walk(ins.branch.true)
+                    yield from walk(ins.branch.false)
+
+        with mock.patch.object(QubicCompiler, "_rebase_blocks", lambda self, c: c):
+            circuit, _, _ = compiler.construct_circuit(
+                seq.flatten(), None, [], {}, cw_threshold=None
+            )
+        return sorted(walk(circuit))
+
+    @staticmethod
+    def _scheduled_pulses(ir_prog):
+        return sorted(
+            (ins.dest, ins.start_time, ins.twidth)
+            for block in ir_prog.blocks.values()
+            for ins in block.get("instructions", [])
+            if isinstance(ins, Pulse)
+        )
+
+    @pytest.mark.parametrize("qubits", [["Q0"], ["Q0", "Q1"]])
+    def test_active_reset_pulses_land_at_nominal_times(self, compiler, gates, qubits):
+        """After distproc's Schedule pass every pulse, in every arm of every
+        branch and in every following timeline, sits at the clock qwip laid it
+        out at. Two qubits reset at the same time (as in a two-qubit sweep) use
+        two branches on two cores between the same measurements."""
+
+        class FakeDB:
+            def load_pulse(self, name):
+                q, kind = name.split("_")
+                return gates[f"{q}_X90" if kind == "X90" else f"{q}_RO"].copy()
+
+        db = FakeDB()
+
+        def proto():
+            return Timeline.from_layers(
+                [
+                    [active_reset(db, q, n_resets=2) for q in qubits],
+                    [gates[f"{q}_X90"] for q in qubits],
+                    [gates[f"{q}_RO"] for q in qubits],
+                ]
+            )
+
+        seq = Sequence([proto() for _ in range(3)])
+        nominal = self._nominal_pulses(compiler, seq)
+        _, _, ir_prog = self._run_distproc_passes(compiler, seq)
+        assert self._scheduled_pulses(ir_prog) == nominal
+
+    def test_reset_arm_folds_virtual_z(self, compiler, gates):
+        """Inside a reset arm the X pulse's virtual-Z markers are folded into
+        the pulse phases and no `VirtualZ` instruction is emitted, so distproc
+        sees identical frame phases on both arms."""
+        x90 = gates["Q0_X90"]
+        # Give the markers a nonzero phase: 10 degrees before and after the pulse.
+        x90 = Timeline.fromtuples(
+            [
+                (0, VirtualZWaveform(frame="Q0.freq_GE", channel="Q0.qdrv", phase=10)),
+                (0, x90.operations[1]),
+                (30e-9, VirtualZWaveform(frame="Q0.freq_GE", channel="Q0.qdrv", phase=10)),
+            ],
+            width=30e-9,
+        )
+
+        class FakeDB:
+            def load_pulse(self, name):
+                return (x90 if name.endswith("X90") else gates["Q0_RO"]).copy()
+
+        tmln = Timeline.from_layers([active_reset(FakeDB(), "Q0", n_resets=1)])
+        instructions, _ = compiler.compile_timeline(
+            tmln, waveform_cache={}, cw_threshold=None
+        )
+        (branch,) = [ins.branch for ins in instructions if isinstance(ins, _TimedBranch)]
+        assert not any(isinstance(ins, VirtualZ) for ins in branch.true)
+        pulses = [ins for ins in branch.true if isinstance(ins, Pulse)]
+        assert len(pulses) == 2
+        # First pulse: one 10 degree marker before it; second: three.
+        assert_almost_equal(pulses[0].phase, np.deg2rad(10))
+        assert_almost_equal(pulses[1].phase, np.deg2rad(30))
+
+    @staticmethod
+    def _classified_db(gates, ground, excited):
+        """FakeDB with Q0's pulses and a stored two-blob readout classification."""
+
+        class FakeDB:
+            config = {
+                "readout": {
+                    "default": {
+                        "registers": {
+                            "Q0": {"classification": {"means": np.stack([ground, excited])}}
+                        }
+                    }
+                }
+            }
+
+            def load_pulse(self, name):
+                return (gates["Q0_X90"] if name.endswith("X90") else gates["Q0_RO"]).copy()
+
+        return FakeDB()
+
+    def test_hardware_demod_rotation(self, gates):
+        """The rotation aligns the ground-to-excited separation with negative I,
+        the threshold is the midpoint I in that frame, and `active_reset`
+        applies the rotation to the reset's demod waveform only and carries the
+        threshold."""
+        from qwip.sequencer import hardware_demod_rotation, hardware_state_threshold
+
+        ground = np.array([-10048.2, 18203.2])
+        excited = np.array([45536.1, 7804.5])
+        db = self._classified_db(gates, ground, excited)
+
+        rotation = hardware_demod_rotation(db, "Q0")
+        # A demod phase change of +phi rotates I/Q by -phi.
+        r = np.deg2rad(-rotation)
+        rot = np.array([[np.cos(r), -np.sin(r)], [np.sin(r), np.cos(r)]])
+        g, e = rot @ ground, rot @ excited
+        assert e[0] < g[0]
+        assert_almost_equal(e[1], g[1], decimal=3)
+        assert_almost_equal(g[0] - e[0], np.linalg.norm(excited - ground), decimal=3)
+
+        threshold = hardware_state_threshold(db, "Q0")
+        assert threshold == int(round((g[0] + e[0]) / 2))
+        assert e[0] < threshold < g[0]
+        # With the stored phase kept, the threshold is the stored midpoint I.
+        assert hardware_state_threshold(db, "Q0", demod_rotation=0) == int(
+            round((ground[0] + excited[0]) / 2)
+        )
+
+        reset = active_reset(db, "Q0", n_resets=1)
+        assert reset.threshold == threshold
+        stored = gates["Q0_RO"].copy()
+        for (_, op), (_, ref) in zip(reset.measurement, stored):
+            if op.channel == "Q0.rdlo":
+                assert_almost_equal(op.modulation.phase - ref.modulation.phase, rotation)
+            else:
+                assert op.modulation.phase == ref.modulation.phase
+
+    def test_active_reset_without_classification_has_no_threshold(self, gates):
+        reset = active_reset(self._reset_db(gates), "Q0", n_resets=1)
+        assert reset.threshold is None
+
+    def test_compile_writes_state_threshold(self, compiler, gates):
+        """A compiled batch containing an `active_reset` carries the readout
+        board's threshold register for the reset's channel, named after the
+        device (board b0, core c0, siggen rdlo, channel index 0)."""
+        db = self._classified_db(
+            gates, np.array([-10048.2, 18203.2]), np.array([45536.1, 7804.5])
+        )
+        reset = active_reset(db, "Q0", n_resets=1)
+        tmln = Timeline.from_layers([reset, gates["Q0_RO"]])
+        exe = compiler.compile(Sequence([tmln]), cw_threshold=None)
+        assert exe[0].assembly.write_registers == {"b0:thresh_c0_rdlo_0": reset.threshold}
+
+        # An explicit threshold overrides the computed one.
+        forced = active_reset(db, "Q0", n_resets=1, threshold=1234)
+        tmln = Timeline.from_layers([forced, gates["Q0_RO"]])
+        exe = compiler.compile(Sequence([tmln]), cw_threshold=None)
+        assert exe[0].assembly.write_registers == {"b0:thresh_c0_rdlo_0": 1234}
+
+        # No stored classification: nothing is written.
+        plain = active_reset(self._reset_db(gates), "Q0", n_resets=1)
+        tmln = Timeline.from_layers([plain, gates["Q0_RO"]])
+        exe = compiler.compile(Sequence([tmln]), cw_threshold=None)
+        assert exe[0].assembly.write_registers == {}
+
+    def test_compile_conflicting_state_thresholds_raise(self, compiler, gates):
+        db = self._classified_db(
+            gates, np.array([-10048.2, 18203.2]), np.array([45536.1, 7804.5])
+        )
+        a = Timeline.from_layers([active_reset(db, "Q0", n_resets=1, threshold=1), gates["Q0_RO"]])
+        b = Timeline.from_layers([active_reset(db, "Q0", n_resets=1, threshold=2), gates["Q0_RO"]])
+        with pytest.raises(ValueError, match="different state thresholds"):
+            compiler.compile(Sequence([a, b]), cw_threshold=None)
+
+    def test_active_reset_gap_too_short_raises(self, compiler, gates):
+        """The branch needs fproc_meas_clks + pulse_load_clks + jump_fproc_clks
+        (150 ns) after the demod window; a shorter `fproc_delay` is an error
+        that names the required timing rather than a silently late X pulse."""
+        db = self._reset_db(gates)
+        tmln = Timeline.from_layers(
+            [active_reset(db, "Q0", n_resets=1, fproc_delay=100e-9), gates["Q0_RO"]]
+        )
+        with pytest.raises(ValueError, match="before its basic block can begin"):
+            compiler.construct_circuit(
+                Sequence([tmln]).flatten(), None, [], {}, cw_threshold=None
+            )
+
+    def test_pulse_overlapping_branch_raises(self, compiler, gates):
+        """distproc cannot schedule a pulse that spans a branch."""
+        db = self._reset_db(gates)
+        tmln = Timeline.from_layers(
+            [active_reset(db, "Q0", n_resets=1), gates["Q0_RO"]]
+        )
+        # A drive on another qubit that starts during the reset's readout and
+        # runs through the branch.
+        tmln.add(
+            ModulatedWaveform(
+                envelope=SquareWaveform(width=3e-6),
+                modulation=CWWaveform(
+                    channel="Q1.qdrv", frequency="Q1.freq_GE", hardware_modulation=True
+                ),
+            ),
+            1e-6,
+        )
+        with pytest.raises(ValueError, match="branch"):
+            compiler.construct_circuit(
+                Sequence([tmln]).flatten(), None, [], {}, cw_threshold=None
+            )
 
     def test_compile(self, compiler, gates):
         pi = Timeline()

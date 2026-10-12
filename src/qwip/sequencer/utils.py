@@ -1,3 +1,4 @@
+import functools
 import ast
 import itertools as it
 import operator
@@ -231,6 +232,7 @@ class LinearExpression:
         return abs(self.offset - other.offset) < tolerance
 
     @classmethod
+    @functools.lru_cache(maxsize=None)
     def from_string(cls, s: str, /) -> Self:
         """Class constructor for a string expression.
 
