@@ -43,6 +43,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+explorer = [
+    "streamlit>=1.41,<2",
+    "plotly>=6,<7",
+    "pyarrow>=24,<25",
+]
+
 dev = [
     "black",
     "isort",
@@ -67,9 +73,12 @@ server = [
     "uvicorn[standard]"
 ]
 
+[project.scripts]
+qwip-explorer = "qwip_explorer.launcher:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["qwip*"]
+include = ["qwip*", "qwip_explorer*"]
 namespaces = false
 
 [tool.pytest.ini_options]
