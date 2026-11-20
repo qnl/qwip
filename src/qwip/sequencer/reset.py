@@ -1,5 +1,7 @@
 """Helpers for constructing measurement-conditioned reset operations."""
 
+import math
+
 import numpy as np
 from loguru import logger
 
@@ -96,6 +98,15 @@ def _rotate_demod(meas: Timeline, channel: str, degrees: float) -> None:
             )
 
 
+def _ceil_to_clock(t: float, clock_period: float) -> float:
+    """``t`` rounded up to a whole number of ``clock_period``, both in seconds.
+
+    Values within 1e-6 clocks of a whole clock count as whole clocks, so float
+    error does not add a clock.
+    """
+    return math.ceil(round(float(t) / clock_period, 6)) * clock_period
+
+
 def active_reset(
     db,
     qubit: str,
@@ -106,6 +117,7 @@ def active_reset(
     readout_config: str = "default",
     demod_rotation: float | None = None,
     threshold: int | None = None,
+    clock_period: float | None = 2e-9,
 ) -> ResetOperation:
     """Build a `ResetOperation` for ``qubit`` from calibrated pulses in ``db``.
 
@@ -146,6 +158,11 @@ def active_reset(
             computes it from the stored classification at the demod rotation in
             use; the Qubic backend then writes it with every program containing
             this reset. Without a stored classification no register is written.
+        clock_period: Controller clock period in seconds (2 ns for Qubic). The
+            measurement width, ``fproc_delay`` and the X90 width are rounded up
+            to whole clock periods, so that every element of the reset starts on
+            a clock edge and no conditional pi pulse ends after the element that
+            follows it. ``None`` keeps the widths unchanged.
 
     Returns:
         A `ResetOperation` ready to drop into a `Timeline`.
@@ -161,6 +178,10 @@ def active_reset(
     # laid out after the demod window rather than after the drive.
     meas.resolve()
     x90.resolve()
+    if clock_period is not None:
+        meas.width = _ceil_to_clock(meas.width, clock_period)
+        x90.width = _ceil_to_clock(x90.width, clock_period)
+        fproc_delay = _ceil_to_clock(fproc_delay, clock_period)
     # The X180's virtual-Z markers are folded into its pulse phases when the
     # backend compiles the branch arm, so the reset leaves every frame's phase
     # as it found it (the qubit is being returned to |0>, so the frame phase
