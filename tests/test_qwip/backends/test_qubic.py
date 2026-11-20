@@ -728,6 +728,36 @@ class TestQubicCompiler:
         _, _, ir_prog = self._run_distproc_passes(compiler, seq)
         assert self._scheduled_pulses(ir_prog) == nominal
 
+    def test_active_reset_with_fractional_clock_x90(self, compiler, gates):
+        """`active_reset` rounds an X90 that is not a whole number of clocks
+        long up to whole clocks, so each branch arm ends by the clock at which
+        the next element starts, and distproc schedules every pulse where qwip
+        laid it out."""
+        width = 1.30858722496603e-6  # 654.29 clocks
+        x90 = Timeline()
+        x90.add(
+            ModulatedWaveform(
+                envelope=GaussianWaveform(width=width),
+                modulation=CWWaveform(
+                    channel="Q0.qdrv", frequency="Q0.freq_GE", hardware_modulation=True
+                ),
+            )
+        )
+        x90.width = width
+
+        class FakeDB:
+            def load_pulse(self, name):
+                return (x90 if name == "Q0_X90" else gates["Q0_RO"]).copy()
+
+        db = FakeDB()
+        reset = active_reset(db, "Q0", n_resets=2)
+        seq = Sequence(
+            [Timeline.from_layers([reset, x90, x90, gates["Q0_RO"]]) for _ in range(2)]
+        )
+        nominal = self._nominal_pulses(compiler, seq)
+        _, _, ir_prog = self._run_distproc_passes(compiler, seq)
+        assert self._scheduled_pulses(ir_prog) == nominal
+
     def test_reset_arm_folds_virtual_z(self, compiler, gates):
         """Inside a reset arm the X pulse's virtual-Z markers are folded into
         the pulse phases and no `VirtualZ` instruction is emitted, so distproc
